@@ -211,8 +211,8 @@ public class Concat extends Task implements ResourceCollection {
         }
     }
 
-    private interface ReaderFactory {
-        Reader getReader(Object o) throws IOException;
+    private interface ReaderFactory<S> {
+        Reader getReader(S s) throws IOException;
     }
 
     /**
@@ -220,15 +220,15 @@ public class Concat extends Task implements ResourceCollection {
      * The concatentated result can then be filtered as
      * a single stream.
      */
-    private final class MultiReader extends Reader {
+    private final class MultiReader<S> extends Reader {
         private Reader reader = null;
         private int    lastPos = 0;
         private char[] lastChars = new char[eolString.length()];
         private boolean needAddSeparator = false;
-        private Iterator readerSources;
-        private ReaderFactory factory;
+        private Iterator<S> readerSources;
+        private ReaderFactory<S> factory;
 
-        private MultiReader(Iterator readerSources, ReaderFactory factory) {
+        private MultiReader(Iterator<S> readerSources, ReaderFactory<S> factory) {
             this.readerSources = readerSources;
             this.factory = factory;
         }
@@ -389,7 +389,7 @@ public class Concat extends Task implements ResourceCollection {
                 return result;
             }
             Reader resourceReader = getFilteredReader(
-                    new MultiReader(c.iterator(), resourceReaderFactory));
+                    new MultiReader<Resource>(c.iterator(), resourceReaderFactory));
             Reader rdr;
             if (header == null && footer == null) {
                 rdr = resourceReader;
@@ -417,14 +417,15 @@ public class Concat extends Task implements ResourceCollection {
                         readers[pos] = getFilteredReader(readers[pos]);
                     }
                 }
-                rdr = new MultiReader(Arrays.asList(readers).iterator(),
+                rdr = new MultiReader<Reader>(Arrays.asList(readers).iterator(),
                         identityReaderFactory);
             }
             return outputEncoding == null ? new ReaderInputStream(rdr)
                     : new ReaderInputStream(rdr, outputEncoding);
         }
         public String getName() {
-            return "concat (" + String.valueOf(c) + ")";
+            return resourceName == null
+                    ? "concat (" + String.valueOf(c) + ")" : resourceName;
         }
     }
 
@@ -465,12 +466,14 @@ public class Concat extends Task implements ResourceCollection {
      * Stores a collection of file sets and/or file lists, used to
      * select multiple files for concatenation.
      */
-    private ResourceCollection rc;
+    private Resources rc;
 
     /** for filtering the concatenated */
-    private Vector filterChains;
+    private Vector<FilterChain> filterChains;
     /** ignore dates on input files */
     private boolean forceOverwrite = true;
+    /** overwrite read-only files */
+    private boolean force = false;
     /** String to place at the start of the concatented stream */
     private TextElement footer;
     /** String to place at the end of the concatented stream */
@@ -484,19 +487,21 @@ public class Concat extends Task implements ResourceCollection {
     /** whether to not create dest if no source files are
      * available */
     private boolean ignoreEmpty = true;
+    /** exposed resource name */
+    private String resourceName;
 
-    private ReaderFactory resourceReaderFactory  = new ReaderFactory() {
-        public Reader getReader(Object o) throws IOException {
-            InputStream is = ((Resource) o).getInputStream();
+    private ReaderFactory<Resource> resourceReaderFactory = new ReaderFactory<Resource>() {
+        public Reader getReader(Resource o) throws IOException {
+            InputStream is = o.getInputStream();
             return new BufferedReader(encoding == null
                 ? new InputStreamReader(is)
                 : new InputStreamReader(is, encoding));
         }
     };
 
-    private ReaderFactory identityReaderFactory = new ReaderFactory() {
-        public Reader getReader(Object o) {
-            return (Reader) o;
+    private ReaderFactory<Reader> identityReaderFactory = new ReaderFactory<Reader>() {
+        public Reader getReader(Reader o) {
+            return o;
         }
     };
 
@@ -526,6 +531,7 @@ public class Concat extends Task implements ResourceCollection {
         eolString = StringUtils.LINE_SEP;
         rc = null;
         ignoreEmpty = true;
+        force = false;
     }
 
     // Attribute setters.
@@ -581,12 +587,36 @@ public class Concat extends Task implements ResourceCollection {
 
     /**
      * Force overwrite existing destination file
-     * @param force if true always overwrite, otherwise only overwrite
-     *              if the output file is older any of the input files.
+     * @param forceOverwrite if true always overwrite, otherwise only
+     *              overwrite if the output file is older any of the
+     *              input files.
      * @since Ant 1.6
+     * @deprecated use #setOverwrite instead
      */
-    public void setForce(boolean force) {
-        this.forceOverwrite = force;
+    public void setForce(boolean forceOverwrite) {
+        this.forceOverwrite = forceOverwrite;
+    }
+
+    /**
+     * Force overwrite existing destination file
+     * @param forceOverwrite if true always overwrite, otherwise only
+     *              overwrite if the output file is older any of the
+     *              input files.
+     * @since Ant 1.8.2
+     */
+    public void setOverwrite(boolean forceOverwrite) {
+        setForce(forceOverwrite);
+    }
+
+    /**
+     * Whether read-only destinations will be overwritten.
+     *
+     * <p>Defaults to false</p>
+     *
+     * @since Ant 1.8.2
+     */
+    public void setForceReadOnly(boolean f) {
+        force = f;
     }
 
     /**
@@ -598,6 +628,15 @@ public class Concat extends Task implements ResourceCollection {
      */
     public void setIgnoreEmpty(boolean ignoreEmpty) {
         this.ignoreEmpty = ignoreEmpty;
+    }
+
+    /**
+     * Set the name that will be reported by the exposed {@link Resource}.
+     * @param resourceName to set
+     * @since Ant 1.8.3
+     */
+    public void setResourceName(String resourceName) {
+        this.resourceName = resourceName;
     }
 
     // Nested element creators.
@@ -634,18 +673,15 @@ public class Concat extends Task implements ResourceCollection {
      * @param c the ResourceCollection to add.
      * @since Ant 1.7
      */
-    public synchronized void add(ResourceCollection c) {
-        if (rc == null) {
-            rc = c;
-            return;
+    public void add(ResourceCollection c) {
+        synchronized (this) {
+            if (rc == null) {
+                rc = new Resources();
+                rc.setProject(getProject());
+                rc.setCache(true);
+            }
         }
-        if (!(rc instanceof Resources)) {
-            Resources newRc = new Resources();
-            newRc.setProject(getProject());
-            newRc.add(rc);
-            rc = newRc;
-        }
-        ((Resources) rc).add(c);
+        rc.add(c);
     }
 
     /**
@@ -655,7 +691,7 @@ public class Concat extends Task implements ResourceCollection {
      */
     public void addFilterChain(FilterChain filterChain) {
         if (filterChains == null) {
-            filterChains = new Vector();
+            filterChains = new Vector<FilterChain>();
         }
         filterChains.addElement(filterChain);
     }
@@ -764,9 +800,11 @@ public class Concat extends Task implements ResourceCollection {
         }
         try {
             //most of these are defaulted because the concat-as-a-resource code hijacks a lot:
-            ResourceUtils.copyResource(new ConcatResource(c), dest == null ? new LogOutputResource(
-                    this, Project.MSG_WARN) : dest, null, null, true, false, append, null, null,
-                    getProject());
+            ResourceUtils.copyResource(new ConcatResource(c), dest == null
+                                       ? new LogOutputResource(this, Project.MSG_WARN)
+                                       : dest,
+                                       null, null, true, false, append, null,
+                                       null, getProject(), force);
         } catch (IOException e) {
             throw new BuildException("error concatenating content to " + dest, e);
         }
@@ -776,9 +814,9 @@ public class Concat extends Task implements ResourceCollection {
      * Implement ResourceCollection.
      * @return Iterator<Resource>.
      */
-    public Iterator iterator() {
+    public Iterator<Resource> iterator() {
         validate();
-        return Collections.singletonList(new ConcatResource(getResources())).iterator();
+        return Collections.<Resource>singletonList(new ConcatResource(getResources())).iterator();
     }
 
     /**
@@ -867,8 +905,8 @@ public class Concat extends Task implements ResourceCollection {
         Restrict noexistRc = new Restrict();
         noexistRc.add(NOT_EXISTS);
         noexistRc.add(rc);
-        for (Iterator i = noexistRc.iterator(); i.hasNext();) {
-            log(i.next() + " does not exist.", Project.MSG_ERR);
+        for (Resource r : noexistRc) {
+            log(r + " does not exist.", Project.MSG_ERR);
         }
         Restrict result = new Restrict();
         result.add(EXISTS);
@@ -880,8 +918,7 @@ public class Concat extends Task implements ResourceCollection {
         if (dest == null || forceOverwrite) {
             return false;
         }
-        for (Iterator i = c.iterator(); i.hasNext();) {
-            Resource r = (Resource) i.next();
+        for (Resource r : c) {
             if (SelectorUtils.isOutOfDate(r, dest, FILE_UTILS.getFileTimestampGranularity())) {
                 return false;
             }

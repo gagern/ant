@@ -23,51 +23,52 @@ import java.util.Iterator;
 import java.util.WeakHashMap;
 import java.util.NoSuchElementException;
 import java.util.ConcurrentModificationException;
+import org.apache.tools.ant.types.Resource;
 
 /**
  * Helper class for ResourceCollections to return Iterators
  * that fail on changes to the object.
  * @since Ant 1.7
  */
-/*package-private*/ class FailFast implements Iterator {
-    private static final WeakHashMap MAP = new WeakHashMap();
+/*package-private*/ class FailFast implements Iterator<Resource> {
+    private static final WeakHashMap<Object, Set<FailFast>> MAP = new WeakHashMap<Object, Set<FailFast>>();
 
     /**
      * Invalidate any in-use Iterators from the specified Object.
      * @param o the parent Object.
      */
     static synchronized void invalidate(Object o) {
-        Set s = (Set) (MAP.get(o));
+        Set<FailFast> s = MAP.get(o);
         if (s != null) {
             s.clear();
         }
     }
 
     private static synchronized void add(FailFast f) {
-        Set s = (Set) (MAP.get(f.parent));
+        Set<FailFast> s = MAP.get(f.parent);
         if (s == null) {
-            s = new HashSet();
+            s = new HashSet<FailFast>();
             MAP.put(f.parent, s);
         }
         s.add(f);
     }
 
     private static synchronized void remove(FailFast f) {
-        Set s = (Set) (MAP.get(f.parent));
+        Set<FailFast> s = MAP.get(f.parent);
         if (s != null) {
             s.remove(f);
         }
     }
 
     private static synchronized void failFast(FailFast f) {
-        Set s = (Set) (MAP.get(f.parent));
+        Set<FailFast> s = MAP.get(f.parent);
         if (!s.contains(f)) {
             throw new ConcurrentModificationException();
         }
     }
 
-    private Object parent;
-    private Iterator wrapped;
+    private final Object parent;
+    private Iterator<Resource> wrapped;
 
     /**
      * Construct a new FailFast Iterator wrapping the specified Iterator
@@ -75,7 +76,7 @@ import java.util.ConcurrentModificationException;
      * @param o the parent Object.
      * @param i the wrapped Iterator.
      */
-    FailFast(Object o, Iterator i) {
+    FailFast(Object o, Iterator<Resource> i) {
         if (o == null) {
             throw new IllegalArgumentException("parent object is null");
         }
@@ -106,7 +107,7 @@ import java.util.ConcurrentModificationException;
      * @return the next element.
      * @throws NoSuchElementException if no more elements.
      */
-    public Object next() {
+    public Resource next() {
         if (wrapped == null || !wrapped.hasNext()) {
             throw new NoSuchElementException();
         }

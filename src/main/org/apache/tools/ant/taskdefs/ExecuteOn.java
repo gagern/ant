@@ -20,8 +20,7 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Hashtable;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
@@ -60,7 +59,7 @@ public class ExecuteOn extends ExecTask {
     // switching type to "dir" when we encounter a DirSet that would
     // be more difficult to achieve otherwise.
 
-    protected Vector filesets = new Vector(); // contains AbstractFileSet
+    protected Vector<AbstractFileSet> filesets = new Vector<AbstractFileSet>(); // contains AbstractFileSet
                                               // (both DirSet and FileSet)
     private Union resources = null;
     private boolean relative = false;
@@ -350,11 +349,12 @@ public class ExecuteOn extends ExecTask {
         int totalDirs = 0;
         boolean haveExecuted = false;
         try {
-            Vector fileNames = new Vector();
-            Vector baseDirs = new Vector();
-            for (int i = 0; i < filesets.size(); i++) {
+            Vector<String> fileNames = new Vector<String>();
+            Vector<File> baseDirs = new Vector<File>();
+            final int size = filesets.size();
+            for (int i = 0; i < size; i++) {
                 String currentType = type;
-                AbstractFileSet fs = (AbstractFileSet) filesets.elementAt(i);
+                AbstractFileSet fs = filesets.elementAt(i);
                 if (fs instanceof DirSet) {
                     if (!FileDirBoth.DIR.equals(type)) {
                         log("Found a nested dirset but type is " + type + ". "
@@ -416,9 +416,7 @@ public class ExecuteOn extends ExecTask {
             }
 
             if (resources != null) {
-                Iterator iter = resources.iterator();
-                while (iter.hasNext()) {
-                    Resource res = (Resource) iter.next();
+                for (Resource res : resources) {
 
                     if (!res.isExists() && ignoreMissing) {
                         continue;
@@ -426,7 +424,7 @@ public class ExecuteOn extends ExecTask {
 
                     File base = null;
                     String name = res.getName();
-                    FileProvider fp = (FileProvider) res.as(FileProvider.class);
+                    FileProvider fp = res.as(FileProvider.class);
                     if (fp != null) {
                         FileResource fr = ResourceUtils.asFileResource(fp);
                         base = fr.getBaseDir();
@@ -525,16 +523,16 @@ public class ExecuteOn extends ExecTask {
      */
     protected String[] getCommandline(String[] srcFiles, File[] baseDirs) {
         final char fileSeparator = File.separatorChar;
-        Vector targets = new Vector();
+        Vector<String> targets = new Vector<String>();
         if (targetFilePos != null) {
-            Hashtable addedFiles = new Hashtable();
+            HashSet<String> addedFiles = new HashSet<String>();
             for (int i = 0; i < srcFiles.length; i++) {
                 String[] subTargets = mapper.mapFileName(srcFiles[i]);
                 if (subTargets != null) {
                     for (int j = 0; j < subTargets.length; j++) {
                         String name = null;
                         if (!relative) {
-                            name = (new File(destDir, subTargets[j])).getAbsolutePath();
+                            name = new File(destDir, subTargets[j]).getAbsolutePath();
                         } else {
                             name = subTargets[j];
                         }
@@ -543,7 +541,7 @@ public class ExecuteOn extends ExecTask {
                         }
                         if (!addedFiles.contains(name)) {
                             targets.addElement(name);
-                            addedFiles.put(name, name);
+                            addedFiles.add(name);
                         }
                     }
                 }
@@ -695,8 +693,8 @@ public class ExecuteOn extends ExecTask {
      * @throws BuildException on other errors.
      * @since Ant 1.6
      */
-    protected void runParallel(Execute exe, Vector fileNames,
-                               Vector baseDirs)
+    protected void runParallel(Execute exe, Vector<String> fileNames,
+                               Vector<File> baseDirs)
         throws IOException, BuildException {
         String[] s = new String[fileNames.size()];
         fileNames.copyInto(s);
@@ -708,6 +706,11 @@ public class ExecuteOn extends ExecTask {
             String[] command = getCommandline(s, b);
             log(Commandline.describeCommand(command), Project.MSG_VERBOSE);
             exe.setCommandline(command);
+            if (redirectorElement != null) {
+                setupRedirector();
+                redirectorElement.configure(redirector, null);
+                exe.setStreamHandler(redirector.createHandler());
+            }
             runExecute(exe);
         } else {
             int stillToDo = fileNames.size();

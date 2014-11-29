@@ -22,6 +22,9 @@ import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
@@ -57,7 +60,7 @@ public final class ChainReaderHelper {
     /**
      * Chain of filters
      */
-    public Vector filterChains = new Vector();
+    public Vector<FilterChain> filterChains = new Vector<FilterChain>();
 
     /** The Ant project */
     private Project project = null;
@@ -103,7 +106,7 @@ public final class ChainReaderHelper {
      *
      * @param fchain the filter chains collection
      */
-    public void setFilterChains(Vector fchain) {
+    public void setFilterChains(Vector<FilterChain> fchain) {
         filterChains = fchain;
     }
 
@@ -119,12 +122,14 @@ public final class ChainReaderHelper {
 
         Reader instream = primaryReader;
         final int filterReadersCount = filterChains.size();
-        final Vector finalFilters = new Vector();
+        final Vector<Object> finalFilters = new Vector<Object>();
+        final ArrayList<AntClassLoader> classLoadersToCleanUp =
+            new ArrayList<AntClassLoader>();
 
         for (int i = 0; i < filterReadersCount; i++) {
             final FilterChain filterchain =
-                (FilterChain) filterChains.elementAt(i);
-            final Vector filterReaders = filterchain.getFilterReaders();
+                filterChains.elementAt(i);
+            final Vector<Object> filterReaders = filterchain.getFilterReaders();
             final int readerCount = filterReaders.size();
             for (int j = 0; j < readerCount; j++) {
                 finalFilters.addElement(filterReaders.elementAt(j));
@@ -134,77 +139,43 @@ public final class ChainReaderHelper {
         final int filtersCount = finalFilters.size();
 
         if (filtersCount > 0) {
-            for (int i = 0; i < filtersCount; i++) {
-                Object o = finalFilters.elementAt(i);
+            boolean success = false;
+            try {
+                for (int i = 0; i < filtersCount; i++) {
+                    Object o = finalFilters.elementAt(i);
 
-                if (o instanceof AntFilterReader) {
-                    final AntFilterReader filter
-                        = (AntFilterReader) finalFilters.elementAt(i);
-                    final String className = filter.getClassName();
-                    final Path classpath = filter.getClasspath();
-                    final Project pro = filter.getProject();
-                    if (className != null) {
-                        try {
-                            Class clazz = null;
-                            if (classpath == null) {
-                                clazz = Class.forName(className);
-                            } else {
-                                AntClassLoader al
-                                    = pro.createClassLoader(classpath);
-                                clazz = Class.forName(className, true, al);
-                            }
-                            if (clazz != null) {
-                                if (!FilterReader.class.isAssignableFrom(clazz)) {
-                                    throw new BuildException(className
-                                        + " does not extend java.io.FilterReader");
-                                }
-                                final Constructor[] constructors =
-                                    clazz.getConstructors();
-                                int j = 0;
-                                boolean consPresent = false;
-                                for (; j < constructors.length; j++) {
-                                    Class[] types = constructors[j]
-                                                      .getParameterTypes();
-                                    if (types.length == 1
-                                        && types[0].isAssignableFrom(Reader.class)) {
-                                        consPresent = true;
-                                        break;
-                                    }
-                                }
-                                if (!consPresent) {
-                                    throw new BuildException(className
-                                        + " does not define a public constructor"
-                                        + " that takes in a Reader as its "
-                                        + "single argument.");
-                                }
-                                final Reader[] rdr = {instream};
-                                instream =
-                                    (Reader) constructors[j].newInstance((Object[]) rdr);
-                                setProjectOnObject(instream);
-                                if (Parameterizable.class.isAssignableFrom(clazz)) {
-                                    final Parameter[] params = filter.getParams();
-                                    ((Parameterizable)
-                                        instream).setParameters(params);
-                                }
-                            }
-                        } catch (final ClassNotFoundException cnfe) {
-                            throw new BuildException(cnfe);
-                        } catch (final InstantiationException ie) {
-                            throw new BuildException(ie);
-                        } catch (final IllegalAccessException iae) {
-                            throw new BuildException(iae);
-                        } catch (final InvocationTargetException ite) {
-                            throw new BuildException(ite);
-                        }
+                    if (o instanceof AntFilterReader) {
+                        instream =
+                            expandReader((AntFilterReader) finalFilters.elementAt(i),
+                                         instream, classLoadersToCleanUp);
+                    } else if (o instanceof ChainableReader) {
+                        setProjectOnObject(o);
+                        instream = ((ChainableReader) o).chain(instream);
+                        setProjectOnObject(instream);
                     }
-                } else if (o instanceof ChainableReader) {
-                    setProjectOnObject(o);
-                    instream = ((ChainableReader) o).chain(instream);
-                    setProjectOnObject(instream);
+                }
+                success = true;
+            } finally {
+                if (!success && classLoadersToCleanUp.size() > 0) {
+                    cleanUpClassLoaders(classLoadersToCleanUp);
                 }
             }
         }
-        return instream;
+        final Reader finalReader = instream;
+        return classLoadersToCleanUp.size() == 0 ? finalReader
+            : new FilterReader(finalReader) {
+                    public void close() throws IOException {
+                        FileUtils.close(in);
+                        cleanUpClassLoaders(classLoadersToCleanUp);
+                    }
+                    protected void finalize() throws Throwable {
+                        try {
+                            close();
+                        } finally {
+                            super.finalize();
+                        }
+                    }
+                };
     }
 
     /**
@@ -224,6 +195,15 @@ public final class ChainReaderHelper {
     }
 
     /**
+     * Deregisters Classloaders from the project so GC can remove them later.
+     */
+    private static void cleanUpClassLoaders(List<AntClassLoader> loaders) {
+        for (Iterator<AntClassLoader> it = loaders.iterator(); it.hasNext();) {
+            it.next().cleanup();
+        }
+    }
+
+    /**
      * Read data from the reader and return the
      * contents as a string.
      * @param rdr the reader object
@@ -233,5 +213,75 @@ public final class ChainReaderHelper {
     public String readFully(Reader rdr)
         throws IOException {
         return FileUtils.readFully(rdr, bufferSize);
+    }
+
+    /**
+     * Creates and parameterizes a new FilterReader from a
+     * &lt;filterreader&gt; element.
+     *
+     * @since Ant 1.8.0
+     */
+    private Reader expandReader(final AntFilterReader filter,
+                                final Reader ancestor,
+                                final List<AntClassLoader> classLoadersToCleanUp) {
+        final String className = filter.getClassName();
+        final Path classpath = filter.getClasspath();
+        final Project pro = filter.getProject();
+        if (className != null) {
+            try {
+                Class<?> clazz = null;
+                if (classpath == null) {
+                    clazz = Class.forName(className);
+                } else {
+                    AntClassLoader al = pro.createClassLoader(classpath);
+                    classLoadersToCleanUp.add(al);
+                    clazz = Class.forName(className, true, al);
+                }
+                if (clazz != null) {
+                    if (!FilterReader.class.isAssignableFrom(clazz)) {
+                        throw new BuildException(className + " does not extend"
+                                                 + " java.io.FilterReader");
+                    }
+                    final Constructor<?>[] constructors = clazz.getConstructors();
+                    int j = 0;
+                    boolean consPresent = false;
+                    for (; j < constructors.length; j++) {
+                        Class<?>[] types = constructors[j].getParameterTypes();
+                        if (types.length == 1
+                            && types[0].isAssignableFrom(Reader.class)) {
+                            consPresent = true;
+                            break;
+                        }
+                    }
+                    if (!consPresent) {
+                        throw new BuildException(className + " does not define"
+                                                 + " a public constructor"
+                                                 + " that takes in a Reader"
+                                                 + " as its single argument.");
+                    }
+                    final Reader[] rdr = {ancestor};
+                    Reader instream =
+                        (Reader) constructors[j].newInstance((Object[]) rdr);
+                    setProjectOnObject(instream);
+                    if (Parameterizable.class.isAssignableFrom(clazz)) {
+                        final Parameter[] params = filter.getParams();
+                        ((Parameterizable) instream).setParameters(params);
+                    }
+                    return instream;
+                }
+            } catch (final ClassNotFoundException cnfe) {
+                throw new BuildException(cnfe);
+            } catch (final InstantiationException ie) {
+                throw new BuildException(ie);
+            } catch (final IllegalAccessException iae) {
+                throw new BuildException(iae);
+            } catch (final InvocationTargetException ite) {
+                throw new BuildException(ite);
+            }
+        }
+        // Ant 1.7.1 and earlier ignore <filterreader> without a
+        // classname attribute, not sure this is a good idea -
+        // backwards compatibility makes it hard to change, though.
+        return ancestor;
     }
 }

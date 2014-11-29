@@ -48,6 +48,7 @@ public class Native2Ascii extends MatchingTask {
 
     private Mapper mapper;
     private FacadeTaskHelper facade = null;
+    private Native2AsciiAdapter nestedAdapter = null;
 
     /** No args constructor */
     public Native2Ascii() {
@@ -125,7 +126,7 @@ public class Native2Ascii extends MatchingTask {
 
     /**
      * Choose the implementation for this particular task.
-     * @param impl the name of the implemenation
+     * @param impl the name of the implementation
      * @since Ant 1.6.3
      */
     public void setImplementation(String impl) {
@@ -182,6 +183,18 @@ public class Native2Ascii extends MatchingTask {
      */
     public Path createImplementationClasspath() {
         return facade.getImplementationClasspath(getProject());
+    }
+
+    /**
+     * Set the adapter explicitly.
+     * @since Ant 1.8.0
+     */
+    public void add(Native2AsciiAdapter adapter) {
+        if (nestedAdapter != null) {
+            throw new BuildException("Can't have more than one native2ascii"
+                                     + " adapter");
+        }
+        nestedAdapter = adapter;
     }
 
     /**
@@ -261,7 +274,7 @@ public class Native2Ascii extends MatchingTask {
         }
 
         // Make intermediate directories if needed
-        // XXX JDK 1.1 doesn't have File.getParentFile,
+        // TODO JDK 1.1 doesn't have File.getParentFile,
         String parentName = destFile.getParent();
         if (parentName != null) {
             File parentFile = new File(parentName);
@@ -274,6 +287,7 @@ public class Native2Ascii extends MatchingTask {
 
         log("converting " + srcName, Project.MSG_VERBOSE);
         Native2AsciiAdapter ad =
+            nestedAdapter != null ? nestedAdapter :
             Native2AsciiAdapterFactory.getAdapter(facade.getImplementation(),
                                                   this,
                                                   createImplementationClasspath());

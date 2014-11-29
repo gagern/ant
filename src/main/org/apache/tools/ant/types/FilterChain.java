@@ -35,6 +35,7 @@ import org.apache.tools.ant.filters.ReplaceTokens;
 import org.apache.tools.ant.filters.StripJavaComments;
 import org.apache.tools.ant.filters.StripLineBreaks;
 import org.apache.tools.ant.filters.StripLineComments;
+import org.apache.tools.ant.filters.SuffixLines;
 import org.apache.tools.ant.filters.TabsToSpaces;
 import org.apache.tools.ant.filters.TailFilter;
 import org.apache.tools.ant.filters.TokenFilter;
@@ -47,7 +48,7 @@ import org.apache.tools.ant.filters.TokenFilter;
 public class FilterChain extends DataType
     implements Cloneable {
 
-    private Vector filterReaders = new Vector();
+    private Vector<Object> filterReaders = new Vector<Object>();
 
     /**
      * Add an AntFilterReader filter.
@@ -67,7 +68,7 @@ public class FilterChain extends DataType
      *
      * @return a <code>Vector</code> value containing the filters
      */
-    public Vector getFilterReaders() {
+    public Vector<Object> getFilterReaders() {
         if (isReference()) {
             return ((FilterChain) getCheckedRef()).getFilterReaders();
         }
@@ -152,6 +153,20 @@ public class FilterChain extends DataType
         }
         setChecked(false);
         filterReaders.addElement(prefixLines);
+    }
+
+    /**
+     * Add a SuffixLines filter.
+     *
+     * @param suffixLines a <code>SuffixLines</code> value
+     * @since Ant 1.8.0
+     */
+    public void addSuffixLines(final SuffixLines suffixLines) {
+        if (isReference()) {
+            throw noChildrenAllowed();
+        }
+        setChecked(false);
+        filterReaders.addElement(suffixLines);
     }
 
     /**
@@ -381,7 +396,7 @@ public class FilterChain extends DataType
         filterReaders.addElement(filter);
     }
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
@@ -389,7 +404,7 @@ public class FilterChain extends DataType
         if (isReference()) {
             super.dieOnCircularReference(stk, p);
         } else {
-            for (Iterator i = filterReaders.iterator(); i.hasNext(); ) {
+            for (Iterator<Object> i = filterReaders.iterator(); i.hasNext(); ) {
                 Object o = i.next();
                 if (o instanceof DataType) {
                     pushAndInvokeCircularReferenceCheck((DataType) o, stk, p);

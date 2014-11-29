@@ -33,8 +33,8 @@ import org.apache.bcel.classfile.ConstantNameAndType;
  *
  */
 public class DependencyVisitor extends EmptyVisitor {
-    /** The collectd dependencies */
-    private Hashtable dependencies = new Hashtable();
+    /** The collected dependencies */
+    private Hashtable<String, String> dependencies = new Hashtable<String, String>();
     /**
      * The current class's constant pool - used to determine class names
      * from class references.
@@ -47,11 +47,11 @@ public class DependencyVisitor extends EmptyVisitor {
      * @return a Enumeration of classnames, being the classes upon which the
      *      visited classes depend.
      */
-    public Enumeration getDependencies() {
+    public Enumeration<String> getDependencies() {
         return dependencies.keys();
     }
 
-    /** Clear the curretn set of collected dependencies. */
+    /** Clear the current set of collected dependencies. */
     public void clearDependencies() {
         dependencies.clear();
     }

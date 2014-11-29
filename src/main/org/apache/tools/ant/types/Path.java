@@ -27,6 +27,7 @@ import java.util.Stack;
 import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.PathTokenizer;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.resources.Union;
@@ -52,7 +53,7 @@ import org.apache.tools.ant.util.JavaEnvUtils;
  * &lt;/sometask&gt;<br>
  * </code>
  * <p>
- * The object implemention <code>sometask</code> must provide a method called
+ * The object implementation <code>sometask</code> must provide a method called
  * <code>createSomepath</code> which returns an instance of <code>Path</code>.
  * Nested path definitions are handled by the Path object and must be labeled
  * <code>pathelement</code>.<p>
@@ -77,9 +78,6 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
      */
     public static Path systemBootClasspath =
         new Path(null, System.getProperty("sun.boot.class.path"));
-
-    private static final Iterator EMPTY_ITERATOR
-        = Collections.EMPTY_SET.iterator();
 
     // CheckStyle:VisibilityModifier OFF - bc
 
@@ -120,7 +118,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
          * Create an iterator.
          * @return an iterator.
          */
-        public Iterator iterator() {
+        public Iterator<Resource> iterator() {
             return new FileResourceIterator(getProject(), null, parts);
         }
 
@@ -145,6 +143,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
     private Boolean preserveBC;
 
     private Union union = null;
+    private boolean cache = false;
 
     /**
      * Invoked by IntrospectionHelper for <code>setXXX(Path p)</code>
@@ -280,7 +279,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
         if (union == null) {
             union = new Union();
             union.setProject(getProject());
-            union.setCache(false);
+            union.setCache(cache);
         }
         union.add(c);
         setChecked(false);
@@ -341,10 +340,28 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
             }
             if (f.exists()) {
                 setLocation(f);
+            } else if (f.getParentFile() != null && f.getParentFile().exists()
+                       && containsWildcards(f.getName())) {
+                setLocation(f);
+                log("adding " + f + " which contains wildcards and may not"
+                    + " do what you intend it to do depending on your OS or"
+                    + " version of Java", Project.MSG_VERBOSE);
             } else {
                 log("dropping " + f + " from path as it doesn't exist",
                     Project.MSG_VERBOSE);
             }
+        }
+    }
+
+    /**
+     * Whether to cache the current path.
+     * @since Ant 1.8.0
+     */
+    public void setCache(boolean b) {
+        checkAttributesAllowed();
+        cache = b;
+        if (union != null) {
+            union.setCache(b);
         }
     }
 
@@ -377,7 +394,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
      * @return an array of strings, one for each path element
      */
     public static String[] translatePath(Project project, String source) {
-        final Vector result = new Vector();
+        final Vector<String> result = new Vector<String>();
         if (source == null) {
             return new String[0];
         }
@@ -398,9 +415,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
             result.addElement(element.toString());
             element = new StringBuffer();
         }
-        String[] res = new String[result.size()];
-        result.copyInto(res);
-        return res;
+        return result.toArray(new String[result.size()]);
     }
 
     /**
@@ -469,7 +484,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
@@ -533,11 +548,11 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
         Path result = new Path(getProject());
 
         String order = defValue;
-        if (getProject() != null) {
-            String o = getProject().getProperty("build.sysclasspath");
-            if (o != null) {
-                order = o;
-            }
+        String o = getProject() != null
+            ? getProject().getProperty(MagicNames.BUILD_SYSCLASSPATH)
+            : System.getProperty(MagicNames.BUILD_SYSCLASSPATH);
+        if (o != null) {
+            order = o;
         }
         if (order.equals("only")) {
             // only: the developer knows what (s)he is doing
@@ -555,7 +570,8 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
         } else {
             // last: don't trust the developer
             if (!order.equals("last")) {
-                log("invalid value for build.sysclasspath: " + order,
+                log("invalid value for " + MagicNames.BUILD_SYSCLASSPATH
+                    + ": " + order,
                     Project.MSG_WARN);
             }
             result.addExisting(this);
@@ -584,8 +600,8 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
             addExisting(systemBootClasspath);
         }
 
-        if (System.getProperty("java.vendor").toLowerCase(Locale.US).indexOf("microsoft") >= 0) {
-            // XXX is this code still necessary? is there any 1.2+ port?
+        if (System.getProperty("java.vendor").toLowerCase(Locale.ENGLISH).indexOf("microsoft") >= 0) {
+            // TODO is this code still necessary? is there any 1.2+ port?
             // Pull in *.zip from packages directory
             FileSet msZipFiles = new FileSet();
             msZipFiles.setDir(new File(System.getProperty("java.home")
@@ -680,7 +696,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
      * are added to this container while the Iterator is in use.
      * @return a "fail-fast" Iterator.
      */
-    public final synchronized Iterator iterator() {
+    public final synchronized Iterator<Resource> iterator() {
         if (isReference()) {
             return ((Path) getCheckedRef()).iterator();
         }
@@ -688,7 +704,7 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
         if (getPreserveBC()) {
             return new FileResourceIterator(getProject(), null, list());
         }
-        return union == null ? EMPTY_ITERATOR
+        return union == null ? Collections.<Resource> emptySet().iterator()
             : assertFilesystemOnly(union).iterator();
     }
 
@@ -746,4 +762,14 @@ public class Path extends DataType implements Cloneable, ResourceCollection {
         }
         return preserveBC.booleanValue();
     }
+
+    /**
+     * Does the given file name contain wildcards?
+     * @since Ant 1.8.2
+     */
+    private static boolean containsWildcards(String path) {
+        return path != null
+            && (path.indexOf("*") > -1 || path.indexOf("?") > -1);
+    }
+
 }

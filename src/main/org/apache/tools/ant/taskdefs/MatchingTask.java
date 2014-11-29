@@ -263,7 +263,7 @@ public abstract class MatchingTask extends Task implements SelectorContainer {
      *
      * @return an enumerator that goes through each of the selectors
      */
-    public Enumeration selectorElements() {
+    public Enumeration<FileSelector> selectorElements() {
         return fileset.selectorElements();
     }
 
@@ -426,7 +426,7 @@ public abstract class MatchingTask extends Task implements SelectorContainer {
     }
 
     /**
-     * add an arbitary selector
+     * add an arbitrary selector
      * @param selector the selector to add
      * @since Ant 1.6
      */

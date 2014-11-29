@@ -17,14 +17,11 @@
  */
 package org.apache.tools.ant.util;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 
 /**
- * A <CODE>ContainerMapper</CODE> that returns the results of its
- * first constituent <CODE>FileNameMapper</CODE>s that matches.
+ * A <code>ContainerMapper</code> that returns the results of its
+ * first constituent <code>FileNameMapper</code>s that matches.
  *
  * @since Ant 1.8.0
  */

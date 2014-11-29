@@ -19,7 +19,14 @@ package org.apache.tools.ant.filters;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Properties;
+
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
+import org.apache.tools.ant.property.GetProperty;
+import org.apache.tools.ant.property.ParseProperties;
+import org.apache.tools.ant.types.PropertySet;
 
 /**
  * Expands Ant properties, if any, in the data.
@@ -34,8 +41,12 @@ import org.apache.tools.ant.Project;
 public final class ExpandProperties
     extends BaseFilterReader
     implements ChainableReader {
-    /** Data that must be read from, if not null. */
-    private String queuedData = null;
+
+    private static final int EOF = -1;
+
+    private char[] buffer;
+    private int index;
+    private PropertySet propertySet;
 
     /**
      * Constructor for "dummy" instances.
@@ -57,6 +68,17 @@ public final class ExpandProperties
     }
 
     /**
+     * Restrict the expanded properties using a PropertySet.
+     * @param propertySet replacement lookup
+     */
+    public void add(PropertySet propertySet) {
+        if (this.propertySet != null) {
+            throw new BuildException("expandproperties filter accepts only one propertyset");
+        }
+        this.propertySet = propertySet;
+    }
+
+    /**
      * Returns the next character in the filtered stream. The original
      * stream is first read in fully, and the Ant properties are expanded.
      * The results of this expansion are then queued so they can be read
@@ -69,30 +91,36 @@ public final class ExpandProperties
      * during reading
      */
     public int read() throws IOException {
-
-        int ch = -1;
-
-        if (queuedData != null && queuedData.length() == 0) {
-            queuedData = null;
-        }
-
-        if (queuedData != null) {
-            ch = queuedData.charAt(0);
-            queuedData = queuedData.substring(1);
-            if (queuedData.length() == 0) {
-                queuedData = null;
-            }
-        } else {
-            queuedData = readFully();
-            if (queuedData == null || queuedData.length() == 0) {
-                ch = -1;
-            } else {
+        if (index > EOF) {
+            if (buffer == null) {
+                String data = readFully();
                 Project project = getProject();
-                queuedData = project.replaceProperties(queuedData);
-                return read();
+                GetProperty getProperty;
+                if (propertySet == null) {
+                    getProperty = PropertyHelper.getPropertyHelper(project);
+                } else {
+                    final Properties props = propertySet.getProperties();
+                    getProperty = new GetProperty() {
+
+                        public Object getProperty(String name) {
+                            return props.getProperty(name);
+                        }
+                    };
+                }
+                Object expanded = new ParseProperties(project, PropertyHelper
+                                                      .getPropertyHelper(project)
+                                                      .getExpanders(),
+                                                      getProperty)
+                    .parseProperties(data);
+                buffer = expanded == null ? new char[0]
+                    : expanded.toString().toCharArray();
             }
+            if (index < buffer.length) {
+                return buffer[index++];
+            }
+            index = EOF;
         }
-        return ch;
+        return EOF;
     }
 
     /**
@@ -108,6 +136,7 @@ public final class ExpandProperties
     public Reader chain(final Reader rdr) {
         ExpandProperties newFilter = new ExpandProperties(rdr);
         newFilter.setProject(getProject());
+        newFilter.add(propertySet);
         return newFilter;
     }
 }

@@ -48,6 +48,7 @@ import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.StringUtils;
+import org.apache.tools.ant.util.VectorSet;
 
 /**
  * Central representation of an Ant project. This class defines an
@@ -134,19 +135,16 @@ public class Project implements ResourceFactory {
 
 
     /** Map of references within the project (paths etc) (String to Object). */
-    private Hashtable references = new AntRefTable();
+    private Hashtable<String, Object> references = new AntRefTable();
 
     /** Map of id references - used for indicating broken build files */
-    private HashMap idReferences = new HashMap();
-
-    /** the parent project for old id resolution (if inheritreferences is set) */
-    private Project parentIdProject = null;
+    private HashMap<String, Object> idReferences = new HashMap<String, Object>();
 
     /** Name of the project's default target. */
     private String defaultTarget;
 
     /** Map from target names to targets (String to Target). */
-    private Hashtable targets = new Hashtable();
+    private Hashtable<String, Target> targets = new Hashtable<String, Target>();
     /** Set of global filters. */
     private FilterSet globalFilterSet = new FilterSet();
     {
@@ -173,8 +171,8 @@ public class Project implements ResourceFactory {
 
     /** for each thread, record whether it is currently executing
         messageLogged */
-    private final ThreadLocal isLoggingMessage = new ThreadLocal() {
-            protected Object initialValue() {
+    private final ThreadLocal<Boolean> isLoggingMessage = new ThreadLocal<Boolean>() {
+            protected Boolean initialValue() {
                 return Boolean.FALSE;
             }
         };
@@ -186,12 +184,12 @@ public class Project implements ResourceFactory {
     private ClassLoader coreLoader = null;
 
     /** Records the latest task to be executed on a thread. */
-    private final Map/*<Thread,Task>*/ threadTasks =
-        Collections.synchronizedMap(new WeakHashMap());
+    private final Map<Thread,Task> threadTasks =
+        Collections.synchronizedMap(new WeakHashMap<Thread, Task>());
 
     /** Records the latest task to be executed on a thread group. */
-    private final Map/*<ThreadGroup,Task>*/ threadGroupTasks
-        = Collections.synchronizedMap(new WeakHashMap());
+    private final Map<ThreadGroup,Task> threadGroupTasks
+        = Collections.synchronizedMap(new WeakHashMap<ThreadGroup,Task>());
 
     /**
      * Called to handle any input requests.
@@ -425,13 +423,13 @@ public class Project implements ResourceFactory {
     }
 
     /**
-         * Return a copy of the list of build listeners for the project.
-         * 
-         * @return a list of build listeners for the project
-         */
-    public Vector getBuildListeners() {
+     * Return a copy of the list of build listeners for the project.
+     *
+     * @return a list of build listeners for the project
+     */
+    public Vector<BuildListener> getBuildListeners() {
         synchronized (listenersLock) {
-            Vector r = new Vector(listeners.length);
+            Vector<BuildListener> r = new Vector<BuildListener>(listeners.length);
             for (int i = 0; i < listeners.length; i++) {
                 r.add(listeners[i]);
             }
@@ -643,7 +641,7 @@ public class Project implements ResourceFactory {
      * @return a hashtable containing all properties
      *         (including user properties).
      */
-    public Hashtable getProperties() {
+    public Hashtable<String, Object> getProperties() {
         return PropertyHelper.getPropertyHelper(this).getProperties();
     }
 
@@ -651,7 +649,7 @@ public class Project implements ResourceFactory {
      * Return a copy of the user property hashtable.
      * @return a hashtable containing just the user properties.
      */
-    public Hashtable getUserProperties() {
+    public Hashtable<String, Object> getUserProperties() {
         return PropertyHelper.getPropertyHelper(this).getUserProperties();
     }
 
@@ -660,7 +658,7 @@ public class Project implements ResourceFactory {
      * @return a hashtable containing just the inherited properties.
      * @since Ant 1.8.0
      */
-    public Hashtable getInheritedProperties() {
+    public Hashtable<String, Object> getInheritedProperties() {
         return PropertyHelper.getPropertyHelper(this).getInheritedProperties();
     }
 
@@ -728,7 +726,9 @@ public class Project implements ResourceFactory {
      *                      no default target.
      */
     public void setDefault(String defaultTarget) {
-        setUserProperty(MagicNames.PROJECT_DEFAULT_TARGET, defaultTarget);
+        if (defaultTarget != null) {
+            setUserProperty(MagicNames.PROJECT_DEFAULT_TARGET, defaultTarget);
+        }
         this.defaultTarget = defaultTarget;
     }
 
@@ -808,7 +808,7 @@ public class Project implements ResourceFactory {
      * @see #getGlobalFilterSet()
      * @see FilterSet#getFilterHash()
      */
-    public Hashtable getFilters() {
+    public Hashtable<String, String> getFilters() {
         // we need to build the hashtable dynamically
         return globalFilterSet.getFilterHash();
     }
@@ -918,9 +918,8 @@ public class Project implements ResourceFactory {
         setPropertyInternal(MagicNames.ANT_JAVA_VERSION, javaVersion);
 
         // sanity check
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_0)
-                || JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1))  {
-            throw new BuildException("Ant cannot work on Java 1.0 / 1.1");
+        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4))  {
+            throw new BuildException("Ant cannot work on Java prior to 1.4");
         }
         log("Detected Java version: " + javaVersion + " in: "
             + System.getProperty("java.home"), MSG_VERBOSE);
@@ -934,7 +933,7 @@ public class Project implements ResourceFactory {
      */
     public void setSystemProperties() {
         Properties systemP = System.getProperties();
-        Enumeration e = systemP.propertyNames();
+        Enumeration<?> e = systemP.propertyNames();
         while (e.hasMoreElements()) {
             String propertyName = (String) e.nextElement();
             String value = systemP.getProperty(propertyName);
@@ -964,7 +963,7 @@ public class Project implements ResourceFactory {
      *
      * @see #checkTaskClass(Class)
      */
-    public void addTaskDefinition(String taskName, Class taskClass)
+    public void addTaskDefinition(String taskName, Class<?> taskClass)
          throws BuildException {
         ComponentHelper.getComponentHelper(this).addTaskDefinition(taskName,
                 taskClass);
@@ -982,7 +981,7 @@ public class Project implements ResourceFactory {
      *                           task. An error level message is logged before
      *                           this exception is thrown.
      */
-    public void checkTaskClass(final Class taskClass) throws BuildException {
+    public void checkTaskClass(final Class<?> taskClass) throws BuildException {
         ComponentHelper.getComponentHelper(this).checkTaskClass(taskClass);
 
         if (!Modifier.isPublic(taskClass.getModifiers())) {
@@ -996,7 +995,7 @@ public class Project implements ResourceFactory {
             throw new BuildException(message);
         }
         try {
-            taskClass.getConstructor((Class[]) null);
+            taskClass.getConstructor();
             // don't have to check for public, since
             // getConstructor finds public constructors only.
         } catch (NoSuchMethodException e) {
@@ -1021,8 +1020,21 @@ public class Project implements ResourceFactory {
      * @return a map of from task name to implementing class
      *         (String to Class).
      */
-    public Hashtable getTaskDefinitions() {
+    public Hashtable<String, Class<?>> getTaskDefinitions() {
         return ComponentHelper.getComponentHelper(this).getTaskDefinitions();
+    }
+
+    /**
+     * Return the current task definition map. The returned map is a
+     * copy of the &quot;live&quot; definitions.
+     *
+     * @return a map of from task name to implementing class
+     *         (String to Class).
+     *
+     * @since Ant 1.8.1
+     */
+    public Map<String, Class<?>> getCopyOfTaskDefinitions() {
+        return new HashMap<String, Class<?>>(getTaskDefinitions());
     }
 
     /**
@@ -1038,7 +1050,7 @@ public class Project implements ResourceFactory {
      * @param typeClass The full name of the class implementing the datatype.
      *                  Must not be <code>null</code>.
      */
-    public void addDataTypeDefinition(String typeName, Class typeClass) {
+    public void addDataTypeDefinition(String typeName, Class<?> typeClass) {
         ComponentHelper.getComponentHelper(this).addDataTypeDefinition(typeName,
                 typeClass);
     }
@@ -1050,8 +1062,21 @@ public class Project implements ResourceFactory {
      * @return a map of from datatype name to implementing class
      *         (String to Class).
      */
-    public Hashtable getDataTypeDefinitions() {
+    public Hashtable<String, Class<?>> getDataTypeDefinitions() {
         return ComponentHelper.getComponentHelper(this).getDataTypeDefinitions();
+    }
+
+    /**
+     * Return the current datatype definition map. The returned
+     * map is a copy pf the &quot;live&quot; definitions.
+     *
+     * @return a map of from datatype name to implementing class
+     *         (String to Class).
+     *
+     * @since Ant 1.8.1
+     */
+    public Map<String, Class<?>> getCopyOfDataTypeDefinitions() {
+        return new HashMap<String, Class<?>>(getDataTypeDefinitions());
     }
 
     /**
@@ -1120,8 +1145,18 @@ public class Project implements ResourceFactory {
      * is &quot;live&quot; and so should not be modified.
      * @return a map from name to target (String to Target).
      */
-    public Hashtable getTargets() {
+    public Hashtable<String, Target> getTargets() {
         return targets;
+    }
+
+    /**
+     * Return the map of targets. The returned map
+     * is a copy of the &quot;live&quot; targets.
+     * @return a map from name to target (String to Target).
+     * @since Ant 1.8.1
+     */
+    public Map<String, Target> getCopyOfTargets() {
+        return new HashMap<String, Target>(targets);
     }
 
     /**
@@ -1207,11 +1242,10 @@ public class Project implements ResourceFactory {
      *
      * @exception BuildException if the build failed.
      */
-    public void executeTargets(Vector names) throws BuildException {
+    public void executeTargets(Vector<String> names) throws BuildException {
         setUserProperty(MagicNames.PROJECT_INVOKED_TARGETS,
                         CollectionUtils.flattenToString(names));
-        getExecutor().executeTargets(this,
-            (String[]) (names.toArray(new String[names.size()])));
+        getExecutor().executeTargets(this, names.toArray(new String[names.size()]));
     }
 
     /**
@@ -1335,17 +1369,15 @@ public class Project implements ResourceFactory {
      * @param sortedTargets   the aforementioned <code>Vector</code>.
      * @throws BuildException on error.
      */
-    public void executeSortedTargets(Vector sortedTargets)
+    public void executeSortedTargets(Vector<Target> sortedTargets)
         throws BuildException {
-        Set succeededTargets = new HashSet();
+        Set<String> succeededTargets = new HashSet<String>();
         BuildException buildException = null; // first build exception
-        for (Enumeration iter = sortedTargets.elements();
-             iter.hasMoreElements();) {
-            Target curtarget = (Target) iter.nextElement();
+        for (Target curtarget : sortedTargets) {
             boolean canExecute = true;
-            for (Enumeration depIter = curtarget.getDependencies();
+            for (Enumeration<String> depIter = curtarget.getDependencies();
                  depIter.hasMoreElements();) {
-                String dependencyName = ((String) depIter.nextElement());
+                String dependencyName = depIter.nextElement();
                 if (!succeededTargets.contains(dependencyName)) {
                     canExecute = false;
                     log(curtarget,
@@ -1718,7 +1750,7 @@ public class Project implements ResourceFactory {
      * @exception BuildException if there is a cyclic dependency among the
      *                           targets, or if a named target does not exist.
      */
-    public final Vector topoSort(String root, Hashtable targetTable)
+    public final Vector<Target> topoSort(String root, Hashtable<String, Target> targetTable)
         throws BuildException {
         return topoSort(new String[] {root}, targetTable, true);
     }
@@ -1740,7 +1772,7 @@ public class Project implements ResourceFactory {
      *                           targets, or if a named target does not exist.
      * @since Ant 1.6.3
      */
-    public final Vector topoSort(String root, Hashtable targetTable,
+    public final Vector<Target> topoSort(String root, Hashtable<String, Target> targetTable,
                                  boolean returnAll) throws BuildException {
         return topoSort(new String[] {root}, targetTable, returnAll);
     }
@@ -1762,11 +1794,11 @@ public class Project implements ResourceFactory {
      *                           targets, or if a named target does not exist.
      * @since Ant 1.6.3
      */
-    public final Vector topoSort(String[] root, Hashtable targetTable,
+    public final Vector<Target> topoSort(String[] root, Hashtable<String, Target> targetTable,
                                  boolean returnAll) throws BuildException {
-        Vector ret = new Vector();
-        Hashtable state = new Hashtable();
-        Stack visiting = new Stack();
+        Vector<Target> ret = new VectorSet<Target>();
+        Hashtable<String, String> state = new Hashtable<String, String>();
+        Stack<String> visiting = new Stack<String>();
 
         // We first run a DFS based sort using each root as a starting node.
         // This creates the minimum sequence of Targets to the root node(s).
@@ -1793,10 +1825,10 @@ public class Project implements ResourceFactory {
         buf.append(" is " + ret);
         log(buf.toString(), MSG_VERBOSE);
 
-        Vector complete = (returnAll) ? ret : new Vector(ret);
-        for (Enumeration en = targetTable.keys(); en.hasMoreElements();) {
-            String curTarget = (String) en.nextElement();
-            String st = (String) state.get(curTarget);
+        Vector<Target> complete = (returnAll) ? ret : new Vector<Target>(ret);
+        for (Enumeration<String> en = targetTable.keys(); en.hasMoreElements();) {
+            String curTarget = en.nextElement();
+            String st = state.get(curTarget);
             if (st == null) {
                 tsort(curTarget, targetTable, state, visiting, complete);
             } else if (st == VISITING) {
@@ -1848,34 +1880,34 @@ public class Project implements ResourceFactory {
      * @exception BuildException if a non-existent target is specified or if
      *                           a circular dependency is detected.
      */
-    private void tsort(String root, Hashtable targetTable,
-                             Hashtable state, Stack visiting,
-                             Vector ret)
+    private void tsort(String root, Hashtable<String, Target> targetTable,
+                             Hashtable<String, String> state, Stack<String> visiting,
+                             Vector<Target> ret)
         throws BuildException {
         state.put(root, VISITING);
         visiting.push(root);
 
-        Target target = (Target) targetTable.get(root);
+        Target target = targetTable.get(root);
 
         // Make sure we exist
         if (target == null) {
-            StringBuffer sb = new StringBuffer("Target \"");
+            StringBuilder sb = new StringBuilder("Target \"");
             sb.append(root);
             sb.append("\" does not exist in the project \"");
             sb.append(name);
             sb.append("\". ");
             visiting.pop();
             if (!visiting.empty()) {
-                String parent = (String) visiting.peek();
+                String parent = visiting.peek();
                 sb.append("It is used from target \"");
                 sb.append(parent);
                 sb.append("\".");
             }
             throw new BuildException(new String(sb));
         }
-        for (Enumeration en = target.getDependencies(); en.hasMoreElements();) {
-            String cur = (String) en.nextElement();
-            String m = (String) state.get(cur);
+        for (Enumeration<String> en = target.getDependencies(); en.hasMoreElements();) {
+            String cur = en.nextElement();
+            String m = state.get(cur);
             if (m == null) {
                 // Not been visited
                 tsort(cur, targetTable, state, visiting, ret);
@@ -1884,7 +1916,7 @@ public class Project implements ResourceFactory {
                 throw makeCircularException(cur, visiting);
             }
         }
-        String p = (String) visiting.pop();
+        String p = visiting.pop();
         if (root != p) {
             throw new RuntimeException("Unexpected internal error: expected to "
                 + "pop " + root + " but got " + p);
@@ -1902,16 +1934,16 @@ public class Project implements ResourceFactory {
      *
      * @return a BuildException detailing the specified circular dependency.
      */
-    private static BuildException makeCircularException(String end, Stack stk) {
-        StringBuffer sb = new StringBuffer("Circular dependency: ");
+    private static BuildException makeCircularException(String end, Stack<String> stk) {
+        final StringBuilder sb = new StringBuilder("Circular dependency: ");
         sb.append(end);
         String c;
         do {
-            c = (String) stk.pop();
+            c = stk.pop();
             sb.append(" <- ");
             sb.append(c);
         } while (!c.equals(end));
-        return new BuildException(new String(sb));
+        return new BuildException(sb.toString());
     }
 
     /**
@@ -1919,7 +1951,6 @@ public class Project implements ResourceFactory {
      * @param parent the parent project of this project.
      */
     public void inheritIDReferences(Project parent) {
-        parentIdProject = parent;
     }
 
     /**
@@ -1958,7 +1989,7 @@ public class Project implements ResourceFactory {
      *
      * @return a map of the references in the project (String to Object).
      */
-    public Hashtable getReferences() {
+    public Hashtable<String, Object> getReferences() {
         return references;
     }
 
@@ -1972,16 +2003,30 @@ public class Project implements ResourceFactory {
     }
 
     /**
+     * Return a map of the references in the project (String to
+     * Object).  The returned hashtable is a copy of the
+     * &quot;live&quot; references.
+     *
+     * @return a map of the references in the project (String to Object).
+     *
+     * @since Ant 1.8.1
+     */
+    public Map<String, Object> getCopyOfReferences() {
+        return new HashMap<String, Object>(references);
+    }
+
+    /**
      * Look up a reference by its key (ID).
      *
      * @param key The key for the desired reference.
      *            Must not be <code>null</code>.
      *
      * @return the reference with the specified ID, or <code>null</code> if
-     *         there is no such reference in the project.
+     *         there is no such reference in the project, with type inference.
      */
-    public Object getReference(String key) {
-        Object ret = references.get(key);
+    public <T> T getReference(String key) {
+        @SuppressWarnings("unchecked")
+        final T ret = (T) references.get(key);
         if (ret != null) {
             return ret;
         }
@@ -1995,7 +2040,7 @@ public class Project implements ResourceFactory {
                 //ignore
             }
         }
-        return ret;
+        return null;
     }
 
     /**
@@ -2171,6 +2216,9 @@ public class Project implements ResourceFactory {
     private void fireMessageLoggedEvent(BuildEvent event, String message,
                                         int priority) {
 
+        if (message == null) {
+            message = String.valueOf(message);
+        }
         if (message.endsWith(StringUtils.LINE_SEP)) {
             int endIndex = message.length() - StringUtils.LINE_SEP.length();
             event.setMessage(message.substring(0, endIndex), priority);
@@ -2343,7 +2391,8 @@ public class Project implements ResourceFactory {
 
     // Should move to a separate public class - and have API to add
     // listeners, etc.
-    private static class AntRefTable extends Hashtable {
+    private static class AntRefTable extends Hashtable<String, Object> {
+        private static final long serialVersionUID = 1L;
 
         AntRefTable() {
             super();
@@ -2372,7 +2421,6 @@ public class Project implements ResourceFactory {
          * @return mapped value.
          */
         public Object get(Object key) {
-            //System.out.println("AntRefTable.get " + key);
             Object o = getReal(key);
             if (o instanceof UnknownElement) {
                 // Make sure that

@@ -22,12 +22,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.MalformedURLException;
-import java.net.JarURLConnection;
-import java.util.jar.JarFile;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
@@ -39,13 +36,15 @@ import org.apache.tools.ant.util.FileUtils;
  * Exposes a URL as a Resource.
  * @since Ant 1.7
  */
-public class URLResource extends Resource {
+public class URLResource extends Resource implements URLProvider {
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
     private static final int NULL_URL
         = Resource.getMagicNumber("null URL".getBytes());
 
     private URL url;
     private URLConnection conn;
+    private URL baseURL;
+    private String relPath;
 
     /**
      * Default constructor.
@@ -59,6 +58,14 @@ public class URLResource extends Resource {
      */
     public URLResource(URL u) {
         setURL(u);
+    }
+
+    /**
+     * Convenience constructor.
+     * @param u holds the URL to expose.
+     */
+    public URLResource(URLProvider u) {
+        setURL(u.getURL());
     }
 
     /**
@@ -100,12 +107,53 @@ public class URLResource extends Resource {
     }
 
     /**
+     * Base URL which combined with the relativePath attribute defines
+     * the URL.
+     * @since Ant 1.8.0
+     */
+    public synchronized void setBaseURL(URL base) {
+        checkAttributesAllowed();
+        if (url != null) {
+            throw new BuildException("can't define URL and baseURL attribute");
+        }
+        baseURL = base;
+    }
+
+    /**
+     * Relative path which combined with the baseURL attribute defines
+     * the URL.
+     * @since Ant 1.8.0
+     */
+    public synchronized void setRelativePath(String r) {
+        checkAttributesAllowed();
+        if (url != null) {
+            throw new BuildException("can't define URL and relativePath"
+                                     + " attribute");
+        }
+        relPath = r;
+    }
+
+
+    /**
      * Get the URL used by this URLResource.
      * @return a URL object.
      */
     public synchronized URL getURL() {
         if (isReference()) {
             return ((URLResource) getCheckedRef()).getURL();
+        }
+        if (url == null) {
+            if (baseURL != null) {
+                if (relPath == null) {
+                    throw new BuildException("must provide relativePath"
+                                             + " attribute when using baseURL.");
+                }
+                try {
+                    url = new URL(baseURL, relPath);
+                } catch (MalformedURLException e) {
+                    throw new BuildException(e);
+                }
+            }
         }
         return url;
      }
@@ -116,7 +164,7 @@ public class URLResource extends Resource {
      */
     public synchronized void setRefid(Reference r) {
         //not using the accessor in this case to avoid side effects
-        if (url != null) {
+        if (url != null || baseURL != null || relPath != null) {
             throw tooManyAttributes();
         }
         super.setRefid(r);
@@ -178,7 +226,7 @@ public class URLResource extends Resource {
             return false;
         }
         try {
-            connect();
+            connect(Project.MSG_VERBOSE);
             return true;
         } catch (IOException e) {
             return false;
@@ -315,7 +363,19 @@ public class URLResource extends Resource {
      * Ensure that we have a connection.
      * @throws IOException if the connection cannot be established.
      */
-    protected synchronized void connect() throws IOException {
+    protected void connect() throws IOException {
+        connect(Project.MSG_ERR);
+    }
+
+    /**
+     * Ensure that we have a connection.
+     * @param logLevel severity to use when logging connection errors.
+     * Should be one of the <code>MSG_</code> constants in {@link
+     * Project Project}.
+     * @throws IOException if the connection cannot be established.
+     * @since Ant 1.8.2
+     */
+    protected synchronized void connect(int logLevel) throws IOException {
         URL u = getURL();
         if (u == null) {
             throw new BuildException("URL not set");
@@ -325,7 +385,7 @@ public class URLResource extends Resource {
                 conn = u.openConnection();
                 conn.connect();
             } catch (IOException e) {
-                log(e.toString(), Project.MSG_ERR);
+                log(e.toString(), logLevel);
                 conn = null;
                 throw e;
             }
@@ -341,21 +401,10 @@ public class URLResource extends Resource {
      *
      */
     private synchronized void close() {
-        if (conn != null) {
-            try {
-                if (conn instanceof JarURLConnection) {
-                    JarURLConnection juc = (JarURLConnection) conn;
-                    JarFile jf = juc.getJarFile();
-                    jf.close();
-                    jf = null;
-                } else if (conn instanceof HttpURLConnection) {
-                    ((HttpURLConnection) conn).disconnect();
-                }
-            } catch (IOException exc) {
-                //ignore
-            } finally {
-                conn = null;
-            }
+        try {
+            FileUtils.close(conn);
+        } finally {
+            conn = null;
         }
     }
 

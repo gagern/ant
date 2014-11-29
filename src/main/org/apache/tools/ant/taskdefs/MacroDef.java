@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.HashMap;
-import java.util.Iterator;
 
 import org.apache.tools.ant.AntTypeDefinition;
 import org.apache.tools.ant.BuildException;
@@ -45,8 +44,8 @@ public class MacroDef extends AntlibDefinition  {
     private NestedSequential nestedSequential;
     private String     name;
     private boolean    backTrace = true;
-    private List       attributes = new ArrayList();
-    private Map        elements   = new HashMap();
+    private List<Attribute>       attributes = new ArrayList<Attribute>();
+    private Map<String, TemplateElement>        elements   = new HashMap<String, TemplateElement>();
     private String     textName   = null;
     private Text       text       = null;
     private boolean    hasImplicitElement = false;
@@ -74,8 +73,7 @@ public class MacroDef extends AntlibDefinition  {
                 "the text nested element needed a \"name\" attribute");
         }
         // Check if used by attributes
-        for (Iterator i = attributes.iterator(); i.hasNext();) {
-            Attribute attribute = (Attribute) i.next();
+        for (Attribute attribute : attributes) {
             if (text.getName().equals(attribute.getName())) {
                 throw new BuildException(
                     "the name \"" + text.getName()
@@ -134,7 +132,7 @@ public class MacroDef extends AntlibDefinition  {
      * This is a simple task container.
      */
     public static class NestedSequential implements TaskContainer {
-        private List nested = new ArrayList();
+        private List<Task> nested = new ArrayList<Task>();
 
         /**
          * Add a task or type to the container.
@@ -148,7 +146,7 @@ public class MacroDef extends AntlibDefinition  {
         /**
          * @return the list of unknown elements
          */
-        public List getNested() {
+        public List<Task> getNested() {
             return nested;
         }
 
@@ -161,10 +159,11 @@ public class MacroDef extends AntlibDefinition  {
          * @return true if they are similar, false otherwise
          */
         public boolean similar(NestedSequential other) {
-            if (nested.size() != other.nested.size()) {
+            final int size = nested.size();
+            if (size != other.nested.size()) {
                 return false;
             }
-            for (int i = 0; i < nested.size(); ++i) {
+            for (int i = 0; i < size; ++i) {
                 UnknownElement me = (UnknownElement) nested.get(i);
                 UnknownElement o = (UnknownElement) other.nested.get(i);
                 if (!me.similar(o)) {
@@ -185,7 +184,8 @@ public class MacroDef extends AntlibDefinition  {
         ret.setNamespace("");
         ret.setQName("sequential");
         new RuntimeConfigurable(ret, "sequential");
-        for (int i = 0; i < nestedSequential.getNested().size(); ++i) {
+        final int size = nestedSequential.getNested().size();
+        for (int i = 0; i < size; ++i) {
             UnknownElement e =
                 (UnknownElement) nestedSequential.getNested().get(i);
             ret.addChild(e);
@@ -199,7 +199,7 @@ public class MacroDef extends AntlibDefinition  {
      *
      * @return the nested Attributes
      */
-    public List getAttributes() {
+    public List<Attribute> getAttributes() {
         return attributes;
     }
 
@@ -209,7 +209,7 @@ public class MacroDef extends AntlibDefinition  {
      * @return the map nested elements, keyed by element name, with
      *         {@link TemplateElement} values.
      */
-    public Map getElements() {
+    public Map<String, TemplateElement> getElements() {
         return elements;
     }
 
@@ -259,7 +259,8 @@ public class MacroDef extends AntlibDefinition  {
                 "the name \"" + attribute.getName()
                 + "\" has already been used by the text element");
         }
-        for (int i = 0; i < attributes.size(); ++i) {
+        final int size = attributes.size();
+        for (int i = 0; i < size; ++i) {
             Attribute att = (Attribute) attributes.get(i);
             if (att.getName().equals(attribute.getName())) {
                 throw new BuildException(
@@ -328,6 +329,7 @@ public class MacroDef extends AntlibDefinition  {
         private String name;
         private String defaultValue;
         private String description;
+        private boolean doubleExpanding = true;
 
         /**
          * The name of the attribute.
@@ -339,7 +341,7 @@ public class MacroDef extends AntlibDefinition  {
                 throw new BuildException(
                     "Illegal name [" + name + "] for attribute");
             }
-            this.name = name.toLowerCase(Locale.US);
+            this.name = name.toLowerCase(Locale.ENGLISH);
         }
 
         /**
@@ -381,6 +383,25 @@ public class MacroDef extends AntlibDefinition  {
          */
         public String getDescription() {
             return description;
+        }
+
+        /**
+         * See {@link #isDoubleExpanding} for explanation.
+         * @param doubleExpanding true to expand twice, false for just once
+         * @since Ant 1.8.3
+         */
+        public void setDoubleExpanding(boolean doubleExpanding) {
+            this.doubleExpanding = doubleExpanding;
+        }
+
+        /**
+         * Determines whether {@link RuntimeConfigurable#maybeConfigure(Project, boolean)} will reevaluate this property.
+         * For compatibility reasons (#52621) it will, though for most applications (#42046) it should not.
+         * @return true if expanding twice (the default), false for just once
+         * @since Ant 1.8.3
+         */
+        public boolean isDoubleExpanding() {
+            return doubleExpanding;
         }
 
         /**
@@ -443,7 +464,7 @@ public class MacroDef extends AntlibDefinition  {
                 throw new BuildException(
                     "Illegal name [" + name + "] for attribute");
             }
-            this.name = name.toLowerCase(Locale.US);
+            this.name = name.toLowerCase(Locale.ENGLISH);
         }
 
         /**
@@ -567,7 +588,7 @@ public class MacroDef extends AntlibDefinition  {
                 throw new BuildException(
                     "Illegal name [" + name + "] for macro element");
             }
-            this.name = name.toLowerCase(Locale.US);
+            this.name = name.toLowerCase(Locale.ENGLISH);
         }
 
         /**

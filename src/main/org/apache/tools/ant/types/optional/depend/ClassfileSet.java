@@ -17,7 +17,8 @@
  */
 package org.apache.tools.ant.types.optional.depend;
 
-import java.util.Enumeration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Stack;
 import java.util.Vector;
 import org.apache.tools.ant.Project;
@@ -39,12 +40,12 @@ public class ClassfileSet extends FileSet {
      * classes which must be included in the fileset and which are the
      * starting point for the dependency search.
      */
-    private Vector rootClasses = new Vector();
+    private List<String> rootClasses = new ArrayList<String>();
 
     /**
      * The list of filesets which contain root classes.
      */
-    private Vector rootFileSets = new Vector();
+    private List<FileSet> rootFileSets = new ArrayList<FileSet>();
 
     /**
      * Inner class used to contain info about root classes.
@@ -86,7 +87,7 @@ public class ClassfileSet extends FileSet {
      * classes.
      */
     public void addRootFileset(FileSet rootFileSet) {
-        rootFileSets.addElement(rootFileSet);
+        rootFileSets.add(rootFileSet);
         setChecked(false);
     }
 
@@ -97,7 +98,7 @@ public class ClassfileSet extends FileSet {
      */
     protected ClassfileSet(ClassfileSet s) {
         super(s);
-        rootClasses = (Vector) s.rootClasses.clone();
+        rootClasses.addAll(s.rootClasses);
     }
 
     /**
@@ -106,7 +107,7 @@ public class ClassfileSet extends FileSet {
      * @param rootClass the name of the root class.
      */
     public void setRootClass(String rootClass) {
-        rootClasses.addElement(rootClass);
+        rootClasses.add(rootClass);
     }
 
     /**
@@ -121,9 +122,10 @@ public class ClassfileSet extends FileSet {
             return getRef(p).getDirectoryScanner(p);
         }
         dieOnCircularReference(p);
-        Vector allRootClasses = (Vector) rootClasses.clone();
-        for (Enumeration e = rootFileSets.elements(); e.hasMoreElements();) {
-            FileSet additionalRootSet = (FileSet) e.nextElement();
+        DirectoryScanner parentScanner = super.getDirectoryScanner(p);
+        DependScanner scanner = new DependScanner(parentScanner);
+        final Vector<String> allRootClasses = new Vector<String>(rootClasses);
+        for (FileSet additionalRootSet : rootFileSets) {
             DirectoryScanner additionalScanner
                 = additionalRootSet.getDirectoryScanner(p);
             String[] files = additionalScanner.getIncludedFiles();
@@ -135,9 +137,8 @@ public class ClassfileSet extends FileSet {
                     allRootClasses.addElement(className);
                 }
             }
+            scanner.addBasedir(additionalRootSet.getDir(p));
         }
-        DirectoryScanner parentScanner = super.getDirectoryScanner(p);
-        DependScanner scanner = new DependScanner(parentScanner);
         scanner.setBasedir(getDir(p));
         scanner.setRootClasses(allRootClasses);
         scanner.scan();
@@ -150,7 +151,7 @@ public class ClassfileSet extends FileSet {
      * @param root the configured class root.
      */
     public void addConfiguredRoot(ClassRoot root) {
-        rootClasses.addElement(root.getClassname());
+        rootClasses.add(root.getClassname());
     }
 
     /**
@@ -163,7 +164,7 @@ public class ClassfileSet extends FileSet {
             ? (ClassfileSet) (getRef(getProject())) : this);
     }
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p) {
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p) {
         if (isChecked()) {
             return;
         }
@@ -172,9 +173,7 @@ public class ClassfileSet extends FileSet {
         super.dieOnCircularReference(stk, p);
 
         if (!isReference()) {
-            for (Enumeration e = rootFileSets.elements();
-                 e.hasMoreElements();) {
-                FileSet additionalRootSet = (FileSet) e.nextElement();
+            for (FileSet additionalRootSet : rootFileSets) {
                 pushAndInvokeCircularReferenceCheck(additionalRootSet, stk, p);
             }
             setChecked(true);

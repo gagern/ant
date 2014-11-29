@@ -19,11 +19,12 @@
 package org.apache.tools.ant.taskdefs.optional;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -37,9 +38,9 @@ import java.util.Properties;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.LayoutPreservingProperties;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  *Modifies settings in a property file.
@@ -233,14 +234,27 @@ public class PropertyFile extends Task {
     }
 
     private void writeFile() throws BuildException {
-        BufferedOutputStream bos = null;
+        // Write to RAM first, as an OOME could otherwise produce a truncated file:
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
-            bos = new BufferedOutputStream(new FileOutputStream(propertyfile));
-            properties.store(bos, comment);
-        } catch (IOException ioe) {
-            throw new BuildException(ioe, getLocation());
-        } finally {
-            FileUtils.close(bos);
+            properties.store(baos, comment);
+        } catch (IOException x) { // should not happen
+            throw new BuildException(x, getLocation());
+        }
+        try {
+            OutputStream os = new FileOutputStream(propertyfile);
+            try {
+                try {
+                    os.write(baos.toByteArray());
+                } finally {
+                    os.close();
+                }
+            } catch (IOException x) { // possibly corrupt
+                FileUtils.getFileUtils().tryHardToDelete(propertyfile);
+                throw x;
+            }
+        } catch (IOException x) { // opening, writing, or closing
+            throw new BuildException(x, getLocation());
         }
     }
 
@@ -347,6 +361,11 @@ public class PropertyFile extends Task {
          */
         protected void executeOn(Properties props) throws BuildException {
             checkParameters();
+            
+            if (operation == Operation.DELETE_OPER) {
+                props.remove(key);
+                return;
+            }
 
             // type may be null because it wasn't set
             String oldValue = (String) props.get(key);
@@ -508,7 +527,7 @@ public class PropertyFile extends Task {
                 throw new BuildException("- is not supported for string "
                                          + "properties (key:" + key + ")");
             }
-            if (value == null && defaultValue == null) {
+            if (value == null && defaultValue == null  && operation != Operation.DELETE_OPER) {
                 throw new BuildException("\"value\" and/or \"default\" "
                                          + "attribute must be specified (key:" + key + ")");
             }
@@ -574,10 +593,12 @@ public class PropertyFile extends Task {
             public static final int DECREMENT_OPER =   1;
             /** = */
             public static final int EQUALS_OPER =      2;
+            /** del */
+            public static final int DELETE_OPER =      3;
 
             /** {@inheritDoc}. */
             public String[] getValues() {
-                return new String[] {"+", "-", "="};
+                return new String[] {"+", "-", "=", "del"};
             }
 
             /**
@@ -590,6 +611,8 @@ public class PropertyFile extends Task {
                     return INCREMENT_OPER;
                 } else if ("-".equals(oper)) {
                     return DECREMENT_OPER;
+                } else if ("del".equals(oper)) {
+                    return DELETE_OPER;
                 }
                 return EQUALS_OPER;
             }

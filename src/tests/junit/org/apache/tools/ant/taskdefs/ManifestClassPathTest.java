@@ -20,8 +20,10 @@ package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.taskdefs.condition.Os;
-import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * Tests &lt;bm:manifestclasspath&gt;.
@@ -141,19 +143,11 @@ public class ManifestClassPathTest
                                               "../../resources/dsp-void/");
     }
     public void testInternationalGerman() {
-        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4)) {
-            System.out.println("Test with international characters skipped under pre 1.4 jvm.");
-            return;
-        }
         executeTarget("international-german");
         expectLogContaining("run-two-jars", "beta alpha");
-            
+
     }
     public void testInternationalHebrew() {
-        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4)) {
-            System.out.println("Test with international characters skipped under pre 1.4 jvm.");
-            return;
-        }
         if (!Os.isFamily("windows")) {
             executeTarget("international-hebrew");
             expectLogContaining("run-two-jars", "beta alpha");
@@ -163,5 +157,49 @@ public class ManifestClassPathTest
 
     }
 
+    public void testSameWindowsDrive() {
+        if (!Os.isFamily("windows")) {
+            System.out.println("Test with drive letters only run on windows");
+        } else {
+            executeTarget("testSameDrive");
+            assertPropertyEquals("cp", "../a/b/x.jar");
+        }
+    }
+
+    public void testDifferentWindowsDrive() {
+        if (!Os.isFamily("windows")) {
+            System.out.println("Test with drive letters only run on windows");
+        } else {
+            // the lines below try to find a drive name different than the one containing the temp dir
+            // if the temp dir is C will try to use D
+            // if the temp dir is on D or other will try to use C
+            File tmpdir = new File(System.getProperty("java.io.tmpdir"));
+            String driveLetter = "C";
+            try {
+                String tmpCanonicalPath = tmpdir.getCanonicalPath();
+                driveLetter = tmpCanonicalPath.substring(1).toUpperCase();
+            } catch (IOException ioe) {
+                System.out.println("exception happened getting canonical path of java.io.tmpdir : " + ioe.getMessage());
+            }
+            String altDriveLetter = null;
+            try {
+                if ("C".equals(driveLetter)) {
+                    altDriveLetter = "D";
+                } else {
+                    altDriveLetter = "C";
+                }
+                new java.io.File(altDriveLetter + ":/foo.txt").getCanonicalPath();
+            } catch (java.io.IOException e) {
+                System.out.println("drive " + altDriveLetter + ": doesn't exist or is not ready,"
+                                   + " skipping test");
+                return;
+            }
+            project.setProperty("altDriveLetter", altDriveLetter);
+            expectBuildExceptionContaining("testDifferentDrive",
+                                           "different drive",
+                                           "No suitable relative path from ");
+            assertPropertyUnset("cp");
+        }
+    }
 } // END class ManifestClassPathTest
 

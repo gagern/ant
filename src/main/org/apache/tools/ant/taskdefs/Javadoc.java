@@ -17,17 +17,25 @@
  */
 package org.apache.tools.ant.taskdefs;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.BufferedWriter;
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.StringTokenizer;
@@ -49,6 +57,7 @@ import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 
 /**
@@ -77,8 +86,11 @@ import org.apache.tools.ant.util.JavaEnvUtils;
 public class Javadoc extends Task {
     // Whether *this VM* is 1.4+ (but also check executable != null).
 
-    private static final boolean JAVADOC_5 = 
+    private static final boolean JAVADOC_5 =
         !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4);
+
+    private static final String LOAD_FRAME = "function loadFrames() {";
+    private static final int LOAD_FRAME_LEN = LOAD_FRAME.length();
 
     /**
      * Inner class used to manage doclet parameters.
@@ -213,7 +225,7 @@ public class Javadoc extends Task {
     public class DocletInfo extends ExtensionInfo {
 
         /** Collection of doclet parameters. */
-        private Vector params = new Vector();
+        private Vector<DocletParam> params = new Vector<DocletParam>();
 
         /**
          * Create a doclet parameter to be configured by Ant.
@@ -232,7 +244,7 @@ public class Javadoc extends Task {
          *
          * @return an Enumeration of DocletParam instances.
          */
-        public Enumeration getParams() {
+        public Enumeration<DocletParam> getParams() {
             return params.elements();
         }
     }
@@ -365,7 +377,7 @@ public class Javadoc extends Task {
      * task runtime.</p>
      */
     public class ResourceCollectionContainer {
-        private ArrayList rcs = new ArrayList();
+        private ArrayList<ResourceCollection> rcs = new ArrayList<ResourceCollection>();
         /**
          * Add a resource collection to the container.
          * @param rc the collection to add.
@@ -378,7 +390,7 @@ public class Javadoc extends Task {
          * Get an iterator on the collection.
          * @return an iterator.
          */
-        private Iterator iterator() {
+        private Iterator<ResourceCollection> iterator() {
             return rcs.iterator();
         }
     }
@@ -424,9 +436,9 @@ public class Javadoc extends Task {
     private boolean failOnError = false;
     private Path sourcePath = null;
     private File destDir = null;
-    private Vector sourceFiles = new Vector();
-    private Vector packageNames = new Vector();
-    private Vector excludePackageNames = new Vector(1);
+    private Vector<SourceFile> sourceFiles = new Vector<SourceFile>();
+    private Vector<PackageName> packageNames = new Vector<PackageName>();
+    private Vector<PackageName> excludePackageNames = new Vector<PackageName>(1);
     private boolean author = true;
     private boolean version = true;
     private DocletInfo doclet = null;
@@ -434,9 +446,9 @@ public class Javadoc extends Task {
     private Path bootclasspath = null;
     private String group = null;
     private String packageList = null;
-    private Vector links = new Vector();
-    private Vector groups = new Vector();
-    private Vector tags = new Vector();
+    private Vector<LinkArgument> links = new Vector<LinkArgument>();
+    private Vector<GroupArgument> groups = new Vector<GroupArgument>();
+    private Vector<Object> tags = new Vector<Object>();
     private boolean useDefaultExcludes = true;
     private Html doctitle = null;
     private Html header = null;
@@ -451,10 +463,12 @@ public class Javadoc extends Task {
     private String executable = null;
     private boolean docFilesSubDirs = false;
     private String excludeDocFilesSubDir = null;
+    private String docEncoding = null;
+    private boolean postProcessGeneratedJavadocs = true;
 
     private ResourceCollectionContainer nestedSourceFiles
         = new ResourceCollectionContainer();
-    private Vector packageSets = new Vector();
+    private Vector<DirSet> packageSets = new Vector<DirSet>();
 
     /**
      * Work around command line length limit by using an external file
@@ -1060,7 +1074,7 @@ public class Javadoc extends Task {
     }
 
     /**
-     * Control deprecation infromation
+     * Control deprecation information
      *
      * @param b If true, do not include deprecated information.
      */
@@ -1150,6 +1164,7 @@ public class Javadoc extends Task {
     public void setDocencoding(String enc) {
         cmd.createArgument().setValue("-docencoding");
         cmd.createArgument().setValue(enc);
+        docEncoding = enc;
     }
 
     /**
@@ -1183,7 +1198,7 @@ public class Javadoc extends Task {
         private URL packagelistURL;
         private boolean resolveLink = false;
 
-        /** Constructor for LinkArguement */
+        /** Constructor for LinkArgument */
         public LinkArgument() {
             //empty
         }
@@ -1342,7 +1357,7 @@ public class Javadoc extends Task {
          * specified.
          */
         public void setScope (String verboseScope) throws BuildException {
-            verboseScope = verboseScope.toLowerCase(Locale.US);
+            verboseScope = verboseScope.toLowerCase(Locale.ENGLISH);
 
             boolean[] elements = new boolean[SCOPE_ELEMENTS.length];
 
@@ -1449,7 +1464,7 @@ public class Javadoc extends Task {
      */
     public class GroupArgument {
         private Html title;
-        private Vector packages = new Vector();
+        private Vector<PackageName> packages = new Vector<PackageName>();
 
         /** Constructor for GroupArgument */
         public GroupArgument() {
@@ -1496,19 +1511,20 @@ public class Javadoc extends Task {
         }
         /**
          * Add a package nested element.
-         * @param pn a nested element specifing the package.
+         * @param pn a nested element specifying the package.
          */
         public void addPackage(PackageName pn) {
             packages.addElement(pn);
         }
 
         /**
-         * Get the packages as a collon separated list.
+         * Get the packages as a colon separated list.
          * @return the packages as a string
          */
         public String getPackages() {
             StringBuffer p = new StringBuffer();
-            for (int i = 0; i < packages.size(); i++) {
+            final int size = packages.size();
+            for (int i = 0; i < size; i++) {
                 if (i > 0) {
                     p.append(":");
                 }
@@ -1654,13 +1670,21 @@ public class Javadoc extends Task {
     }
 
     /**
+     * Whether to post-process the generated javadocs in order to mitigate CVE-2013-1571.
+     * @since Ant 1.9.2
+     */
+    public void setPostProcessGeneratedJavadocs(boolean b) {
+        postProcessGeneratedJavadocs = b;
+    }
+
+    /**
      * Execute the task.
      * @throws BuildException on error
      */
     public void execute() throws BuildException {
         checkTaskName();
 
-        Vector packagesToDoc = new Vector();
+        Vector<String> packagesToDoc = new Vector<String>();
         Path sourceDirs = new Path(getProject());
 
         checkPackageAndSourcePath();
@@ -1672,7 +1696,8 @@ public class Javadoc extends Task {
         parsePackages(packagesToDoc, sourceDirs);
         checkPackages(packagesToDoc, sourceDirs);
 
-        Vector sourceFilesToDoc = (Vector) sourceFiles.clone();
+        @SuppressWarnings("unchecked")
+        Vector<SourceFile> sourceFilesToDoc = (Vector<SourceFile>) sourceFiles.clone();
         addSourceFiles(sourceFilesToDoc);
 
         checkPackagesToDoc(packagesToDoc, sourceFilesToDoc);
@@ -1706,31 +1731,34 @@ public class Javadoc extends Task {
         }
 
         File tmpList = null;
-        BufferedWriter srcListWriter = null;
-
+        FileWriter wr = null;
         try {
             /**
              * Write sourcefiles and package names to a temporary file
              * if requested.
              */
+            BufferedWriter srcListWriter = null;
             if (useExternalFile) {
                 tmpList = FILE_UTILS.createTempFile("javadoc", "", null, true, true);
                 toExecute.createArgument()
                     .setValue("@" + tmpList.getAbsolutePath());
-                srcListWriter = new BufferedWriter(
-                    new FileWriter(tmpList.getAbsolutePath(),
-                                   true));
+                wr = new FileWriter(tmpList.getAbsolutePath(), true);
+                srcListWriter = new BufferedWriter(wr);
             }
 
             doSourceAndPackageNames(
                 toExecute, packagesToDoc, sourceFilesToDoc,
                 useExternalFile, tmpList, srcListWriter);
+
+            if (useExternalFile) {
+                srcListWriter.flush();
+            }
         } catch (IOException e) {
             tmpList.delete();
             throw new BuildException("Error creating temporary file",
                                      e, getLocation());
         } finally {
-            FileUtils.close(srcListWriter);
+            FileUtils.close(wr);
         }
 
         if (packageList != null) {
@@ -1759,6 +1787,7 @@ public class Javadoc extends Task {
                 throw new BuildException("Javadoc returned " + ret,
                                          getLocation());
             }
+            postProcessGeneratedJavadocs();
         } catch (IOException e) {
             throw new BuildException("Javadoc failed: " + e, e, getLocation());
         } finally {
@@ -1794,7 +1823,7 @@ public class Javadoc extends Task {
         }
     }
 
-    private void checkPackages(Vector packagesToDoc, Path sourceDirs) {
+    private void checkPackages(Vector<String> packagesToDoc, Path sourceDirs) {
         if (packagesToDoc.size() != 0 && sourceDirs.size() == 0) {
             String msg = "sourcePath attribute must be set when "
                 + "specifying package names.";
@@ -1803,7 +1832,7 @@ public class Javadoc extends Task {
     }
 
     private void checkPackagesToDoc(
-        Vector packagesToDoc, Vector sourceFilesToDoc) {
+        Vector<String> packagesToDoc, Vector<SourceFile> sourceFilesToDoc) {
         if (packageList == null && packagesToDoc.size() == 0
             && sourceFilesToDoc.size() == 0) {
             throw new BuildException("No source files and no packages have "
@@ -1875,9 +1904,9 @@ public class Javadoc extends Task {
                         toExecute.createArgument().setPath(docletPath);
                     }
                 }
-                for (Enumeration e = doclet.getParams();
+                for (Enumeration<DocletParam> e = doclet.getParams();
                      e.hasMoreElements();) {
-                    DocletParam param = (DocletParam) e.nextElement();
+                    DocletParam param = e.nextElement();
                     if (param.getName() == null) {
                         throw new BuildException("Doclet parameters must "
                                                  + "have a name");
@@ -1947,8 +1976,8 @@ public class Javadoc extends Task {
 
     private void doLinks(Commandline toExecute) {
         if (links.size() != 0) {
-            for (Enumeration e = links.elements(); e.hasMoreElements();) {
-                LinkArgument la = (LinkArgument) e.nextElement();
+            for (Enumeration<LinkArgument> e = links.elements(); e.hasMoreElements();) {
+                LinkArgument la = e.nextElement();
 
                 if (la.getHref() == null || la.getHref().length() == 0) {
                     log("No href was given for the link - skipping",
@@ -2060,8 +2089,8 @@ public class Javadoc extends Task {
     // add the group arguments
     private void doGroups(Commandline toExecute) {
         if (groups.size() != 0) {
-            for (Enumeration e = groups.elements(); e.hasMoreElements();) {
-                GroupArgument ga = (GroupArgument) e.nextElement();
+            for (Enumeration<GroupArgument> e = groups.elements(); e.hasMoreElements();) {
+                GroupArgument ga = e.nextElement();
                 String title = ga.getTitle();
                 String packages = ga.getPackages();
                 if (title == null || packages == null) {
@@ -2078,7 +2107,7 @@ public class Javadoc extends Task {
 
     // Do java1.4 arguments
     private void doJava14(Commandline toExecute) {
-        for (Enumeration e = tags.elements(); e.hasMoreElements();) {
+        for (Enumeration<Object> e = tags.elements(); e.hasMoreElements();) {
             Object element = e.nextElement();
             if (element instanceof TagArgument) {
                 TagArgument ta = (TagArgument) element;
@@ -2165,15 +2194,13 @@ public class Javadoc extends Task {
 
     private void doSourceAndPackageNames(
         Commandline toExecute,
-        Vector packagesToDoc,
-        Vector sourceFilesToDoc,
+        Vector<String> packagesToDoc,
+        Vector<SourceFile> sourceFilesToDoc,
         boolean useExternalFile,
         File    tmpList,
         BufferedWriter srcListWriter)
         throws IOException {
-        Enumeration e = packagesToDoc.elements();
-        while (e.hasMoreElements()) {
-            String packageName = (String) e.nextElement();
+        for (String packageName : packagesToDoc) {
             if (useExternalFile) {
                 srcListWriter.write(packageName);
                 srcListWriter.newLine();
@@ -2182,12 +2209,10 @@ public class Javadoc extends Task {
             }
         }
 
-        e = sourceFilesToDoc.elements();
-        while (e.hasMoreElements()) {
-            SourceFile sf = (SourceFile) e.nextElement();
+        for (SourceFile sf : sourceFilesToDoc) {
             String sourceFileName = sf.getFile().getAbsolutePath();
             if (useExternalFile) {
-                // XXX what is the following doing?
+                // TODO what is the following doing?
                 //     should it run if !javadoc4 && executable != null?
                 if (sourceFileName.indexOf(" ") > -1) {
                     String name = sourceFileName;
@@ -2283,10 +2308,10 @@ public class Javadoc extends Task {
      *
      * @since 1.7
      */
-    private void addSourceFiles(Vector sf) {
-        Iterator e = nestedSourceFiles.iterator();
+    private void addSourceFiles(Vector<SourceFile> sf) {
+        Iterator<ResourceCollection> e = nestedSourceFiles.iterator();
         while (e.hasNext()) {
-            ResourceCollection rc = (ResourceCollection) e.next();
+            ResourceCollection rc = e.next();
             if (!rc.isFilesystemOnly()) {
                 throw new BuildException("only file system based resources are"
                                          + " supported by javadoc");
@@ -2302,11 +2327,8 @@ public class Javadoc extends Task {
                     rc = fs2;
                 }
             }
-            Iterator iter = rc.iterator();
-            while (iter.hasNext()) {
-                Resource r = (Resource) iter.next();
-                sf.addElement(new SourceFile(((FileProvider) r.as(FileProvider.class))
-                                             .getFile()));
+            for (Resource r : rc) {
+                sf.addElement(new SourceFile(r.as(FileProvider.class).getFile()));
             }
         }
     }
@@ -2319,9 +2341,10 @@ public class Javadoc extends Task {
      *
      * @since 1.5
      */
-    private void parsePackages(Vector pn, Path sp) {
-        Vector addedPackages = new Vector();
-        Vector dirSets = (Vector) packageSets.clone();
+    private void parsePackages(Vector<String> pn, Path sp) {
+        HashSet<String> addedPackages = new HashSet<String>();
+        @SuppressWarnings("unchecked")
+        Vector<DirSet> dirSets = (Vector<DirSet>) packageSets.clone();
 
         // for each sourcePath entry, add a directoryset with includes
         // taken from packagenames attribute and nested package
@@ -2329,10 +2352,11 @@ public class Javadoc extends Task {
         // and nested excludepackage elements
         if (sourcePath != null) {
             PatternSet ps = new PatternSet();
+            ps.setProject(getProject());
             if (packageNames.size() > 0) {
-                Enumeration e = packageNames.elements();
+                Enumeration<PackageName> e = packageNames.elements();
                 while (e.hasMoreElements()) {
-                    PackageName p = (PackageName) e.nextElement();
+                    PackageName p = e.nextElement();
                     String pkg = p.getName().replace('.', '/');
                     if (pkg.endsWith("*")) {
                         pkg += "*";
@@ -2343,9 +2367,9 @@ public class Javadoc extends Task {
                 ps.createInclude().setName("**");
             }
 
-            Enumeration e = excludePackageNames.elements();
+            Enumeration<PackageName> e = excludePackageNames.elements();
             while (e.hasMoreElements()) {
-                PackageName p = (PackageName) e.nextElement();
+                PackageName p = e.nextElement();
                 String pkg = p.getName().replace('.', '/');
                 if (pkg.endsWith("*")) {
                     pkg += "*";
@@ -2359,6 +2383,7 @@ public class Javadoc extends Task {
                 File dir = new File(pathElements[i]);
                 if (dir.isDirectory()) {
                     DirSet ds = new DirSet();
+                    ds.setProject(getProject());
                     ds.setDefaultexcludes(useDefaultExcludes);
                     ds.setDir(dir);
                     ds.createPatternSet().addConfiguredPatternset(ps);
@@ -2370,9 +2395,9 @@ public class Javadoc extends Task {
             }
         }
 
-        Enumeration e = dirSets.elements();
+        Enumeration<DirSet> e = dirSets.elements();
         while (e.hasMoreElements()) {
-            DirSet ds = (DirSet) e.nextElement();
+            DirSet ds = e.nextElement();
             File baseDir = ds.getDir(getProject());
             log("scanning " + baseDir + " for packages.", Project.MSG_DEBUG);
             DirectoryScanner dsc = ds.getDirectoryScanner(getProject());
@@ -2401,7 +2426,7 @@ public class Javadoc extends Task {
                         String packageName =
                             dirs[i].replace(File.separatorChar, '.');
                         if (!addedPackages.contains(packageName)) {
-                            addedPackages.addElement(packageName);
+                            addedPackages.add(packageName);
                             pn.addElement(packageName);
                         }
                     }
@@ -2416,6 +2441,95 @@ public class Javadoc extends Task {
                     Project.MSG_VERBOSE);
             }
         }
+    }
+
+    private void postProcessGeneratedJavadocs() throws IOException {
+        if (!postProcessGeneratedJavadocs) {
+            return;
+        }
+        final String fixData;
+        final InputStream in = getClass()
+            .getResourceAsStream("javadoc-frame-injections-fix.txt");
+        if (in == null) {
+            throw new FileNotFoundException("Missing resource "
+                                            + "'javadoc-frame-injections-fix.txt' in "
+                                            + "classpath.");
+        }
+        try {
+            fixData =
+                fixLineFeeds(FileUtils
+                             .readFully(new InputStreamReader(in, "US-ASCII")))
+                .trim();
+        } finally {
+            FileUtils.close(in);
+        }
+
+        final DirectoryScanner ds = new DirectoryScanner();
+        ds.setBasedir(destDir);
+        ds.setCaseSensitive(false);
+        ds.setIncludes(new String[] {
+                "**/index.html", "**/index.htm", "**/toc.html", "**/toc.htm"
+            });
+        ds.addDefaultExcludes();
+        ds.scan();
+        int patched = 0;
+        for (String f : ds.getIncludedFiles()) {
+            patched += postProcess(new File(destDir, f), fixData);
+        }
+        if (patched > 0) {
+            log("Patched " + patched + " link injection vulnerable javadocs",
+                Project.MSG_INFO);
+        }
+    }
+
+    private int postProcess(File file, String fixData) throws IOException {
+        String enc = docEncoding != null ? docEncoding
+            : FILE_UTILS.getDefaultEncoding();
+        // we load the whole file as one String (toc/index files are
+        // generally small, because they only contain frameset declaration):
+        InputStream fin = new FileInputStream(file);
+        String fileContents;
+        try {
+            fileContents =
+                fixLineFeeds(FileUtils
+                             .safeReadFully(new InputStreamReader(fin, enc)));
+        } finally {
+            FileUtils.close(fin);
+        }
+
+        // check if file may be vulnerable because it was not
+        // patched with "validURL(url)":
+        if (fileContents.indexOf("function validURL(url) {") < 0) {
+            // we need to patch the file!
+            String patchedFileContents = patchContent(fileContents, fixData);
+            if (!patchedFileContents.equals(fileContents)) {
+                FileOutputStream fos = new FileOutputStream(file);
+                try {
+                    OutputStreamWriter w = new OutputStreamWriter(fos, enc);
+                    w.write(patchedFileContents);
+                    w.close();
+                    return 1;
+                } finally {
+                    FileUtils.close(fos);
+                }
+            }
+        }
+        return 0;
+    }
+
+    private String fixLineFeeds(String orig) {
+        return orig.replace("\r\n", "\n")
+            .replace("\n", StringUtils.LINE_SEP);
+    }
+
+    private String patchContent(String fileContents, String fixData) {
+        // using regexes here looks like overkill
+        int start = fileContents.indexOf(LOAD_FRAME);
+        if (start >= 0) {
+            return fileContents.substring(0, start) + fixData
+                + fileContents.substring(start + LOAD_FRAME_LEN);
+        }
+        return fileContents;
     }
 
     private class JavadocOutputStream extends LogOutputStream {

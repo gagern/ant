@@ -73,6 +73,16 @@ public class ManifestTask extends Task {
     private String encoding;
 
     /**
+     * whether to merge Class-Path attributes.
+     */
+    private boolean mergeClassPaths = false;
+
+    /**
+     * whether to flatten Class-Path attributes into a single one.
+     */
+    private boolean flattenClassPaths = false;
+
+    /**
      * Helper class for Manifest's mode attribute.
      */
     public static class Mode extends EnumeratedAttribute {
@@ -103,10 +113,10 @@ public class ManifestTask extends Task {
      */
     public void addConfiguredSection(Manifest.Section section)
          throws ManifestException {
-        Enumeration attributeKeys = section.getAttributeKeys();
+        Enumeration<String> attributeKeys = section.getAttributeKeys();
         while (attributeKeys.hasMoreElements()) {
             Attribute attribute = section.getAttribute(
-                (String) attributeKeys.nextElement());
+                attributeKeys.nextElement());
             checkAttribute(attribute);
         }
         nestedManifest.addConfiguredSection(section);
@@ -184,6 +194,25 @@ public class ManifestTask extends Task {
     }
 
     /**
+     * Whether to merge Class-Path attributes.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setMergeClassPathAttributes(boolean b) {
+        mergeClassPaths = b;
+    }
+
+    /**
+     * Whether to flatten multi-valued attributes (i.e. Class-Path)
+     * into a single one.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFlattenAttributes(boolean b) {
+        flattenClassPaths = b;
+    }
+
+    /**
      * Create or update the Manifest when used as a task.
      *
      * @throws BuildException if the manifest cannot be written.
@@ -220,21 +249,21 @@ public class ManifestTask extends Task {
         }
 
         //look for and print warnings
-        for (Enumeration e = nestedManifest.getWarnings();
+        for (Enumeration<String> e = nestedManifest.getWarnings();
                 e.hasMoreElements();) {
-            log("Manifest warning: " + (String) e.nextElement(),
+            log("Manifest warning: " + e.nextElement(),
                     Project.MSG_WARN);
         }
         try {
             if (mode.getValue().equals("update") && manifestFile.exists()) {
                 if (current != null) {
-                    toWrite.merge(current);
+                    toWrite.merge(current, false, mergeClassPaths);
                 } else if (error != null) {
                     throw error;
                 }
             }
 
-            toWrite.merge(nestedManifest);
+            toWrite.merge(nestedManifest, false, mergeClassPaths);
         } catch (ManifestException m) {
             throw new BuildException("Manifest is invalid", m, getLocation());
         }
@@ -250,7 +279,7 @@ public class ManifestTask extends Task {
             FileOutputStream fos = new FileOutputStream(manifestFile);
             OutputStreamWriter osw = new OutputStreamWriter(fos, Manifest.JAR_ENCODING);
             w = new PrintWriter(osw);
-            toWrite.write(w);
+            toWrite.write(w, flattenClassPaths);
             if (w.checkError()) {
                 throw new IOException("Encountered an error writing manifest");
             }

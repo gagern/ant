@@ -21,14 +21,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 
 import org.apache.tools.ant.property.LocalProperties;
+import org.apache.tools.ant.taskdefs.condition.And;
+import org.apache.tools.ant.taskdefs.condition.Condition;
+import org.apache.tools.ant.taskdefs.condition.Or;
 
 /**
  * Class to implement a target object with required parameters.
+ *
+ * <p>If you are creating Targets programmatically, make sure you set
+ * the Location to a useful value.  In particular all targets should
+ * have different location values.</p>
  */
 public class Target implements TaskContainer {
 
@@ -36,16 +42,20 @@ public class Target implements TaskContainer {
     private String name;
 
     /** The "if" condition to test on execution. */
-    private String ifCondition = "";
+    private String ifString = "";
 
     /** The "unless" condition to test on execution. */
-    private String unlessCondition = "";
+    private String unlessString = "";
+
+    private Condition ifCondition;
+
+    private Condition unlessCondition;
 
     /** List of targets this target is dependent on. */
-    private List dependencies = null;
+    private List<String> dependencies = null;
 
     /** Children of this target (tasks and data types). */
-    private List children = new ArrayList();
+    private List<Object> children = new ArrayList<Object>();
 
     /** Since Ant 1.6.2 */
     private Location location = Location.UNKNOWN_LOCATION;
@@ -67,6 +77,8 @@ public class Target implements TaskContainer {
      */
     public Target(Target other) {
         this.name = other.name;
+        this.ifString = other.ifString;
+        this.unlessString = other.unlessString;
         this.ifCondition = other.ifCondition;
         this.unlessCondition = other.unlessCondition;
         this.dependencies = other.dependencies;
@@ -125,16 +137,15 @@ public class Target implements TaskContainer {
      *             depends on. Must not be <code>null</code>.
      */
     public void setDepends(String depS) {
-        for (Iterator iter = parseDepends(depS, getName(), "depends").iterator();
-             iter.hasNext(); ) {
-            addDependency((String) iter.next());
+        for (String dep : parseDepends(depS, getName(), "depends")) {
+            addDependency(dep);
         }
     }
 
-    public static List/*<String>*/ parseDepends(String depends,
+    public static List<String> parseDepends(String depends,
                                                 String targetName,
                                                 String attributeName) {
-        ArrayList list = new ArrayList();
+        List<String> list = new ArrayList<String>();
         if (depends.length() > 0) {
             StringTokenizer tok =
                 new StringTokenizer(depends, ",", true);
@@ -214,15 +225,13 @@ public class Target implements TaskContainer {
      * @return an array of the tasks currently within this target
      */
     public Task[] getTasks() {
-        List tasks = new ArrayList(children.size());
-        Iterator it = children.iterator();
-        while (it.hasNext()) {
-            Object o = it.next();
+        List<Task> tasks = new ArrayList<Task>(children.size());
+        for (Object o : children) {
             if (o instanceof Task) {
-                tasks.add(o);
+                tasks.add((Task) o);
             }
         }
-        return (Task[]) tasks.toArray(new Task[tasks.size()]);
+        return tasks.toArray(new Task[tasks.size()]);
     }
 
     /**
@@ -233,7 +242,7 @@ public class Target implements TaskContainer {
      */
     public void addDependency(String dependency) {
         if (dependencies == null) {
-            dependencies = new ArrayList(2);
+            dependencies = new ArrayList<String>(2);
         }
         dependencies.add(dependency);
     }
@@ -241,11 +250,11 @@ public class Target implements TaskContainer {
     /**
      * Returns an enumeration of the dependencies of this target.
      *
-     * @return an enumeration of the dependencies of this target
+     * @return an enumeration of the dependencies of this target (enumeration of String)
      */
-    public Enumeration getDependencies() {
+    public Enumeration<String> getDependencies() {
         return Collections
-                .enumeration(dependencies == null ? Collections.EMPTY_LIST : dependencies);
+                .enumeration(dependencies == null ? Collections.<String> emptyList() : dependencies);
     }
 
     /**
@@ -256,7 +265,7 @@ public class Target implements TaskContainer {
      */
     public boolean dependsOn(String other) {
         Project p = getProject();
-        Hashtable t = p == null ? null : p.getTargets();
+        Hashtable<String, Target> t = p == null ? null : p.getTargets();
         return p != null && p.topoSort(getName(), t, false).contains(t.get(other));
     }
 
@@ -274,7 +283,8 @@ public class Target implements TaskContainer {
      *                 no "if" test is performed.
      */
     public void setIf(String property) {
-        ifCondition = property == null ? "" : property;
+        ifString = property == null ? "" : property;
+        setIf(new IfStringCondition(ifString));
     }
 
     /**
@@ -285,7 +295,25 @@ public class Target implements TaskContainer {
      * @since 1.6.2
      */
     public String getIf() {
-        return "".equals(ifCondition) ? null : ifCondition;
+        return "".equals(ifString) ? null : ifString;
+    }
+
+    /**
+     * Same as {@link #setIf(String)} but requires a {@link Condition} instance
+     *
+     * @since 1.9
+     */
+    public void setIf(Condition condition) {
+        if (ifCondition == null) {
+            ifCondition = condition;
+        } else {
+            And andCondition = new And();
+            andCondition.setProject(getProject());
+            andCondition.setLocation(getLocation());
+            andCondition.add(ifCondition);
+            andCondition.add(condition);
+            ifCondition = andCondition;
+        }
     }
 
     /**
@@ -302,7 +330,8 @@ public class Target implements TaskContainer {
      *                 no "unless" test is performed.
      */
     public void setUnless(String property) {
-        unlessCondition = property == null ? "" : property;
+        unlessString = property == null ? "" : property;
+        setUnless(new UnlessStringCondition(unlessString));
     }
 
     /**
@@ -313,7 +342,25 @@ public class Target implements TaskContainer {
      * @since 1.6.2
      */
     public String getUnless() {
-        return "".equals(unlessCondition) ? null : unlessCondition;
+        return "".equals(unlessString) ? null : unlessString;
+    }
+
+    /**
+     * Same as {@link #setUnless(String)} but requires a {@link Condition} instance
+     *
+     * @since 1.9
+     */
+    public void setUnless(Condition condition) {
+        if (unlessCondition == null) {
+            unlessCondition = condition;
+        } else {
+            Or orCondition = new Or();
+            orCondition.setProject(getProject());
+            orCondition.setLocation(getLocation());
+            orCondition.add(unlessCondition);
+            orCondition.add(condition);
+            unlessCondition = orCondition;
+        }
     }
 
     /**
@@ -364,14 +411,14 @@ public class Target implements TaskContainer {
      * @see #setUnless(String)
      */
     public void execute() throws BuildException {
-        if (!testIfAllows()) {
-            project.log(this, "Skipped because property '" + project.replaceProperties(ifCondition)
+        if (ifCondition != null && !ifCondition.eval()) {
+            project.log(this, "Skipped because property '" + project.replaceProperties(ifString)
                     + "' not set.", Project.MSG_VERBOSE);
             return;
         }
-        if (!testUnlessAllows()) {
+        if (unlessCondition != null && unlessCondition.eval()) {
             project.log(this, "Skipped because property '"
-                    + project.replaceProperties(unlessCondition) + "' set.", Project.MSG_VERBOSE);
+                    + project.replaceProperties(unlessString) + "' set.", Project.MSG_VERBOSE);
             return;
         }
         LocalProperties localProperties = LocalProperties.get(getProject());
@@ -379,6 +426,8 @@ public class Target implements TaskContainer {
         try {
             // use index-based approach to avoid ConcurrentModificationExceptions;
             // also account for growing target children
+        	// do not optimize this loop by replacing children.size() by a variable
+        	// as children can be added dynamically as in RhinoScriptTest where a target is adding work for itself
             for (int i = 0; i < children.size(); i++) {
                 Object o = children.get(i);
                 if (o instanceof Task) {
@@ -444,44 +493,40 @@ public class Target implements TaskContainer {
     }
 
     /**
-     * Tests whether or not the "if" condition allows the execution of this target.
-     *
-     * @return whether or not the "if" condition is satisfied. If no
-     *         condition (or an empty condition) has been set,
-     *         <code>true</code> is returned.
-     *
-     * @see #setIf(String)
+     * Condition evaluating the 'if' attribute with the PropertyHelper.
      */
-    private boolean testIfAllows() {
-        if ("".equals(ifCondition)) {
-            return true;
+    private class IfStringCondition implements Condition {
+
+        private String condition;
+
+        public IfStringCondition(String condition) {
+            this.condition = condition;
         }
-        PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
-        Object o = propertyHelper.parseProperties(ifCondition);
-        if (o instanceof Boolean) {
-            return ((Boolean) o).booleanValue();
+
+        public boolean eval() throws BuildException {
+            PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
+            Object o = propertyHelper.parseProperties(condition);
+            return propertyHelper.testIfCondition(o);
         }
-        return propertyHelper.getProperty(String.valueOf(o)) != null;
+
     }
 
     /**
-     * Tests whether or not the "unless" condition allows the execution of this target.
-     *
-     * @return whether or not the "unless" condition is satisfied. If no
-     *         condition (or an empty condition) has been set,
-     *         <code>true</code> is returned.
-     *
-     * @see #setUnless(String)
+     * Condition evaluating the 'unless' attribute with the PropertyHelper.
      */
-    private boolean testUnlessAllows() {
-        if ("".equals(unlessCondition)) {
-            return true;
+    private class UnlessStringCondition implements Condition {
+
+        private String condition;
+
+        public UnlessStringCondition(String condition) {
+            this.condition = condition;
         }
-        PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
-        Object o = propertyHelper.parseProperties(unlessCondition);
-        if (o instanceof Boolean) {
-            return !((Boolean) o).booleanValue();
+
+        public boolean eval() throws BuildException {
+            PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
+            Object o = propertyHelper.parseProperties(condition);
+            return !propertyHelper.testUnlessCondition(o);
         }
-        return propertyHelper.getProperty(String.valueOf(o)) == null;
+
     }
 }

@@ -17,19 +17,22 @@
  */
 package org.apache.tools.ant.util;
 
-import java.io.File;
-import java.io.Reader;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.BufferedInputStream;
+import java.io.Reader;
+import java.nio.channels.FileChannel;
 import java.util.Arrays;
-import java.util.Vector;
 import java.util.Iterator;
+import java.util.Vector;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectComponent;
@@ -45,6 +48,7 @@ import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.Resources;
+import org.apache.tools.ant.types.resources.StringResource;
 import org.apache.tools.ant.types.resources.Touchable;
 import org.apache.tools.ant.types.resources.selectors.Date;
 import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
@@ -61,6 +65,15 @@ public class ResourceUtils {
 
     /** Utilities used for file operations */
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
+    /**
+     * Name of charset "ISO Latin Alphabet No. 1, a.k.a. ISO-LATIN-1".
+     *
+     * @since Ant 1.8.1
+     */
+    public static final String ISO_8859_1 = "ISO-8859-1";
+
+    private static final long MAX_IO_CHUNK_SIZE = 16*1024*1024; // 16 MB
 
     /**
      * Tells which source files should be reprocessed based on the
@@ -177,8 +190,7 @@ public class ResourceUtils {
         source = Union.getInstance(source);
 
         Union result = new Union();
-        for (Iterator iter = source.iterator(); iter.hasNext();) {
-            final Resource sr = (Resource) iter.next();
+        for (Resource sr : source) {
             String srName = sr.getName();
             srName = srName == null
                 ? srName : srName.replace('/', File.separatorChar);
@@ -211,7 +223,7 @@ public class ResourceUtils {
             r.add(targetColl);
             if (r.size() > 0) {
                 result.add(sr);
-                Resource t = (Resource) (r.iterator().next());
+                Resource t = r.iterator().next();
                 logTo.log(sr.getName() + " added as " + t.getName()
                     + (t.isExists() ? " is outdated." : " doesn\'t exist."),
                     Project.MSG_VERBOSE);
@@ -329,9 +341,50 @@ public class ResourceUtils {
      */
     public static void copyResource(Resource source, Resource dest,
                             FilterSetCollection filters, Vector filterChains,
-                            boolean overwrite, boolean preserveLastModified, boolean append,
+                            boolean overwrite, boolean preserveLastModified,
+                                    boolean append,
                             String inputEncoding, String outputEncoding,
                             Project project)
+        throws IOException {
+        copyResource(source, dest, filters, filterChains, overwrite,
+                     preserveLastModified, append, inputEncoding,
+                     outputEncoding, project, /* force: */ false);
+    }
+
+    /**
+     * Convenience method to copy content from one Resource to another
+     * specifying whether token filtering must be used, whether filter chains
+     * must be used, whether newer destination files may be overwritten and
+     * whether the last modified time of <code>dest</code> file should be made
+     * equal to the last modified time of <code>source</code>.
+     *
+     * @param source the Resource to copy from.
+     *                   Must not be <code>null</code>.
+     * @param dest   the Resource to copy to.
+     *                 Must not be <code>null</code>.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination Resource should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the destination Resource should be set to that
+     *                             of the source.
+     * @param append Whether to append to an Appendable Resource.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     * @param force whether read-only target files will be overwritten
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.8.2
+     */
+    public static void copyResource(Resource source, Resource dest,
+                            FilterSetCollection filters, Vector filterChains,
+                            boolean overwrite, boolean preserveLastModified,
+                                    boolean append,
+                                    String inputEncoding, String outputEncoding,
+                                    Project project, boolean force)
         throws IOException {
         if (!(overwrite || SelectorUtils.isOutOfDate(source, dest, FileUtils.getFileUtils()
                 .getFileTimestampGranularity()))) {
@@ -341,16 +394,36 @@ public class ResourceUtils {
                                              && filters.hasFilters());
         final boolean filterChainsAvailable = (filterChains != null
                                                && filterChains.size() > 0);
+        String effectiveInputEncoding = null;
+        if (source instanceof StringResource) {
+             effectiveInputEncoding = ((StringResource) source).getEncoding();
+        } else {
+            effectiveInputEncoding = inputEncoding;
+        }
+        File destFile = null;
+        if (dest.as(FileProvider.class) != null) {
+            destFile = dest.as(FileProvider.class).getFile();
+        }
+        if (destFile != null && destFile.isFile() && !destFile.canWrite()) {
+            if (!force) {
+                throw new IOException("can't write to read-only destination "
+                                      + "file " + destFile);
+            } else if (!FILE_UTILS.tryHardToDelete(destFile)) {
+                throw new IOException("failed to delete read-only "
+                                      + "destination file " + destFile);
+            }
+        }
+
         if (filterSetsAvailable) {
             BufferedReader in = null;
             BufferedWriter out = null;
             try {
                 InputStreamReader isr = null;
-                if (inputEncoding == null) {
+                if (effectiveInputEncoding == null) {
                     isr = new InputStreamReader(source.getInputStream());
                 } else {
                     isr = new InputStreamReader(source.getInputStream(),
-                                                inputEncoding);
+                                                effectiveInputEncoding);
                 }
                 in = new BufferedReader(isr);
                 OutputStream os = getOutputStream(dest, append, project);
@@ -390,18 +463,18 @@ public class ResourceUtils {
                 FileUtils.close(in);
             }
         } else if (filterChainsAvailable
-                   || (inputEncoding != null
-                       && !inputEncoding.equals(outputEncoding))
-                   || (inputEncoding == null && outputEncoding != null)) {
+                   || (effectiveInputEncoding != null
+                       && !effectiveInputEncoding.equals(outputEncoding))
+                   || (effectiveInputEncoding == null && outputEncoding != null)) {
             BufferedReader in = null;
             BufferedWriter out = null;
             try {
                 InputStreamReader isr = null;
-                if (inputEncoding == null) {
+                if (effectiveInputEncoding == null) {
                     isr = new InputStreamReader(source.getInputStream());
                 } else {
                     isr = new InputStreamReader(source.getInputStream(),
-                                                inputEncoding);
+                                                effectiveInputEncoding);
                 }
                 in = new BufferedReader(isr);
                 OutputStream os = getOutputStream(dest, append, project);
@@ -433,6 +506,43 @@ public class ResourceUtils {
                 FileUtils.close(out);
                 FileUtils.close(in);
             }
+        } else if (source.as(FileProvider.class) != null
+                   && destFile != null) {
+            File sourceFile =
+                source.as(FileProvider.class).getFile();
+
+            File parent = destFile.getParentFile();
+            if (parent != null && !parent.isDirectory()
+                && !destFile.getParentFile().mkdirs()) {
+                throw new IOException("failed to create the parent directory"
+                                      + " for " + destFile);
+            }
+
+            FileInputStream in = null;
+            FileOutputStream out = null;
+            FileChannel srcChannel = null;
+            FileChannel destChannel = null;
+
+            try {
+                in = new FileInputStream(sourceFile);
+                out = new FileOutputStream(destFile);
+                    
+                srcChannel = in.getChannel();
+                destChannel = out.getChannel();
+                
+                long position = 0;
+                long count = srcChannel.size();
+                while (position < count) {
+                    long chunk = Math.min(MAX_IO_CHUNK_SIZE, count - position);
+                    position +=
+                        destChannel.transferFrom(srcChannel, position, chunk);
+                }
+            } finally {
+                FileUtils.close(srcChannel);
+                FileUtils.close(destChannel);
+                FileUtils.close(out);
+                FileUtils.close(in);
+            }
         } else {
             InputStream in = null;
             OutputStream out = null;
@@ -452,7 +562,7 @@ public class ResourceUtils {
             }
         }
         if (preserveLastModified) {
-            Touchable t = (Touchable) dest.as(Touchable.class);
+            Touchable t = dest.as(Touchable.class);
             if (t != null) {
                 setLastModified(t, source.getLastModified());
             }
@@ -624,6 +734,9 @@ public class ResourceUtils {
             while (expected != null) {
                 String actual = in2.readLine();
                 if (!expected.equals(actual)) {
+                    if (actual == null) {
+                        return 1;
+                    }
                     return expected.compareTo(actual);
                 }
                 expected = in1.readLine();
@@ -651,16 +764,15 @@ public class ResourceUtils {
         Restrict future = new Restrict();
         future.add(sel);
         future.add(rc);
-        for (Iterator iter = future.iterator(); iter.hasNext();) {
-            logTo.log("Warning: " + ((Resource) iter.next()).getName()
-                     + " modified in the future.", Project.MSG_WARN);
+        for (Resource r : future) {
+            logTo.log("Warning: " + r.getName() + " modified in the future.", Project.MSG_WARN);
         }
     }
 
     private static OutputStream getOutputStream(Resource resource, boolean append, Project project)
             throws IOException {
         if (append) {
-            Appendable a = (Appendable) resource.as(Appendable.class);
+            Appendable a = resource.as(Appendable.class);
             if (a != null) {
                 return a.getAppendOutputStream();
             }

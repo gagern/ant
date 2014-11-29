@@ -19,13 +19,13 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.Vector;
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.DynamicConfigurator;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
 import org.apache.tools.ant.types.CommandlineJava;
 import org.apache.tools.ant.types.Environment;
 import org.apache.tools.ant.types.Mapper;
@@ -90,7 +90,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     /** Classpath to use when trying to load the XSL processor */
     private Path classpath = null;
 
-    /** The Liason implementation to use to communicate with the XSL
+    /** The Liaison implementation to use to communicate with the XSL
      *  processor */
     private XSLTLiaison liaison;
 
@@ -106,10 +106,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
 
     /** for resolving entities such as dtds */
     private XMLCatalog xmlCatalog = new XMLCatalog();
-
-    /** Name of the TRAX Liaison class */
-    private static final String TRAX_LIAISON_CLASS =
-                        "org.apache.tools.ant.taskdefs.optional.TraXLiaison";
 
     /** Utilities used for file operations */
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
@@ -280,7 +276,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             handleError("The style element must be specified with exactly one"
                         + " nested resource.");
         } else {
-            setXslResource((Resource) rc.iterator().next());
+            setXslResource(rc.iterator().next());
         }
     }
 
@@ -339,6 +335,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             return;
         }
         try {
+            setupLoader();
+
             if (sysProperties.size() > 0) {
                 sysProperties.setSystem();
             }
@@ -360,15 +358,16 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 // via style attribute
                 File stylesheet = getProject().resolveFile(xslFile);
                 if (!stylesheet.exists()) {
-                    stylesheet = FILE_UTILS.resolveFile(baseDir, xslFile);
+                    File alternative = FILE_UTILS.resolveFile(baseDir, xslFile);
                     /*
                      * shouldn't throw out deprecation warnings before we know,
                      * the wrong version has been used.
                      */
-                    if (stylesheet.exists()) {
+                    if (alternative.exists()) {
                         log("DEPRECATED - the 'style' attribute should be "
                             + "relative to the project's");
                         log("             basedir, not the tasks's basedir.");
+                        stylesheet = alternative;
                     }
                 }
                 FileResource fr = new FileResource();
@@ -524,7 +523,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
 
     /**
      * Set the name of the XSL processor to use; optional, default trax.
-     * Other values are "xalan" for Xalan1
      *
      * @param processor the name of the XSL processor
      */
@@ -674,15 +672,13 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @exception Exception if the processor cannot be loaded.
      */
     private void resolveProcessor(String proc) throws Exception {
-        String classname;
         if (proc.equals(PROCESSOR_TRAX)) {
-            classname = TRAX_LIAISON_CLASS;
+            liaison = new org.apache.tools.ant.taskdefs.optional.TraXLiaison();
         } else {
             //anything else is a classname
-            classname = proc;
+            Class clazz = loadClass(proc);
+            liaison = (XSLTLiaison) clazz.newInstance();
         }
-        Class clazz = loadClass(classname);
-        liaison = (XSLTLiaison) clazz.newInstance();
     }
 
     /**
@@ -695,12 +691,23 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @exception Exception if the class could not be loaded.
      */
     private Class loadClass(String classname) throws Exception {
-        if (classpath == null) {
+        setupLoader();
+        if (loader == null) {
             return Class.forName(classname);
         }
-        loader = getProject().createClassLoader(classpath);
-        loader.setThreadContextLoader();
         return Class.forName(classname, true, loader);
+    }
+
+    /**
+     * If a custom classpath has been defined but no loader created
+     * yet, create the classloader and set it as the context
+     * classloader.
+     */
+    private void setupLoader() {
+        if (classpath != null && loader == null) {
+            loader = getProject().createClassLoader(classpath);
+            loader.setThreadContextLoader();
+        }
     }
 
     /**
@@ -741,15 +748,13 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @since Ant 1.7
      */
     private void processResources(Resource stylesheet) {
-        Iterator iter = resources.iterator();
-        while (iter.hasNext()) {
-            Resource r = (Resource) iter.next();
+        for (Resource r : resources) {
             if (!r.isExists()) {
                 continue;
             }
             File base = baseDir;
             String name = r.getName();
-            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            FileProvider fp = r.as(FileProvider.class);
             if (fp != null) {
                 FileResource f = ResourceUtils.asFileResource(fp);
                 base = f.getBaseDir();
@@ -900,13 +905,12 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     }
 
     /**
-     * Get the Liason implementation to use in processing.
+     * Get the Liaison implementation to use in processing.
      *
-     * @return an instance of the XSLTLiason interface.
+     * @return an instance of the XSLTLiaison interface.
      */
     protected XSLTLiaison getLiaison() {
-        // if processor wasn't specified, see if TraX is available.  If not,
-        // default it to xalan, depending on which is in the classpath
+        // if processor wasn't specified, use TraX.
         if (liaison == null) {
             if (processor != null) {
                 try {
@@ -947,8 +951,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         /** The parameter's value */
         private String expression = null;
 
-        private String ifProperty;
-        private String unlessProperty;
+        private Object ifCond;
+        private Object unlessCond;
         private Project project;
 
         /**
@@ -1005,22 +1009,45 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         }
 
         /**
-         * Set whether this param should be used.  It will be
-         * used if the property has been set, otherwise it won't.
-         * @param ifProperty name of property
+         * Set whether this param should be used.  It will be used if
+         * the expression evaluates to true or the name of a property
+         * which has been set, otherwise it won't.
+         * @param ifCond evaluated expression
+         * @since Ant 1.8.0
          */
-        public void setIf(String ifProperty) {
-            this.ifProperty = ifProperty;
+        public void setIf(Object ifCond) {
+            this.ifCond = ifCond;
         }
 
         /**
-         * Set whether this param should NOT be used. It
-         * will not be used if the property has been set, otherwise it
-         * will be used.
-         * @param unlessProperty name of property
+         * Set whether this param should be used.  It will be used if
+         * the expression evaluates to true or the name of a property
+         * which has been set, otherwise it won't.
+         * @param ifProperty evaluated expression
+         */
+        public void setIf(String ifProperty) {
+            setIf((Object) ifProperty);
+        }
+
+        /**
+         * Set whether this param should NOT be used. It will not be
+         * used if the expression evaluates to true or the name of a
+         * property which has been set, otherwise it will be used.
+         * @param unlessCond evaluated expression
+         * @since Ant 1.8.0
+         */
+        public void setUnless(Object unlessCond) {
+            this.unlessCond = unlessCond;
+        }
+
+        /**
+         * Set whether this param should NOT be used. It will not be
+         * used if the expression evaluates to true or the name of a
+         * property which has been set, otherwise it will be used.
+         * @param unlessProperty evaluated expression
          */
         public void setUnless(String unlessProperty) {
-            this.unlessProperty = unlessProperty;
+            setUnless((Object) unlessProperty);
         }
 
         /**
@@ -1029,13 +1056,9 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
          * @return true if the task passes the "if" and "unless" parameters
          */
         public boolean shouldUse() {
-            if (ifProperty != null && project.getProperty(ifProperty) == null) {
-                return false;
-            }
-            if (unlessProperty != null && project.getProperty(unlessProperty) != null) {
-                return false;
-            }
-            return true;
+            PropertyHelper ph = PropertyHelper.getPropertyHelper(project);
+            return ph.testIfCondition(ifCond)
+                && ph.testUnlessCondition(unlessCond);
         }
     } // Param
 
@@ -1133,7 +1156,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
 
         try {
             log("Loading stylesheet " + stylesheet, Project.MSG_INFO);
-            // We call liason.configure() and then liaison.setStylesheet()
+            // We call liaison.configure() and then liaison.setStylesheet()
             // so that the internal variables of liaison can be set up
             if (liaison instanceof XSLTLiaison2) {
                 ((XSLTLiaison2) liaison).configure(this);
@@ -1147,7 +1170,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 // a resource, but we can set it as a file. So,
                 // we make an attempt to get it as a file
                 FileProvider fp =
-                    (FileProvider) stylesheet.as(FileProvider.class);
+                    stylesheet.as(FileProvider.class);
                 if (fp != null) {
                     liaison.setStylesheet(fp.getFile());
                 } else {

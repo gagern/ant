@@ -17,7 +17,6 @@
  */
 package org.apache.tools.ant;
 
-import org.apache.tools.ant.util.LoaderUtils;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JAXPUtils;
 import org.apache.tools.ant.util.ProxySetup;
@@ -36,6 +35,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.net.URL;
 import java.util.Enumeration;
 import java.util.Properties;
 import java.util.Calendar;
@@ -71,7 +71,6 @@ public final class Diagnostics {
     private static final int SECONDS_PER_MILLISECOND = 1000;
     private static final int SECONDS_PER_MINUTE = 60;
     private static final int MINUTES_PER_HOUR = 60;
-    private static final String TEST_CLASS = "org.apache.tools.ant.taskdefs.optional.Test";
 
     /**
      * The error text when a security manager blocks access to a property.
@@ -86,39 +85,19 @@ public final class Diagnostics {
     }
 
     /**
-     * Check if optional tasks are available. Not that it does not check
-     * for implementation version. Use <tt>validateVersion()</tt> for this.
-     * @return <tt>true</tt> if optional tasks are available.
+     * Doesn't do anything.
+     * @deprecated Obsolete since Ant 1.8.2
+     * @return <tt>true</tt>
      */
     public static boolean isOptionalAvailable() {
-        try {
-            Class.forName(TEST_CLASS);
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
         return true;
     }
 
     /**
-     * Check if core and optional implementation version do match.
-     * @throws BuildException if the implementation version of optional tasks
-     * does not match the core implementation version.
+     * Doesn't do anything.
+     * @deprecated Obsolete since Ant 1.8.2
      */
     public static void validateVersion() throws BuildException {
-        try {
-            Class optional = Class.forName(TEST_CLASS);
-            String coreVersion = getImplementationVersion(Main.class);
-            String optionalVersion = getImplementationVersion(optional);
-
-            if (coreVersion != null && !coreVersion.equals(optionalVersion)) {
-                throw new BuildException("Invalid implementation version "
-                        + "between Ant core and Ant optional tasks.\n" + " core    : "
-                        + coreVersion + "\n" + " optional: " + optionalVersion);
-            }
-        } catch (ClassNotFoundException e) {
-            // ignore
-            ignoreThrowable(e);
-        }
     }
 
     /**
@@ -166,8 +145,20 @@ public final class Diagnostics {
      * @return null if there is no package or implementation version.
      * '?.?' for JDK 1.0 or 1.1.
      */
-    private static String getImplementationVersion(Class clazz) {
+    private static String getImplementationVersion(Class<?> clazz) {
         return clazz.getPackage().getImplementationVersion();
+    }
+
+    /**
+     * Helper method to get the location.
+     * @param clazz the class to get the information from.
+     * @since Ant 1.8.0
+     */
+    private static URL getClassLocation(Class<?> clazz) {
+        if (clazz.getProtectionDomain().getCodeSource() == null) {
+            return null;
+        }
+        return clazz.getProtectionDomain().getCodeSource().getLocation();
     }
 
     /**
@@ -245,8 +236,8 @@ public final class Diagnostics {
         if (saxParser == null) {
             return null;
         }
-        String location = getClassLocation(saxParser.getClass());
-        return location;
+        URL location = getClassLocation(saxParser.getClass());
+        return location != null ? location.toString() : null;
     }
 
     private static String getNamespaceParserName() {
@@ -263,7 +254,8 @@ public final class Diagnostics {
     private static String getNamespaceParserLocation() {
         try {
             XMLReader reader = JAXPUtils.getNamespaceXMLReader();
-            return getClassLocation(reader.getClass());
+            URL location = getClassLocation(reader.getClass());
+            return location != null ? location.toString() : null;
         } catch (BuildException e) {
             //ignore
             ignoreThrowable(e);
@@ -280,8 +272,8 @@ public final class Diagnostics {
         if (transformer == null) {
             return null;
         }
-        String location = getClassLocation(transformer.getClass());
-        return location;
+        URL location = getClassLocation(transformer.getClass());
+        return location != null ? location.toString() : null;
     }
 
     /**
@@ -290,17 +282,6 @@ public final class Diagnostics {
      * @param thrown
      */
     private static void ignoreThrowable(Throwable thrown) {
-    }
-
-    /**
-     * get the location of a class. Stolen from axis/webapps/happyaxis.jsp
-     * @param clazz
-     * @return the jar file or path where a class was found, or null
-     */
-
-    private static String getClassLocation(Class clazz) {
-        File f = LoaderUtils.getClassSource(clazz);
-        return f == null ? null : f.getAbsolutePath();
     }
 
 
@@ -323,16 +304,8 @@ public final class Diagnostics {
         out.println(Main.getAntVersion());
         header(out, "Implementation Version");
 
-        out.println("core tasks     : " + getImplementationVersion(Main.class));
-
-        Class optional = null;
-        try {
-            optional = Class.forName(TEST_CLASS);
-            out.println("optional tasks : " + getImplementationVersion(optional));
-        } catch (ClassNotFoundException e) {
-            ignoreThrowable(e);
-            out.println("optional tasks : not available");
-        }
+        out.println("core tasks     : " + getImplementationVersion(Main.class)
+                    + " in " + getClassLocation(Main.class));
 
         header(out, "ANT PROPERTIES");
         doReportAntProperties(out);
@@ -389,8 +362,9 @@ public final class Diagnostics {
         } catch (SecurityException  e) {
             ignoreThrowable(e);
             out.println("Access to System.getProperties() blocked " + "by a security manager");
+            return;
         }
-        for (Enumeration keys = sysprops.propertyNames();
+        for (Enumeration<?> keys = sysprops.propertyNames();
             keys.hasMoreElements();) {
             String key = (String) keys.nextElement();
             String value = getProperty(key);
@@ -425,6 +399,12 @@ public final class Diagnostics {
         out.println(MagicNames.ANT_VERSION + ": " + p.getProperty(MagicNames.ANT_VERSION));
         out.println(MagicNames.ANT_JAVA_VERSION + ": "
                 + p.getProperty(MagicNames.ANT_JAVA_VERSION));
+        out.println("Is this the Apache Harmony VM? "
+                    + (JavaEnvUtils.isApacheHarmony() ? "yes" : "no"));
+        out.println("Is this the Kaffe VM? "
+                    + (JavaEnvUtils.isKaffe() ? "yes" : "no"));
+        out.println("Is this gij/gcj? "
+                    + (JavaEnvUtils.isGij() ? "yes" : "no"));
         out.println(MagicNames.ANT_LIB + ": " + p.getProperty(MagicNames.ANT_LIB));
         out.println(MagicNames.ANT_HOME + ": " + p.getProperty(MagicNames.ANT_HOME));
     }
@@ -475,7 +455,7 @@ public final class Diagnostics {
     private static void doReportWhich(PrintStream out) {
         Throwable error = null;
         try {
-            Class which = Class.forName("org.apache.env.Which");
+            Class<?> which = Class.forName("org.apache.env.Which");
             Method method = which.getMethod(
                 "main", new Class[] {String[].class});
             method.invoke(null, new Object[]{new String[]{}});
@@ -511,7 +491,7 @@ public final class Diagnostics {
             Properties props = new Properties();
             try {
                 props.load(is);
-                for (Enumeration keys = props.keys(); keys.hasMoreElements();) {
+                for (Enumeration<?> keys = props.keys(); keys.hasMoreElements();) {
                     String key = (String) keys.nextElement();
                     String classname = props.getProperty(key);
                     try {
@@ -716,7 +696,7 @@ public final class Diagnostics {
         printProperty(out, ProxySetup.USE_SYSTEM_PROXIES);
         final String proxyDiagClassname = "org.apache.tools.ant.util.java15.ProxyDiagnostics";
         try {
-            Class proxyDiagClass = Class.forName(proxyDiagClassname);
+            Class<?> proxyDiagClass = Class.forName(proxyDiagClassname);
             Object instance = proxyDiagClass.newInstance();
             out.println("Java1.5+ proxy settings:");
             out.println(instance.toString());

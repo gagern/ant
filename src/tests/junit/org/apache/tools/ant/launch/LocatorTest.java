@@ -54,14 +54,6 @@ public class LocatorTest extends TestCase {
         unix = Os.isFamily(Os.FAMILY_UNIX);
     }
 
-    private String resolve(String uri) {
-        String j14 = Locator.fromURI(uri);
-        String j13 = Locator.fromURIJava13(uri);
-        assertEquals("Different fromURI conversion.\nJava1.4=" + j14 + "\nJava1.3=" + j13 + "\n",
-                j14, j13);
-        return j14;
-    }
-
     /**
      * expect a uri to resolve to strings on different platforms
      * @param uri uri to parse
@@ -70,7 +62,7 @@ public class LocatorTest extends TestCase {
      * @return the resolved string
      */
     private String resolveTo(String uri, String expectedUnix, String expectedDos) {
-        String result = resolve(uri);
+        String result = Locator.fromURI(uri);
         assertResolved(uri, expectedUnix, result, unix);
         assertResolved(uri, expectedDos, result, windows);
         return result;
@@ -145,7 +137,9 @@ public class LocatorTest extends TestCase {
      */
     public void testAntOnRemoteShare() throws Throwable {
         String resolved=Locator.fromJarURI(SHARED_JAR_URI);
-        assertResolved(SHARED_JAR_URI, LAUNCHER_JAR,resolved,true);
+        assertResolved(SHARED_JAR_URI, LAUNCHER_JAR, resolved, unix);
+        assertResolved(SHARED_JAR_URI, LAUNCHER_JAR.replace('/', '\\'),
+                       resolved, windows);
     }
 
     /**
@@ -155,8 +149,7 @@ public class LocatorTest extends TestCase {
      */
     public void testFileFromRemoteShare() throws Throwable {
         String resolved = Locator.fromJarURI(SHARED_JAR_URI);
-        assertResolved(SHARED_JAR_URI, LAUNCHER_JAR, resolved, true);
-        File f=new File(resolved);
+        File f = new File(resolved);
         String path = f.getAbsolutePath();
         if (windows) {
             assertEquals(0, path.indexOf("\\\\"));
@@ -179,6 +172,10 @@ public class LocatorTest extends TestCase {
         char umlauted = result.charAt(1);
         assertEquals("expected 0xf6 (\u00f6), but got " + Integer.toHexString(umlauted) + " '"
                 + umlauted + "'", 0xf6, umlauted);
+        assertEquals("file:/tmp/a%C3%A7a%C3%AD%20berry", Locator.encodeURI("file:/tmp/a\u00E7a\u00ED berry"));
+        assertEquals("file:/tmp/a\u00E7a\u00ED berry", Locator.decodeUri("file:/tmp/a%C3%A7a%C3%AD%20berry"));
+        assertEquals("file:/tmp/a\u00E7a\u00ED berry", Locator.decodeUri("file:/tmp/a\u00E7a\u00ED%20berry")); // #50543
+        assertEquals("file:/tmp/hezky \u010Desky", Locator.decodeUri("file:/tmp/hezky%20\u010Desky")); // non-ISO-8859-1 variant
     }
 
     public void testOddLowAsciiURI() throws Exception {

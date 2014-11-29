@@ -61,12 +61,12 @@ public class MakeUrl extends Task {
     /**
      * filesets of nested files to add to this url
      */
-    private List filesets = new LinkedList();
+    private List<FileSet> filesets = new LinkedList<FileSet>();
 
     /**
      * paths to add
      */
-    private List paths = new LinkedList();
+    private List<Path> paths = new LinkedList<Path>();
 
     /**
      * validation flag
@@ -75,7 +75,7 @@ public class MakeUrl extends Task {
 
     // error message strings
     /** Missing file */
-    public static final String ERROR_MISSING_FILE = "A source file is missing :";
+    public static final String ERROR_MISSING_FILE = "A source file is missing: ";
     /** No property defined */
     public static final String ERROR_NO_PROPERTY = "No property defined";
     /** No files defined */
@@ -148,8 +148,8 @@ public class MakeUrl extends Task {
             return "";
         }
         int count = 0;
-        StringBuffer urls = new StringBuffer();
-        ListIterator list = filesets.listIterator();
+        StringBuilder urls = new StringBuilder();
+        ListIterator<FileSet> list = filesets.listIterator();
         while (list.hasNext()) {
             FileSet set = (FileSet) list.next();
             DirectoryScanner scanner = set.getDirectoryScanner(getProject());
@@ -176,7 +176,7 @@ public class MakeUrl extends Task {
      * @param count number of URL entries
      * @return trimmed string, or empty string
      */
-    private String stripTrailingSeparator(StringBuffer urls,
+    private String stripTrailingSeparator(StringBuilder urls,
                                           int count) {
         if (count > 0) {
             urls.delete(urls.length() - separator.length(), urls.length());
@@ -197,8 +197,8 @@ public class MakeUrl extends Task {
             return "";
         }
         int count = 0;
-        StringBuffer urls = new StringBuffer();
-        ListIterator list = paths.listIterator();
+        StringBuilder urls = new StringBuilder();
+        ListIterator<Path> list = paths.listIterator();
         while (list.hasNext()) {
             Path path = (Path) list.next();
             String[] elements = path.list();

@@ -191,12 +191,23 @@ public abstract class SSHBase extends Task implements LogListener {
     }
 
     /**
-     * Open an ssh seession.
+     * Open an ssh session.
      * @return the opened session
      * @throws JSchException on error
      */
     protected Session openSession() throws JSchException {
         JSch jsch = new JSch();
+        final SSHBase base = this;
+        if(verbose) {
+        	JSch.setLogger(new com.jcraft.jsch.Logger(){
+        		public boolean isEnabled(int level){
+        			return true;
+        		}
+        		public void log(int level, String message){
+        			base.log(message, Project.MSG_INFO);
+        		}
+        	});
+        }
         if (null != userInfo.getKeyfile()) {
             jsch.addIdentity(userInfo.getKeyfile());
         }
@@ -207,6 +218,8 @@ public abstract class SSHBase extends Task implements LogListener {
         }
 
         Session session = jsch.getSession(userInfo.getName(), host, port);
+        session.setConfig("PreferredAuthentications",
+                "publickey,keyboard-interactive,password");
         session.setUserInfo(userInfo);
         log("Connecting to " + host + ":" + port);
         session.connect();

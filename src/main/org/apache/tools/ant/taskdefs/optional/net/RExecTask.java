@@ -205,14 +205,15 @@ public class RExecTask extends Task {
                 StringBuffer sb = new StringBuffer();
                 int windowStart = -s.length();
                 if (timeout == null || timeout.intValue() == 0) {
-                    while (windowStart++ < 0
+                    while (windowStart < 0
                            || !sb.substring(windowStart).equals(s)) {
                         sb.append((char) is.read());
+                        windowStart++;
                     }
                 } else {
                     Calendar endTime = Calendar.getInstance();
                     endTime.add(Calendar.SECOND, timeout.intValue());
-                    while (windowStart++ < 0
+                    while (windowStart < 0
                            || !sb.substring(windowStart).equals(s)) {
                         while (Calendar.getInstance().before(endTime)
                             && is.available() == 0) {
@@ -224,6 +225,7 @@ public class RExecTask extends Task {
                                 getLocation());
                         }
                         sb.append((char) is.read());
+                        windowStart++;
                     }
                 }
                 log(sb.toString(), Project.MSG_INFO);
@@ -397,7 +399,7 @@ public class RExecTask extends Task {
         rexec.sendString(password, false);
     }
     /**
-     * Set the the comand to execute on the server;
+     * Set the the command to execute on the server;
      * @param c a <code>String</code> value
      */
     public void setCommand(String c) {

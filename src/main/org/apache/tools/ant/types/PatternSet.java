@@ -21,11 +21,12 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Enumeration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
-import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -36,20 +37,21 @@ import org.apache.tools.ant.util.FileUtils;
  *
  */
 public class PatternSet extends DataType implements Cloneable {
-    private Vector includeList = new Vector();
-    private Vector excludeList = new Vector();
-    private Vector includesFileList = new Vector();
-    private Vector excludesFileList = new Vector();
+    private List<NameEntry> includeList = new ArrayList<NameEntry>();
+    private List<NameEntry> excludeList = new ArrayList<NameEntry>();
+    private List<NameEntry> includesFileList = new ArrayList<NameEntry>();
+    private List<NameEntry> excludesFileList = new ArrayList<NameEntry>();
 
     /**
      * inner class to hold a name on list.  "If" and "Unless" attributes
      * may be used to invalidate the entry based on the existence of a
-     * property (typically set thru the use of the Available task).
+     * property (typically set thru the use of the Available task)
+     * or value of an expression.
      */
     public class NameEntry {
         private String name;
-        private String ifCond;
-        private String unlessCond;
+        private Object ifCond;
+        private Object unlessCond;
 
         /**
          * Sets the name pattern.
@@ -62,26 +64,60 @@ public class PatternSet extends DataType implements Cloneable {
 
         /**
          * Sets the if attribute. This attribute and the "unless"
-         * attribute are used to validate the name, based in the
-         * existence of the property.
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
          *
-         * @param cond A property name. If this property is not
-         *             present, the name is invalid.
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
          */
-        public void setIf(String cond) {
+        public void setIf(Object cond) {
             ifCond = cond;
         }
 
         /**
-         * Sets the unless attribute. This attribute and the "if"
-         * attribute are used to validate the name, based in the
-         * existence of the property.
+         * Sets the if attribute. This attribute and the "unless"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
          *
-         * @param cond A property name. If this property is
-         *             present, the name is invalid.
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         */
+        public void setIf(String cond) {
+            setIf((Object) cond);
+        }
+
+        /**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
+         */
+        public void setUnless(Object cond) {
+            unlessCond = cond;
+        }
+
+        /**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
          */
         public void setUnless(String cond) {
-            unlessCond = cond;
+            setUnless((Object) cond);
         }
 
         /**
@@ -105,13 +141,9 @@ public class PatternSet extends DataType implements Cloneable {
         }
 
         private boolean valid(Project p) {
-            if (ifCond != null && p.getProperty(ifCond) == null) {
-                return false;
-            }
-            if (unlessCond != null && p.getProperty(unlessCond) != null) {
-                return false;
-            }
-            return true;
+            PropertyHelper ph = PropertyHelper.getPropertyHelper(p);
+            return ph.testIfCondition(ifCond)
+                && ph.testUnlessCondition(unlessCond);
         }
 
         /**
@@ -286,9 +318,9 @@ public class PatternSet extends DataType implements Cloneable {
     /**
      * add a name entry to the given list
      */
-    private NameEntry addPatternToList(Vector list) {
+    private NameEntry addPatternToList(List<NameEntry> list) {
         NameEntry result = new NameEntry();
-        list.addElement(result);
+        list.add(result);
         return result;
     }
 
@@ -322,7 +354,7 @@ public class PatternSet extends DataType implements Cloneable {
      *  Reads path matching patterns from a file and adds them to the
      *  includes or excludes list (as appropriate).
      */
-    private void readPatterns(File patternfile, Vector patternlist, Project p)
+    private void readPatterns(File patternfile, List<NameEntry> patternlist, Project p)
             throws BuildException {
 
         BufferedReader patternReader = null;
@@ -426,21 +458,18 @@ public class PatternSet extends DataType implements Cloneable {
     /**
      * Convert a vector of NameEntry elements into an array of Strings.
      */
-    private String[] makeArray(Vector list, Project p) {
+    private String[] makeArray(List<NameEntry> list, Project p) {
         if (list.size() == 0) {
             return null;
         }
-        Vector tmpNames = new Vector();
-        for (Enumeration e = list.elements(); e.hasMoreElements();) {
-            NameEntry ne = (NameEntry) e.nextElement();
+        ArrayList<String> tmpNames = new ArrayList<String>();
+        for (NameEntry ne : list) {
             String pattern = ne.evalName(p);
             if (pattern != null && pattern.length() > 0) {
-                tmpNames.addElement(pattern);
+                tmpNames.add(pattern);
             }
         }
-        String[] result = new String[tmpNames.size()];
-        tmpNames.copyInto(result);
-        return result;
+        return tmpNames.toArray(new String[tmpNames.size()]);
     }
 
     /**
@@ -448,9 +477,7 @@ public class PatternSet extends DataType implements Cloneable {
      */
     private void readFiles(Project p) {
         if (includesFileList.size() > 0) {
-            Enumeration e = includesFileList.elements();
-            while (e.hasMoreElements()) {
-                NameEntry ne = (NameEntry) e.nextElement();
+            for (NameEntry ne : includesFileList) {
                 String fileName = ne.evalName(p);
                 if (fileName != null) {
                     File inclFile = p.resolveFile(fileName);
@@ -461,12 +488,10 @@ public class PatternSet extends DataType implements Cloneable {
                     readPatterns(inclFile, includeList, p);
                 }
             }
-            includesFileList.removeAllElements();
+            includesFileList.clear();
         }
         if (excludesFileList.size() > 0) {
-            Enumeration e = excludesFileList.elements();
-            while (e.hasMoreElements()) {
-                NameEntry ne = (NameEntry) e.nextElement();
+            for (NameEntry ne : excludesFileList) {
                 String fileName = ne.evalName(p);
                 if (fileName != null) {
                     File exclFile = p.resolveFile(fileName);
@@ -477,7 +502,7 @@ public class PatternSet extends DataType implements Cloneable {
                     readPatterns(exclFile, excludeList, p);
                 }
             }
-            excludesFileList.removeAllElements();
+            excludesFileList.clear();
         }
     }
 
@@ -495,10 +520,10 @@ public class PatternSet extends DataType implements Cloneable {
     public Object clone() {
         try {
             PatternSet ps = (PatternSet) super.clone();
-            ps.includeList = (Vector) includeList.clone();
-            ps.excludeList = (Vector) excludeList.clone();
-            ps.includesFileList = (Vector) includesFileList.clone();
-            ps.excludesFileList = (Vector) excludesFileList.clone();
+            ps.includeList = new ArrayList<NameEntry>(includeList);
+            ps.excludeList = new ArrayList<NameEntry>(excludeList);
+            ps.includesFileList = new ArrayList<NameEntry>(includesFileList);
+            ps.excludesFileList = new ArrayList<NameEntry>(excludesFileList);
             return ps;
         } catch (CloneNotSupportedException e) {
             throw new BuildException(e);

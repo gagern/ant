@@ -67,7 +67,7 @@ public class SubAnt extends Task {
 
     private Ant ant = null;
     private String subTarget = null;
-    private String antfile = Main.DEFAULT_BUILD_FILENAME;
+    private String antfile = getDefaultBuildFile();
     private File genericantfile = null;
     private boolean verbose = false;
     private boolean inheritAll = false;
@@ -81,6 +81,19 @@ public class SubAnt extends Task {
 
     /** the targets to call on the new project */
     private Vector/*<TargetElement>*/ targets = new Vector();
+
+    /**
+     * Get the default build file name to use when launching the task.
+     * <p>
+     * This function may be overrided by providers of custom ProjectHelper so they can implement easily their sub
+     * launcher.
+     * 
+     * @return the name of the default file
+     * @since Ant 1.8.0
+     */
+    protected String getDefaultBuildFile() {
+        return Main.DEFAULT_BUILD_FILENAME;
+    }
 
     /**
      * Pass output sent to System.out to the new project.
@@ -280,7 +293,8 @@ public class SubAnt extends Task {
         ant = createAntTask(directory);
         String antfilename = file.getAbsolutePath();
         ant.setAntfile(antfilename);
-        for (int i = 0; i < targets.size(); i++) {
+        final int size = targets.size();
+        for (int i = 0; i < size; i++) {
             TargetElement targetElement = (TargetElement) targets.get(i);
             ant.addConfiguredTarget(targetElement);
         }
@@ -288,14 +302,14 @@ public class SubAnt extends Task {
         try {
             ant.execute();
         } catch (BuildException e) {
-            if (failOnError) {
+            if (failOnError || isHardError(e)) {
                 throw e;
             }
             log("Failure for target '" + subTarget
                + "' of: " +  antfilename + "\n"
                + e.getMessage(), Project.MSG_WARN);
         } catch (Throwable e) {
-            if (failOnError) {
+            if (failOnError || isHardError(e)) {
                 throw new BuildException(e);
             }
             log("Failure for target '" + subTarget
@@ -304,6 +318,18 @@ public class SubAnt extends Task {
                 Project.MSG_WARN);
         } finally {
             ant = null;
+        }
+    }
+    /** whether we should even try to continue after this error */
+    private boolean isHardError(Throwable t) {
+        if (t instanceof BuildException) {
+            return isHardError(t.getCause());
+        } else if (t instanceof OutOfMemoryError) {
+            return true;
+        } else if (t instanceof ThreadDeath) {
+            return true;
+        } else { // incl. t == null
+            return false;
         }
     }
 
@@ -428,7 +454,7 @@ public class SubAnt extends Task {
     /**
      * Corresponds to <code>&lt;ant&gt;</code>'s
      * nested <code>&lt;propertyset&gt;</code> element.
-     * @param ps the propertset
+     * @param ps the propertyset
      */
     public void addPropertyset(PropertySet ps) {
         propertySets.addElement(ps);

@@ -27,9 +27,12 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -87,6 +90,15 @@ public class Manifest {
     /** Encoding to be used for JAR files. */
     public static final String JAR_ENCODING = "UTF-8";
 
+    private static final String ATTRIBUTE_MANIFEST_VERSION_LC =
+        ATTRIBUTE_MANIFEST_VERSION.toLowerCase(Locale.ENGLISH);
+    private static final String ATTRIBUTE_NAME_LC =
+        ATTRIBUTE_NAME.toLowerCase(Locale.ENGLISH);
+    private static final String ATTRIBUTE_FROM_LC =
+        ATTRIBUTE_FROM.toLowerCase(Locale.ENGLISH);
+    private static final String ATTRIBUTE_CLASSPATH_LC =
+        ATTRIBUTE_CLASSPATH.toLowerCase(Locale.ENGLISH);
+
     /**
      * An attribute for the manifest.
      * Those attributes that are not nested into a section will be added to the "Main" section.
@@ -114,7 +126,7 @@ public class Manifest {
         private String name = null;
 
         /** The attribute's value */
-        private Vector values = new Vector();
+        private Vector<String> values = new Vector<String>();
 
         /**
          * For multivalued attributes, this is the index of the attribute
@@ -235,7 +247,7 @@ public class Manifest {
             if (name == null) {
                 return null;
             }
-            return name.toLowerCase();
+            return name.toLowerCase(Locale.ENGLISH);
         }
 
         /**
@@ -263,8 +275,8 @@ public class Manifest {
             }
 
             String fullValue = "";
-            for (Enumeration e = getValues(); e.hasMoreElements();) {
-                String value = (String) e.nextElement();
+            for (Enumeration<String> e = getValues(); e.hasMoreElements();) {
+                String value = e.nextElement();
                 fullValue += value + " ";
             }
             return fullValue.trim();
@@ -285,7 +297,7 @@ public class Manifest {
          *
          * @return an enumeration of the attributes values
          */
-        public Enumeration getValues() {
+        public Enumeration<String> getValues() {
             return values.elements();
         }
 
@@ -304,15 +316,36 @@ public class Manifest {
         }
 
         /**
-         * Write the attribute out to a print writer.
+         * Write the attribute out to a print writer without
+         * flattening multi-values attributes (i.e. Class-Path).
          *
          * @param writer the Writer to which the attribute is written
          *
          * @throws IOException if the attribute value cannot be written
          */
         public void write(PrintWriter writer) throws IOException {
-            for (Enumeration e = getValues(); e.hasMoreElements();) {
-                writeValue(writer, (String) e.nextElement());
+            write(writer, false);
+        }
+
+        /**
+         * Write the attribute out to a print writer.
+         *
+         * @param writer the Writer to which the attribute is written
+         * @param flatten whether to collapse multi-valued attributes
+         *        (i.e. potentially Class-Path) Class-Path into a
+         *        single attribute.
+         *
+         * @throws IOException if the attribute value cannot be written
+         * @since Ant 1.8.0
+         */
+        public void write(PrintWriter writer, boolean flatten)
+            throws IOException {
+            if (!flatten) {
+            for (Enumeration<String> e = getValues(); e.hasMoreElements();) {
+                writeValue(writer, e.nextElement());
+            }
+            } else {
+                writeValue(writer, getValue());
             }
         }
 
@@ -368,7 +401,7 @@ public class Manifest {
      */
     public static class Section {
         /** Warnings for this section */
-        private Vector warnings = new Vector();
+        private Vector<String> warnings = new Vector<String>();
 
         /**
          * The section's name if any. The main section in a
@@ -377,10 +410,7 @@ public class Manifest {
         private String name = null;
 
         /** The section's attributes.*/
-        private Hashtable attributes = new Hashtable();
-
-        /** Index used to retain the attribute ordering */
-        private Vector attributeIndex = new Vector();
+        private Map<String, Attribute> attributes = new LinkedHashMap<String, Attribute>();
 
         /**
          * The name of the section; optional -default is the main section.
@@ -448,33 +478,49 @@ public class Manifest {
         }
 
         /**
-         * Merge in another section
+         * Merge in another section without merging Class-Path attributes.
          *
          * @param section the section to be merged with this one.
          *
          * @throws ManifestException if the sections cannot be merged.
          */
         public void merge(Section section) throws ManifestException {
+            merge(section, false);
+        }
+
+        /**
+         * Merge in another section
+         *
+         * @param section the section to be merged with this one.
+         * @param mergeClassPaths whether Class-Path attributes should
+         *        be merged.
+         *
+         * @throws ManifestException if the sections cannot be merged.
+         */
+        public void merge(Section section, boolean mergeClassPaths)
+            throws ManifestException {
             if (name == null && section.getName() != null
-                || name != null
-                && !(name.equalsIgnoreCase(section.getName()))) {
+                || (name != null && section.getName() != null
+                    && !(name.toLowerCase(Locale.ENGLISH)
+                         .equals(section.getName().toLowerCase(Locale.ENGLISH))))
+                ) {
                 throw new ManifestException("Unable to merge sections "
                     + "with different names");
             }
 
-            Enumeration e = section.getAttributeKeys();
+            Enumeration<String> e = section.getAttributeKeys();
             Attribute classpathAttribute = null;
             while (e.hasMoreElements()) {
-                String attributeName = (String) e.nextElement();
+                String attributeName = e.nextElement();
                 Attribute attribute = section.getAttribute(attributeName);
                 if (attributeName.equalsIgnoreCase(ATTRIBUTE_CLASSPATH)) {
                     if (classpathAttribute == null) {
                         classpathAttribute = new Attribute();
                         classpathAttribute.setName(ATTRIBUTE_CLASSPATH);
                     }
-                    Enumeration cpe = attribute.getValues();
+                    Enumeration<String> cpe = attribute.getValues();
                     while (cpe.hasMoreElements()) {
-                        String value = (String) cpe.nextElement();
+                        String value = cpe.nextElement();
                         classpathAttribute.addValue(value);
                     }
                 } else {
@@ -484,34 +530,60 @@ public class Manifest {
             }
 
             if (classpathAttribute != null) {
-                // the merge file *always* wins, even for Class-Path
+                if (mergeClassPaths) {
+                    Attribute currentCp = getAttribute(ATTRIBUTE_CLASSPATH);
+                    if (currentCp != null) {
+                        for (Enumeration<String> attribEnum = currentCp.getValues();
+                             attribEnum.hasMoreElements(); ) {
+                            String value = attribEnum.nextElement();
+                            classpathAttribute.addValue(value);
+                        }
+                    }
+                }
                 storeAttribute(classpathAttribute);
             }
 
             // add in the warnings
-            Enumeration warnEnum = section.warnings.elements();
+            Enumeration<String> warnEnum = section.warnings.elements();
             while (warnEnum.hasMoreElements()) {
                 warnings.addElement(warnEnum.nextElement());
             }
         }
 
         /**
-         * Write the section out to a print writer.
+         * Write the section out to a print writer without flattening
+         * multi-values attributes (i.e. Class-Path).
          *
          * @param writer the Writer to which the section is written
          *
          * @throws IOException if the section cannot be written
          */
         public void write(PrintWriter writer) throws IOException {
+            write(writer, false);
+        }
+
+        /**
+         * Write the section out to a print writer.
+         *
+         * @param writer the Writer to which the section is written
+         * @param flatten whether to collapse multi-valued attributes
+         *        (i.e. potentially Class-Path) Class-Path into a
+         *        single attribute.
+         *
+         * @throws IOException if the section cannot be written
+         * @since Ant 1.8.0
+         */
+        public void write(PrintWriter writer, boolean flatten)
+            throws IOException {
             if (name != null) {
                 Attribute nameAttr = new Attribute(ATTRIBUTE_NAME, name);
                 nameAttr.write(writer);
             }
-            Enumeration e = getAttributeKeys();
+            Enumeration<String> e = getAttributeKeys();
             while (e.hasMoreElements()) {
-                String key = (String) e.nextElement();
+                String key = e.nextElement();
                 Attribute attribute = getAttribute(key);
-                attribute.write(writer);
+                attribute.write(writer, flatten);
             }
             writer.print(EOL);
         }
@@ -525,7 +597,7 @@ public class Manifest {
          *         instances.
          */
         public Attribute getAttribute(String attributeName) {
-            return (Attribute) attributes.get(attributeName.toLowerCase());
+            return (Attribute) attributes.get(attributeName.toLowerCase(Locale.ENGLISH));
         }
 
         /**
@@ -534,8 +606,8 @@ public class Manifest {
          * @return an Enumeration of Strings, each string being the lower case
          *         key of an attribute of the section.
          */
-        public Enumeration getAttributeKeys() {
-            return attributeIndex.elements();
+        public Enumeration<String> getAttributeKeys() {
+            return CollectionUtils.asEnumeration(attributes.keySet().iterator());
         }
 
         /**
@@ -547,7 +619,7 @@ public class Manifest {
          *         in the section
          */
         public String getAttributeValue(String attributeName) {
-            Attribute attribute = getAttribute(attributeName.toLowerCase());
+            Attribute attribute = getAttribute(attributeName.toLowerCase(Locale.ENGLISH));
             if (attribute == null) {
                 return null;
             }
@@ -560,9 +632,8 @@ public class Manifest {
          * @param attributeName the name of the attribute to be removed.
          */
         public void removeAttribute(String attributeName) {
-            String key = attributeName.toLowerCase();
+            String key = attributeName.toLowerCase(Locale.ENGLISH);
             attributes.remove(key);
-            attributeIndex.removeElement(key);
         }
 
         /**
@@ -598,7 +669,8 @@ public class Manifest {
             if (attribute.getName() == null || attribute.getValue() == null) {
                 throw new BuildException("Attributes must have name and value");
             }
-            if (attribute.getKey().equalsIgnoreCase(ATTRIBUTE_NAME)) {
+            String attributeKey = attribute.getKey();
+            if (attributeKey.equals(ATTRIBUTE_NAME_LC)) {
                 warnings.addElement("\"" + ATTRIBUTE_NAME + "\" attributes "
                     + "should not occur in the main section and must be the "
                     + "first element in all other sections: \""
@@ -606,13 +678,12 @@ public class Manifest {
                 return attribute.getValue();
             }
 
-            if (attribute.getKey().startsWith(ATTRIBUTE_FROM.toLowerCase())) {
+            if (attributeKey.startsWith(ATTRIBUTE_FROM_LC)) {
                 warnings.addElement(ERROR_FROM_FORBIDDEN
                     + attribute.getName() + ": " + attribute.getValue() + "\"");
             } else {
                 // classpath attributes go into a vector
-                String attributeKey = attribute.getKey();
-                if (attributeKey.equalsIgnoreCase(ATTRIBUTE_CLASSPATH)) {
+                if (attributeKey.equals(ATTRIBUTE_CLASSPATH_LC)) {
                     Attribute classpathAttribute =
                         (Attribute) attributes.get(attributeKey);
 
@@ -623,9 +694,9 @@ public class Manifest {
                             + "are supported but violate the Jar "
                             + "specification and may not be correctly "
                             + "processed in all environments");
-                        Enumeration e = attribute.getValues();
+                        Enumeration<String> e = attribute.getValues();
                         while (e.hasMoreElements()) {
-                            String value = (String) e.nextElement();
+                            String value = e.nextElement();
                             classpathAttribute.addValue(value);
                         }
                     }
@@ -649,9 +720,9 @@ public class Manifest {
         public Object clone() {
             Section cloned = new Section();
             cloned.setName(name);
-            Enumeration e = getAttributeKeys();
+            Enumeration<String> e = getAttributeKeys();
             while (e.hasMoreElements()) {
-                String key = (String) e.nextElement();
+                String key = e.nextElement();
                 Attribute attribute = getAttribute(key);
                 cloned.storeAttribute(new Attribute(attribute.getName(),
                                                     attribute.getValue()));
@@ -670,9 +741,6 @@ public class Manifest {
             }
             String attributeKey = attribute.getKey();
             attributes.put(attributeKey, attribute);
-            if (!attributeIndex.contains(attributeKey)) {
-                attributeIndex.addElement(attributeKey);
-            }
         }
 
         /**
@@ -680,7 +748,7 @@ public class Manifest {
          *
          * @return an Enumeration of warning strings.
          */
-        public Enumeration getWarnings() {
+        public Enumeration<String> getWarnings() {
             return warnings.elements();
         }
 
@@ -720,10 +788,7 @@ public class Manifest {
     private Section mainSection = new Section();
 
     /** The named sections of this manifest */
-    private Hashtable sections = new Hashtable();
-
-    /** Index of sections - used to retain order of sections in manifest */
-    private Vector sectionIndex = new Vector();
+    private Map<String, Section> sections = new LinkedHashMap<String, Section>();
 
     /**
      * Construct a manifest from Ant's default manifest file.
@@ -745,8 +810,12 @@ public class Manifest {
             try {
                 insr = new InputStreamReader(in, "UTF-8");
                 Manifest defaultManifest = new Manifest(insr);
+                String version = System.getProperty("java.runtime.version");
+                if (version == null) {
+                    version = System.getProperty("java.vm.version");
+                }
                 Attribute createdBy = new Attribute("Created-By",
-                    System.getProperty("java.vm.version") + " ("
+                    version + " ("
                     + System.getProperty("java.vm.vendor") + ")");
                 defaultManifest.getMainSection().storeAttribute(createdBy);
                 return defaultManifest;
@@ -833,9 +902,6 @@ public class Manifest {
             throw new BuildException("Sections must have a name");
         }
         sections.put(sectionName, section);
-        if (!sectionIndex.contains(sectionName)) {
-            sectionIndex.addElement(sectionName);
-        }
     }
 
     /**
@@ -850,7 +916,7 @@ public class Manifest {
         if (attribute.getKey() == null || attribute.getValue() == null) {
             throw new BuildException("Attributes must have name and value");
         }
-        if (attribute.getKey().equalsIgnoreCase(ATTRIBUTE_MANIFEST_VERSION)) {
+        if (attribute.getKey().equals(ATTRIBUTE_MANIFEST_VERSION_LC)) {
             manifestVersion = attribute.getValue();
         } else {
             mainSection.addConfiguredAttribute(attribute);
@@ -859,6 +925,7 @@ public class Manifest {
 
     /**
      * Merge the contents of the given manifest into this manifest
+     * without merging Class-Path attributes.
      *
      * @param other the Manifest to be merged with this one.
      *
@@ -871,6 +938,7 @@ public class Manifest {
 
     /**
      * Merge the contents of the given manifest into this manifest
+     * without merging Class-Path attributes.
      *
      * @param other the Manifest to be merged with this one.
      * @param overwriteMain whether to overwrite the main section
@@ -881,42 +949,78 @@ public class Manifest {
      */
     public void merge(Manifest other, boolean overwriteMain)
          throws ManifestException {
+        merge(other, overwriteMain, false);
+    }
+
+    /**
+     * Merge the contents of the given manifest into this manifest
+     *
+     * @param other the Manifest to be merged with this one.
+     * @param overwriteMain whether to overwrite the main section
+     *        of the current manifest
+     * @param mergeClassPaths whether Class-Path attributes should be
+     *        merged.
+     *
+     * @throws ManifestException if there is a problem merging the
+     *         manifest according to the Manifest spec.
+     *
+     * @since Ant 1.8.0
+     */
+    public void merge(Manifest other, boolean overwriteMain,
+                      boolean mergeClassPaths)
+         throws ManifestException {
         if (other != null) {
              if (overwriteMain) {
                  mainSection = (Section) other.mainSection.clone();
              } else {
-                 mainSection.merge(other.mainSection);
+                 mainSection.merge(other.mainSection, mergeClassPaths);
              }
 
              if (other.manifestVersion != null) {
                  manifestVersion = other.manifestVersion;
              }
 
-             Enumeration e = other.getSectionNames();
+             Enumeration<String> e = other.getSectionNames();
              while (e.hasMoreElements()) {
-                 String sectionName = (String) e.nextElement();
-                 Section ourSection = (Section) sections.get(sectionName);
+                 String sectionName = e.nextElement();
+                 Section ourSection = sections.get(sectionName);
                  Section otherSection
-                    = (Section) other.sections.get(sectionName);
+                    = other.sections.get(sectionName);
                  if (ourSection == null) {
                      if (otherSection != null) {
                          addConfiguredSection((Section) otherSection.clone());
                      }
                  } else {
-                     ourSection.merge(otherSection);
+                     ourSection.merge(otherSection, mergeClassPaths);
                  }
              }
          }
     }
 
     /**
+     * Write the manifest out to a print writer without flattening
+     * multi-values attributes (i.e. Class-Path).
+     *
+     * @param writer the Writer to which the manifest is written
+     *
+     * @throws IOException if the manifest cannot be written
+     */
+    public void write(PrintWriter writer) throws IOException {
+        write(writer, false);
+    }
+
+    /**
     * Write the manifest out to a print writer.
     *
     * @param writer the Writer to which the manifest is written
+    * @param flatten whether to collapse multi-valued attributes
+    *        (i.e. potentially Class-Path) Class-Path into a single
+    *        attribute.
     *
     * @throws IOException if the manifest cannot be written
+    * @since Ant 1.8.0
     */
-    public void write(PrintWriter writer) throws IOException {
+    public void write(PrintWriter writer, boolean flatten) throws IOException {
         writer.print(ATTRIBUTE_MANIFEST_VERSION + ": " + manifestVersion + EOL);
         String signatureVersion
             = mainSection.getAttributeValue(ATTRIBUTE_SIGNATURE_VERSION);
@@ -925,7 +1029,7 @@ public class Manifest {
                 + signatureVersion + EOL);
             mainSection.removeAttribute(ATTRIBUTE_SIGNATURE_VERSION);
         }
-        mainSection.write(writer);
+        mainSection.write(writer, flatten);
 
         // add it back
         if (signatureVersion != null) {
@@ -938,11 +1042,9 @@ public class Manifest {
             }
         }
 
-        Enumeration e = sectionIndex.elements();
-        while (e.hasMoreElements()) {
-            String sectionName = (String) e.nextElement();
+        for (String sectionName : sections.keySet()) {
             Section section = getSection(sectionName);
-            section.write(writer);
+            section.write(writer, flatten);
         }
     }
 
@@ -967,19 +1069,17 @@ public class Manifest {
      *
      * @return an enumeration of warning strings
      */
-    public Enumeration getWarnings() {
-        Vector warnings = new Vector();
+    public Enumeration<String> getWarnings() {
+        Vector<String> warnings = new Vector<String>();
 
-        Enumeration warnEnum = mainSection.getWarnings();
+        Enumeration<String> warnEnum = mainSection.getWarnings();
         while (warnEnum.hasMoreElements()) {
             warnings.addElement(warnEnum.nextElement());
         }
 
         // create a vector and add in the warnings for all the sections
-        Enumeration e = sections.elements();
-        while (e.hasMoreElements()) {
-            Section section = (Section) e.nextElement();
-            Enumeration e2 = section.getWarnings();
+        for (Section section : sections.values()) {
+            Enumeration<String> e2 = section.getWarnings();
             while (e2.hasMoreElements()) {
                 warnings.addElement(e2.nextElement());
             }
@@ -1068,7 +1168,7 @@ public class Manifest {
      *
      * @return an Enumeration of section names
      */
-    public Enumeration getSectionNames() {
-        return sectionIndex.elements();
+    public Enumeration<String> getSectionNames() {
+        return CollectionUtils.asEnumeration(sections.keySet().iterator());
     }
 }

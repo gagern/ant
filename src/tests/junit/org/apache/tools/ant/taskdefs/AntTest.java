@@ -101,7 +101,6 @@ public class AntTest extends BuildFileTest {
     public void testDoNotInheritBasedir() {
         File dir1 = getProjectDir();
         File dir2 = project.resolveFile("ant");
-        String basedir = getProjectDir().getAbsolutePath();
         testBaseDirs("doNotInheritBasedir",
                      new String[] {dir1.getAbsolutePath(),
                                    dir2.getAbsolutePath()
@@ -313,7 +312,9 @@ public class AntTest extends BuildFileTest {
 
     public void testAntCoreLib() {
         // Cf. #42263
-        expectLogContaining("sub-show-ant.core.lib", "ant.jar");
+        executeTarget("sub-show-ant.core.lib");
+        String realLog = getLog();
+        assertTrue("found ant.core.lib in: " + realLog, realLog.matches(".*(ant[.]jar|build.classes).*"));
     }
 
     private class BasedirChecker implements BuildListener {

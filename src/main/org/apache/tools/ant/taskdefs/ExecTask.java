@@ -20,10 +20,8 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Vector;
 import java.util.Locale;
-
+import java.util.Map;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -116,7 +114,7 @@ public class ExecTask extends Task {
      */
     public void setTimeout(Long value) {
         timeout = value;
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= timeout != null;
     }
 
     /**
@@ -365,7 +363,7 @@ public class ExecTask extends Task {
      */
     public void setFailIfExecutionFails(boolean flag) {
         failIfExecFails = flag;
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= flag;
     }
 
     /**
@@ -378,7 +376,7 @@ public class ExecTask extends Task {
      */
     public void setAppend(boolean append) {
         redirector.setAppend(append);
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= append;
     }
 
     /**
@@ -401,7 +399,7 @@ public class ExecTask extends Task {
      * @param osFamily the family to restrict to.
      */
     public void setOsFamily(String osFamily) {
-        this.osFamily = osFamily.toLowerCase(Locale.US);
+        this.osFamily = osFamily.toLowerCase(Locale.ENGLISH);
     }
 
     /**
@@ -454,14 +452,9 @@ public class ExecTask extends Task {
                 }
             }
             if (p == null) {
-                Vector envVars = Execute.getProcEnvironment();
-                Enumeration e = envVars.elements();
-                while (e.hasMoreElements()) {
-                    String line = (String) e.nextElement();
-                    if (isPath(line)) {
-                        p = new Path(getProject(), getPath(line));
-                        break;
-                    }
+                String path = getPath(Execute.getEnvironmentVariables());
+                if (path != null) {
+                    p = new Path(getProject(), path);
                 }
             }
             if (p != null) {
@@ -723,5 +716,10 @@ public class ExecTask extends Task {
 
     private String getPath(String line) {
         return line.substring("PATH=".length());
+    }
+
+    private String getPath(Map<String, String> map) {
+        String p = map.get("PATH");
+        return p != null ? p : map.get("Path");
     }
 }

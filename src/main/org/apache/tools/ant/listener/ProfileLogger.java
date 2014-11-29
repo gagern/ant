@@ -18,8 +18,8 @@
 package org.apache.tools.ant.listener;
 
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.DefaultLogger;
@@ -32,7 +32,7 @@ import org.apache.tools.ant.util.StringUtils;
  */
 public class ProfileLogger extends DefaultLogger {
 
-    private Map profileData = new HashMap(); // <Object, Date>
+    private Map<Object, Date> profileData = new ConcurrentHashMap<Object, Date>();
 
     /**
      * Logs a message to say that the target has started.
@@ -93,10 +93,10 @@ public class ProfileLogger extends DefaultLogger {
         String msg = null;
         if (start != null) {
             long diff = now.getTime() - start.getTime();
-            msg = StringUtils.LINE_SEP + name + ": finished" + now + " ("
+            msg = StringUtils.LINE_SEP + name + ": finished " + now + " ("
                     + diff + "ms)";
         } else {
-            msg = StringUtils.LINE_SEP + name + ": finished" + now
+            msg = StringUtils.LINE_SEP + name + ": finished " + now
                     + " (unknown duration, start not detected)";
         }
         printMessage(msg, out, event.getPriority());

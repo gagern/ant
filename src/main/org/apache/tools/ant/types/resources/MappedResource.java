@@ -35,6 +35,8 @@ public class MappedResource extends ResourceDecorator {
 
     /**
      * Wraps an existing resource.
+     * @param r Resource to wrap
+     * @param m FileNameMapper that handles mapping
      */
     public MappedResource(Resource r, FileNameMapper m) {
         super(r);
@@ -48,14 +50,14 @@ public class MappedResource extends ResourceDecorator {
         String name = getResource().getName();
         if (isReference()) {
             return name;
-        } else {
-            String[] mapped = mapper.mapFileName(name);
-            return mapped != null && mapped.length > 0 ? mapped[0] : null;
         }
+        String[] mapped = mapper.mapFileName(name);
+        return mapped != null && mapped.length > 0 ? mapped[0] : null;
     }
 
     /**
      * Not really supported since mapper is never null.
+     * @param r reference to set
      */
     public void setRefid(Reference r) {
         if (mapper != null) {
@@ -66,10 +68,35 @@ public class MappedResource extends ResourceDecorator {
 
     /**
      * Suppress FileProvider
+     * @param clazz the type to implement
      */
-    public Object as(Class clazz) {
+    public <T> T as(Class<T> clazz) {
         return FileProvider.class.isAssignableFrom(clazz) 
-            ? null : getResource().as(clazz);
+                ? null : getResource().as(clazz);
     }
 
+    /**
+     * Get the hash code for this Resource.
+     * @since Ant 1.8.1
+     */
+    public int hashCode() {
+        String n = getName();
+        return n == null ? super.hashCode() : n.hashCode();
+    }
+
+    /**
+     * Equality check based on the resource's name in addition to the
+     * resource itself.
+     * @since Ant 1.8.1
+     */
+    public boolean equals(Object other) {
+        if (other == null || !other.getClass().equals(getClass())) {
+            return false;
+        }
+        MappedResource m = (MappedResource) other;
+        String myName = getName();
+        String otherName = m.getName();
+        return (myName == null ? otherName == null : myName.equals(otherName))
+            && getResource().equals(m.getResource());
+    }
 }

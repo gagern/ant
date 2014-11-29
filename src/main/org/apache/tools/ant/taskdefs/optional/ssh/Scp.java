@@ -182,7 +182,7 @@ public class Scp extends SSHBase {
     }
 
     /**
-     * Adds a FileSet tranfer to remote host.  NOTE: Either
+     * Adds a FileSet transfer to remote host.  NOTE: Either
      * addFileSet() or setFile() are required.  But, not both.
      *
      * @param set FileSet to send to remote host.
@@ -235,7 +235,15 @@ public class Scp extends SSHBase {
             }
         } catch (Exception e) {
             if (getFailonerror()) {
-                throw new BuildException(e);
+                if(e instanceof BuildException) {
+                    BuildException be = (BuildException) e;
+                    if(be.getLocation() == null) {
+                        be.setLocation(getLocation());
+                    }
+                    throw be;
+                } else {
+                    throw new BuildException(e);
+                }
             } else {
                 log("Caught exception: " + e.getMessage(), Project.MSG_ERR);
             }

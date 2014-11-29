@@ -18,6 +18,8 @@
 package org.apache.tools.ant.helper;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,12 +29,12 @@ import java.util.Vector;
 import org.xml.sax.Locator;
 import org.xml.sax.Attributes;
 
-
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.Target;
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Location;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.RuntimeConfigurable;
-
+import org.apache.tools.ant.Target;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Context information for the ant processing.
@@ -45,17 +47,26 @@ public class AntXMLContext {
     /** The configuration file to parse. */
     private File buildFile;
 
+    /** The configuration file to parse. */
+    private URL buildFileURL;
+
     /** Vector with all the targets, in the order they are
      * defined. Project maintains a Hashtable, which is not ordered.
      * This will allow description to know the original order.
      */
-    private Vector targetVector = new Vector();
+    private Vector<Target> targetVector = new Vector<Target>();
 
     /**
      * Parent directory of the build file. Used for resolving entities
      * and setting the project's base directory.
      */
     private File buildFileParent;
+
+    /**
+     * Parent directory of the build file. Used for resolving entities
+     * and setting the project's base directory.
+     */
+    private URL buildFileParentURL;
 
     /** Name of the current project */
     private String currentProjectName;
@@ -81,7 +92,7 @@ public class AntXMLContext {
     /** The stack of RuntimeConfigurable2 wrapping the
         objects.
     */
-    private Vector wStack = new Vector();
+    private Vector<RuntimeConfigurable> wStack = new Vector<RuntimeConfigurable>();
 
     /**
      * Indicates whether the project tag attributes are to be ignored
@@ -90,11 +101,11 @@ public class AntXMLContext {
     private boolean ignoreProjectTag = false;
 
     /** Keeps track of prefix -> uri mapping during parsing */
-    private Map prefixMapping = new HashMap();
+    private Map<String, List<String>> prefixMapping = new HashMap<String, List<String>>();
 
 
     /** Keeps track of targets in files */
-    private Map currentTargets = null;
+    private Map<String, Target> currentTargets = null;
 
     /**
      * constructor
@@ -113,8 +124,30 @@ public class AntXMLContext {
      */
     public void setBuildFile(File buildFile) {
         this.buildFile = buildFile;
-        this.buildFileParent = new File(buildFile.getParent());
-        implicitTarget.setLocation(new Location(buildFile.getAbsolutePath()));
+        if (buildFile != null) {
+            this.buildFileParent = new File(buildFile.getParent());
+            implicitTarget.setLocation(new Location(buildFile.getAbsolutePath()));
+            try {
+                setBuildFile(FileUtils.getFileUtils().getFileURL(buildFile));
+            } catch (MalformedURLException ex) {
+                throw new BuildException(ex);
+            }
+        } else {
+            this.buildFileParent = null;
+        }
+    }
+
+    /**
+     * sets the build file to which the XML context belongs
+     * @param buildFile  ant build file
+     * @since Ant 1.8.0
+     */
+    public void setBuildFile(URL buildFile) throws MalformedURLException {
+        this.buildFileURL = buildFile;
+        this.buildFileParentURL = new URL(buildFile, ".");
+        if (implicitTarget.getLocation() == null) {
+            implicitTarget.setLocation(new Location(buildFile.toString()));
+        }
     }
 
     /**
@@ -131,6 +164,24 @@ public class AntXMLContext {
      */
     public File getBuildFileParent() {
         return buildFileParent;
+    }
+
+    /**
+     * find out the build file
+     * @return  the build file to which the xml context belongs
+     * @since Ant 1.8.0
+     */
+    public URL getBuildFileURL() {
+        return buildFileURL;
+    }
+
+    /**
+     * find out the parent build file of this build file
+     * @return the parent build file of this build file
+     * @since Ant 1.8.0
+     */
+    public URL getBuildFileParentURL() {
+        return buildFileParentURL;
     }
 
     /**
@@ -202,7 +253,7 @@ public class AntXMLContext {
      * access the stack of wrappers
      * @return the stack of wrappers
      */
-    public Vector getWrapperStack() {
+    public Vector<RuntimeConfigurable> getWrapperStack() {
         return wStack;
     }
 
@@ -251,7 +302,7 @@ public class AntXMLContext {
      * access the vector of targets
      * @return vector of targets
      */
-    public Vector getTargets() {
+    public Vector<Target> getTargets() {
         return targetVector;
     }
 
@@ -311,9 +362,9 @@ public class AntXMLContext {
      * @param uri    a namespace uri
      */
     public void startPrefixMapping(String prefix, String uri) {
-        List list = (List) prefixMapping.get(prefix);
+        List<String> list = prefixMapping.get(prefix);
         if (list == null) {
-            list = new ArrayList();
+            list = new ArrayList<String>();
             prefixMapping.put(prefix, list);
         }
         list.add(uri);
@@ -325,7 +376,7 @@ public class AntXMLContext {
      * @param prefix the namespace prefix
      */
     public void endPrefixMapping(String prefix) {
-        List list = (List) prefixMapping.get(prefix);
+        List<String> list = prefixMapping.get(prefix);
         if (list == null || list.size() == 0) {
             return; // Should not happen
         }
@@ -339,7 +390,7 @@ public class AntXMLContext {
      * @return the uri for this prefix, null if not present
      */
     public String getPrefixMapping(String prefix) {
-        List list = (List) prefixMapping.get(prefix);
+        List<String> list = prefixMapping.get(prefix);
         if (list == null || list.size() == 0) {
             return null;
         }
@@ -350,7 +401,7 @@ public class AntXMLContext {
      * Get the targets in the current source file.
      * @return the current targets.
      */
-    public Map getCurrentTargets() {
+    public Map<String, Target> getCurrentTargets() {
         return currentTargets;
     }
 
@@ -358,7 +409,7 @@ public class AntXMLContext {
      * Set the map of the targets in the current source file.
      * @param currentTargets a map of targets.
      */
-    public void setCurrentTargets(Map currentTargets) {
+    public void setCurrentTargets(Map<String, Target> currentTargets) {
         this.currentTargets = currentTargets;
     }
 

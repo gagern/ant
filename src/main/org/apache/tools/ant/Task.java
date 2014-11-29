@@ -185,7 +185,7 @@ public abstract class Task extends ProjectComponent {
         this.wrapper = wrapper;
     }
 
-    // XXX: (Jon Skeet) The comment "if it hasn't been done already" may
+    // TODO: (Jon Skeet) The comment "if it hasn't been done already" may
     // not be strictly true. wrapper.maybeConfigure() won't configure the same
     // attributes/text more than once, but it may well add the children again,
     // unless I've missed something.
@@ -408,7 +408,7 @@ public abstract class Task extends ProjectComponent {
             replacement.setProject(getProject());
             replacement.setTaskType(taskType);
             replacement.setTaskName(taskName);
-            replacement.setLocation(location);
+            replacement.setLocation(getLocation());
             replacement.setOwningTarget(target);
             replacement.setRuntimeConfigurableWrapper(wrapper);
             wrapper.setProxy(replacement);
@@ -427,10 +427,9 @@ public abstract class Task extends ProjectComponent {
      */
     private void replaceChildren(RuntimeConfigurable wrapper,
                                  UnknownElement parentElement) {
-        Enumeration e = wrapper.getChildren();
+        Enumeration<RuntimeConfigurable> e = wrapper.getChildren();
         while (e.hasMoreElements()) {
-            RuntimeConfigurable childWrapper =
-                (RuntimeConfigurable) e.nextElement();
+            RuntimeConfigurable childWrapper = e.nextElement();
             UnknownElement childElement =
                 new UnknownElement(childWrapper.getElementTag());
             parentElement.addChild(childElement);

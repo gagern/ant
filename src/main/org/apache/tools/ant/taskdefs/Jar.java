@@ -22,7 +22,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,7 +34,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
@@ -46,6 +44,7 @@ import java.util.zip.ZipFile;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Manifest.Section;
+import org.apache.tools.ant.types.ArchiveFileSet;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Path;
@@ -75,7 +74,7 @@ public class Jar extends Zip {
     /**
      * List of all known SPI Services
      */
-    private List serviceList = new ArrayList();
+    private List<Service> serviceList = new ArrayList<Service>();
 
     /** merged manifests added through addConfiguredManifest */
     private Manifest configuredManifest;
@@ -139,7 +138,7 @@ public class Jar extends Zip {
      *
      * @since Ant 1.6
      */
-    private Vector rootEntries;
+    private Vector<String> rootEntries;
 
     /**
      * Path containing jars that shall be indexed in addition to this archive.
@@ -158,6 +157,16 @@ public class Jar extends Zip {
     // CheckStyle:LineLength ON
 
     /**
+     * whether to merge Class-Path attributes.
+     */
+    private boolean mergeClassPaths = false;
+
+    /**
+     * whether to flatten Class-Path attributes into a single one.
+     */
+    private boolean flattenClassPaths = false;
+
+    /**
      * Extra fields needed to make Solaris recognize the archive as a jar file.
      *
      * @since Ant 1.6.3
@@ -172,7 +181,8 @@ public class Jar extends Zip {
         archiveType = "jar";
         emptyBehavior = "create";
         setEncoding("UTF8");
-        rootEntries = new Vector();
+        setZip64Mode(Zip64ModeAttribute.NEVER);
+        rootEntries = new Vector<String>();
     }
 
     /**
@@ -239,7 +249,8 @@ public class Jar extends Zip {
      * jars on Java 1.4 or earlier Ant will not include META-INF
      * unless explicitly asked to.</p>
      *
-     * @see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4408526
+     * @see <a href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4408526">
+     * jar -i omits service providers in index.list</a>
      * @since Ant 1.8.0
      * @param flag a <code>boolean</code> value, defaults to false
      */
@@ -268,7 +279,7 @@ public class Jar extends Zip {
         if (configuredManifest == null) {
             configuredManifest = newManifest;
         } else {
-            configuredManifest.merge(newManifest);
+            configuredManifest.merge(newManifest, false, mergeClassPaths);
         }
         savedConfiguredManifest = configuredManifest;
     }
@@ -327,9 +338,9 @@ public class Jar extends Zip {
 
             // must not use getEntry as "well behaving" applications
             // must accept the manifest in any capitalization
-            Enumeration e = zf.entries();
+            Enumeration<? extends ZipEntry> e = zf.entries();
             while (e.hasMoreElements()) {
-                ZipEntry ze = (ZipEntry) e.nextElement();
+                ZipEntry ze = e.nextElement();
                 if (ze.getName().equalsIgnoreCase(MANIFEST_NAME)) {
                     InputStreamReader isr =
                         new InputStreamReader(zf.getInputStream(ze), "UTF-8");
@@ -342,7 +353,7 @@ public class Jar extends Zip {
                 try {
                     zf.close();
                 } catch (IOException e) {
-                    // XXX - log an error?  throw an exception?
+                    // TODO - log an error?  throw an exception?
                 }
             }
         }
@@ -368,9 +379,9 @@ public class Jar extends Zip {
         ZipFile zf = null;
         try {
             zf = new ZipFile(jarFile);
-            Enumeration e = zf.entries();
+            Enumeration<? extends ZipEntry> e = zf.entries();
             while (e.hasMoreElements()) {
-                ZipEntry ze = (ZipEntry) e.nextElement();
+                ZipEntry ze = e.nextElement();
                 if (ze.getName().equalsIgnoreCase(INDEX_NAME)) {
                     return true;
                 }
@@ -381,12 +392,12 @@ public class Jar extends Zip {
                 try {
                     zf.close();
                 } catch (IOException e) {
-                    // XXX - log an error?  throw an exception?
+                    // TODO - log an error?  throw an exception?
                 }
             }
         }
     }
-    
+
     /**
      * Behavior when a Manifest is found in a zipfileset or zipgroupfileset file.
      * Valid values are "skip", "merge", and "mergewithoutmain".
@@ -449,13 +460,7 @@ public class Jar extends Zip {
      * Write SPI Information to JAR
      */
     private void writeServices(ZipOutputStream zOut) throws IOException {
-        Iterator serviceIterator;
-        Service service;
-
-        serviceIterator = serviceList.iterator();
-        while (serviceIterator.hasNext()) {
-           service = (Service) serviceIterator.next();
-
+        for (Service service : serviceList) {
            InputStream is = null;
            try {
                is = service.getAsStream();
@@ -463,7 +468,7 @@ public class Jar extends Zip {
                super.zipFile(is, zOut,
                              "META-INF/services/" + service.getType(),
                              System.currentTimeMillis(), null,
-                             ZipFileSet.DEFAULT_FILE_MODE, null);
+                             ZipFileSet.DEFAULT_FILE_MODE);
            } finally {
                // technically this is unnecessary since
                // Service.getAsStream returns a ByteArrayInputStream
@@ -473,6 +478,24 @@ public class Jar extends Zip {
         }
     }
 
+    /**
+     * Whether to merge Class-Path attributes.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setMergeClassPathAttributes(boolean b) {
+        mergeClassPaths = b;
+    }
+
+    /**
+     * Whether to flatten multi-valued attributes (i.e. Class-Path)
+     * into a single one.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFlattenAttributes(boolean b) {
+        flattenClassPaths = b;
+    }
 
     /**
      * Initialize the zip output stream.
@@ -512,11 +535,13 @@ public class Jar extends Zip {
              */
 
             if (isInUpdateMode()) {
-                finalManifest.merge(originalManifest);
+                finalManifest.merge(originalManifest, false, mergeClassPaths);
             }
-            finalManifest.merge(filesetManifest);
-            finalManifest.merge(configuredManifest, !mergeManifestsMain);
-            finalManifest.merge(manifest, !mergeManifestsMain);
+            finalManifest.merge(filesetManifest, false, mergeClassPaths);
+            finalManifest.merge(configuredManifest, !mergeManifestsMain,
+                                mergeClassPaths);
+            finalManifest.merge(manifest, !mergeManifestsMain,
+                                mergeClassPaths);
 
             return finalManifest;
 
@@ -528,7 +553,7 @@ public class Jar extends Zip {
 
     private void writeManifest(ZipOutputStream zOut, Manifest manifest)
         throws IOException {
-        for (Enumeration e = manifest.getWarnings();
+        for (Enumeration<String> e = manifest.getWarnings();
              e.hasMoreElements();) {
             log("Manifest warning: " + e.nextElement(),
                 Project.MSG_WARN);
@@ -540,7 +565,7 @@ public class Jar extends Zip {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OutputStreamWriter osw = new OutputStreamWriter(baos, Manifest.JAR_ENCODING);
         PrintWriter writer = new PrintWriter(osw);
-        manifest.write(writer);
+        manifest.write(writer, flattenClassPaths);
         if (writer.checkError()) {
             throw new IOException("Encountered an error writing the manifest");
         }
@@ -551,7 +576,7 @@ public class Jar extends Zip {
         try {
             super.zipFile(bais, zOut, MANIFEST_NAME,
                           System.currentTimeMillis(), null,
-                          ZipFileSet.DEFAULT_FILE_MODE, null);
+                          ZipFileSet.DEFAULT_FILE_MODE);
         } finally {
             // not really required
             FileUtils.close(bais);
@@ -597,7 +622,7 @@ public class Jar extends Zip {
         // header newline
         writer.println(zipFile.getName());
 
-        writeIndexLikeList(new ArrayList(addedDirs.keySet()),
+        writeIndexLikeList(new ArrayList<String>(addedDirs.keySet()),
                            rootEntries, writer);
         writer.println();
 
@@ -619,8 +644,8 @@ public class Jar extends Zip {
             for (int i = 0; i < indexJarEntries.length; i++) {
                 String name = findJarName(indexJarEntries[i], cpEntries);
                 if (name != null) {
-                    ArrayList dirs = new ArrayList();
-                    ArrayList files = new ArrayList();
+                    ArrayList<String> dirs = new ArrayList<String>();
+                    ArrayList<String> files = new ArrayList<String>();
                     grabFilesAndDirs(indexJarEntries[i], dirs, files);
                     if (dirs.size() + files.size() > 0) {
                         writer.println(name);
@@ -639,7 +664,7 @@ public class Jar extends Zip {
             new ByteArrayInputStream(baos.toByteArray());
         try {
             super.zipFile(bais, zOut, INDEX_NAME, System.currentTimeMillis(),
-                          null, ZipFileSet.DEFAULT_FILE_MODE, null);
+                          null, ZipFileSet.DEFAULT_FILE_MODE);
         } finally {
             // not really required
             FileUtils.close(bais);
@@ -648,7 +673,7 @@ public class Jar extends Zip {
 
     /**
      * Overridden from Zip class to deal with manifests and index lists.
-     * @param in the stream to read data for the entry from.  The
+     * @param is the stream to read data for the entry from.  The
      * caller of the method is responsible for closing the stream.
      * @param zOut the zip output stream
      * @param vPath the name this entry shall have in the archive
@@ -659,8 +684,7 @@ public class Jar extends Zip {
      * @throws IOException on error
      */
     protected void zipFile(InputStream is, ZipOutputStream zOut, String vPath,
-                           long lastModified, File fromArchive, int mode,
-                           ZipExtraField[] extra)
+                           long lastModified, File fromArchive, int mode)
         throws IOException {
         if (MANIFEST_NAME.equalsIgnoreCase(vPath))  {
             if (isFirstPass()) {
@@ -675,8 +699,7 @@ public class Jar extends Zip {
             if (index && vPath.indexOf("/") == -1) {
                 rootEntries.addElement(vPath);
             }
-            super.zipFile(is, zOut, vPath, lastModified, fromArchive, mode,
-                          extra);
+            super.zipFile(is, zOut, vPath, lastModified, fromArchive, mode);
         }
     }
 
@@ -724,7 +747,7 @@ public class Jar extends Zip {
                 if (filesetManifest == null) {
                     filesetManifest = newManifest;
                 } else {
-                    filesetManifest.merge(newManifest);
+                    filesetManifest.merge(newManifest, false, mergeClassPaths);
                 }
             } catch (UnsupportedEncodingException e) {
                 throw new BuildException("Unsupported encoding while reading "
@@ -784,7 +807,15 @@ public class Jar extends Zip {
             // manifest this means we claim an update was needed and
             // only include the manifests, skipping any uptodate
             // checks here defering them for the second run
-            return new ArchiveState(true, grabManifests(rcs));
+            Resource[][] manifests = grabManifests(rcs);
+            int count = 0;
+            for (int i = 0; i < manifests.length; i++) {
+                count += manifests[i].length;
+            }
+            log("found a total of " + count + " manifests in "
+                + manifests.length + " resource collections",
+                Project.MSG_VERBOSE);
+            return new ArchiveState(true, manifests);
         }
 
         // need to handle manifest as a special check
@@ -808,7 +839,7 @@ public class Jar extends Zip {
                 }
             } catch (Throwable t) {
                 log("error while reading original manifest in file: "
-                    + zipFile.toString() + t.getMessage(),
+                    + zipFile.toString() + " due to " + t.getMessage(),
                     Project.MSG_WARN);
                 needsUpdate = true;
             }
@@ -861,7 +892,7 @@ public class Jar extends Zip {
                 log("Building MANIFEST-only jar: "
                     + getDestFile().getAbsolutePath());
             }
-            zOut = new ZipOutputStream(new FileOutputStream(getDestFile()));
+            zOut = new ZipOutputStream(getDestFile());
 
             zOut.setEncoding(getEncoding());
             if (isCompress()) {
@@ -984,7 +1015,7 @@ public class Jar extends Zip {
      * @throws IOException on error
      * @since Ant 1.6.2
      */
-    protected final void writeIndexLikeList(List dirs, List files,
+    protected final void writeIndexLikeList(List<String> dirs, List<String> files,
                                             PrintWriter writer)
         throws IOException {
         // JarIndex is sorting the directories by ascending order.
@@ -992,10 +1023,7 @@ public class Jar extends Zip {
         // hashtable by the classloader, but we'll do so anyway.
         Collections.sort(dirs);
         Collections.sort(files);
-        Iterator iter = dirs.iterator();
-        while (iter.hasNext()) {
-            String dir = (String) iter.next();
-
+        for (String dir : dirs) {
             // try to be smart, not to be fooled by a weird directory name
             dir = dir.replace('\\', '/');
             if (dir.startsWith("./")) {
@@ -1012,7 +1040,7 @@ public class Jar extends Zip {
             // looks like nothing from META-INF should be added
             // and the check is not case insensitive.
             // see sun.misc.JarIndex
-            // see also 
+            // see also
             // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4408526
             if (!indexMetaInf && dir.startsWith("META-INF")) {
                 continue;
@@ -1021,9 +1049,8 @@ public class Jar extends Zip {
             writer.println(dir);
         }
 
-        iter = files.iterator();
-        while (iter.hasNext()) {
-            writer.println(iter.next());
+        for (String file : files) {
+            writer.println(file);
         }
     }
 
@@ -1053,7 +1080,7 @@ public class Jar extends Zip {
             return (new File(fileName)).getName();
         }
         fileName = fileName.replace(File.separatorChar, '/');
-        TreeMap matches = new TreeMap(new Comparator() {
+        TreeMap<String, String> matches = new TreeMap<String, String>(new Comparator<Object>() {
                 // longest match comes first
                 public int compare(Object o1, Object o2) {
                     if (o1 instanceof String && o2 instanceof String) {
@@ -1094,17 +1121,17 @@ public class Jar extends Zip {
      * @since Ant 1.7
      * @throws IOException on error
      */
-    protected static void grabFilesAndDirs(String file, List dirs,
-                                                 List files)
+    protected static void grabFilesAndDirs(String file, List<String> dirs,
+                                                 List<String> files)
         throws IOException {
         org.apache.tools.zip.ZipFile zf = null;
         try {
             zf = new org.apache.tools.zip.ZipFile(file, "utf-8");
-            Enumeration entries = zf.getEntries();
-            HashSet dirSet = new HashSet();
+            Enumeration<org.apache.tools.zip.ZipEntry> entries = zf.getEntries();
+            HashSet<String> dirSet = new HashSet<String>();
             while (entries.hasMoreElements()) {
                 org.apache.tools.zip.ZipEntry ze =
-                    (org.apache.tools.zip.ZipEntry) entries.nextElement();
+                    entries.nextElement();
                 String name = ze.getName();
                 if (ze.isDirectory()) {
                     dirSet.add(name);
@@ -1138,7 +1165,20 @@ public class Jar extends Zip {
                     });
             }
             for (int j = 0; j < resources[0].length; j++) {
-                if (resources[0][j].getName().equalsIgnoreCase(MANIFEST_NAME)) {
+                String name = resources[0][j].getName().replace('\\', '/');
+                if (rcs[i] instanceof ArchiveFileSet) {
+                    ArchiveFileSet afs = (ArchiveFileSet) rcs[i];
+                    if (!"".equals(afs.getFullpath(getProject()))) {
+                        name = afs.getFullpath(getProject());
+                    } else if (!"".equals(afs.getPrefix(getProject()))) {
+                        String prefix = afs.getPrefix(getProject());
+                        if (!prefix.endsWith("/") && !prefix.endsWith("\\")) {
+                            prefix += "/";
+                        }
+                        name = prefix + name;
+                    }
+                }
+                if (name.equalsIgnoreCase(MANIFEST_NAME)) {
                     manifests[i] = new Resource[] {resources[0][j]};
                     break;
                 }

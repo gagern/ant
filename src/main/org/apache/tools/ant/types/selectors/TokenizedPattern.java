@@ -38,17 +38,17 @@ public class TokenizedPattern {
         new TokenizedPattern("", new String[0]);
 
     private final String pattern;
-    private final String tokenizedPattern[];
+    private final String[] tokenizedPattern;
 
     /**
-    * Initialize the PathPattern by parsing it. 
+    * Initialize the PathPattern by parsing it.
     * @param pattern The pattern to match against. Must not be
     *                <code>null</code>.
     */
     public TokenizedPattern(String pattern) {
         this(pattern, SelectorUtils.tokenizePathAsArray(pattern));
     }
-    
+
     TokenizedPattern(String pattern, String[] tokens) {
         this.pattern = pattern;
         this.tokenizedPattern = tokens;
@@ -57,7 +57,7 @@ public class TokenizedPattern {
     /**
      * Tests whether or not a given path matches a given pattern.
      *
-     * @param str     The path to match, as a String. Must not be
+     * @param path    The path to match, as a String. Must not be
      *                <code>null</code>.
      * @param isCaseSensitive Whether or not matching should be performed
      *                        case sensitively.
@@ -69,7 +69,7 @@ public class TokenizedPattern {
         return SelectorUtils.matchPath(tokenizedPattern, path.getTokens(),
                                        isCaseSensitive);
     }
-    
+
     /**
      * Tests whether or not this pattern matches the start of
      * a path.
@@ -86,7 +86,7 @@ public class TokenizedPattern {
     public String toString() {
         return pattern;
     }
-    
+
     public String getPattern() {
         return pattern;
     }
@@ -128,7 +128,7 @@ public class TokenizedPattern {
      * @return the leftmost part of the pattern without wildcards
      */
     public TokenizedPath rtrimWildcardTokens() {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         int newLen = 0;
         for (; newLen < tokenizedPattern.length; newLen++) {
             if (SelectorUtils.hasWildcards(tokenizedPattern[newLen])) {
@@ -173,5 +173,5 @@ public class TokenizedPattern {
             return new TokenizedPattern(pattern.substring(0, index), tokens);
         }
     }
-        
+
 }

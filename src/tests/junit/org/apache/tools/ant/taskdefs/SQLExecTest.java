@@ -24,6 +24,7 @@ import java.sql.DriverPropertyInfo;
 import java.util.Properties;
 import java.io.File;
 import java.net.URL;
+import java.util.logging.Logger;
 
 import junit.framework.TestCase;
 
@@ -70,7 +71,7 @@ public class SQLExecTest extends TestCase {
         try {
             sql.execute();
         } catch (BuildException e){
-            assertTrue(e.getException().getMessage().indexOf("No suitable Driver") != -1);
+            assertTrue(e.getCause().getMessage().indexOf("No suitable Driver") != -1);
         }
         assertTrue(SQLExec.getLoaderMap().containsKey(NULL_DRIVER));
         assertSame(sql.getLoader(), JDBCTask.getLoaderMap().get(NULL_DRIVER));
@@ -83,7 +84,7 @@ public class SQLExecTest extends TestCase {
         try {
             sql.execute();
         } catch (BuildException e){
-            assertTrue(e.getException().getMessage().indexOf("No suitable Driver") != -1);
+            assertTrue(e.getCause().getMessage().indexOf("No suitable Driver") != -1);
         }
         assertTrue(JDBCTask.getLoaderMap().containsKey(NULL_DRIVER));
         assertSame(sql.getLoader(), JDBCTask.getLoaderMap().get(NULL_DRIVER));
@@ -231,6 +232,10 @@ public class SQLExecTest extends TestCase {
 
         public boolean jdbcCompliant() {
             return false;
+        }
+
+        public Logger getParentLogger() /*throws SQLFeatureNotSupportedException*/ {
+            return Logger.getAnonymousLogger();
         }
     }
 

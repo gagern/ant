@@ -32,8 +32,11 @@
 
   <!-- https://issues.apache.org/bugzilla/show_bug.cgi?id=46285 -->
   <target name="testNumericEntities">
-    <echo>&#xe4;&#169;</echo>
-    <au:assertLogContains text="ä©"/>
+    <echo encoding="UTF-8" file="${output}/abc.txt">&#xe4;&#169;</echo>
+    <loadresource property="foo" encoding="UTF-8">
+      <file file="${output}/abc.txt"/>
+    </loadresource>
+    <au:assertPropertyEquals name="foo" value="ä©"/>
   </target>
 
 </project>

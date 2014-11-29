@@ -22,9 +22,12 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.Properties;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
@@ -69,10 +72,10 @@ public class SQLExampleTask extends JDBCTask {
 
         } finally {
             if (stmt != null) {
-                try {stmt.close();}catch (SQLException ingore) {}
+                try {stmt.close();}catch (SQLException ignore) {}
             }
             if (conn != null) {
-                try {conn.close();}catch (SQLException ingore) {}
+                try {conn.close();}catch (SQLException ignore) {}
             }
         }
     }
@@ -99,7 +102,7 @@ public abstract class JDBCTask extends Task {
      * getting an OutOfMemoryError when calling this task
      * multiple times in a row.
      */
-    private static Hashtable loaderMap = new Hashtable(HASH_TABLE_SIZE);
+    private static Hashtable<String, AntClassLoader> LOADER_MAP = new Hashtable<String, AntClassLoader>(HASH_TABLE_SIZE);
 
     private boolean caching = true;
 
@@ -147,6 +150,13 @@ public abstract class JDBCTask extends Task {
      * @since Ant 1.8.0
      */
     private boolean failOnConnectionError = true;
+
+    /**
+     * Additional properties to put into the JDBC connection string.
+     *
+     * @since Ant 1.8.0
+     */
+    private List<Property> connectionProperties = new ArrayList<Property>();
 
     /**
      * Sets the classpath for loading the driver.
@@ -293,8 +303,8 @@ public abstract class JDBCTask extends Task {
      * Get the cache of loaders and drivers.
      * @return a hashtable
      */
-    protected static Hashtable getLoaderMap() {
-        return loaderMap;
+    protected static Hashtable<String, AntClassLoader> getLoaderMap() {
+        return LOADER_MAP;
     }
 
     /**
@@ -303,6 +313,15 @@ public abstract class JDBCTask extends Task {
      */
     protected AntClassLoader getLoader() {
         return loader;
+    }
+
+    /**
+     * Additional properties to put into the JDBC connection string.
+     *
+     * @since Ant 1.8.0
+     */
+    public void addConnectionProperty(Property var) {
+        connectionProperties.add(var);
     }
 
     /**
@@ -332,6 +351,22 @@ public abstract class JDBCTask extends Task {
             Properties info = new Properties();
             info.put("user", getUserId());
             info.put("password", getPassword());
+
+            for (Iterator<Property> props = connectionProperties.iterator();
+                 props.hasNext(); ) {
+                Property p = props.next();
+                String name = p.getName();
+                String value = p.getValue();
+                if (name == null || value == null) {
+                    log("Only name/value pairs are supported as connection"
+                        + " properties.", Project.MSG_WARN);
+                } else {
+                    log("Setting connection property " + name + " to " + value,
+                        Project.MSG_VERBOSE);
+                    info.put(name, value);
+                }
+            }
+
             Connection conn = getDriver().connect(getUrl(), info);
 
             if (conn == null) {
@@ -366,7 +401,7 @@ public abstract class JDBCTask extends Task {
 
         Driver driverInstance = null;
         try {
-            Class dc;
+            Class<?> dc;
             if (classpath != null) {
                 // check first that it is not already loaded otherwise
                 // consecutive runs seems to end into an OutOfMemoryError
@@ -374,9 +409,9 @@ public abstract class JDBCTask extends Task {
                 // several times.
                 // this is far from being perfect but should work
                 // in most cases.
-                synchronized (loaderMap) {
+                synchronized (LOADER_MAP) {
                     if (caching) {
-                        loader = (AntClassLoader) loaderMap.get(driver);
+                        loader = (AntClassLoader) LOADER_MAP.get(driver);
                     }
                     if (loader == null) {
                         log("Loading " + driver
@@ -384,7 +419,7 @@ public abstract class JDBCTask extends Task {
                             + classpath, Project.MSG_VERBOSE);
                         loader = getProject().createClassLoader(classpath);
                         if (caching) {
-                            loaderMap.put(driver, loader);
+                            LOADER_MAP.put(driver, loader);
                         }
                     } else {
                         log("Loading " + driver

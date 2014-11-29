@@ -265,17 +265,9 @@ public abstract class BuildFileTest extends TestCase {
 
     private String cleanBuffer(StringBuffer buffer) {
         StringBuffer cleanedBuffer = new StringBuffer();
-        boolean cr = false;
         for (int i = 0; i < buffer.length(); i++) {
             char ch = buffer.charAt(i);
-            if (ch == '\r') {
-                cr = true;
-                continue;
-            }
-
-            if (!cr) {
-                cleanedBuffer.append(ch);
-            } else {
+            if (ch != '\r') {
                 cleanedBuffer.append(ch);
             }
         }
@@ -436,8 +428,12 @@ public abstract class BuildFileTest extends TestCase {
      *
      * @param property property name
      */
-    public  void assertPropertyUnset(String property) {
-        assertPropertyEquals(property, null);
+    public void assertPropertyUnset(String property) {
+        String result = project.getProperty(property);
+        if (result != null) {
+            fail("Expected property " + property
+                    + " to be unset, but it is set to the value: " + result);
+        }
     }
 
     /**
@@ -477,7 +473,7 @@ public abstract class BuildFileTest extends TestCase {
     /**
      * an output stream which saves stuff to our buffer.
      */
-    private static class AntOutputStream extends java.io.OutputStream {
+    protected static class AntOutputStream extends java.io.OutputStream {
         private StringBuffer buffer;
 
         public AntOutputStream( StringBuffer buffer ) {

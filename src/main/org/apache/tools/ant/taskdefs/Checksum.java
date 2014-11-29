@@ -30,10 +30,7 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Iterator;
 import java.util.Hashtable;
-import java.util.Enumeration;
-import java.util.Set;
 import java.util.Arrays;
 import java.text.MessageFormat;
 import java.text.ParseException;
@@ -112,14 +109,14 @@ public class Checksum extends MatchingTask implements Condition {
      * Key:   java.util.File (source file)
      * Value: java.lang.String (digest)
      */
-    private Map allDigests = new HashMap();
+    private Map<File, byte[]> allDigests = new HashMap<File, byte[]>();
     /**
      * Holds relative file names for all files (always with a forward slash).
      * This is used to calculate the total hash.
      * Key:   java.util.File (source file)
      * Value: java.lang.String (relative file name)
      */
-    private Map relativeFilePaths = new HashMap();
+    private Map<File, String> relativeFilePaths = new HashMap<File, String>();
     /**
      * Property where totalChecksum gets set.
      */
@@ -140,7 +137,7 @@ public class Checksum extends MatchingTask implements Condition {
     /**
      * Stores SourceFile, DestFile pairs and SourceFile, Property String pairs.
      */
-    private Hashtable includeFileMap = new Hashtable();
+    private Hashtable<File, Object> includeFileMap = new Hashtable<File, Object>();
     /**
      * Message Digest instance
      */
@@ -393,9 +390,8 @@ public class Checksum extends MatchingTask implements Condition {
         }
         try {
             if (resources != null) {
-                for (Iterator i = resources.iterator(); i.hasNext();) {
-                    Resource r = (Resource) i.next();
-                    File src = ((FileProvider) r.as(FileProvider.class))
+                for (Resource r : resources) {
+                    File src = r.as(FileProvider.class)
                         .getFile();
                     if (totalproperty != null || todir != null) {
                         // Use '/' to calculate digest based on file name.
@@ -457,15 +453,7 @@ public class Checksum extends MatchingTask implements Condition {
         File directory;
         if (todir != null) {
             // A separate directory was explicitly declared
-            String path = (String) relativeFilePaths.get(file);
-            if (path == null) {
-                //bug 37386. this should not occur, but it has, once.
-                throw new BuildException(
-                    "Internal error: "
-                    + "relativeFilePaths could not match file"
-                    + file + "\n"
-                    + "please file a bug report on this");
-            }
+            String path = getRelativeFilePath(file);
             directory = new File(todir, path).getParentFile();
             // Create the directory, as it might not exist.
             directory.mkdirs();
@@ -487,9 +475,9 @@ public class Checksum extends MatchingTask implements Condition {
         FileOutputStream fos = null;
         byte[] buf = new byte[readBufferSize];
         try {
-            for (Enumeration e = includeFileMap.keys(); e.hasMoreElements();) {
+            for (Map.Entry<File, Object> e : includeFileMap.entrySet()) {
                 messageDigest.reset();
-                File src = (File) e.nextElement();
+                File src = e.getKey();
                 if (!isCondition) {
                     log("Calculating " + algorithm + " checksum for " + src, Project.MSG_VERBOSE);
                 }
@@ -508,7 +496,7 @@ public class Checksum extends MatchingTask implements Condition {
                 }
                 String checksum = createDigestString(fileDigest);
                 //can either be a property name string or a file
-                Object destination = includeFileMap.get(src);
+                Object destination = e.getValue();
                 if (destination instanceof java.lang.String) {
                     String prop = (String) destination;
                     if (isCondition) {
@@ -539,6 +527,15 @@ public class Checksum extends MatchingTask implements Condition {
                         fos.write(format.format(new Object[] {
                                                     checksum,
                                                     src.getName(),
+                                                    FileUtils
+                                                    .getRelativePath(dest
+                                                                     .getParentFile(),
+                                                                     src),
+                                                    FileUtils
+                                                    .getRelativePath(getProject()
+                                                                     .getBaseDir(),
+                                                                     src),
+                                                    src.getAbsolutePath()
                                                 }).getBytes());
                         fos.write(StringUtils.LINE_SEP.getBytes());
                         fos.close();
@@ -549,31 +546,26 @@ public class Checksum extends MatchingTask implements Condition {
             if (totalproperty != null) {
                 // Calculate the total checksum
                 // Convert the keys (source files) into a sorted array.
-                Set keys = allDigests.keySet();
-                Object[] keyArray = keys.toArray();
+                File[] keyArray = allDigests.keySet().toArray(new File[allDigests.size()]);
                 // File is Comparable, but sort-order is platform
                 // dependent (case-insensitive on Windows)
-                Arrays.sort(keyArray, new Comparator() {
-                        public int compare(Object o1, Object o2) {
-                            File f1 = (File) o1;
-                            File f2 = (File) o2;
+                Arrays.sort(keyArray, new Comparator<File>() {
+                        public int compare(File f1, File f2) {
                             return f1 == null ? (f2 == null ? 0 : -1)
                                 : (f2 == null ? 1
-                                   : f1.getName().compareTo(f2.getName())
-                                   );
+                                   : getRelativeFilePath(f1)
+                                   .compareTo(getRelativeFilePath(f2)));
                         }
                     });
                 // Loop over the checksums and generate a total hash.
                 messageDigest.reset();
-                for (int i = 0; i < keyArray.length; i++) {
-                    File src = (File) keyArray[i];
-
+                for (File src : keyArray) {
                     // Add the digest for the file content
-                    byte[] digest = (byte[]) allDigests.get(src);
+                    byte[] digest = allDigests.get(src);
                     messageDigest.update(digest);
 
                     // Add the file path
-                    String fileName = (String) relativeFilePaths.get(src);
+                    String fileName = getRelativeFilePath(src);
                     messageDigest.update(fileName.getBytes());
                 }
                 String totalChecksum = createDigestString(messageDigest.digest());
@@ -655,12 +647,27 @@ public class Checksum extends MatchingTask implements Condition {
     }
 
     /**
+     * @since Ant 1.8.2
+     */
+    private String getRelativeFilePath(File f) {
+        String path = (String) relativeFilePaths.get(f);
+        if (path == null) {
+            //bug 37386. this should not occur, but it has, once.
+            throw new BuildException("Internal error: "
+                                     + "relativeFilePaths could not match file "
+                                     + f + "\n"
+                                     + "please file a bug report on this");
+        }
+        return path;
+    }
+
+    /**
      * Helper class for the format attribute.
      *
      * @since 1.7
      */
     public static class FormatElement extends EnumeratedAttribute {
-        private static HashMap formatMap = new HashMap();
+        private static HashMap<String, MessageFormat> formatMap = new HashMap<String, MessageFormat>();
         private static final String CHECKSUM = "CHECKSUM";
         private static final String MD5SUM = "MD5SUM";
         private static final String SVF = "SVF";

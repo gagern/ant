@@ -24,6 +24,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Parameter;
 import org.apache.tools.ant.types.RegularExpression;
 import org.apache.tools.ant.util.regexp.Regexp;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * Filter which includes only those lines that contain the user-specified
@@ -49,11 +50,14 @@ public final class LineContainsRegExp
     /** Parameter name for the regular expression to filter on. */
     private static final String REGEXP_KEY = "regexp";
 
-    /** Parameter name for the words to filter on. */
+    /** Parameter name for the negate attribute. */
     private static final String NEGATE_KEY = "negate";
 
+    /** Parameter name for the casesensitive attribute. */
+    private static final String CS_KEY = "casesensitive";
+
     /** Vector that holds the expressions that input lines must contain. */
-    private Vector regexps = new Vector();
+    private Vector<RegularExpression> regexps = new Vector<RegularExpression>();
 
     /**
      * Remaining line to be read from this filter, or <code>null</code> if
@@ -63,6 +67,7 @@ public final class LineContainsRegExp
     private String line = null;
 
     private boolean negate = false;
+    private int regexpOptions = Regexp.MATCH_DEFAULT;
 
     /**
      * Constructor for "dummy" instances.
@@ -118,7 +123,7 @@ public final class LineContainsRegExp
                     RegularExpression regexp
                         = (RegularExpression) regexps.elementAt(i);
                     Regexp re = regexp.getRegexp(getProject());
-                    matches = re.matches(line);
+                    matches = re.matches(line, regexpOptions);
                 }
                 if (matches ^ isNegated()) {
                     break;
@@ -150,7 +155,7 @@ public final class LineContainsRegExp
      * within a line in order for it to match in this filter. Must not be
      * <code>null</code>.
      */
-    private void setRegexps(final Vector regexps) {
+    private void setRegexps(final Vector<RegularExpression> regexps) {
         this.regexps = regexps;
     }
 
@@ -164,7 +169,7 @@ public final class LineContainsRegExp
      * filter. The returned object is "live" - in other words, changes made to
      * the returned object are mirrored in the filter.
      */
-    private Vector getRegexps() {
+    private Vector<RegularExpression> getRegexps() {
         return regexps;
     }
 
@@ -182,6 +187,10 @@ public final class LineContainsRegExp
         LineContainsRegExp newFilter = new LineContainsRegExp(rdr);
         newFilter.setRegexps(getRegexps());
         newFilter.setNegate(isNegated());
+        newFilter
+            .setCaseSensitive(!RegexpUtil.hasFlag(regexpOptions,
+                                                  Regexp.MATCH_CASE_INSENSITIVE)
+                              );
         return newFilter;
     }
 
@@ -191,6 +200,14 @@ public final class LineContainsRegExp
      */
     public void setNegate(boolean b) {
         negate = b;
+    }
+
+    /**
+     * Whether to match casesensitevly.
+     * @since Ant 1.8.2
+     */
+    public void setCaseSensitive(boolean b) {
+        regexpOptions = RegexpUtil.asOptions(b);
     }
 
     /**
@@ -215,6 +232,8 @@ public final class LineContainsRegExp
                     regexps.addElement(regexp);
                 } else if (NEGATE_KEY.equals(params[i].getType())) {
                     setNegate(Project.toBoolean(params[i].getValue()));
+                } else if (CS_KEY.equals(params[i].getType())) {
+                    setCaseSensitive(Project.toBoolean(params[i].getValue()));
                 }
             }
         }

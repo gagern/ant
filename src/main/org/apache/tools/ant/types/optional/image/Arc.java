@@ -73,11 +73,11 @@ public class Arc extends BasicShape implements DrawOperation {
      * @todo refactor using an EnumeratedAttribute
      */
     public void setType(String strType) {
-        if (strType.toLowerCase().equals("open")) {
+        if (strType.equalsIgnoreCase("open")) {
             type = Arc2D.OPEN;
-        } else if (strType.toLowerCase().equals("pie")) {
+        } else if (strType.equalsIgnoreCase("pie")) {
             type = Arc2D.PIE;
-        } else if (strType.toLowerCase().equals("chord")) {
+        } else if (strType.equalsIgnoreCase("chord")) {
             type = Arc2D.CHORD;
         }
     }
@@ -104,7 +104,8 @@ public class Arc extends BasicShape implements DrawOperation {
         }
 
 
-        for (int i = 0; i < instructions.size(); i++) {
+        final int size = instructions.size();
+        for (int i = 0; i < size; i++) {
             ImageOperation instr = ((ImageOperation) instructions.elementAt(i));
             if (instr instanceof DrawOperation) {
                 PlanarImage img = ((DrawOperation) instr).executeDrawOperation();

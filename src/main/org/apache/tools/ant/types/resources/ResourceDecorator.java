@@ -67,7 +67,7 @@ public abstract class ResourceDecorator extends Resource {
                                      + " are supported");
         }
         setChecked(false);
-        resource = (Resource) a.iterator().next();
+        resource = a.iterator().next();
     }
 
     /**
@@ -156,17 +156,17 @@ public abstract class ResourceDecorator extends Resource {
         super.setRefid(r);
     }
 
-    public Object as(Class clazz) {
+    /**
+     * {@inheritDoc}
+     */
+    public <T> T as(Class<T> clazz) {
         return getResource().as(clazz);
     }
 
     /**
-     * Delegates to a comparison of names.
-     * @param other the object to compare to.
-     * @return a negative integer, zero, or a positive integer as this Resource
-     *         is less than, equal to, or greater than the specified Resource.
+     * {@inheritDoc}
      */
-    public int compareTo(Object other) {
+    public int compareTo(Resource other) {
         if (other == this) {
             return 0;
         }
@@ -200,7 +200,10 @@ public abstract class ResourceDecorator extends Resource {
         return resource;
     }
 
-    protected void dieOnCircularReference(final Stack stack,
+    /**
+     * {@inheritDoc}
+     */
+    protected void dieOnCircularReference(final Stack<Object> stack,
                                           final Project project)
         throws BuildException {
         if (isChecked()) {

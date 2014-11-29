@@ -38,7 +38,7 @@ import org.apache.tools.ant.util.StringUtils;
  * @see FormatterElement
  * @see PlainJUnitResultFormatter
  */
-public class BriefJUnitResultFormatter implements JUnitResultFormatter {
+public class BriefJUnitResultFormatter implements JUnitResultFormatter, IgnoredTestListener {
 
     private static final double ONE_SECOND = 1000.0;
 
@@ -141,6 +141,8 @@ public class BriefJUnitResultFormatter implements JUnitResultFormatter {
         sb.append(suite.failureCount());
         sb.append(", Errors: ");
         sb.append(suite.errorCount());
+        sb.append(", Skipped: ");
+        sb.append(suite.skipCount());
         sb.append(", Time elapsed: ");
         sb.append(numberFormat.format(suite.getRunTime() / ONE_SECOND));
         sb.append(" sec");
@@ -169,10 +171,14 @@ public class BriefJUnitResultFormatter implements JUnitResultFormatter {
                 output.write(sb.toString());
                 resultWriter.close();
                 output.write(results.toString());
-                output.flush();
             } catch (IOException ex) {
                 throw new BuildException(ex);
             } finally {
+                try {
+                    output.flush();
+                } catch (IOException ex) {
+                    // swallow, there has likely been an exception before this
+                }
                 if (out != System.out && out != System.err) {
                     FileUtils.close(out);
                 }
@@ -262,5 +268,33 @@ public class BriefJUnitResultFormatter implements JUnitResultFormatter {
         } catch (IOException ex) {
             throw new BuildException(ex);
         }
+    }
+
+
+    public void testIgnored(Test test) {
+        formatSkip(test, JUnitVersionHelper.getIgnoreMessage(test));
+    }
+
+
+    public void formatSkip(Test test, String message) {
+        if (test != null) {
+            endTest(test);
+        }
+
+        try {
+            resultWriter.write(formatTest(test) + "SKIPPED");
+            if (message != null) {
+                resultWriter.write(": ");
+                resultWriter.write(message);
+            }
+            resultWriter.newLine();
+        } catch (IOException ex) {
+            throw new BuildException(ex);
+        }
+
+    }
+
+    public void testAssumptionFailure(Test test, Throwable cause) {
+        formatSkip(test, cause.getMessage());
     }
 }

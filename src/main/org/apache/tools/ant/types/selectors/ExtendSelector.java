@@ -37,7 +37,7 @@ public class ExtendSelector extends BaseSelector {
 
     private String classname = null;
     private FileSelector dynselector = null;
-    private Vector paramVec = new Vector();
+    private Vector<Parameter> paramVec = new Vector<Parameter>();
     private Path classpath = null;
 
     /**
@@ -61,15 +61,16 @@ public class ExtendSelector extends BaseSelector {
     public void selectorCreate() {
         if (classname != null && classname.length() > 0) {
             try {
-                Class c = null;
+                Class<?> c = null;
                 if (classpath == null) {
                     c = Class.forName(classname);
                 } else {
+                    // Memory-Leak in line below
                     AntClassLoader al
                             = getProject().createClassLoader(classpath);
                     c = Class.forName(classname, true, al);
                 }
-                dynselector = (FileSelector) c.newInstance();
+                dynselector = c.asSubclass(FileSelector.class).newInstance();
                 final Project p = getProject();
                 if (p != null) {
                     p.setProjectReference(dynselector);

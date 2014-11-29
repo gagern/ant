@@ -103,6 +103,8 @@ public class XMLValidateTask extends Task {
     public static final String MESSAGE_FILES_VALIDATED
         = " file(s) have been successfully validated.";
 
+    private AntClassLoader readerLoader = null;
+
     /**
      * Specify how parser error are to be handled.
      * Optional, default is <code>true</code>.
@@ -285,7 +287,7 @@ public class XMLValidateTask extends Task {
      * @throws BuildException if <code>failonerror</code> is true and an error happens
      */
     public void execute() throws BuildException {
-
+        try {
         int fileProcessed = 0;
         if (file == null && (filesets.size() == 0)) {
             throw new BuildException(
@@ -308,7 +310,8 @@ public class XMLValidateTask extends Task {
             }
         }
 
-        for (int i = 0; i < filesets.size(); i++) {
+        final int size = filesets.size();
+        for (int i = 0; i < size; i++) {
 
             FileSet fs = (FileSet) filesets.elementAt(i);
             DirectoryScanner ds = fs.getDirectoryScanner(getProject());
@@ -321,6 +324,9 @@ public class XMLValidateTask extends Task {
             }
         }
         onSuccessfulValidation(fileProcessed);
+        } finally {
+            cleanup();
+        }
     }
 
     /**
@@ -350,13 +356,15 @@ public class XMLValidateTask extends Task {
                 setFeature(XmlConstants.FEATURE_VALIDATION, true);
             }
             // set the feature from the attribute list
-            for (int i = 0; i < attributeList.size(); i++) {
+            final int attSize = attributeList.size();
+            for (int i = 0; i < attSize; i++) {
                 Attribute feature = (Attribute) attributeList.elementAt(i);
                 setFeature(feature.getName(), feature.getValue());
 
             }
             // Sets properties
-            for (int i = 0; i < propertyList.size(); i++) {
+            final int propSize = propertyList.size();
+            for (int i = 0; i < propSize; i++) {
                 final Property prop = (Property) propertyList.elementAt(i);
                 setProperty(prop.getName(), prop.getValue());
             }
@@ -389,9 +397,9 @@ public class XMLValidateTask extends Task {
             try {
                 // load the parser class
                 if (classpath != null) {
-                    AntClassLoader loader =
-                        getProject().createClassLoader(classpath);
-                    readerClass = Class.forName(readerClassName, true, loader);
+                    readerLoader = getProject().createClassLoader(classpath);
+                    readerClass = Class.forName(readerClassName, true,
+                                                readerLoader);
                 } else {
                     readerClass = Class.forName(readerClassName);
                 }
@@ -429,6 +437,18 @@ public class XMLValidateTask extends Task {
             }
         }
         return newReader;
+    }
+
+    /**
+     * Cleans up resources.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void cleanup() {
+        if (readerLoader != null) {
+            readerLoader.cleanup();
+            readerLoader = null;
+        }
     }
 
     /**

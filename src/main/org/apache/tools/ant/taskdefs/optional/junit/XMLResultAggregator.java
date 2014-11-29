@@ -44,7 +44,7 @@ import org.xml.sax.SAXException;
 /**
  * Aggregates all &lt;junit&gt; XML formatter testsuite data under
  * a specific directory and transforms the results via XSLT.
- * It is not particulary clean but
+ * It is not particularly clean but
  * should be helpful while I am thinking about another technique.
  *
  * <p> The main problem is due to the fact that a JVM can be forked for a testcase
@@ -207,15 +207,13 @@ public class XMLResultAggregator extends Task implements XMLConstants {
     /**
      * Write the DOM tree to a file.
      * @param doc the XML document to dump to disk.
-     * @param file the filename to write the document to. Should obviouslly be a .xml file.
+     * @param file the filename to write the document to. Should obviously be a .xml file.
      * @throws IOException thrown if there is an error while writing the content.
      */
     protected void writeDOMTree(Document doc, File file) throws IOException {
-        OutputStream out = null;
-        PrintWriter wri = null;
+        OutputStream os = new FileOutputStream(file);
         try {
-            out = new BufferedOutputStream(new FileOutputStream(file));
-            wri = new PrintWriter(new OutputStreamWriter(out, "UTF8"));
+            PrintWriter wri = new PrintWriter(new OutputStreamWriter(new BufferedOutputStream(os), "UTF8"));
             wri.write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n");
             (new DOMElementWriter()).write(doc.getDocumentElement(), wri, 0, "  ");
             wri.flush();
@@ -224,8 +222,7 @@ public class XMLResultAggregator extends Task implements XMLConstants {
                 throw new IOException("Error while writing DOM content");
             }
         } finally {
-            FileUtils.close(wri);
-            FileUtils.close(out);
+            os.close();
         }
     }
 
@@ -279,6 +276,8 @@ public class XMLResultAggregator extends Task implements XMLConstants {
             } catch (IOException e) {
                 log("Error while accessing file " + file + ": "
                     + e.getMessage(), Project.MSG_ERR);
+                log("Error while accessing file " + file + ": "
+                    + e.getMessage(), e, Project.MSG_VERBOSE);
             }
         }
         return rootElement;

@@ -26,7 +26,7 @@ import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
- * A compressed resource.
+ * A resource that transforms the content of another resource.
  *
  * <p>Wraps around another resource, delegates all queries (except
  * getSize) to that other resource but transforms stream content
@@ -39,14 +39,14 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
     private static final int BUFFER_SIZE = 8192;
 
     /** no arg constructor */
-    public ContentTransformingResource() {
+    protected ContentTransformingResource() {
     }
 
     /**
      * Constructor with another resource to wrap.
      * @param other the resource to wrap.
      */
-    public ContentTransformingResource(ResourceCollection other) {
+    protected ContentTransformingResource(ResourceCollection other) {
         super(other);
     }
 
@@ -113,22 +113,22 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
     /**
      * Suppress FileProvider, re-implement Appendable
      */
-    public Object as(Class clazz) {
+    public <T> T as(Class<T> clazz) {
         if (Appendable.class.isAssignableFrom(clazz)) {
             if (isAppendSupported()) {
                 final Appendable a =
-                    (Appendable) getResource().as(Appendable.class);
+                    getResource().as(Appendable.class);
                 if (a != null) {
-                    return new Appendable() {
+                    return clazz.cast(new Appendable() {
                         public OutputStream getAppendOutputStream()
-                            throws IOException {
+                                throws IOException {
                             OutputStream out = a.getAppendOutputStream();
                             if (out != null) {
                                 out = wrapStream(out);
                             }
                             return out;
                         }
-                    };
+                    });
                 }
             }
             return null;
@@ -139,7 +139,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
     }
 
     /**
-     * whether the transformation performed allows appends.
+     * Learn whether the transformation performed allows appends.
      *
      * <p>In general compressed outputs will become invalid if they
      * are appended to, for example.</p>
@@ -151,7 +151,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
     }    
 
     /**
-     * Is supposed to wrap the stream.
+     * Get a content-filtering/transforming InputStream.
      *
      * @param in InputStream to wrap, will never be null.
      * @return a compressed inputstream.
@@ -161,7 +161,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
         throws IOException;
 
     /**
-     * Is supposed to wrap the stream to allow transformation on the fly.
+     * Get a content-filtering/transforming OutputStream.
      *
      * @param out OutputStream to wrap, will never be null.
      * @return a compressed outputstream.

@@ -24,6 +24,7 @@ import java.util.Vector;
 import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.DescendingVisitor;
 import org.apache.bcel.classfile.JavaClass;
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.depend.AbstractAnalyzer;
 
 /**
@@ -41,8 +42,13 @@ public class FullAnalyzer extends AbstractAnalyzer {
         // force BCEL classes to load now
         try {
             new ClassParser("force");
-        } catch (IOException e) {
-            // ignore
+        } catch (Exception e) {
+            // all released versions of BCEL may throw an IOException
+            // here, but BCEL's trunk does no longer declare to do so
+            if (!(e instanceof IOException)) {
+                throw new BuildException(e);
+            }
+            // ignore IOException like we've always done
         }
     }
 
@@ -52,16 +58,16 @@ public class FullAnalyzer extends AbstractAnalyzer {
      * @param files a vector to be populated with the files which contain
      *      the dependency classes
      * @param classes a vector to be populated with the names of the
-     *      depencency classes.
+     *      dependency classes.
      */
-    protected void determineDependencies(Vector files, Vector classes) {
+    protected void determineDependencies(Vector<File> files, Vector<String> classes) {
         // we get the root classes and build up a set of
         // classes upon which they depend
-        Hashtable dependencies = new Hashtable();
-        Hashtable containers = new Hashtable();
-        Hashtable toAnalyze = new Hashtable();
-        for (Enumeration e = getRootClasses(); e.hasMoreElements();) {
-            String classname = (String) e.nextElement();
+        Hashtable<String, String> dependencies = new Hashtable<String, String>();
+        Hashtable<File, File> containers = new Hashtable<File, File>();
+        Hashtable<String, String> toAnalyze = new Hashtable<String, String>();
+        for (Enumeration<String> e = getRootClasses(); e.hasMoreElements();) {
+            String classname = e.nextElement();
             toAnalyze.put(classname, classname);
         }
 
@@ -69,8 +75,7 @@ public class FullAnalyzer extends AbstractAnalyzer {
         int maxCount = isClosureRequired() ? MAX_LOOPS : 2;
         while (toAnalyze.size() != 0 && count++ < maxCount) {
             DependencyVisitor dependencyVisitor = new DependencyVisitor();
-            for (Enumeration e = toAnalyze.keys(); e.hasMoreElements();) {
-                String classname = (String) e.nextElement();
+            for (String classname : toAnalyze.keySet()) {
                 dependencies.put(classname, classname);
                 try {
                     File container = getClassContainer(classname);
@@ -99,9 +104,9 @@ public class FullAnalyzer extends AbstractAnalyzer {
             toAnalyze.clear();
 
             // now recover all the dependencies collected and add to the list.
-            Enumeration depsEnum = dependencyVisitor.getDependencies();
+            Enumeration<String> depsEnum = dependencyVisitor.getDependencies();
             while (depsEnum.hasMoreElements()) {
-                String className = (String) depsEnum.nextElement();
+                String className = depsEnum.nextElement();
                 if (!dependencies.containsKey(className)) {
                     toAnalyze.put(className, className);
                 }
@@ -109,13 +114,13 @@ public class FullAnalyzer extends AbstractAnalyzer {
         }
 
         files.removeAllElements();
-        for (Enumeration e = containers.keys(); e.hasMoreElements();) {
-            files.addElement((File) e.nextElement());
+        for (File f : containers.keySet()) {
+            files.add(f);
         }
 
         classes.removeAllElements();
-        for (Enumeration e = dependencies.keys(); e.hasMoreElements();) {
-            classes.addElement((String) e.nextElement());
+        for (String dependency : dependencies.keySet()) {
+            classes.add(dependency);
         }
     }
 

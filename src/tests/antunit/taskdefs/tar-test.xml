@@ -17,10 +17,12 @@
 -->
 
 <project name="tar-test" default="antunit"
+         xmlns:cond="antlib:org.apache.tools.ant.types.conditions"
          xmlns:au="antlib:org.apache.ant.antunit">
   <import file="../antunit-base.xml" />
 
   <target name="setUp">
+    <mkdir dir="${input}" />
     <mkdir dir="${output}" />
   </target>
 
@@ -29,5 +31,88 @@
     <tar  destfile="${output}/testtar.tar">
       <tarfileset  prefix="pre" refid="xml.fileset" />
     </tar>
+  </target>
+
+  <target name="testRemoveLeadingSlashes" depends="setUp">
+    <tar destfile="${output}/testtar.tar">
+      <tarfileset file="${ant.file}" fullpath="/foo.xml"/>
+    </tar>
+    <au:assertTrue>
+      <cond:resourceexists>
+        <tarentry name="foo.xml">
+          <file file="${output}/testtar.tar"/>
+        </tarentry>
+      </cond:resourceexists>
+    </au:assertTrue>
+    <au:assertFalse>
+      <cond:resourceexists>
+        <tarentry name="/foo.xml">
+          <file file="${output}/testtar.tar"/>
+        </tarentry>
+      </cond:resourceexists>
+    </au:assertFalse>
+  </target>
+
+  <target name="testPreserveLeadingSlashes" depends="setUp">
+    <tar destfile="${output}/testtar.tar">
+      <tarfileset file="${ant.file}" fullpath="/foo.xml"
+                  preserveleadingslashes="true"/>
+    </tar>
+    <au:assertTrue>
+      <cond:resourceexists>
+        <tarentry name="/foo.xml">
+          <file file="${output}/testtar.tar"/>
+        </tarentry>
+      </cond:resourceexists>
+    </au:assertTrue>
+    <au:assertFalse>
+      <cond:resourceexists>
+        <tarentry name="foo.xml">
+          <file file="${output}/testtar.tar"/>
+        </tarentry>
+      </cond:resourceexists>
+    </au:assertFalse>
+  </target>
+
+  <target name="testSingleFile" depends="setUp"
+          description="https://issues.apache.org/bugzilla/show_bug.cgi?id=48035">
+    <touch file="${input}/foo.txt"/>
+    <tar destfile="${output}/foo.tar">
+      <file file="${input}/foo.txt"/>
+    </tar>
+    <au:assertFileExists file="${output}/foo.tar"/>
+    <copy file="${output}/foo.tar" tofile="${output}/bar.tar"
+          preservelastmodified="true"/>
+    <sleep seconds="2"/>
+    <touch file="${input}/foo.txt"/>
+    <tar destfile="${output}/foo.tar">
+      <file file="${input}/foo.txt"/>
+    </tar>
+    <au:assertDestIsOutofdate src="${output}/foo.tar" dest="${output}/bar.tar"/>
+  </target>
+
+  <target name="-longfileSetup" depends="setUp">
+    <property name="longfile.dir.name"
+              value="this/path/name/contains/more/than/one/hundred/characters/in/order/to/test/the/GNU/and/POSIX/long/file/name/capability/round"/>
+    <property name="longfile.file.name"
+              value="${longfile.dir.name}/tripped"/>
+    <mkdir dir="${input}/${longfile.dir.name}"/>
+    <touch file="${input}/${longfile.file.name}"/>
+  </target>
+
+  <target name="testLongfileGNU" depends="-longfileSetup">
+    <tar destfile="${output}/x.tar" longfile="gnu">
+      <fileset dir="${input}"/>
+    </tar>
+    <untar dest="${output}" src="${output}/x.tar"/>
+    <au:assertFileExists file="${output}/${longfile.file.name}"/>
+  </target>
+
+  <target name="testLongfilePOSIX" depends="-longfileSetup">
+    <tar destfile="${output}/x.tar" longfile="posix">
+      <fileset dir="${input}"/>
+    </tar>
+    <untar dest="${output}" src="${output}/x.tar"/>
+    <au:assertFileExists file="${output}/${longfile.file.name}"/>
   </target>
 </project>

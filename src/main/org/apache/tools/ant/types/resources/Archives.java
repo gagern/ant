@@ -77,8 +77,8 @@ public class Archives extends DataType
         }
         dieOnCircularReference();
         int total = 0;
-        for (Iterator i = grabArchives(); i.hasNext(); ) {
-            total += ((ResourceCollection) i.next()).size();
+        for (Iterator<ArchiveFileSet> i = grabArchives(); i.hasNext(); ) {
+            total += i.next().size();
         }
         return total;
     }
@@ -86,15 +86,15 @@ public class Archives extends DataType
     /**
      * Merges the nested collections.
      */
-    public Iterator iterator() {
+    public Iterator<Resource> iterator() {
         if (isReference()) {
             return ((Archives) getCheckedRef()).iterator();
         }
         dieOnCircularReference();
-        List l = new LinkedList();
-        for (Iterator i = grabArchives(); i.hasNext(); ) {
+        List<Resource> l = new LinkedList<Resource>();
+        for (Iterator<ArchiveFileSet> i = grabArchives(); i.hasNext(); ) {
             l.addAll(CollectionUtils
-                     .asCollection(((ResourceCollection) i.next()).iterator()));
+                     .asCollection(i.next().iterator()));
         }
         return l.iterator();
     }
@@ -144,15 +144,13 @@ public class Archives extends DataType
      * Turns all nested resources into corresponding ArchiveFileSets
      * and returns an iterator over the collected archives.
      */
-    protected Iterator/*<ArchiveFileset>*/ grabArchives() {
-        List l = new LinkedList();
-        for (Iterator iter = zips.iterator(); iter.hasNext(); ) {
-            l.add(configureArchive(new ZipFileSet(),
-                                   (Resource) iter.next()));
+    protected Iterator<ArchiveFileSet> grabArchives() {
+        List<ArchiveFileSet> l = new LinkedList<ArchiveFileSet>();
+        for (Resource r : zips) {
+            l.add(configureArchive(new ZipFileSet(), r));
         }
-        for (Iterator iter = tars.iterator(); iter.hasNext(); ) {
-            l.add(configureArchive(new TarFileSet(),
-                                   (Resource) iter.next()));
+        for (Resource r : tars) {
+            l.add(configureArchive(new TarFileSet(), r));
         }
         return l.iterator();
     }
@@ -175,7 +173,7 @@ public class Archives extends DataType
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;

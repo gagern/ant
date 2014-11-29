@@ -95,24 +95,21 @@ public class AntStructure extends Task {
             }
 
             printer.printHead(out, getProject(),
-                              getProject().getTaskDefinitions(),
-                              getProject().getDataTypeDefinitions());
+                              new Hashtable<String, Class<?>>(getProject().getTaskDefinitions()),
+                              new Hashtable<String, Class<?>>(getProject().getDataTypeDefinitions()));
 
             printer.printTargetDecl(out);
 
-            Enumeration dataTypes = getProject().getDataTypeDefinitions().keys();
-            while (dataTypes.hasMoreElements()) {
-                String typeName = (String) dataTypes.nextElement();
+            for (String typeName : getProject().getCopyOfDataTypeDefinitions()
+                .keySet()) {
                 printer.printElementDecl(
-                    out, getProject(), typeName,
-                    (Class) getProject().getDataTypeDefinitions().get(typeName));
+                                     out, getProject(), typeName,
+                                     getProject().getDataTypeDefinitions().get(typeName));
             }
 
-            Enumeration tasks = getProject().getTaskDefinitions().keys();
-            while (tasks.hasMoreElements()) {
-                String tName = (String) tasks.nextElement();
+            for (String tName : getProject().getCopyOfTaskDefinitions().keySet()) {
                 printer.printElementDecl(out, getProject(), tName,
-                                         (Class) getProject().getTaskDefinitions().get(tName));
+                                         getProject().getTaskDefinitions().get(tName));
             }
 
             printer.printTail(out);
@@ -148,8 +145,8 @@ public class AntStructure extends Task {
          * @param types map (name to implementing class)
          * data types.
          */
-        void printHead(PrintWriter out, Project p, Hashtable tasks,
-                       Hashtable types);
+        void printHead(PrintWriter out, Project p, Hashtable<String, Class<?>> tasks,
+                       Hashtable<String, Class<?>> types);
 
         /**
          * Prints the definition for the target element.
@@ -166,7 +163,7 @@ public class AntStructure extends Task {
          * @param element class of the defined element.
          */
         void printElementDecl(PrintWriter out, Project p, String name,
-                              Class element);
+                              Class<?> element);
 
         /**
          * Prints the trailer.
@@ -181,13 +178,14 @@ public class AntStructure extends Task {
         private static final String TASKS = "%tasks;";
         private static final String TYPES = "%types;";
 
-        private Hashtable visited = new Hashtable();
+        private Hashtable<String, String> visited = new Hashtable<String, String>();
 
         public void printTail(PrintWriter out) {
             visited.clear();
         }
 
-        public void printHead(PrintWriter out, Project p, Hashtable tasks, Hashtable types) {
+        public void printHead(PrintWriter out, Project p, Hashtable<String, Class<?>> tasks,
+                Hashtable<String, Class<?>> types) {
             printHead(out, tasks.keys(), types.keys());
         }
 
@@ -198,14 +196,14 @@ public class AntStructure extends Task {
          * <p>Basically this prints the XML declaration, defines some
          * entities and the project element.</p>
          */
-        private void printHead(PrintWriter out, Enumeration tasks,
-                               Enumeration types) {
+        private void printHead(PrintWriter out, Enumeration<String> tasks,
+                               Enumeration<String> types) {
             out.println("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>");
             out.println("<!ENTITY % boolean \"(true|false|on|off|yes|no)\">");
             out.print("<!ENTITY % tasks \"");
             boolean first = true;
             while (tasks.hasMoreElements()) {
-                String tName = (String) tasks.nextElement();
+                String tName = tasks.nextElement();
                 if (!first) {
                     out.print(" | ");
                 } else {
@@ -217,7 +215,7 @@ public class AntStructure extends Task {
             out.print("<!ENTITY % types \"");
             first = true;
             while (types.hasMoreElements()) {
-                String typeName = (String) types.nextElement();
+                String typeName = types.nextElement();
                 if (!first) {
                     out.print(" | ");
                 } else {
@@ -229,7 +227,7 @@ public class AntStructure extends Task {
 
             out.println("");
 
-            out.print("<!ELEMENT project (target | target-group | ");
+            out.print("<!ELEMENT project (target | extension-point | ");
             out.print(TASKS);
             out.print(" | ");
             out.print(TYPES);
@@ -252,9 +250,9 @@ public class AntStructure extends Task {
             out.println(")*>");
             out.println("");
             printTargetAttrs(out, "target");
-            out.println("<!ELEMENT target-group EMPTY>");
+            out.println("<!ELEMENT extension-point EMPTY>");
             out.println("");
-            printTargetAttrs(out, "target-group");
+            printTargetAttrs(out, "extension-point");
         }
 
         /**
@@ -263,13 +261,14 @@ public class AntStructure extends Task {
         private void printTargetAttrs(PrintWriter out, String tag) {
             out.print("<!ATTLIST ");
             out.println(tag);
-            out.println("          id          ID    #IMPLIED");
-            out.println("          name        CDATA #REQUIRED");
-            out.println("          if          CDATA #IMPLIED");
-            out.println("          unless      CDATA #IMPLIED");
-            out.println("          depends     CDATA #IMPLIED");
-            out.println("          target-group CDATA #IMPLIED");
-            out.println("          description CDATA #IMPLIED>");
+            out.println("          id                      ID    #IMPLIED");
+            out.println("          name                    CDATA #REQUIRED");
+            out.println("          if                      CDATA #IMPLIED");
+            out.println("          unless                  CDATA #IMPLIED");
+            out.println("          depends                 CDATA #IMPLIED");
+            out.println("          extensionOf             CDATA #IMPLIED");
+            out.println("          onMissingExtensionPoint CDATA #IMPLIED");
+            out.println("          description             CDATA #IMPLIED>");
             out.println("");
         }
 
@@ -277,7 +276,7 @@ public class AntStructure extends Task {
          * Print the definition for a given element.
          */
         public void printElementDecl(PrintWriter out, Project p,
-                                     String name, Class element) {
+                                     String name, Class<?> element) {
 
             if (visited.containsKey(name)) {
                 return;
@@ -289,7 +288,7 @@ public class AntStructure extends Task {
                 ih = IntrospectionHelper.getHelper(p, element);
             } catch (Throwable t) {
                 /*
-                 * XXX - failed to load the class properly.
+                 * TODO - failed to load the class properly.
                  *
                  * should we print a warning here?
                  */
@@ -309,7 +308,7 @@ public class AntStructure extends Task {
                 return;
             }
 
-            Vector v = new Vector();
+            Vector<String> v = new Vector<String>();
             if (ih.supportsCharacters()) {
                 v.addElement("#PCDATA");
             }
@@ -318,7 +317,7 @@ public class AntStructure extends Task {
                 v.addElement(TASKS);
             }
 
-            Enumeration e = ih.getNestedElements();
+            Enumeration<String> e = ih.getNestedElements();
             while (e.hasMoreElements()) {
                 v.addElement(e.nextElement());
             }
@@ -355,7 +354,7 @@ public class AntStructure extends Task {
 
                 sb.append(LINE_SEP).append("          ")
                     .append(attrName).append(" ");
-                Class type = ih.getAttributeType(attrName);
+                Class<?> type = ih.getAttributeType(attrName);
                 if (type.equals(java.lang.Boolean.class)
                     || type.equals(java.lang.Boolean.TYPE)) {
                     sb.append(BOOLEAN).append(" ");
@@ -434,7 +433,7 @@ public class AntStructure extends Task {
             final int length = s.length();
             for (int i = 0; i < length; i++) {
                 char c = s.charAt(i);
-                // XXX - we are committing CombiningChar and Extender here
+                // TODO - we are committing CombiningChar and Extender here
                 if (!Character.isLetterOrDigit(c)
                     && c != '.' && c != '-' && c != '_' && c != ':') {
                     return false;

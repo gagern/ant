@@ -86,11 +86,12 @@ public class ClassFile {
      *
      * @return a vector of class names which this class references
      */
-    public Vector getClassRefs() {
+    public Vector<String> getClassRefs() {
 
-        Vector classRefs = new Vector();
+        Vector<String> classRefs = new Vector<String>();
 
-        for (int i = 0; i < constantPool.size(); ++i) {
+        final int size = constantPool.size();
+        for (int i = 0; i < size; ++i) {
             ConstantPoolEntry entry = constantPool.getEntry(i);
 
             if (entry != null
@@ -98,7 +99,7 @@ public class ClassFile {
                 ClassCPInfo classEntry = (ClassCPInfo) entry;
 
                 if (!classEntry.getClassName().equals(className)) {
-                    classRefs.addElement(
+                    classRefs.add(
                         ClassFileUtils.convertSlashName(classEntry.getClassName()));
                 }
             }

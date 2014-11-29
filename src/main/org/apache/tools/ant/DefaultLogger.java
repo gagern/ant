@@ -130,6 +130,28 @@ public class DefaultLogger implements BuildLogger {
         startTime = System.currentTimeMillis();
     }
 
+    static void throwableMessage(StringBuffer m, Throwable error, boolean verbose) {
+        while (error instanceof BuildException) { // #43398
+            Throwable cause = error.getCause();
+            if (cause == null) {
+                break;
+            }
+            String msg1 = error.toString();
+            String msg2 = cause.toString();
+            if (msg1.endsWith(msg2)) {
+                m.append(msg1.substring(0, msg1.length() - msg2.length()));
+                error = cause;
+            } else {
+                break;
+            }
+        }
+        if (verbose || !(error instanceof BuildException)) {
+            m.append(StringUtils.getStackTrace(error));
+        } else {
+            m.append(error).append(lSep);
+        }
+    }
+
     /**
      * Prints whether the build succeeded or failed,
      * any errors the occurred during the build, and
@@ -148,22 +170,7 @@ public class DefaultLogger implements BuildLogger {
             message.append(StringUtils.LINE_SEP);
             message.append(getBuildFailedMessage());
             message.append(StringUtils.LINE_SEP);
-
-            while (error instanceof BuildException) { // #43398
-                Throwable cause = ((BuildException) error).getCause();
-                if (cause != null && cause.toString().equals(error.getMessage())) {
-                    error = cause;
-                } else {
-                    break;
-                }
-            }
-
-            if (Project.MSG_VERBOSE <= msgOutputLevel
-                || !(error instanceof BuildException)) {
-                message.append(StringUtils.getStackTrace(error));
-            } else {
-                message.append(error.toString()).append(lSep);
-            }
+            throwableMessage(message, error, Project.MSG_VERBOSE <= msgOutputLevel);
         }
         message.append(StringUtils.LINE_SEP);
         message.append("Total time: ");

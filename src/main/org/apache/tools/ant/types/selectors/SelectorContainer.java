@@ -55,7 +55,7 @@ public interface SelectorContainer {
      *
      * @return an enumerator that goes through each of the selectors
      */
-    Enumeration selectorElements();
+    Enumeration<FileSelector> selectorElements();
 
     /**
      * Add a new selector into this container.
@@ -178,7 +178,7 @@ public interface SelectorContainer {
     void addModified(ModifiedSelector selector);
 
     /**
-     * add an arbitary selector
+     * add an arbitrary selector
      * @param selector the selector to add
      * @since Ant 1.6
      */

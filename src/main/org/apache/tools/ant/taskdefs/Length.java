@@ -21,7 +21,6 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.PrintStream;
 import java.io.OutputStream;
-import java.util.Iterator;
 
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
@@ -65,6 +64,14 @@ public class Length extends Task implements Condition {
      */
     public synchronized void setProperty(String property) {
         this.property = property;
+    }
+
+    /**
+     * Set the single resource for this task.
+     * @param resource the Resource whose length to retrieve.
+     */
+    public synchronized void setResource(Resource resource) {
+        add(resource);
     }
 
     /**
@@ -222,8 +229,7 @@ public class Length extends Task implements Condition {
     }
 
     private void handleResources(Handler h) {
-        for (Iterator i = resources.iterator(); i.hasNext();) {
-            Resource r = (Resource) i.next();
+        for (Resource r : resources) {
             if (!r.isExists()) {
                 log(r + " does not exist", Project.MSG_WARN);
             }

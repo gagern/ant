@@ -37,8 +37,8 @@ import org.apache.tools.ant.types.ResourceCollection;
  */
 public abstract class BaseResourceCollectionContainer
         extends DataType implements ResourceCollection, Cloneable {
-    private List rc = new ArrayList();
-    private Collection coll = null;
+    private List<ResourceCollection> rc = new ArrayList<ResourceCollection>();
+    private Collection<Resource> coll = null;
     private boolean cache = true;
 
     /**
@@ -47,7 +47,7 @@ public abstract class BaseResourceCollectionContainer
     public BaseResourceCollectionContainer() {
         // TODO Auto-generated constructor stub
     }
-    
+
     /**
      * Create a new BaseResourceCollectionContainer.
      * @since Ant 1.8
@@ -115,13 +115,13 @@ public abstract class BaseResourceCollectionContainer
      * @param c the Collection whose elements to add.
      * @throws BuildException on error.
      */
-    public synchronized void addAll(Collection c) throws BuildException {
+    public synchronized void addAll(Collection<? extends ResourceCollection> c) throws BuildException {
         if (isReference()) {
             throw noChildrenAllowed();
         }
         try {
-            for (Iterator i = c.iterator(); i.hasNext();) {
-                add((ResourceCollection) i.next());
+            for (ResourceCollection resourceCollection : c) {
+                add(resourceCollection);
             }
         } catch (ClassCastException e) {
             throw new BuildException(e);
@@ -134,7 +134,7 @@ public abstract class BaseResourceCollectionContainer
      * are added to this container while the Iterator is in use.
      * @return a "fail-fast" Iterator.
      */
-    public final synchronized Iterator iterator() {
+    public final synchronized Iterator<Resource> iterator() {
         if (isReference()) {
             return ((BaseResourceCollectionContainer) getCheckedRef()).iterator();
         }
@@ -148,7 +148,7 @@ public abstract class BaseResourceCollectionContainer
      */
     public synchronized int size() {
         if (isReference()) {
-            return ((BaseResourceCollectionContainer) getCheckedRef()).size();
+            return getCheckedRef(BaseResourceCollectionContainer.class, getDataTypeName()).size();
         }
         dieOnCircularReference();
         return cacheCollection().size();
@@ -165,16 +165,15 @@ public abstract class BaseResourceCollectionContainer
         dieOnCircularReference();
         //first the easy way, if all children are filesystem-only, return true:
         boolean goEarly = true;
-        for (Iterator i = rc.iterator(); goEarly && i.hasNext();) {
-            goEarly = ((ResourceCollection) i.next()).isFilesystemOnly();
+        for (Iterator<ResourceCollection> i = rc.iterator(); goEarly && i.hasNext();) {
+            goEarly = i.next().isFilesystemOnly();
         }
         if (goEarly) {
             return true;
         }
         /* now check each Resource in case the child only
            lets through files from any children IT may have: */
-        for (Iterator i = cacheCollection().iterator(); i.hasNext();) {
-            Resource r = (Resource) i.next();
+        for (Resource r : cacheCollection()) {
             if (r.as(FileProvider.class) == null) {
                 return false;
             }
@@ -189,7 +188,7 @@ public abstract class BaseResourceCollectionContainer
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
@@ -197,10 +196,9 @@ public abstract class BaseResourceCollectionContainer
         if (isReference()) {
             super.dieOnCircularReference(stk, p);
         } else {
-            for (Iterator i = rc.iterator(); i.hasNext();) {
-                Object o = i.next();
-                if (o instanceof DataType) {
-                    pushAndInvokeCircularReferenceCheck((DataType) o, stk, p);
+            for (ResourceCollection resourceCollection : rc) {
+                if (resourceCollection instanceof DataType) {
+                    pushAndInvokeCircularReferenceCheck((DataType) resourceCollection, stk, p);
                 }
             }
             setChecked(true);
@@ -211,7 +209,7 @@ public abstract class BaseResourceCollectionContainer
      * Get the nested ResourceCollections.
      * @return List.
      */
-    protected final synchronized List getResourceCollections() {
+    public final synchronized List<ResourceCollection> getResourceCollections() {
         dieOnCircularReference();
         return Collections.unmodifiableList(rc);
     }
@@ -220,7 +218,7 @@ public abstract class BaseResourceCollectionContainer
      * Template method for subclasses to return a Collection object of Resources.
      * @return Collection.
      */
-    protected abstract Collection getCollection();
+    protected abstract Collection<Resource> getCollection();
 
     /**
      * Implement clone.  The set of nested resource
@@ -231,7 +229,7 @@ public abstract class BaseResourceCollectionContainer
         try {
             BaseResourceCollectionContainer c
                 = (BaseResourceCollectionContainer) super.clone();
-            c.rc = new ArrayList(rc);
+            c.rc = new ArrayList<ResourceCollection>(rc);
             c.coll = null;
             return c;
         } catch (CloneNotSupportedException e) {
@@ -250,17 +248,17 @@ public abstract class BaseResourceCollectionContainer
         if (cacheCollection().size() == 0) {
             return "";
         }
-        StringBuffer sb = new StringBuffer();
-        for (Iterator i = coll.iterator(); i.hasNext();) {
+        StringBuilder sb = new StringBuilder();
+        for (Resource resource : coll) {
             if (sb.length() > 0) {
                 sb.append(File.pathSeparatorChar);
             }
-            sb.append(i.next());
+            sb.append(resource);
         }
         return sb.toString();
     }
 
-    private synchronized Collection cacheCollection() {
+    private synchronized Collection<Resource> cacheCollection() {
         if (coll == null || !isCache()) {
             coll = getCollection();
         }

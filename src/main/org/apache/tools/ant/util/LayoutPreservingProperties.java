@@ -27,8 +27,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.PushbackReader;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Properties;
@@ -78,7 +78,7 @@ import java.util.Properties;
  * although the key-value pair <code>beta=two</code> is removed.</p>
  */
 public class LayoutPreservingProperties extends Properties {
-    private static final String LS = System.getProperty("line.separator");
+    private String LS = StringUtils.LINE_SEP;
 
     /**
      * Logical lines have escaping and line continuation taken care
@@ -140,7 +140,7 @@ public class LayoutPreservingProperties extends Properties {
 
     public void load(InputStream inStream) throws IOException {
         String s = readLines(inStream);
-        byte[] ba = s.getBytes("ISO-8859-1");
+        byte[] ba = s.getBytes(ResourceUtils.ISO_8859_1);
         ByteArrayInputStream bais = new ByteArrayInputStream(ba);
         super.load(bais);
     }
@@ -207,7 +207,8 @@ public class LayoutPreservingProperties extends Properties {
             (LayoutPreservingProperties) super.clone();
         dolly.keyedPairLines = (HashMap) this.keyedPairLines.clone();
         dolly.logicalLines = (ArrayList) this.logicalLines.clone();
-        for (int j = 0; j < dolly.logicalLines.size(); j++) {
+        final int size = dolly.logicalLines.size();
+        for (int j = 0; j < size; j++) {
             LogicalLine line = (LogicalLine) dolly.logicalLines.get(j);
             if (line instanceof Pair) {
                 Pair p = (Pair) line;
@@ -251,20 +252,45 @@ public class LayoutPreservingProperties extends Properties {
     }
 
     public void store(OutputStream out, String header) throws IOException {
-        OutputStreamWriter osw = new OutputStreamWriter(out, "ISO-8859-1");
+        OutputStreamWriter osw = new OutputStreamWriter(out, ResourceUtils.ISO_8859_1);
+
+        int skipLines = 0;
+        int totalLines = logicalLines.size();
 
         if (header != null) {
             osw.write("#" + header + LS);
+            if (totalLines > 0
+                && logicalLines.get(0) instanceof Comment
+                && header.equals(logicalLines.get(0).toString().substring(1))) {
+                skipLines = 1;
+            }
         }
-        osw.write("#" + (new Date()).toString() + LS);
+
+        // we may be updatiung a file written by this class, replace
+        // the date comment instead of adding a new one and preserving
+        // the one written last time
+        if (totalLines > skipLines
+            && logicalLines.get(skipLines) instanceof Comment) {
+            try {
+                DateUtils.parseDateFromHeader(logicalLines
+                                              .get(skipLines)
+                                              .toString().substring(1));
+                skipLines++;
+            } catch (java.text.ParseException pe) {
+                // not an existing date comment
+            }
+        }
+        osw.write("#" + DateUtils.getDateForHeader() + LS);
 
         boolean writtenSep = false;
-        for (Iterator i = logicalLines.iterator(); i.hasNext();) {
+        for (Iterator i = logicalLines.subList(skipLines, totalLines).iterator();
+             i.hasNext(); ) {
             LogicalLine line = (LogicalLine) i.next();
             if (line instanceof Pair) {
                 if (((Pair)line).isNew()) {
                     if (!writtenSep) {
                         osw.write(LS);
+                        writtenSep = true;
                     }
                 }
                 osw.write(line.toString() + LS);
@@ -284,15 +310,16 @@ public class LayoutPreservingProperties extends Properties {
      * @param is the stream from which to read the data
      */
     private String readLines(InputStream is) throws IOException {
-        InputStreamReader isr = new InputStreamReader(is, "ISO-8859-1");
-        BufferedReader br = new BufferedReader(isr);
+        InputStreamReader isr = new InputStreamReader(is, ResourceUtils.ISO_8859_1);
+        PushbackReader pbr = new PushbackReader(isr, 1);
 
         if (logicalLines.size() > 0) {
             // we add a blank line for spacing
             logicalLines.add(new Blank());
         }
 
-        String s = br.readLine();
+        String s = readFirstLine(pbr);
+        BufferedReader br = new BufferedReader(pbr);
 
         boolean continuation = false;
         boolean comment = false;
@@ -339,6 +366,46 @@ public class LayoutPreservingProperties extends Properties {
             s = br.readLine();
         }
         return fileBuffer.toString();
+    }
+
+    /**
+     * Reads the first line and determines the EOL-style of the file
+     * (relies on the style to be consistent, of course).
+     *
+     * <p>Sets LS as a side-effect.</p>
+     *
+     * @return the first line without any line separator, leaves the
+     * reader positioned after the first line separator
+     *
+     * @since Ant 1.8.2
+     */
+    private String readFirstLine(PushbackReader r) throws IOException {
+        StringBuffer sb = new StringBuffer(80);
+        int ch = r.read();
+        boolean hasCR = false;
+        // when reaching EOF before the first EOL, assume native line
+        // feeds
+        LS = StringUtils.LINE_SEP;
+
+        while (ch >= 0) {
+            if (hasCR && ch != '\n') {
+                // line feed is sole CR
+                r.unread(ch);
+                break;
+            }
+
+            if (ch == '\r') {
+                LS = "\r";
+                hasCR = true;
+            } else if (ch == '\n') {
+                LS = hasCR ? "\r\n" : "\n";
+                break;
+            } else {
+                sb.append((char) ch);
+            }
+            ch = r.read();
+        }
+        return sb.toString();
     }
 
     /**
@@ -501,12 +568,8 @@ public class LayoutPreservingProperties extends Properties {
      * @return the unicode escape sequence
      */
     private String escapeUnicode(char ch) {
-        StringBuffer buffy = new StringBuffer("\\u");
-        String hex = Integer.toHexString((int)ch);
-        buffy.append("0000".substring(4-hex.length()));
-        buffy.append(hex);
-        return buffy.toString();
-    }
+        return "\\" + UnicodeUtil.EscapeUnicode(ch);
+        }
 
     /**
      * Remove the comments in the leading up the {@link logicalLines}

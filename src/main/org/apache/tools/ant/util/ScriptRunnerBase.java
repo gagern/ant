@@ -249,9 +249,7 @@ public abstract class ScriptRunnerBase {
      * @throws BuildException if a resource cannot be read
      */
     public void loadResources(ResourceCollection collection) {
-        Iterator resources = collection.iterator();
-        while (resources.hasNext()) {
-            Resource resource = (Resource) resources.next();
+        for (Resource resource : collection) {
             loadResource(resource);
         }
     }
@@ -306,8 +304,8 @@ public abstract class ScriptRunnerBase {
         project = component.getProject();
         addBeans(project.getProperties());
         addBeans(project.getUserProperties());
-        addBeans(project.getTargets());
-        addBeans(project.getReferences());
+        addBeans(project.getCopyOfTargets());
+        addBeans(project.getCopyOfReferences());
         addBean("project", project);
         addBean("self", component);
     }

@@ -142,4 +142,34 @@
     <au:assertFileDoesntExist file="${output}/d"/>
   </target>
 
+  <!-- really only tests no exception is thrown -->
+  <target name="testCanAddMultipleResources" depends="setUp"
+          description="https://issues.apache.org/bugzilla/show_bug.cgi?id=51462">
+    <sync todir="${output}">
+      <file file="${input}/x"/>
+      <file file="${input}/y"/>
+    </sync>
+  </target>
+
+  <target name="testSyncWithResources" depends="setUp"
+          description="https://issues.apache.org/bugzilla/show_bug.cgi?id=51462">
+    <sync todir="${output}">
+      <mappedresources>
+        <fileset dir="${input}"/>
+        <globmapper from="*" to="test/*"/>
+      </mappedresources>
+    </sync>
+    <au:assertFileDoesntExist file="${output}/bar.txt"/>
+    <au:assertFileExists file="${output}/test/a/foo.txt"/>
+
+    <sync todir="${output}">
+      <mappedresources>
+        <fileset dir="${input}"/>
+        <globmapper from="*" to="test/*"/>
+      </mappedresources>
+    </sync>
+    <au:assertFileDoesntExist file="${output}/bar.txt"/>
+    <au:assertFileExists file="${output}/test/a/foo.txt"/>
+  </target>
+
 </project>

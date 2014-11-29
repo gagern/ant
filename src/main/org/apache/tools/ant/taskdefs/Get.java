@@ -29,12 +29,17 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.types.Mapper;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Resources;
+import org.apache.tools.ant.types.resources.URLProvider;
+import org.apache.tools.ant.types.resources.URLResource;
+import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -53,18 +58,25 @@ public class Get extends Task {
     private static final int BIG_BUFFER_SIZE = 100 * 1024;
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
     private static final int REDIRECT_LIMIT = 25;
-    
+    // HttpURLConnection doesn't have a constant for this in Java5 and
+    // what it calls HTTP_MOVED_TEMP would better be FOUND
+    private static final int HTTP_MOVED_TEMP = 307;
+
     private static final String HTTP = "http";
     private static final String HTTPS = "https";
 
-    private URL source; // required
-    private File dest; // required
+    private Resources sources = new Resources();
+    private File destination; // required
     private boolean verbose = false;
     private boolean useTimestamp = false; //off by default
     private boolean ignoreErrors = false;
     private String uname = null;
     private String pword = null;
     private long maxTime = 0;
+    private int numberRetries = NUMBER_RETRIES;
+    private boolean skipExisting = false;
+    private boolean httpUseCaches = true; // on by default
+    private Mapper mapperElement = null;
 
     /**
      * Does the work.
@@ -72,6 +84,43 @@ public class Get extends Task {
      * @exception BuildException Thrown in unrecoverable error.
      */
     public void execute() throws BuildException {
+        checkAttributes();
+
+        for (Resource r : sources) {
+            URLProvider up = r.as(URLProvider.class);
+            URL source = up.getURL();
+
+            File dest = destination;
+            if (destination.isDirectory()) {
+                if (mapperElement == null) {
+                    String path = source.getPath();
+                    if (path.endsWith("/")) {
+                        path = path.substring(0, path.length() - 1);
+                    }
+                    int slash = path.lastIndexOf("/");
+                    if (slash > -1) {
+                        path = path.substring(slash + 1);
+                    }
+                    dest = new File(destination, path);
+                } else {
+                    FileNameMapper mapper = mapperElement.getImplementation();
+                    String[] d = mapper.mapFileName(source.toString());
+                    if (d == null) {
+                        log("skipping " + r + " - mapper can't handle it",
+                            Project.MSG_WARN);
+                        continue;
+                    } else if (d.length == 0) {
+                        log("skipping " + r + " - mapper returns no file name",
+                            Project.MSG_WARN);
+                        continue;
+                    } else if (d.length > 1) {
+                        log("skipping " + r + " - mapper returns multiple file"
+                            + " names", Project.MSG_WARN);
+                        continue;
+                    }
+                    dest = new File(destination, d[0]);
+                }
+            }
 
         //set up logging
         int logLevel = Project.MSG_INFO;
@@ -82,12 +131,13 @@ public class Get extends Task {
 
         //execute the get
         try {
-            doGet(logLevel, progress);
+            doGet(source, dest, logLevel, progress);
         } catch (IOException ioe) {
             log("Error getting " + source + " to " + dest);
             if (!ignoreErrors) {
                 throw new BuildException(ioe, getLocation());
             }
+        }
         }
     }
 
@@ -103,10 +153,46 @@ public class Get extends Task {
      * @throws IOException for network trouble
      * @throws BuildException for argument errors, or other trouble when ignoreErrors
      * is false.
+     * @deprecated only gets the first configured resource
      */
     public boolean doGet(int logLevel, DownloadProgress progress)
             throws IOException {
         checkAttributes();
+        for (Resource r : sources) {
+            URLProvider up = r.as(URLProvider.class);
+            URL source = up.getURL();
+            return doGet(source, destination, logLevel, progress);
+        }
+        /*NOTREACHED*/
+        return false;
+    }
+
+    /**
+     * make a get request, with the supplied progress and logging info.
+     *
+     * All the other config parameters like ignoreErrors are set at
+     * the task level.
+     * @param source the URL to get
+     * @param dest the target file
+     * @param logLevel level to log at, see {@link Project#log(String, int)}
+     * @param progress progress callback; null for no-callbacks
+     * @return true for a successful download, false otherwise.
+     * The return value is only relevant when {@link #ignoreErrors} is true, as
+     * when false all failures raise BuildExceptions.
+     * @throws IOException for network trouble
+     * @throws BuildException for argument errors, or other trouble when ignoreErrors
+     * is false.
+     * @since Ant 1.8.0
+     */
+    public boolean doGet(URL source, File dest, int logLevel,
+                         DownloadProgress progress)
+        throws IOException {
+
+        if (dest.exists() && skipExisting) {
+            log("Destination already exists (skipping): "
+                + dest.getAbsolutePath(), logLevel);
+            return true;
+        }
 
         //dont do any progress, unless asked
         if (progress == null) {
@@ -128,7 +214,8 @@ public class Get extends Task {
             hasTimestamp = true;
         }
 
-        GetThread getThread = new GetThread(hasTimestamp, timestamp, progress,
+        GetThread getThread = new GetThread(source, dest,
+                                            hasTimestamp, timestamp, progress,
                                             logLevel);
         getThread.setDaemon(true);
         getProject().registerThreadTask(getThread, this);
@@ -160,32 +247,55 @@ public class Get extends Task {
      * Check the attributes.
      */
     private void checkAttributes() {
-        if (source == null) {
-            throw new BuildException("src attribute is required", getLocation());
+        if (sources.size() == 0) {
+            throw new BuildException("at least one source is required",
+                                     getLocation());
+        }
+        for (Resource r : sources) {
+            URLProvider up = r.as(URLProvider.class);
+            if (up == null) {
+                throw new BuildException("Only URLProvider resources are"
+                                         + " supported", getLocation());
+            }
         }
 
-        if (dest == null) {
+        if (destination == null) {
             throw new BuildException("dest attribute is required", getLocation());
         }
 
-        if (dest.exists() && dest.isDirectory()) {
-            throw new BuildException("The specified destination is a directory",
-                    getLocation());
+        if (destination.exists() && sources.size() > 1
+            && !destination.isDirectory()) {
+            throw new BuildException("The specified destination is not a"
+                                     + " directory",
+                                     getLocation());
         }
 
-        if (dest.exists() && !dest.canWrite()) {
-            throw new BuildException("Can't write to " + dest.getAbsolutePath(),
-                    getLocation());
+        if (destination.exists() && !destination.canWrite()) {
+            throw new BuildException("Can't write to "
+                                     + destination.getAbsolutePath(),
+                                     getLocation());
+        }
+
+        if (sources.size() > 1 && !destination.exists()) {
+            destination.mkdirs();
         }
     }
 
     /**
-     * Set the URL to get.
+     * Set an URL to get.
      *
      * @param u URL for the file.
      */
     public void setSrc(URL u) {
-        this.source = u;
+        add(new URLResource(u));
+    }
+
+    /**
+     * Adds URLs to get.
+     * @since Ant 1.8.0
+     */
+    public void add(ResourceCollection rc) {
+        sources.add(rc);
     }
 
     /**
@@ -194,7 +304,7 @@ public class Get extends Task {
      * @param dest Path to file.
      */
     public void setDest(File dest) {
-        this.dest = dest;
+        this.destination = dest;
     }
 
     /**
@@ -257,6 +367,76 @@ public class Get extends Task {
     }
 
     /**
+     * The time in seconds the download is allowed to take before
+     * being terminated.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setMaxTime(long maxTime) {
+        this.maxTime = maxTime;
+    }
+
+    /**
+     * The number of retries to attempt upon error, defaults to 3.
+     *
+     * @param r retry count
+     *
+     * @since Ant 1.8.0
+     */
+    public void setRetries(int r) {
+        this.numberRetries = r;
+    }
+
+    /**
+     * Skip files that already exist locally.
+     *
+     * @param s "true" to skip existing destination files
+     *
+     * @since Ant 1.8.0
+     */
+    public void setSkipExisting(boolean s) {
+        this.skipExisting = s;
+    }
+
+    /**
+     * HTTP connections only - control caching on the
+     * HttpUrlConnection: httpConnection.setUseCaches(); if false, do
+     * not allow caching on the HttpUrlConnection.
+     *
+     * <p>Defaults to true (allow caching, which is also the
+     * HttpUrlConnection default value.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setHttpUseCaches(boolean httpUseCache) {
+        this.httpUseCaches = httpUseCache;
+    }
+
+    /**
+     * Define the mapper to map source to destination files.
+     * @return a mapper to be configured.
+     * @exception BuildException if more than one mapper is defined.
+     * @since Ant 1.8.0
+     */
+    public Mapper createMapper() throws BuildException {
+        if (mapperElement != null) {
+            throw new BuildException("Cannot define more than one mapper",
+                                     getLocation());
+        }
+        mapperElement = new Mapper(getProject());
+        return mapperElement;
+    }
+
+    /**
+     * Add a nested filenamemapper.
+     * @param fileNameMapper the mapper to add.
+     * @since Ant 1.8.0
+     */
+    public void add(FileNameMapper fileNameMapper) {
+        createMapper().add(fileNameMapper);
+    }
+
+    /**
      * Provide this for Backward Compatibility.
      */
     protected static class Base64Converter
@@ -264,18 +444,8 @@ public class Get extends Task {
     }
 
     /**
-     * The time in seconds the download is allowed to take before
-     * being terminated.
-     *
-     * @since ant 1.8.0
-     */
-    public void setMaxTime(long maxTime) {
-        this.maxTime = maxTime;
-    }
-
-    /**
      * Interface implemented for reporting
-     * progess of downloading.
+     * progress of downloading.
      */
     public interface DownloadProgress {
         /**
@@ -369,6 +539,8 @@ public class Get extends Task {
 
     private class GetThread extends Thread {
 
+        private final URL source;
+        private final File dest;
         private final boolean hasTimestamp;
         private final long timestamp;
         private final DownloadProgress progress;
@@ -382,7 +554,10 @@ public class Get extends Task {
         private URLConnection connection;
         private int redirections = 0;
 
-        GetThread(boolean h, long t, DownloadProgress p, int l) {
+        GetThread(URL source, File dest,
+                  boolean h, long t, DownloadProgress p, int l) {
+            this.source = source;
+            this.dest = dest;
             hasTimestamp = h;
             timestamp = t;
             progress = p;
@@ -400,7 +575,7 @@ public class Get extends Task {
         }
 
         private boolean get() throws IOException, BuildException {
-            
+
             connection = openConnection(source);
 
             if (connection == null)
@@ -416,7 +591,7 @@ public class Get extends Task {
             if (downloadSucceeded && useTimestamp)  {
                 updateTimeStamp();
             }
-            
+
             return downloadSucceeded;
         }
 
@@ -448,7 +623,7 @@ public class Get extends Task {
                 }
             }
 
-            
+
             return true;
         }
 
@@ -477,26 +652,32 @@ public class Get extends Task {
             if (connection instanceof HttpURLConnection) {
                 ((HttpURLConnection) connection)
                         .setInstanceFollowRedirects(false);
+                ((HttpURLConnection) connection)
+                        .setUseCaches(httpUseCaches);
             }
             // connect to the remote site (may take some time)
-            connection.connect();
+            try {
+                connection.connect();
+            } catch (NullPointerException e) {
+                //bad URLs can trigger NPEs in some JVMs
+                throw new BuildException("Failed to parse " + source.toString(), e);
+            }
 
             // First check on a 301 / 302 (moved) response (HTTP only)
             if (connection instanceof HttpURLConnection) {
                 HttpURLConnection httpConnection = (HttpURLConnection) connection;
-              //  httpConnection.setInstanceFollowRedirects(false);
-              //  httpConnection.setUseCaches(false);
                 int responseCode = httpConnection.getResponseCode();
                 if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || 
                         responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                        responseCode == HttpURLConnection.HTTP_SEE_OTHER)
+                        responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                        responseCode == HTTP_MOVED_TEMP)
                 {
                     String newLocation = httpConnection.getHeaderField("Location");
                     String message = aSource
                             + (responseCode == HttpURLConnection.HTTP_MOVED_PERM ? " permanently"
                                     : "") + " moved to " + newLocation;
                     log(message, logLevel);
-                    URL newURL = new URL(newLocation);
+                    URL newURL = new URL(aSource, newLocation);
                     if (!redirectionAllowed(aSource, newURL))
                     {
                         return null;
@@ -536,7 +717,7 @@ public class Get extends Task {
 
         private boolean downloadFile()
                 throws FileNotFoundException, IOException {
-            for (int i = 0; i < NUMBER_RETRIES; i++) {
+            for (int i = 0; i < numberRetries; i++) {
                 // this three attempt trick is to get round quirks in different
                 // Java implementations. Some of them take a few goes to bind
                 // property; we ignore the first couple of such failures.
@@ -595,7 +776,7 @@ public class Get extends Task {
                 FILE_UTILS.setFileLastModified(dest, remoteTimestamp);
             }
         }
-        
+
         /**
          * Has the download completed successfully?
          *

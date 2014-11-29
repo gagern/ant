@@ -25,8 +25,7 @@ import java.lang.reflect.Field;
 /**
  * A resource that is a java constant.
  * This lets you extract values off the classpath and use them elsewhere
- * @since Ant1.7
- *
+ * @since Ant 1.7
  */
 
 public class JavaConstantResource extends AbstractClasspathResource {
@@ -38,7 +37,7 @@ public class JavaConstantResource extends AbstractClasspathResource {
      * @throws IOException if an error occurs.
      */
     protected InputStream openInputStream(ClassLoader cl) throws IOException {
-        Class clazz;
+        Class<?> clazz;
         String constant = getName();
         int index1 = constant.lastIndexOf('.');
         if (index1 < 0) {
@@ -66,6 +65,5 @@ public class JavaConstantResource extends AbstractClasspathResource {
             throw new IOException("Not a static field: " + fieldname + " in " + classname);
         }
     }
-
 
 }

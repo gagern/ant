@@ -54,12 +54,12 @@ import org.apache.tools.ant.util.FileNameMapper;
  */
 public class Touch extends Task {
 
-    private interface DateFormatFactory {
+    public interface DateFormatFactory {
         DateFormat getPrimaryFormat();
         DateFormat getFallbackFormat();
     }
 
-    private static final DateFormatFactory DEFAULT_DF_FACTORY
+    public static final DateFormatFactory DEFAULT_DF_FACTORY
         = new DateFormatFactory() {
         /*
          * The initial version used DateFormat.SHORT for the
@@ -296,10 +296,8 @@ public class Touch extends Task {
             return;
         }
         // deal with the resource collections
-        Iterator iter = resources.iterator();
-        while (iter.hasNext()) {
-            Resource r = (Resource) iter.next();
-            Touchable t = (Touchable) r.as(Touchable.class);
+        for (Resource r : resources) {
+            Touchable t = r.as(Touchable.class);
             if (t == null) {
                 throw new BuildException("Can't touch " + r);
             }
@@ -309,7 +307,8 @@ public class Touch extends Task {
         // deal with filesets in a special way since the task
         // originally also used the directories and Union won't return
         // them.
-        for (int i = 0; i < filesets.size(); i++) {
+        final int size = filesets.size();
+        for (int i = 0; i < size; i++) {
             FileSet fs = (FileSet) filesets.elementAt(i);
             DirectoryScanner ds = fs.getDirectoryScanner(getProject());
             File fromDir = fs.getDir(getProject());
@@ -340,12 +339,12 @@ public class Touch extends Task {
 
     private void touch(Resource r, long defaultTimestamp) {
         if (fileNameMapper == null) {
-            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            FileProvider fp = r.as(FileProvider.class);
             if (fp != null) {
                 // use this to create file and deal with non-writable files
                 touch(fp.getFile(), defaultTimestamp);
             } else {
-                ((Touchable) r.as(Touchable.class)).touch(defaultTimestamp);
+                r.as(Touchable.class).touch(defaultTimestamp);
             }
         } else {
             String[] mapped = fileNameMapper.mapFileName(r.getName());

@@ -726,7 +726,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
     }
 
     /**
-     * Get the manifets file to use for building the generic jar.
+     * Get the manifest file to use for building the generic jar.
      *
      * If the file does not exist the global manifest from the config is used
      * otherwise the default Ant manifest will be used.
@@ -929,6 +929,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
         if (combinedClasspath == null) {
             classpathLoader = getClass().getClassLoader();
         } else {
+            // Memory leak in line below
             classpathLoader
                 = getTask().getProject().createClassLoader(combinedClasspath);
         }

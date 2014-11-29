@@ -42,7 +42,7 @@ public abstract class ArchiveResource extends Resource {
     /**
      * Default constructor.
      */
-    public ArchiveResource() {
+    protected ArchiveResource() {
     }
 
     /**
@@ -50,7 +50,7 @@ public abstract class ArchiveResource extends Resource {
      * entry in the specified archive.
      * @param a the archive as File.
      */
-    public ArchiveResource(File a) {
+    protected ArchiveResource(File a) {
         this(a, false);
     }
 
@@ -60,7 +60,7 @@ public abstract class ArchiveResource extends Resource {
      * @param a the archive as File.
      * @param withEntry if the entry has been specified.
      */
-    public ArchiveResource(File a, boolean withEntry) {
+    protected ArchiveResource(File a, boolean withEntry) {
         setArchive(a);
         haveEntry = withEntry;
     }
@@ -71,7 +71,7 @@ public abstract class ArchiveResource extends Resource {
      * @param a the archive as Resource.
      * @param withEntry if the entry has been specified.
      */
-    public ArchiveResource(Resource a, boolean withEntry) {
+    protected ArchiveResource(Resource a, boolean withEntry) {
         addConfigured(a);
         haveEntry = withEntry;
     }
@@ -110,7 +110,7 @@ public abstract class ArchiveResource extends Resource {
             throw new BuildException("only single argument resource collections"
                                      + " are supported as archives");
         }
-        archive = (Resource) a.iterator().next();
+        archive = a.iterator().next();
     }
 
     /**
@@ -199,7 +199,7 @@ public abstract class ArchiveResource extends Resource {
      * @return a negative integer, zero, or a positive integer as this Resource
      *         is less than, equal to, or greater than the specified Resource.
      */
-    public int compareTo(Object another) {
+    public int compareTo(Resource another) {
         return this.equals(another) ? 0 : super.compareTo(another);
     }
 
@@ -242,7 +242,11 @@ public abstract class ArchiveResource extends Resource {
             : getArchive().toString() + ':' + getName();
     }
 
-    private synchronized void checkEntry() throws BuildException {
+    /**
+     * Validate settings and ensure that the represented "archive entry"
+     * has been established.
+     */
+    protected final synchronized void checkEntry() throws BuildException {
         dieOnCircularReference();
         if (haveEntry) {
             return;
@@ -266,11 +270,14 @@ public abstract class ArchiveResource extends Resource {
     }
 
     /**
-     * fetches information from the named entry inside the archive.
+     * Fetch information from the named entry inside the archive.
      */
     protected abstract void fetchEntry();
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p) {
+    /**
+     * {@inheritDoc}
+     */
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p) {
         if (isChecked()) {
             return;
         }

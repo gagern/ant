@@ -54,6 +54,7 @@ public final class BatchTest extends BaseTest {
      */
     public BatchTest(Project project) {
         this.project = project;
+        resources.setCache(true);
     }
 
     /**
@@ -143,9 +144,7 @@ public final class BatchTest extends BaseTest {
      */
     private String[] getFilenames() {
         Vector v = new Vector();
-        Iterator iter = resources.iterator();
-        while (iter.hasNext()) {
-            Resource r = (Resource) iter.next();
+        for (Resource r : resources) {
             if (r.isExists()) {
                 String pathname = r.getName();
                 if (pathname.endsWith(".java")) {
@@ -187,8 +186,8 @@ public final class BatchTest extends BaseTest {
         test.setHaltonfailure(this.haltOnFail);
         test.setFiltertrace(this.filtertrace);
         test.setFork(this.fork);
-        test.setIf(this.ifProperty);
-        test.setUnless(this.unlessProperty);
+        test.setIf(getIfCondition());
+        test.setUnless(getUnlessCondition());
         test.setTodir(this.destDir);
         test.setFailureProperty(failureProperty);
         test.setErrorProperty(errorProperty);

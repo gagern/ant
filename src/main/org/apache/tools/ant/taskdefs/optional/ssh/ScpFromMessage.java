@@ -103,7 +103,7 @@ public class ScpFromMessage extends AbstractSshMessage {
      * @param aRemoteFile the remote file name
      * @param aLocalFile  the local file
      * @param recursive   if true use recursion (-r option to scp)
-     * @param preservceLastModified whether to preserve file
+     * @param preserveLastModified whether to preserve file
      * modification times
      * @since Ant 1.8.0
      */
@@ -282,7 +282,6 @@ public class ScpFromMessage extends AbstractSshMessage {
 
     private void setLastModified(File localFile) throws JSchException {
         SftpATTRS fileAttributes = null;
-        String remotePath = null;
         ChannelSftp channel = openSftpChannel();
         channel.connect();
         try {

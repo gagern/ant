@@ -17,6 +17,7 @@
  */
 package org.apache.tools.ant.taskdefs.email;
 
+import java.io.File;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
@@ -38,18 +39,19 @@ public abstract class Mailer {
     // CheckStyle:MemberNameCheck ON
     protected Message message;
     protected EmailAddress from;
-    protected Vector replyToList = null;
-    protected Vector toList = null;
-    protected Vector ccList = null;
-    protected Vector bccList = null;
-    protected Vector files = null;
+    protected Vector<EmailAddress> replyToList = null;
+    protected Vector<EmailAddress> toList = null;
+    protected Vector<EmailAddress> ccList = null;
+    protected Vector<EmailAddress> bccList = null;
+    protected Vector<File> files = null;
     protected String subject = null;
     protected Task task;
     protected boolean includeFileNames = false;
-    protected Vector headers = null;
+    protected Vector<Header> headers = null;
     // CheckStyle:VisibilityModifier ON
     private boolean ignoreInvalidRecipients = false;
     private boolean starttls = false;
+    private boolean portExplicitlySpecified = false;
 
     /**
      * Set the mail server.
@@ -67,6 +69,22 @@ public abstract class Mailer {
      */
     public void setPort(int port) {
         this.port = port;
+    }
+
+    /**
+     * Whether the port has been explicitly specified by the user.
+     * @since Ant 1.8.2
+     */
+    public void setPortExplicitlySpecified(boolean explicit) {
+        portExplicitlySpecified = explicit;
+    }
+
+    /**
+     * Whether the port has been explicitly specified by the user.
+     * @since Ant 1.8.2
+     */
+    protected boolean isPortExplicitlySpecified() {
+        return portExplicitlySpecified;
     }
 
     /**
@@ -137,7 +155,7 @@ public abstract class Mailer {
      * @param list a vector of reployTo addresses.
      * @since Ant 1.6
      */
-    public void setReplyToList(Vector list) {
+    public void setReplyToList(Vector<EmailAddress> list) {
         this.replyToList = list;
     }
 
@@ -146,7 +164,7 @@ public abstract class Mailer {
      *
      * @param list a vector of recipient addresses.
      */
-    public void setToList(Vector list) {
+    public void setToList(Vector<EmailAddress> list) {
         this.toList = list;
     }
 
@@ -155,7 +173,7 @@ public abstract class Mailer {
      *
      * @param list a vector of cc addresses.
      */
-    public void setCcList(Vector list) {
+    public void setCcList(Vector<EmailAddress> list) {
         this.ccList = list;
     }
 
@@ -164,7 +182,7 @@ public abstract class Mailer {
      *
      * @param list a vector of the bcc addresses.
      */
-    public void setBccList(Vector list) {
+    public void setBccList(Vector<EmailAddress> list) {
         this.bccList = list;
     }
 
@@ -173,7 +191,7 @@ public abstract class Mailer {
      *
      * @param files list of files to attach to the email.
      */
-    public void setFiles(Vector files) {
+    public void setFiles(Vector<File> files) {
         this.files = files;
     }
 
@@ -209,7 +227,7 @@ public abstract class Mailer {
      * @param v a Vector presumed to contain Header objects.
      * @since Ant 1.7
      */
-    public void setHeaders(Vector v) {
+    public void setHeaders(Vector<Header> v) {
         this.headers = v;
     }
 

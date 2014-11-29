@@ -44,8 +44,18 @@ import org.apache.tools.ant.taskdefs.condition.Os;
  *
  * @since Ant 1.3
  */
-public abstract class DefaultCompilerAdapter implements CompilerAdapter {
-    private static final int COMMAND_LINE_LIMIT = 4096;  // 4K
+public abstract class DefaultCompilerAdapter
+    implements CompilerAdapter, CompilerAdapterExtension {
+
+    private static final int COMMAND_LINE_LIMIT;
+    static {
+        if (Os.isFamily("os/2")) {
+            // OS/2 CMD.EXE has a much smaller limit around 1K
+            COMMAND_LINE_LIMIT = 1000;
+        } else {
+            COMMAND_LINE_LIMIT = 4096;  // 4K
+        }
+    }
     // CheckStyle:VisibilityModifier OFF - bc
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
@@ -117,6 +127,15 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      */
     public Javac getJavac() {
         return attributes;
+    }
+
+    /**
+     * By default, only recognize files with a Java extension,
+     * but specialized compilers can recognize multiple kinds
+     * of files.
+     */
+    public String[] getSupportedFileExtensions() {
+        return new String[] { "java" };
     }
 
     /**
@@ -319,40 +338,15 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      */
     protected Commandline setupModernJavacCommandlineSwitches(Commandline cmd) {
         setupJavacCommandlineSwitches(cmd, true);
-        if (attributes.getSource() != null && !assumeJava13()) {
-            cmd.createArgument().setValue("-source");
-            String source = attributes.getSource();
-            if (source.equals("1.1") || source.equals("1.2")) {
-                // support for -source 1.1 and -source 1.2 has been
-                // added with JDK 1.4.2 - and isn't present in 1.5.0
-                // or 1.6.0 either
-                cmd.createArgument().setValue("1.3");
-            } else {
-                cmd.createArgument().setValue(source);
-            }
-        } else if ((assumeJava15() || assumeJava16())
-                   && attributes.getTarget() != null) {
-            String t = attributes.getTarget();
-            if (t.equals("1.1") || t.equals("1.2") || t.equals("1.3")
-                || t.equals("1.4")) {
-                String s = t;
-                if (t.equals("1.1")) {
-                    // 1.5.0 doesn't support -source 1.1
-                    s = "1.2";
-                }
-                attributes.log("", Project.MSG_WARN);
-                attributes.log("          WARNING", Project.MSG_WARN);
-                attributes.log("", Project.MSG_WARN);
-                attributes.log("The -source switch defaults to 1.5 in JDK 1.5 and 1.6.",
-                               Project.MSG_WARN);
-                attributes.log("If you specify -target " + t
-                               + " you now must also specify -source " + s
-                               + ".", Project.MSG_WARN);
-                attributes.log("Ant will implicitly add -source " + s
-                               + " for you.  Please change your build file.",
-                               Project.MSG_WARN);
+        if (!assumeJava13()) { // -source added with JDK 1.4
+            final String t = attributes.getTarget();
+            if (attributes.getSource() != null) {
                 cmd.createArgument().setValue("-source");
-                cmd.createArgument().setValue(s);
+                cmd.createArgument()
+                    .setValue(adjustSourceValue(attributes.getSource()));
+
+            } else if (t != null && mustSetSourceForTarget(t)) {
+                setImplicitSourceSwitch(cmd, t, adjustSourceValue(t));
             }
         }
         return cmd;
@@ -554,11 +548,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      * @since Ant 1.5
      */
     protected boolean assumeJava12() {
-        return "javac1.2".equals(attributes.getCompilerVersion())
-            || ("classic".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2))
-            || ("extJavac".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2));
+        return "javac1.2".equals(attributes.getCompilerVersion());
     }
 
     /**
@@ -567,13 +557,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      * @since Ant 1.5
      */
     protected boolean assumeJava13() {
-        return "javac1.3".equals(attributes.getCompilerVersion())
-            || ("classic".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3))
-            || ("modern".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3))
-            || ("extJavac".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3));
+        return "javac1.3".equals(attributes.getCompilerVersion());
     }
 
     /**
@@ -582,13 +566,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      * @since Ant 1.6.3
      */
     protected boolean assumeJava14() {
-        return "javac1.4".equals(attributes.getCompilerVersion())
-            || ("classic".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4))
-            || ("modern".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4))
-            || ("extJavac".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4));
+        return assumeJavaXY("javac1.4", JavaEnvUtils.JAVA_1_4);
     }
 
     /**
@@ -597,13 +575,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      * @since Ant 1.6.3
      */
     protected boolean assumeJava15() {
-        return "javac1.5".equals(attributes.getCompilerVersion())
-            || ("classic".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_5))
-            || ("modern".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_5))
-            || ("extJavac".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_5));
+        return assumeJavaXY("javac1.5", JavaEnvUtils.JAVA_1_5);
     }
 
     /**
@@ -612,13 +584,39 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      * @since Ant 1.7
      */
     protected boolean assumeJava16() {
-        return "javac1.6".equals(attributes.getCompilerVersion())
+        return assumeJavaXY("javac1.6", JavaEnvUtils.JAVA_1_6);
+    }
+
+    /**
+     * Shall we assume JDK 1.7 command line switches?
+     * @return true if JDK 1.7
+     * @since Ant 1.8.2
+     */
+    protected boolean assumeJava17() {
+        return assumeJavaXY("javac1.7", JavaEnvUtils.JAVA_1_7);
+    }
+
+    /**
+     * Shall we assume JDK 1.8 command line switches?
+     * @return true if JDK 1.8
+     * @since Ant 1.8.3
+     */
+    protected boolean assumeJava18() {
+        return assumeJavaXY("javac1.8", JavaEnvUtils.JAVA_1_8);
+    }
+
+    /**
+     * Shall we assume command line switches for the given version of Java?
+     * @since Ant 1.8.3
+     */
+    private boolean assumeJavaXY(String javacXY, String javaEnvVersionXY) {
+        return javacXY.equals(attributes.getCompilerVersion())
             || ("classic".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_6))
+                && JavaEnvUtils.isJavaVersion(javaEnvVersionXY))
             || ("modern".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_6))
+                && JavaEnvUtils.isJavaVersion(javaEnvVersionXY))
             || ("extJavac".equals(attributes.getCompilerVersion())
-                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_6));
+                && JavaEnvUtils.isJavaVersion(javaEnvVersionXY));
     }
 
     /**
@@ -648,6 +646,75 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
      */
     protected String getNoDebugArgument() {
         return assumeJava11() ? null : "-g:none";
+    }
+
+    private void setImplicitSourceSwitch(Commandline cmd,
+                                         String target, String source) {
+        attributes.log("", Project.MSG_WARN);
+        attributes.log("          WARNING", Project.MSG_WARN);
+        attributes.log("", Project.MSG_WARN);
+        attributes.log("The -source switch defaults to " + getDefaultSource()
+                       + ".",
+                       Project.MSG_WARN);
+        attributes.log("If you specify -target " + target
+                       + " you now must also specify -source " + source
+                       + ".", Project.MSG_WARN);
+        attributes.log("Ant will implicitly add -source " + source
+                       + " for you.  Please change your build file.",
+                       Project.MSG_WARN);
+        cmd.createArgument().setValue("-source");
+        cmd.createArgument().setValue(source);
+    }
+
+    /**
+     * A string that describes the default value for -source of the
+     * selected JDK's javac.
+     */
+    private String getDefaultSource() {
+        if (assumeJava15() || assumeJava16()) {
+            return "1.5 in JDK 1.5 and 1.6";
+        }
+        if (assumeJava17()) {
+            return "1.7 in JDK 1.7";
+        }
+        if (assumeJava18()) {
+            return "1.8 in JDK 1.8";
+        }
+        return "";
+    }
+
+    /**
+     * Whether the selected -target is known to be incompatible with
+     * the default -source value of the selected JDK's javac.
+     *
+     * <p>Assumes it will never be called unless the selected JDK is
+     * at least Java 1.5.</p>
+     *
+     * @param t the -target value, must not be null
+     */
+    private boolean mustSetSourceForTarget(String t) {
+        if (assumeJava14()) {
+            return false;
+        }
+        if (t.startsWith("1.")) {
+            t = t.substring(2);
+        }
+        return t.equals("1") || t.equals("2") || t.equals("3") || t.equals("4")
+            || ((t.equals("5") || t.equals("6"))
+                && !assumeJava15() && !assumeJava16())
+            || (t.equals("7") && !assumeJava17());
+    }
+
+
+    /**
+     * Turn the task's attribute for -source into soemthing that is
+     * understood by all javac's after 1.4.
+     *
+     * <p>support for -source 1.1 and -source 1.2 has been added with
+     * JDK 1.4.2 but isn't present in 1.5.0+</p>
+     */
+    private String adjustSourceValue(String source) {
+        return (source.equals("1.1") || source.equals("1.2")) ? "1.3" : source;
     }
 }
 

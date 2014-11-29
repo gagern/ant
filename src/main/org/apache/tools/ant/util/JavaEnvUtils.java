@@ -17,7 +17,6 @@
  */
 package org.apache.tools.ant.util;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.FileWriter;
@@ -27,7 +26,7 @@ import org.apache.tools.ant.taskdefs.condition.Os;
 
 /**
  * A set of helper methods related to locating executables or checking
- * conditons of a given Java installation.
+ * conditions of a given Java installation.
  *
  * @since Ant 1.5
  */
@@ -90,11 +89,30 @@ public final class JavaEnvUtils {
     /** Number Version constant for Java 1.6 */
     public static final int VERSION_1_6 = 16;
 
+    /** Version constant for Java 1.7 */
+    public static final String JAVA_1_7 = "1.7";
+    /** Number Version constant for Java 1.7 */
+    public static final int VERSION_1_7 = 17;
+
+    /** Version constant for Java 1.8 */
+    public static final String JAVA_1_8 = "1.8";
+    /** Number Version constant for Java 1.8 */
+    public static final int VERSION_1_8 = 18;
+
     /** Whether this is the Kaffe VM */
     private static boolean kaffeDetected;
 
+    /** Wheter this is a GNU Classpath based VM */
+    private static boolean classpathDetected;
+
+    /** Whether this is the GNU VM (gcj/gij) */
+    private static boolean gijDetected;
+
+    /** Whether this is Apache Harmony */
+    private static boolean harmonyDetected;
+
     /** array of packages in the runtime */
-    private static Vector jrePackages;
+    private static Vector<String> jrePackages;
 
 
     static {
@@ -125,8 +143,14 @@ public final class JavaEnvUtils {
             Class.forName("java.net.Proxy");
             javaVersion = JAVA_1_5;
             javaVersionNumber++;
-            Class.forName("java.util.ServiceLoader");
+            Class.forName("java.net.CookieStore");
             javaVersion = JAVA_1_6;
+            javaVersionNumber++;
+            Class.forName("java.nio.file.FileSystem");
+            javaVersion = JAVA_1_7;
+            javaVersionNumber++;
+            Class.forName("java.lang.reflect.Executable");
+            javaVersion = JAVA_1_8;
             javaVersionNumber++;
         } catch (Throwable t) {
             // swallow as we've hit the max class version that
@@ -139,11 +163,32 @@ public final class JavaEnvUtils {
         } catch (Throwable t) {
             // swallow as this simply doesn't seem to be Kaffe
         }
+        classpathDetected = false;
+        try {
+            Class.forName("gnu.classpath.Configuration");
+            classpathDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be GNU classpath based.
+        }
+        gijDetected = false;
+        try {
+            Class.forName("gnu.gcj.Core");
+            gijDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be gcj/gij
+        }
+        harmonyDetected = false;
+        try {
+            Class.forName("org.apache.harmony.luni.util.Base64");
+            harmonyDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be Apache Harmony
+        }
     }
 
     /**
      * Returns the version of Java this class is running under.
-     * @return the version of Java as a String, e.g. "1.1"
+     * @return the version of Java as a String, e.g. "1.6"
      */
     public static String getJavaVersion() {
         return javaVersion;
@@ -152,7 +197,7 @@ public final class JavaEnvUtils {
 
     /**
      * Returns the version of Java this class is running under.
-     * This number can be used for comparisions; it will always be
+     * This number can be used for comparisons; it will always be
      * @return the version of Java as a number 10x the major/minor,
      * e.g Java1.5 has a value of 15
      */
@@ -164,8 +209,8 @@ public final class JavaEnvUtils {
      * Compares the current Java version to the passed in String -
      * assumes the argument is one of the constants defined in this
      * class.
-     * Note that Ant now requires JDK 1.2+ so {@link #JAVA_1_0} and
-     * {@link #JAVA_1_1} need no longer be tested for.
+     * Note that Ant now requires JDK 1.4+ so {@link #JAVA_1_0} through
+     * {@link #JAVA_1_3} need no longer be tested for.
      * @param version the version to check against the current version.
      * @return true if the version of Java is the same as the given version.
      * @since Ant 1.5
@@ -178,8 +223,8 @@ public final class JavaEnvUtils {
      * Compares the current Java version to the passed in String -
      * assumes the argument is one of the constants defined in this
      * class.
-     * Note that Ant now requires JDK 1.2+ so {@link #JAVA_1_0} and
-     * {@link #JAVA_1_1} need no longer be tested for.
+     * Note that Ant now requires JDK 1.4+ so {@link #JAVA_1_0} through
+     * {@link #JAVA_1_3} need no longer be tested for.
      * @param version the version to check against the current version.
      * @return true if the version of Java is the same or higher than the
      * given version.
@@ -197,6 +242,34 @@ public final class JavaEnvUtils {
      */
     public static boolean isKaffe() {
         return kaffeDetected;
+    }
+
+    /**
+     * Checks whether the current Java VM is GNU Classpath
+     * @since Ant 1.9.1
+     * @return true if the version of Java is GNU Classpath
+     */
+    public static boolean isClasspathBased() {
+        return classpathDetected;
+    }
+
+    /**
+     * Checks whether the current Java VM is the GNU interpreter gij
+     * or we are running in a gcj precompiled binary.
+     * @since Ant 1.8.2
+     * @return true if the current Java VM is gcj/gij.
+     */
+    public static boolean isGij() {
+        return gijDetected;
+    }
+
+    /**
+     * Checks whether the current VM is Apache Harmony.
+     * @since Ant 1.8.2
+     * @return true if the current VM is Apache Harmony.
+     */
+    public static boolean isApacheHarmony() {
+        return harmonyDetected;
     }
 
     /**
@@ -323,8 +396,10 @@ public final class JavaEnvUtils {
      */
 
     private static void buildJrePackages() {
-        jrePackages = new Vector();
+        jrePackages = new Vector<String>();
         switch(javaVersionNumber) {
+            case VERSION_1_8:
+            case VERSION_1_7:
             case VERSION_1_6:
             case VERSION_1_5:
                 //In Java1.5, the apache stuff moved.
@@ -375,6 +450,8 @@ public final class JavaEnvUtils {
         Vector tests = new Vector();
         tests.addElement("java.lang.Object");
         switch(javaVersionNumber) {
+            case VERSION_1_8:
+            case VERSION_1_7:
             case VERSION_1_6:
             case VERSION_1_5:
                 tests.addElement(
@@ -422,7 +499,7 @@ public final class JavaEnvUtils {
      * that platforms runtime jar(s)
      * @return list of packages.
      */
-    public static Vector getJrePackages() {
+    public static Vector<String> getJrePackages() {
         if (jrePackages == null) {
             buildJrePackages();
         }

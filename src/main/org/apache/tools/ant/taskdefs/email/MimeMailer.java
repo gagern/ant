@@ -26,11 +26,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 
-import java.util.Vector;
-import java.util.Iterator;
-import java.util.Properties;
 import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.Vector;
 
 import java.security.Provider;
 import java.security.Security;
@@ -100,7 +101,7 @@ public class MimeMailer extends Mailer {
         }
 
         public void setContentType(String type) {
-            this.type = type.toLowerCase();
+            this.type = type.toLowerCase(Locale.ENGLISH);
         }
 
         public String getContentType() {
@@ -156,6 +157,10 @@ public class MimeMailer extends Mailer {
                 // SMTP provider
                 props.put("mail.smtp.socketFactory.class", SSL_FACTORY);
                 props.put("mail.smtp.socketFactory.fallback", "false");
+                if (isPortExplicitlySpecified()) {
+                    props.put("mail.smtp.socketFactory.port",
+                              String.valueOf(port));
+                }
             }
             if (user != null || password != null) {
                 props.put("mail.smtp.auth", "true");
@@ -284,9 +289,10 @@ public class MimeMailer extends Mailer {
 
     private static InternetAddress[] internetAddresses(Vector list)
         throws AddressException, UnsupportedEncodingException {
-        InternetAddress[] addrs = new InternetAddress[list.size()];
+        final int size = list.size();
+        InternetAddress[] addrs = new InternetAddress[size];
 
-        for (int i = 0; i < list.size(); ++i) {
+        for (int i = 0; i < size; ++i) {
             EmailAddress addr = (EmailAddress) list.elementAt(i);
 
             String name = addr.getName();

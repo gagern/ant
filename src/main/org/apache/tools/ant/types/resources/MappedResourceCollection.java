@@ -17,6 +17,8 @@
  */
 package org.apache.tools.ant.types.resources;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Stack;
 import org.apache.tools.ant.BuildException;
@@ -28,6 +30,7 @@ import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.IdentityMapper;
+import org.apache.tools.ant.util.MergingMapper;
 
 /**
  * Wrapper around a resource collections that maps the names of the
@@ -35,10 +38,13 @@ import org.apache.tools.ant.util.IdentityMapper;
  * @since Ant 1.8.0
  */
 public class MappedResourceCollection
-    extends DataType implements ResourceCollection, Cloneable {
+        extends DataType implements ResourceCollection, Cloneable {
 
     private ResourceCollection nested = null;
     private Mapper mapper = null;
+    private boolean enableMultipleMappings = false;
+    private boolean cache = false;
+    private Collection<Resource> cachedColl = null;
 
     /**
      * Adds the required nested ResourceCollection.
@@ -55,6 +61,7 @@ public class MappedResourceCollection
                                      getLocation());
         }
         setChecked(false);
+        cachedColl = null;
         nested = c;
     }
 
@@ -73,6 +80,7 @@ public class MappedResourceCollection
         }
         setChecked(false);
         mapper = new Mapper(getProject());
+        cachedColl = null;
         return mapper;
     }
 
@@ -86,7 +94,30 @@ public class MappedResourceCollection
     }
 
     /**
-     * @return false
+     * Set method of handling mappers that return multiple
+     * mappings for a given source path.
+     * @param enableMultipleMappings If true the type will
+     *        use all the mappings for a given source path, if
+     *        false, only the first mapped name is
+     *        processed.
+     *        By default, this setting is false to provide backward
+     *        compatibility with earlier releases.
+     * @since Ant 1.8.1
+     */
+    public void setEnableMultipleMappings(boolean enableMultipleMappings) {
+        this.enableMultipleMappings = enableMultipleMappings;
+    }
+
+    /**
+     * Set whether to cache collections.
+     * @since Ant 1.8.1
+     */
+    public void setCache(boolean cache) {
+        this.cache = cache;
+    }
+
+    /**
+     * {@inheritDoc}
      */
     public boolean isFilesystemOnly() {
         if (isReference()) {
@@ -98,22 +129,25 @@ public class MappedResourceCollection
     }
 
     /**
-     * @return size of the nested resource collection.
+     * {@inheritDoc}
      */
     public int size() {
         if (isReference()) {
             return ((MappedResourceCollection) getCheckedRef()).size();
         }
         checkInitialized();
-        return nested.size();
+        return cacheCollection().size();
     }
 
-    public Iterator iterator() {
+    /**
+     * {@inheritDoc}
+     */
+    public Iterator<Resource> iterator() {
         if (isReference()) {
             return ((MappedResourceCollection) getCheckedRef()).iterator();
         }
         checkInitialized();
-        return new MappedIterator(nested.iterator(), mapper);
+        return cacheCollection().iterator();
     }
 
     /**
@@ -128,8 +162,7 @@ public class MappedResourceCollection
     }
 
     /**
-     * Implement clone.  The nested resource collection and mapper are
-     * copied.
+     * Implement clone.  The nested resource collection and mapper are copied.
      * @return a cloned instance.
      */
     public Object clone() {
@@ -138,6 +171,7 @@ public class MappedResourceCollection
                 (MappedResourceCollection) super.clone();
             c.nested = nested;
             c.mapper = mapper;
+            c.cachedColl = null;
             return c;
         } catch (CloneNotSupportedException e) {
             throw new BuildException(e);
@@ -151,7 +185,7 @@ public class MappedResourceCollection
      * @param p   the project to use to dereference the references.
      * @throws BuildException on error.
      */
-    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
             return;
@@ -178,30 +212,31 @@ public class MappedResourceCollection
         dieOnCircularReference();
     }
 
-    private static class MappedIterator implements Iterator {
-        private final Iterator sourceIterator;
-        private final FileNameMapper mapper;
+    private synchronized Collection<Resource> cacheCollection() {
+        if (cachedColl == null || !cache) {
+            cachedColl = getCollection();
+        }
+        return cachedColl;
+    }
 
-        private MappedIterator(Iterator source, Mapper m) {
-            sourceIterator = source;
-            if (m != null) {
-                mapper = m.getImplementation();
+    private Collection<Resource> getCollection() {
+        Collection<Resource> collected = new ArrayList<Resource>();
+        FileNameMapper m =
+            mapper != null ? mapper.getImplementation() : new IdentityMapper();
+        for (Resource r : nested) {
+            if (enableMultipleMappings) {
+                String[] n = m.mapFileName(r.getName());
+                if (n != null) {
+                    for (int i = 0; i < n.length; i++) {
+                        collected.add(new MappedResource(r,
+                                                         new MergingMapper(n[i]))
+                                      );
+                    }
+                }
             } else {
-                mapper = new IdentityMapper();
+                collected.add(new MappedResource(r, m));
             }
         }
-
-        public boolean hasNext() {
-            return sourceIterator.hasNext();
-        }
-
-        public Object next() {
-            return new MappedResource((Resource) sourceIterator.next(),
-                                      mapper);
-        }
-
-        public void remove() {
-            throw new UnsupportedOperationException();
-        }
+        return collected;
     }
 }

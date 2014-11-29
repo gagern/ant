@@ -18,6 +18,9 @@
 
 package org.apache.tools.zip;
 
+import static org.apache.tools.zip.ZipConstants.BYTE_MASK;
+import static org.apache.tools.zip.ZipConstants.WORD;
+
 /**
  * Utility class that represents a four byte integer with conversion
  * rules for the big endian byte order of ZIP files.
@@ -25,9 +28,7 @@ package org.apache.tools.zip;
  */
 public final class ZipLong implements Cloneable {
 
-    private static final int WORD = 4;
-    private static final int BYTE_BIT_SIZE = 8;
-    private static final int BYTE_MASK = 0xFF;
+    //private static final int BYTE_BIT_SIZE = 8;
 
     private static final int BYTE_1 = 1;
     private static final int BYTE_1_MASK = 0xFF00;
@@ -41,7 +42,24 @@ public final class ZipLong implements Cloneable {
     private static final long BYTE_3_MASK = 0xFF000000L;
     private static final int BYTE_3_SHIFT = 24;
 
-    private long value;
+    private final long value;
+
+    /** Central File Header Signature */
+    public static final ZipLong CFH_SIG = new ZipLong(0X02014B50L);
+
+    /** Local File Header Signature */
+    public static final ZipLong LFH_SIG = new ZipLong(0X04034B50L);
+
+    /**
+     * Data Descriptor signature
+     */
+    public static final ZipLong DD_SIG = new ZipLong(0X08074B50L);
+
+    /**
+     * Value stored in size and similar fields if ZIP64 extensions are
+     * used.
+     */
+    static final ZipLong ZIP64_MAGIC = new ZipLong(ZipConstants.ZIP64_MAGIC);
 
     /**
      * Create instance from a number.
@@ -107,7 +125,7 @@ public final class ZipLong implements Cloneable {
      * Helper method to get the value as a Java long from four bytes starting at given array offset
      * @param bytes the array of bytes
      * @param offset the offset to start
-     * @return the correspondanding Java long value
+     * @return the corresponding Java long value
      */
     public static long getValue(byte[] bytes, int offset) {
         long value = (bytes[offset + BYTE_3] << BYTE_3_SHIFT) & BYTE_3_MASK;
@@ -120,7 +138,7 @@ public final class ZipLong implements Cloneable {
     /**
      * Helper method to get the value as a Java long from a four-byte array
      * @param bytes the array of bytes
-     * @return the correspondanding Java long value
+     * @return the corresponding Java long value
      */
     public static long getValue(byte[] bytes) {
         return getValue(bytes, 0);
@@ -132,6 +150,7 @@ public final class ZipLong implements Cloneable {
      * @return true if the objects are equal
      * @since 1.1
      */
+    @Override
     public boolean equals(Object o) {
         if (o == null || !(o instanceof ZipLong)) {
             return false;
@@ -144,10 +163,12 @@ public final class ZipLong implements Cloneable {
      * @return the value stored in the ZipLong
      * @since 1.1
      */
+    @Override
     public int hashCode() {
         return (int) value;
     }
 
+    @Override
     public Object clone() {
         try {
             return super.clone();
@@ -155,5 +176,10 @@ public final class ZipLong implements Cloneable {
             // impossible
             throw new RuntimeException(cnfe);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "ZipLong value: " + value;
     }
 }

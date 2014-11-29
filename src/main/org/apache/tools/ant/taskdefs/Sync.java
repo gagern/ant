@@ -36,6 +36,7 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.selectors.Exists;
 import org.apache.tools.ant.types.selectors.FileSelector;
@@ -64,7 +65,7 @@ public class Sync extends Task {
     // Similar to a fileset, but doesn't allow dir attribute to be set
     private SyncTarget syncTarget;
 
-    private Restrict resources = null;
+    private Resources resources = null;
 
     // Override Task#init
     /**
@@ -399,9 +400,10 @@ public class Sync extends Task {
             myCopy.add(rc);
         } else {
             if (resources == null) {
-                resources = new Restrict();
-                resources.add(new Exists());
-                myCopy.add(resources);
+                Restrict r = new Restrict(); 
+                r.add(new Exists());
+                r.add(resources = new Resources());
+                myCopy.add(r);
             }
             resources.add(rc);
         }
@@ -484,13 +486,10 @@ public class Sync extends Task {
         protected Map scan(Resource[] resources, File toDir) {
             assertTrue("No mapper", mapperElement == null);
 
-            Map m = super.scan(resources, toDir);
-
-            Iterator iter = m.keySet().iterator();
-            while (iter.hasNext()) {
-                nonOrphans.add(((Resource) iter.next()).getName());
+            for (int i = 0; i < resources.length; i++) {
+                nonOrphans.add(resources[i].getName());
             }
-            return m;
+            return super.scan(resources, toDir);
         }
 
         /**

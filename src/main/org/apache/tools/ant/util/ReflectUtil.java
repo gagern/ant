@@ -17,6 +17,7 @@
  */
 package org.apache.tools.ant.util;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import org.apache.tools.ant.BuildException;
@@ -33,6 +34,23 @@ public class ReflectUtil {
 
     /**  private constructor */
     private ReflectUtil() {
+    }
+
+    /**
+     * Create an instance of a class using the constructor matching
+     * the given arguments.
+     * @since Ant 1.8.0
+     */
+    public static <T> T newInstance(Class<T> ofClass,
+                                     Class<?>[] argTypes,
+                                     Object[] args) {
+        try {
+            Constructor<T> con = ofClass.getConstructor(argTypes);
+            return con.newInstance(args);
+        } catch (Exception t) {
+            throwBuildException(t);
+            return null; // NotReached
+        }
     }
 
     /**
@@ -64,7 +82,7 @@ public class ReflectUtil {
     public static Object invokeStatic(Object obj, String methodName) {
         try {
             Method method;
-            method = ((Class) obj).getMethod(
+            method = ((Class<?>) obj).getMethod(
                     methodName, (Class[]) null);
             return method.invoke(obj, (Object[]) null);
         }  catch (Exception t) {
@@ -82,7 +100,7 @@ public class ReflectUtil {
      * @return the object returned by the method
      */
     public static Object invoke(
-        Object obj, String methodName, Class argType, Object arg) {
+        Object obj, String methodName, Class<?> argType, Object arg) {
         try {
             Method method;
             method = obj.getClass().getMethod(
@@ -105,8 +123,8 @@ public class ReflectUtil {
      * @return the object returned by the method
      */
     public static Object invoke(
-        Object obj, String methodName, Class argType1, Object arg1,
-        Class argType2, Object arg2) {
+        Object obj, String methodName, Class<?> argType1, Object arg1,
+        Class<?> argType2, Object arg2) {
         try {
             Method method;
             method = obj.getClass().getMethod(

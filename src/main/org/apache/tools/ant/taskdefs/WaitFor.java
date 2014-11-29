@@ -19,6 +19,7 @@
 package org.apache.tools.ant.taskdefs;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -45,7 +46,7 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * The maxwaitunit and checkeveryunit are allowed to have the following values:
  * millisecond, second, minute, hour, day and week. The default is millisecond.
  *
- * For programmatic use/subclassing, there are two methods that may be overrridden,
+ * For programmatic use/subclassing, there are two methods that may be overridden,
  * <code>processSuccess</code> and <code>processTimeout</code>
  * @since Ant 1.5
  *
@@ -187,7 +188,7 @@ public class WaitFor extends ConditionBase {
     }
 
     /**
-     * Get the maxiumum wait time, in milliseconds.
+     * Get the maximum wait time, in milliseconds.
      * @since Ant 1.8
      * @return how long to wait before timing out
      */
@@ -259,7 +260,7 @@ public class WaitFor extends ConditionBase {
          * @return a multipler (a long value)
          */
         public long getMultiplier() {
-            String key = getValue().toLowerCase();
+            String key = getValue().toLowerCase(Locale.ENGLISH);
             Long l = (Long) timeTable.get(key);
             return l.longValue();
         }

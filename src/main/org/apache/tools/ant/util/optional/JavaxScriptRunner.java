@@ -20,10 +20,8 @@ package org.apache.tools.ant.util.optional;
 
 import org.apache.tools.ant.BuildException;
 
-
 import java.util.Iterator;
 import org.apache.tools.ant.util.ScriptRunnerBase;
-import org.apache.tools.ant.util.ReflectUtil;
 import org.apache.tools.ant.util.ReflectWrapper;
 
 /**
@@ -63,7 +61,7 @@ public class JavaxScriptRunner extends ScriptRunnerBase {
      * @param execName the name that will be passed to the
      *                 scripting engine for this script execution.
      *
-     * @exception BuildException if someting goes wrong exectuing the script.
+     * @exception BuildException if something goes wrong executing the script.
      */
     public void executeScript(String execName) throws BuildException {
         evaluateScript(execName);

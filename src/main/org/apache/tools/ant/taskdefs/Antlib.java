@@ -28,10 +28,11 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
+import org.apache.tools.ant.ProjectHelperRepository;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.TaskContainer;
 import org.apache.tools.ant.UnknownElement;
-import org.apache.tools.ant.helper.ProjectHelper2;
+import org.apache.tools.ant.types.resources.URLResource;
 
 
 /**
@@ -56,7 +57,7 @@ public class Antlib extends Task implements TaskContainer {
      * @param project   the current project
      * @param antlibUrl the url to read the definitions from
      * @param uri       the uri that the antlib is to be placed in
-     * @return   the ant lib task
+     * @return the ant lib task
      */
     public static Antlib createAntlib(Project project, URL antlibUrl,
                                       String uri) {
@@ -70,6 +71,7 @@ public class Antlib extends Task implements TaskContainer {
         ComponentHelper helper =
             ComponentHelper.getComponentHelper(project);
         helper.enterAntLib(uri);
+        URLResource antlibResource = new URLResource(antlibUrl);
         try {
             // Should be safe to parse
             ProjectHelper parser = null;
@@ -77,18 +79,17 @@ public class Antlib extends Task implements TaskContainer {
                 project.getReference(ProjectHelper.PROJECTHELPER_REFERENCE);
             if (p instanceof ProjectHelper) {
                 parser = (ProjectHelper) p;
-                if (!parser.canParseAntlibDescriptor(antlibUrl)) {
-                    project.log("ProjectHelper class " + p.getClass().getName()
-                                + " can't parse Antlib descriptors, falling back"
-                                + " to ProjectHelper2.");
+                if (!parser.canParseAntlibDescriptor(antlibResource)) {
                     parser = null;
                 }
             }
             if (parser == null) {
-                parser = new ProjectHelper2();
+                ProjectHelperRepository helperRepository =
+                    ProjectHelperRepository.getInstance();
+                parser = helperRepository.getProjectHelperForAntlib(antlibResource);
             }
             UnknownElement ue =
-                parser.parseAntlibDescriptor(project, antlibUrl);
+                parser.parseAntlibDescriptor(project, antlibResource);
             // Check name is "antlib"
             if (!(ue.getTag().equals(TAG))) {
                 throw new BuildException(
@@ -107,13 +108,12 @@ public class Antlib extends Task implements TaskContainer {
         }
     }
 
-
     //
     // Instance
     //
     private ClassLoader classLoader;
-    private String      uri = "";
-    private List  tasks = new ArrayList();
+    private String uri = "";
+    private List<Object> tasks = new ArrayList<Object>();
 
     /**
      * Set the class loader for this antlib.
@@ -130,7 +130,7 @@ public class Antlib extends Task implements TaskContainer {
      * Set the URI for this antlib.
      * @param uri the namespace uri
      */
-    protected void  setURI(String uri) {
+    protected void setURI(String uri) {
         this.uri = uri;
     }
 
@@ -155,7 +155,8 @@ public class Antlib extends Task implements TaskContainer {
      * any tasks that derive from Definer.
      */
     public void execute() {
-        for (Iterator i = tasks.iterator(); i.hasNext();) {
+        //TODO handle tasks added via #addTask()
+        for (Iterator<Object> i = tasks.iterator(); i.hasNext();) {
             UnknownElement ue = (UnknownElement) i.next();
             setLocation(ue.getLocation());
             ue.maybeConfigure();

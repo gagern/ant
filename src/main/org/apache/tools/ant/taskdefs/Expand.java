@@ -63,14 +63,14 @@ public class Expand extends Task {
     private File source; // req
     private boolean overwrite = true;
     private Mapper mapperElement = null;
-    private Vector patternsets = new Vector();
+    private Vector<PatternSet> patternsets = new Vector<PatternSet>();
     private Union resources = new Union();
     private boolean resourcesSpecified = false;
     private boolean failOnEmptyArchive = false;
     private boolean stripAbsolutePathSpec = false;
     private boolean scanForUnicodeExtraFields = true;
 
-    private static final String NATIVE_ENCODING = "native-encoding";
+    public static final String NATIVE_ENCODING = "native-encoding";
 
     private String encoding = "UTF8";
     /** Error message when more that one mapper is defined */
@@ -132,15 +132,13 @@ public class Expand extends Task {
                 expandFile(FILE_UTILS, source, dest);
             }
         }
-        Iterator iter = resources.iterator();
-        while (iter.hasNext()) {
-            Resource r = (Resource) iter.next();
+        for (Resource r : resources) {
             if (!r.isExists()) {
                 log("Skipping '" + r.getName() + "' because it doesn't exist.");
                 continue;
             }
 
-            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            FileProvider fp = r.as(FileProvider.class);
             if (fp != null) {
                 expandFile(FILE_UTILS, fp.getFile(), dest);
             } else {
@@ -169,13 +167,20 @@ public class Expand extends Task {
         try {
             zf = new ZipFile(srcF, encoding, scanForUnicodeExtraFields);
             boolean empty = true;
-            Enumeration e = zf.getEntries();
+            Enumeration<ZipEntry> e = zf.getEntries();
             while (e.hasMoreElements()) {
                 empty = false;
-                ZipEntry ze = (ZipEntry) e.nextElement();
-                extractFile(fileUtils, srcF, dir, zf.getInputStream(ze),
-                            ze.getName(), new Date(ze.getTime()),
-                            ze.isDirectory(), mapper);
+                ZipEntry ze = e.nextElement();
+                InputStream is = null;
+                log("extracting " + ze.getName(), Project.MSG_DEBUG);
+                try {
+                    extractFile(fileUtils, srcF, dir,
+                                is = zf.getInputStream(ze),
+                                ze.getName(), new Date(ze.getTime()),
+                                ze.isDirectory(), mapper);
+                } finally {
+                    FileUtils.close(is);
+                }
             }
             if (empty && getFailOnEmptyArchive()) {
                 throw new BuildException("archive '" + srcF + "' is empty");
@@ -249,10 +254,11 @@ public class Expand extends Task {
                 .replace('\\', File.separatorChar);
 
             boolean included = false;
-            Set includePatterns = new HashSet();
-            Set excludePatterns = new HashSet();
-            for (int v = 0, size = patternsets.size(); v < size; v++) {
-                PatternSet p = (PatternSet) patternsets.elementAt(v);
+            Set<String> includePatterns = new HashSet<String>();
+            Set<String> excludePatterns = new HashSet<String>();
+            final int size = patternsets.size();
+            for (int v = 0; v < size; v++) {
+                PatternSet p = patternsets.elementAt(v);
                 String[] incls = p.getIncludePatterns(getProject());
                 if (incls == null || incls.length == 0) {
                     // no include pattern implicitly means includes="**"
@@ -282,20 +288,23 @@ public class Expand extends Task {
                 }
             }
 
-            for (Iterator iter = includePatterns.iterator();
+            for (Iterator<String> iter = includePatterns.iterator();
                  !included && iter.hasNext();) {
-                String pattern = (String) iter.next();
+                String pattern = iter.next();
                 included = SelectorUtils.matchPath(pattern, name);
             }
 
-            for (Iterator iter = excludePatterns.iterator();
+            for (Iterator<String> iter = excludePatterns.iterator();
                  included && iter.hasNext();) {
-                String pattern = (String) iter.next();
+                String pattern = iter.next();
                 included = !SelectorUtils.matchPath(pattern, name);
             }
 
             if (!included) {
                 //Do not process this file
+                log("skipping " + entryName
+                    + " as it is excluded or not included.",
+                    Project.MSG_VERBOSE);
                 return;
             }
         }
@@ -439,10 +448,28 @@ public class Expand extends Task {
      * @since Ant 1.6
      */
     public void setEncoding(String encoding) {
+        internalSetEncoding(encoding);
+    }
+
+    /**
+     * Supports grand-children that want to support the attribute
+     * where the child-class doesn't (i.e. Unzip in the compress
+     * Antlib).
+     *
+     * @since Ant 1.8.0
+     */
+    protected void internalSetEncoding(String encoding) {
         if (NATIVE_ENCODING.equals(encoding)) {
             encoding = null;
         }
         this.encoding = encoding;
+    }
+
+    /**
+     * @since Ant 1.8.0
+     */
+    public String getEncoding() {
+        return encoding;
     }
 
     /**
@@ -460,6 +487,25 @@ public class Expand extends Task {
      * @since Ant 1.8.0
      */
     public void setScanForUnicodeExtraFields(boolean b) {
+        internalSetScanForUnicodeExtraFields(b);
+    }
+
+    /**
+     * Supports grand-children that want to support the attribute
+     * where the child-class doesn't (i.e. Unzip in the compress
+     * Antlib).
+     *
+     * @since Ant 1.8.0
+     */
+    protected void internalSetScanForUnicodeExtraFields(boolean b) {
         scanForUnicodeExtraFields = b;
     }
+
+    /**
+     * @since Ant 1.8.0
+     */
+    public boolean getScanForUnicodeExtraFields() {
+        return scanForUnicodeExtraFields;
+    }
+
 }

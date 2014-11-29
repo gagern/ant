@@ -21,7 +21,6 @@ package org.apache.tools.ant;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -99,12 +98,7 @@ public class AntClassLoaderDelegationTest extends TestCase {
     }
     
     private static List enum2List(Enumeration e) {
-        // JDK 1.4: return Collections.list(e);
-        List l = new ArrayList();
-        while (e.hasMoreElements()) {
-            l.add(e.nextElement());
-        }
-        return l;
+        return Collections.list(e);
     }
     
     /** Special loader that just knows how to find TEST_RESOURCE. */

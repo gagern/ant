@@ -19,7 +19,10 @@
 package org.apache.tools.ant;
 
 import java.io.File;
+import java.io.PrintStream;
+import java.net.URL;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Test case for ant class loader
@@ -28,6 +31,7 @@ import org.apache.tools.ant.types.Path;
 public class AntClassLoaderTest extends BuildFileTest {
 
     private Project p;
+    private AntClassLoader loader;
 
     public AntClassLoaderTest(String name) {
         super(name);
@@ -41,6 +45,9 @@ public class AntClassLoaderTest extends BuildFileTest {
     }
 
     public void tearDown() {
+        if (loader != null) {
+            loader.cleanup();
+        }
         getProject().executeTarget("cleanup");
     }
     //test inspired by bug report 37085
@@ -50,8 +57,8 @@ public class AntClassLoaderTest extends BuildFileTest {
         Path myPath = new Path(getProject());
         myPath.setLocation(new File(mainjarstring));
         getProject().setUserProperty("build.sysclasspath","ignore");
-        AntClassLoader myLoader = getProject().createClassLoader(myPath);
-        String path = myLoader.getClasspath();
+        loader = getProject().createClassLoader(myPath);
+        String path = loader.getClasspath();
         assertEquals(mainjarstring + File.pathSeparator + extjarstring, path);
     }
     public void testJarWithManifestInNonAsciiDir() {
@@ -60,13 +67,13 @@ public class AntClassLoaderTest extends BuildFileTest {
         Path myPath = new Path(getProject());
         myPath.setLocation(new File(mainjarstring));
         getProject().setUserProperty("build.sysclasspath","ignore");
-        AntClassLoader myLoader = getProject().createClassLoader(myPath);
-        String path = myLoader.getClasspath();
+        loader = getProject().createClassLoader(myPath);
+        String path = loader.getClasspath();
         assertEquals(mainjarstring + File.pathSeparator + extjarstring, path);
     }
     public void testCleanup() throws BuildException {
         Path path = new Path(p, ".");
-        AntClassLoader loader = p.createClassLoader(path);
+        loader = p.createClassLoader(path);
         try {
             // we don't expect to find this
             loader.findClass("fubar");
@@ -96,6 +103,89 @@ public class AntClassLoaderTest extends BuildFileTest {
             // ignore expected
         } catch (NullPointerException e) {
             fail("loader should not fail even if project finished");
+        }
+    }
+
+    public void testGetPackage() throws Exception {
+        executeTarget("prepareGetPackageTest");
+        Path myPath = new Path(getProject());
+        myPath.setLocation(new File(getProject().getProperty("test.jar")));
+        getProject().setUserProperty("build.sysclasspath","ignore");
+        loader = getProject().createClassLoader(myPath);
+        assertNotNull("should find class", loader.findClass("org.example.Foo"));
+        assertNotNull("should find package",
+                      new GetPackageWrapper(loader).getPackage("org.example"));
+    }
+
+    public void testCodeSource() throws Exception {
+        executeTarget("prepareGetPackageTest");
+        Path myPath = new Path(getProject());
+        File testJar = new File(getProject().getProperty("test.jar"));
+        myPath.setLocation(testJar);
+        getProject().setUserProperty("build.sysclasspath","ignore");
+        loader = getProject().createClassLoader(myPath);
+        Class foo = loader.findClass("org.example.Foo");
+        URL codeSourceLocation =
+            foo.getProtectionDomain().getCodeSource().getLocation();
+        assertEquals(codeSourceLocation + " should point to test.jar",
+                   FileUtils.getFileUtils().getFileURL(testJar), codeSourceLocation);
+    }
+
+    public void testSignedJar() throws Exception {
+        executeTarget("signTestJar");
+        File jar = new File(getProject().getProperty("test.jar"));
+
+        Path myPath = new Path(getProject());
+        myPath.setLocation(jar);
+        getProject().setUserProperty("build.sysclasspath","ignore");
+        loader = getProject().createClassLoader(myPath);
+        Class foo = loader.findClass("org.example.Foo");
+
+        assertNotNull("should find class", foo);
+        assertNotNull("should have certificates",
+                      foo.getProtectionDomain().getCodeSource()
+                      .getCertificates());
+        assertNotNull("should be signed", foo.getSigners());
+    }
+
+    /**
+     * @see https://issues.apache.org/bugzilla/show_bug.cgi?id=47593
+     */
+    public void testInvalidZipException() throws Exception {
+        executeTarget("createNonJar");
+        File jar = new File(getProject().getProperty("tmp.dir")
+                            + "/foo.jar");
+
+        Path myPath = new Path(getProject());
+        myPath.setLocation(jar);
+        getProject().setUserProperty("build.sysclasspath","ignore");
+        loader = getProject().createClassLoader(myPath);
+        PrintStream sysErr = System.err;
+        try {
+            StringBuffer errBuffer = new StringBuffer();
+            PrintStream err =
+                new PrintStream(new BuildFileTest.AntOutputStream(errBuffer));
+            System.setErr(err);
+            loader.getResource("foo.txt");
+            String log = getLog();
+            int startMessage = log.indexOf("Unable to obtain resource from ");
+            assertTrue(startMessage >= 0);
+            assertTrue(log.indexOf("foo.jar", startMessage) > 0);
+            log = errBuffer.toString();
+            startMessage = log.indexOf("Unable to obtain resource from ");
+            assertTrue(startMessage >= 0);
+            assertTrue(log.indexOf("foo.jar", startMessage) > 0);
+        } finally {
+            System.setErr(sysErr);
+        }
+    }
+
+    private static class GetPackageWrapper extends ClassLoader {
+        GetPackageWrapper(ClassLoader parent) {
+            super(parent);
+        }
+        public Package getPackage(String s) {
+            return super.getPackage(s);
         }
     }
 }

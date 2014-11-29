@@ -64,6 +64,19 @@
         <au:assertLogContains text="temp.txt moved to http" />
     </target>
     
+    <target name="testStatusCode307Redirect">
+      <get  src="${location}/307.txt" dest="${output}/307.txt"/>
+        <au:assertTrue>
+          <resourcecount count="1">
+            <restrict>
+              <file file="${output}/307.txt" />
+              <contains text="307 status code redirect succeeded" />
+            </restrict>
+          </resourcecount>
+        </au:assertTrue>
+        <au:assertLogContains text="307.txt moved to http" />
+    </target>
+    
     <target name="test5LevelsOfRedirect">
       <get  src="${location}/redir5.txt" dest="${output}/redir5.tmp"/>
         <au:assertTrue>
@@ -87,4 +100,26 @@
         </au:expectfailure>
     </target>
 
+
+    <target name="testNestedResources">
+      <get dest="${output}/downloads">
+        <url url="http://ant.apache.org/index.html"/> 
+        <url url="http://ant.apache.org/faq.html"/>
+      </get>
+      <au:assertFileExists file="${output}/downloads/index.html"/>
+      <au:assertFileExists file="${output}/downloads/faq.html"/>
+    </target>
+
+  <target name="XtestRelativeRedirect">
+    <get  src="${location}/local.cgi" dest="${output}/other.tmp"/>
+    <au:assertTrue>
+      <resourcecount count="1">
+        <restrict>
+          <file file="${output}/other.tmp" />
+          <contains text="local redirect succeeded"/>
+        </restrict>
+      </resourcecount>
+    </au:assertTrue>
+    <au:assertLogContains text="local.cgi moved to http" />  
+  </target>
 </project>

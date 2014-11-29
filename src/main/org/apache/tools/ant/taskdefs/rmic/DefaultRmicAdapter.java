@@ -34,7 +34,7 @@ import org.apache.tools.ant.util.StringUtils;
 /**
  * This is the default implementation for the RmicAdapter interface.
  * Currently, this is a cut-and-paste of the original rmic task and
- * DefaultCopmpilerAdapter.
+ * DefaultCompilerAdapter.
  *
  * @since Ant 1.4
  */
@@ -200,7 +200,7 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
         Path classpath = getCompileClasspath();
 
         cmd.createArgument().setValue("-d");
-        cmd.createArgument().setFile(attributes.getBase());
+        cmd.createArgument().setFile(attributes.getOutputDir());
 
         if (attributes.getExtdirs() != null) {
             cmd.createArgument().setValue("-extdirs");

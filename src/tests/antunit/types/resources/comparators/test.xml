@@ -22,7 +22,7 @@
   <import file="../../../antunit-base.xml" />
 
   <property name="dirname" value="work" />
-  <property name="dir" location="${dirname}" />
+  <property name="dir" location="${output}/${dirname}" />
   <property name="echolevel" value="debug" />
 
   <target name="tearDown">
@@ -206,9 +206,7 @@
       </sort>
       <flattenmapper />
     </pathconvert>
-    <au:assertTrue>
-      <equals arg1="${sorttp}" arg2="a,a.dir" />
-    </au:assertTrue>
+    <au:assertPropertyEquals name="sorttp" value="a,a.dir" />
   </target>
 
   <target name="testrvtype" depends="setUp">
@@ -253,15 +251,13 @@
       </sort>
       <flattenmapper />
     </pathconvert>
-    <au:assertTrue>
-      <equals arg1="${sortcmp1}" arg2="a.dir,b.dir,c.dir,a,b,c" />
-    </au:assertTrue>
+    <au:assertPropertyEquals name="sortcmp1" value="a.dir,b.dir,c.dir,a,b,c" />
   </target>
 
   <target name="testcompoundsort2" depends="setUp">
     <pathconvert property="sortcmp2" pathsep=",">
       <sort>
-        <files includes="${dir}/?" />
+        <fileset dir="${dir}" includes="?"/>
         <rcmp:size />
         <rcmp:content />
         <rcmp:reverse>
@@ -270,9 +266,7 @@
       </sort>
       <flattenmapper />
     </pathconvert>
-    <au:assertTrue>
-      <equals arg1="${sortcmp2}" arg2="d,c,f,a,e,b" />
-    </au:assertTrue>
+    <au:assertPropertyEquals name="sortcmp2" value="d,c,f,a,e,b" />
   </target>
 
   <target name="compoundsort" depends="testcompoundsort1,testcompoundsort2" />

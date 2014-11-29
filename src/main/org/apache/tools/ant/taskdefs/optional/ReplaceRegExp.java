@@ -21,17 +21,16 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.Iterator;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
@@ -43,6 +42,7 @@ import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.regexp.Regexp;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * Performs regular expression string replacements in a text
@@ -56,16 +56,16 @@ import org.apache.tools.ant.util.regexp.Regexp;
  * requires the Jakarta Oro Package).
  *
  * <pre>
- * For jdk  &lt;= 1.3, there are two available implementations:
- *   org.apache.tools.ant.util.regexp.JakartaOroRegexp (the default)
+ * Available implementations:
+ *
+ *   org.apache.tools.ant.util.regexp.Jdk14RegexpRegexp (default)
+ *        Uses Java's built-in regular expression package
+ *
+ *   org.apache.tools.ant.util.regexp.JakartaOroRegexp
  *        Requires  the jakarta-oro package
  *
  *   org.apache.tools.ant.util.regexp.JakartaRegexpRegexp
  *        Requires the jakarta-regexp package
- *
- * For jdk &gt;= 1.4 an additional implementation is available:
- *   org.apache.tools.ant.util.regexp.Jdk14RegexpRegexp
- *        Requires the jdk 1.4 built in regular expression package.
  *
  * Usage:
  *
@@ -344,31 +344,25 @@ public class ReplaceRegExp extends Task {
     /**
      *  Perform the replacement on a file
      *
-     * @param f the file to perform the relacement on
+     * @param f the file to perform the replacement on
      * @param options the regular expressions options
      * @exception IOException if an error occurs
      */
     protected void doReplace(File f, int options)
          throws IOException {
         File temp = FILE_UTILS.createTempFile("replace", ".txt", null, true, true);
-
-        Reader r = null;
-        Writer w = null;
-
         try {
-            if (encoding == null) {
-                r = new FileReader(f);
-                w = new FileWriter(temp);
-            } else {
-                r = new InputStreamReader(new FileInputStream(f), encoding);
-                w = new OutputStreamWriter(new FileOutputStream(temp),
-                                           encoding);
-            }
-
-            BufferedReader br = new BufferedReader(r);
-            BufferedWriter bw = new BufferedWriter(w);
-
             boolean changes = false;
+
+            InputStream is = new FileInputStream(f);
+            try {
+                Reader r = encoding != null ? new InputStreamReader(is, encoding) : new InputStreamReader(is);
+                OutputStream os = new FileOutputStream(temp);
+                try {
+                    Writer w = encoding != null ? new OutputStreamWriter(os, encoding) : new OutputStreamWriter(os);
+
+                    BufferedReader br = new BufferedReader(r);
+                    BufferedWriter bw = new BufferedWriter(w);
 
             log("Replacing pattern '" + regex.getPattern(getProject())
                 + "' with '" + subs.getExpression(getProject())
@@ -447,7 +441,6 @@ public class ReplaceRegExp extends Task {
                     }
                 } while (c >= 0);
 
-                bw.flush();
             } else {
                 String buf = FileUtils.safeReadFully(br);
 
@@ -458,14 +451,16 @@ public class ReplaceRegExp extends Task {
                 }
 
                 bw.write(res);
-                bw.flush();
             }
 
-            r.close();
-            r = null;
-            w.close();
-            w = null;
+            bw.flush();
 
+                } finally {
+                    os.close();
+                }
+            } finally {
+                is.close();
+            }
             if (changes) {
                 log("File has changed; saving the updated file", Project.MSG_VERBOSE);
                 try {
@@ -483,8 +478,6 @@ public class ReplaceRegExp extends Task {
                 log("No change made", Project.MSG_DEBUG);
             }
         } finally {
-            FileUtils.close(r);
-            FileUtils.close(w);
             if (temp != null) {
                 temp.delete();
             }
@@ -511,23 +504,7 @@ public class ReplaceRegExp extends Task {
                                      + "time.");
         }
 
-        int options = 0;
-
-        if (flags.indexOf('g') != -1) {
-            options |= Regexp.REPLACE_ALL;
-        }
-
-        if (flags.indexOf('i') != -1) {
-            options |= Regexp.MATCH_CASE_INSENSITIVE;
-        }
-
-        if (flags.indexOf('m') != -1) {
-            options |= Regexp.MATCH_MULTILINE;
-        }
-
-        if (flags.indexOf('s') != -1) {
-            options |= Regexp.MATCH_SINGLELINE;
-        }
+        int options = RegexpUtil.asOptions(flags);
 
         if (file != null && file.exists()) {
             try {
@@ -543,9 +520,9 @@ public class ReplaceRegExp extends Task {
         }
 
         if (resources != null) {
-            for (Iterator i = resources.iterator(); i.hasNext(); ) {
+            for (Resource r : resources) {
                 FileProvider fp =
-                    (FileProvider) ((Resource) i.next()).as(FileProvider.class);
+                    r.as(FileProvider.class);
                 File f = fp.getFile();
 
                 if (f.exists()) {

@@ -23,6 +23,7 @@ package org.apache.tools.ant.taskdefs.optional.junit;
  */
 public class Constants {
 
+    static final String METHOD_NAMES = "methods=";
     static final String HALT_ON_ERROR = "haltOnError=";
     static final String HALT_ON_FAILURE = "haltOnFailure=";
     static final String FILTERTRACE = "filtertrace=";
@@ -35,4 +36,5 @@ public class Constants {
     static final String LOGTESTLISTENEREVENTS = "logtestlistenerevents=";
     static final String TESTSFILE = "testsfile=";
     static final String TERMINATED_SUCCESSFULLY = "terminated successfully";
+    static final String LOG_FAILED_TESTS="logfailedtests=";
 }

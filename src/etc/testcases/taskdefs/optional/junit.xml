@@ -104,7 +104,9 @@
 
   <target name="captureToSummary">
     <property name="fork" value="true"/>
-    <junit fork="${fork}" printSummary="withOutAndErr">
+    <property name="enableEvents" value="false"/>
+    <junit fork="${fork}" printSummary="withOutAndErr"
+           enableTestListenerEvents="${enableEvents}">
       <test name="org.apache.tools.ant.taskdefs.optional.junit.Printer"/>
       <classpath refid="test"/>
     </junit>
@@ -271,6 +273,51 @@
     <junit fork="true">
       <test name="org.example.junit.MultilineAsserts"/>
       <classpath refid="test"/>
+    </junit>
+  </target>
+
+  <!-- JUnit4 Ignore and Assume for skipping tests -->
+  <target name="testSkippableTests">
+    <mkdir dir="out"/>
+    <junit fork="true">
+            <classpath refid="test"/>
+            <formatter type="xml"/>
+            <classpath refid="test"/>
+            <batchtest todir="out">
+                <fileset dir="../../../../tests/junit">
+                    <include name="org/example/junit/JUnit4Skippable.java"/>
+                    <!-- tests remove out-dir on tearDown -->
+                </fileset>
+            </batchtest>
+    </junit>
+  </target>
+
+  <target name="testTestMethods" >
+    <property name="tmp.dir" value="out"/>
+    <echo file="${tmp.dir}/T1.java">public class T1 extends
+      junit.framework.TestCase {
+      public void testOK() {}
+      public void testBad() {throw new RuntimeException("failed");}
+      }</echo>
+    <echo file="${tmp.dir}/T2.java">
+      import org.junit.Test;
+      public class T2 {
+      @Test
+      public void ok() {}
+      @Test
+      public void bad() {
+      throw new RuntimeException("failed");}
+      }</echo>
+    <javac srcdir="${tmp.dir}" destdir="${tmp.dir}" includes="T1.java,T2.java" source="5">
+
+    </javac>
+    <junit fork="false" printsummary="true" haltonerror="true">
+      <classpath>
+        <pathelement location="${tmp.dir}" />
+        <path refid="test" />
+      </classpath>
+      <test name="T1" methods="testOK" />
+      <test name="T2" methods="ok" />
     </junit>
   </target>
 

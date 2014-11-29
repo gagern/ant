@@ -72,7 +72,7 @@ import java.util.Enumeration;
  * msg.sendAndClose();
  * </pre></blockquote>
  * <p>
- * Be sure to set the from address, then set the recepient
+ * Be sure to set the from address, then set the recipient
  * addresses, then set the subject and other headers, then get the
  * PrintStream, then write the message, and finally send and close.
  * The class does minimal error checking internally; it counts on the mail
@@ -328,7 +328,8 @@ public class MailMessage {
     //   "Header fields are NOT required to occur in any particular order,
     //    except that the message body MUST occur AFTER the headers"
     // (the same section specifies a reccommended order, which we ignore)
-   for (int i = 0; i < headersKeys.size(); i++) {
+   final int size = headersKeys.size();
+   for (int i = 0; i < size; i++) {
       String name = (String) headersKeys.elementAt(i);
       String value = (String) headersValues.elementAt(i);
       out.println(name + ": " + value);

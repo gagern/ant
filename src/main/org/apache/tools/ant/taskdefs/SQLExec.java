@@ -204,7 +204,7 @@ public class SQLExec extends JDBCTask {
     private boolean rawBlobs;
 
     /**
-     * delimers must match in case and whitespace is significant.
+     * delimiters must match in case and whitespace is significant.
      * @since Ant 1.8.0
      */
     private boolean strictDelimiterMatching = true;
@@ -245,10 +245,29 @@ public class SQLExec extends JDBCTask {
     private String csvQuoteChar = null;
 
     /**
-     * Whether a warning is an error - in which case onError aplies.
+     * Whether a warning is an error - in which case onError applies.
      * @since Ant 1.8.0
      */
     private boolean treatWarningsAsErrors = false;
+
+    /**
+     * The name of the property to set in the event of an error
+     * @since Ant 1.8.0
+     */
+    private String errorProperty = null;
+
+    /**
+     * The name of the property to set in the event of a warning
+     * @since Ant 1.8.0
+     */
+    private String warningProperty = null;
+
+    /**
+     * The name of the property that receives the number of rows
+     * returned
+     * @since Ant 1.8.0
+     */
+    private String rowCountProperty = null;
 
     /**
      * Set the name of the SQL file to be run.
@@ -459,9 +478,9 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
-     * If false, delimiters will be searched for in a case-insesitive
-     * manner (i.e. delimer="go" matches "GO") and surrounding
-     * whitespace will be ignored (delimter="go" matches "GO ").
+     * If false, delimiters will be searched for in a case-insensitive
+     * manner (i.e. delimiter="go" matches "GO") and surrounding
+     * whitespace will be ignored (delimiter="go" matches "GO ").
      * @since Ant 1.8.0
      */
     public void setStrictDelimiterMatching(boolean b) {
@@ -477,7 +496,7 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
-     * Whether a warning is an error - in which case onError aplies.
+     * Whether a warning is an error - in which case onError applies.
      * @since Ant 1.8.0
      */
     public void setTreatWarningsAsErrors(boolean b) {
@@ -522,6 +541,37 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
+     * Property to set to "true" if a statement throws an error.
+     *
+     * @param errorProperty the name of the property to set in the
+     * event of an error.
+     * @since Ant 1.8.0
+     */
+    public void setErrorProperty(String errorProperty) {
+        this.errorProperty = errorProperty;
+    }
+
+    /**
+     * Property to set to "true" if a statement produces a warning.
+     *
+     * @param warningProperty the name of the property to set in the
+     * event of a warning.
+     * @since Ant 1.8.0
+     */
+    public void setWarningProperty(String warningProperty) {
+        this.warningProperty = warningProperty;
+    }
+
+    /**
+     * Sets a given property to the number of rows in the first
+     * statement that returned a row count.
+     * @since Ant 1.8.0
+     */
+    public void setRowCountProperty(String rowCountProperty) {
+        this.rowCountProperty = rowCountProperty;
+    }
+
+    /**
      * Load the sql file and then execute it
      * @throws BuildException on error.
      */
@@ -547,9 +597,7 @@ public class SQLExec extends JDBCTask {
 
             if (resources != null) {
                 // deal with the resources
-                Iterator iter = resources.iterator();
-                while (iter.hasNext()) {
-                    Resource r = (Resource) iter.next();
+                for (Resource r : resources) {
                     // Make a transaction for each resource
                     Transaction t = createTransaction();
                     t.setSrcResource(r);
@@ -573,13 +621,13 @@ public class SQLExec extends JDBCTask {
                         log("Opening PrintStream to output Resource " + output, Project.MSG_VERBOSE);
                         OutputStream os = null;
                         FileProvider fp =
-                            (FileProvider) output.as(FileProvider.class);
+                            output.as(FileProvider.class);
                         if (fp != null) {
                             os = new FileOutputStream(fp.getFile(), append);
                         } else {
                             if (append) {
                                 Appendable a =
-                                    (Appendable) output.as(Appendable.class);
+                                    output.as(Appendable.class);
                                 if (a != null) {
                                     os = a.getAppendOutputStream();
                                 }
@@ -611,11 +659,13 @@ public class SQLExec extends JDBCTask {
                 }
             } catch (IOException e) {
                 closeQuietly();
+                setErrorProperty();
                 if (onError.equals("abort")) {
                     throw new BuildException(e, getLocation());
                 }
             } catch (SQLException e) {
                 closeQuietly();
+                setErrorProperty();
                 if (onError.equals("abort")) {
                     throw new BuildException(e, getLocation());
                 }
@@ -742,6 +792,9 @@ public class SQLExec extends JDBCTask {
             getStatement().clearWarnings();
 
             log(updateCountTotal + " rows affected", Project.MSG_VERBOSE);
+            if (updateCountTotal != -1) {
+                setRowCountProperty(updateCountTotal);
+            }
 
             if (print && showtrailers) {
                 out.println(updateCountTotal + " rows affected");
@@ -752,6 +805,7 @@ public class SQLExec extends JDBCTask {
             goodSql++;
         } catch (SQLException e) {
             log("Failed to execute: " + sql, Project.MSG_ERR);
+            setErrorProperty();
             if (!onError.equals("abort")) {
                 log(e.toString(), Project.MSG_ERR);
             }
@@ -974,7 +1028,7 @@ public class SQLExec extends JDBCTask {
                 throw new BuildException("only single argument resource "
                                          + "collections are supported.");
             }
-            setSrcResource((Resource) a.iterator().next());
+            setSrcResource(a.iterator().next());
         }
 
         /**
@@ -1016,7 +1070,7 @@ public class SQLExec extends JDBCTask {
             // no match
             return -1;
         } else {
-            String d = delimiter.trim().toLowerCase(Locale.US);
+            String d = delimiter.trim().toLowerCase(Locale.ENGLISH);
             if (delimiterType.equals(DelimiterType.NORMAL)) {
                 // still trying to avoid wasteful copying, see
                 // StringUtils.endsWith
@@ -1031,7 +1085,7 @@ public class SQLExec extends JDBCTask {
                 }
                 while (endIndex >= 0) {
                     if (buf.substring(bufferIndex, bufferIndex + 1)
-                        .toLowerCase(Locale.US).charAt(0)
+                        .toLowerCase(Locale.ENGLISH).charAt(0)
                         != d.charAt(endIndex)) {
                         return -1;
                     }
@@ -1040,7 +1094,7 @@ public class SQLExec extends JDBCTask {
                 }
                 return bufferIndex + 1;
             } else {
-                return currentLine.trim().toLowerCase(Locale.US).equals(d)
+                return currentLine.trim().toLowerCase(Locale.ENGLISH).equals(d)
                     ? buf.length() - currentLine.length() : -1;
             }
         }
@@ -1056,8 +1110,29 @@ public class SQLExec extends JDBCTask {
                 warning = warning.getNextWarning();
             }
         }
+        if (initialWarning != null) {
+            setWarningProperty();
+        }
         if (treatWarningsAsErrors && initialWarning != null) {
             throw initialWarning;
+        }
+    }
+
+    protected final void setErrorProperty() {
+        setProperty(errorProperty, "true");
+    }
+
+    protected final void setWarningProperty() {
+        setProperty(warningProperty, "true");
+    }
+
+    protected final void setRowCountProperty(int rowCount) {
+        setProperty(rowCountProperty, Integer.toString(rowCount));
+    }
+
+    private void setProperty(String name, String value) {
+        if (name != null) {
+            getProject().setNewProperty(name, value);
         }
     }
 }

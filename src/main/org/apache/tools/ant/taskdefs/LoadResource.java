@@ -69,7 +69,7 @@ public class LoadResource extends Task {
     /**
      * Holds FilterChains
      */
-    private final Vector filterChains = new Vector();
+    private final Vector<FilterChain> filterChains = new Vector<FilterChain>();
 
     /**
      * Encoding to use for input, defaults to the platform's default
@@ -179,7 +179,8 @@ public class LoadResource extends Task {
 
                 text = crh.readFully(instream);
             } else {
-                log("Do not set property " + property + " as its length is 0.");
+                log("Do not set property " + property + " as its length is 0.",
+                    quiet ? Project.MSG_VERBOSE : Project.MSG_INFO);
             }
 
             if (text != null) {
@@ -228,7 +229,7 @@ public class LoadResource extends Task {
             throw new BuildException("only single argument resource collections"
                                      + " are supported");
         }
-        src = (Resource) a.iterator().next();
+        src = a.iterator().next();
     }
 
 }

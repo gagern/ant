@@ -24,6 +24,7 @@ import java.util.Iterator;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FilterSet;
 import org.apache.tools.ant.types.FilterSetCollection;
@@ -51,6 +52,8 @@ import org.apache.tools.ant.types.FilterSetCollection;
  */
 public class Move extends Copy {
 
+    private boolean performGc = Os.isFamily("windows");
+
     /**
      * Constructor of object.
      * This sets the forceOverwrite attribute of the Copy parent class
@@ -60,6 +63,19 @@ public class Move extends Copy {
     public Move() {
         super();
         setOverwrite(true);
+    }
+
+    /**
+     * Whether to perform a garbage collection before retrying a failed delete.
+     *
+     * <p>This may be required on Windows (where it is set to true by
+     * default) but also on other operating systems, for example when
+     * deleting directories from an NFS share.</p>
+     *
+     * @since Ant 1.8.3
+     */
+    public void setPerformGcOnFailedDelete(boolean b) {
+        performGc = b;
     }
 
     /** {@inheritDoc}. */
@@ -204,7 +220,7 @@ public class Move extends Copy {
 
         if (!moved) {
             copyFile(fromFile, toFile, filtering, overwrite);
-            if (!fromFile.delete()) {
+            if (!getFileUtils().tryHardToDelete(fromFile, performGc)) {
                 throw new BuildException("Unable to delete " + "file "
                         + fromFile.getAbsolutePath());
             }
@@ -233,9 +249,10 @@ public class Move extends Copy {
                                     getFilterChains(),
                                     forceOverwrite,
                                     getPreserveLastModified(),
+                                    /* append: */ false,
                                     getEncoding(),
                                     getOutputEncoding(),
-                                    getProject());
+                                    getProject(), getForce());
         } catch (IOException ioe) {
             String msg = "Failed to copy " + fromFile
                     + " to " + toFile + " due to " + ioe.getMessage();
@@ -292,7 +309,8 @@ public class Move extends Copy {
             File f = new File(d, s);
             if (f.isDirectory()) {
                 deleteDir(f);
-            } else if (deleteFiles && !(f.delete())) {
+            } else if (deleteFiles && !getFileUtils().tryHardToDelete(f,
+                                                                      performGc)) {
                 throw new BuildException("Unable to delete file " + f.getAbsolutePath());
             } else {
                 throw new BuildException("UNEXPECTED ERROR - The file "
@@ -300,7 +318,7 @@ public class Move extends Copy {
             }
         }
         log("Deleting directory " + d.getAbsolutePath(), verbosity);
-        if (!d.delete()) {
+        if (!getFileUtils().tryHardToDelete(d, performGc)) {
             throw new BuildException("Unable to delete directory " + d.getAbsolutePath());
         }
     }
@@ -329,6 +347,18 @@ public class Move extends Copy {
                 || getFilterChains().size() > 0) {
             return false;
         }
+
+        // identical logic lives in ResourceUtils.copyResource():
+        if (destFile.isFile() && !destFile.canWrite()) {
+            if (!getForce()) {
+                throw new IOException("can't replace read-only destination "
+                                      + "file " + destFile);
+            } else if (!getFileUtils().tryHardToDelete(destFile)) {
+                throw new IOException("failed to delete read-only "
+                                      + "destination file " + destFile);
+            }
+        }
+
         // identical logic lives in FileUtils.rename():
         File parent = destFile.getParentFile();
         if (parent != null && !parent.exists()) {
@@ -336,11 +366,14 @@ public class Move extends Copy {
         } else if (destFile.isFile()) {
             sourceFile = getFileUtils().normalize(sourceFile.getAbsolutePath()).getCanonicalFile();
             destFile = getFileUtils().normalize(destFile.getAbsolutePath());
-            if (destFile.equals(sourceFile)) {
+            if (destFile.getAbsolutePath().equals(sourceFile.getAbsolutePath())) {
                 //no point in renaming a file to its own canonical version...
+                log("Rename of " + sourceFile + " to " + destFile
+                    + " is a no-op.", Project.MSG_VERBOSE);
                 return true;
             }
-            if (!(sourceFile.equals(destFile.getCanonicalFile()) || destFile.delete())) {
+            if (!(getFileUtils().areSame(sourceFile, destFile)
+                  || getFileUtils().tryHardToDelete(destFile, performGc))) {
                 throw new BuildException("Unable to remove existing file " + destFile);
             }
         }

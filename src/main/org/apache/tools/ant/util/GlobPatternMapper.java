@@ -68,12 +68,13 @@ public class GlobPatternMapper implements FileNameMapper {
 
     // CheckStyle:VisibilityModifier ON
 
+    private boolean fromContainsStar = false;
     private boolean toContainsStar = false;
     private boolean handleDirSep = false;
     private boolean caseSensitive = true;
 
     /**
-     * Attribute specifing whether to ignore the difference
+     * Attribute specifying whether to ignore the difference
      * between / and \ (the two common directory characters).
      * @param handleDirSep a boolean, default is false.
      * @since Ant 1.6.3
@@ -83,7 +84,16 @@ public class GlobPatternMapper implements FileNameMapper {
     }
 
     /**
-     * Attribute specifing whether to ignore the case difference
+     * Attribute specifying whether to ignore the difference
+     * between / and \ (the two common directory characters).
+     * @since Ant 1.8.3
+     */
+    public boolean getHandleDirSep() {
+        return handleDirSep;
+    }
+
+    /**
+     * Attribute specifying whether to ignore the case difference
      * in the names.
      *
      * @param caseSensitive a boolean, default is false.
@@ -106,6 +116,7 @@ public class GlobPatternMapper implements FileNameMapper {
             } else {
                 fromPrefix = from.substring(0, index);
                 fromPostfix = from.substring(index + 1);
+                fromContainsStar = true;
             }
             prefixLength = fromPrefix.length();
             postfixLength = fromPostfix.length();
@@ -142,10 +153,16 @@ public class GlobPatternMapper implements FileNameMapper {
      * @return a list of converted filenames
      */
     public String[] mapFileName(String sourceFileName) {
+        String modName = modifyName(sourceFileName);
         if (fromPrefix == null
-            || !modifyName(sourceFileName).startsWith(modifyName(fromPrefix))
-            || !modifyName(sourceFileName).endsWith(modifyName(fromPostfix))
             || (sourceFileName.length() < (prefixLength + postfixLength))
+            || (!fromContainsStar
+                && !modName.equals(modifyName(fromPrefix))
+                )
+            || (fromContainsStar
+                && (!modName.startsWith(modifyName(fromPrefix))
+                    || !modName.endsWith(modifyName(fromPostfix)))
+                )
             ) {
             return null;
         }

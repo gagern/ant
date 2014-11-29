@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -30,6 +29,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 
+import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.PropertyHelper;
@@ -44,13 +44,17 @@ import org.apache.tools.ant.property.ResolvePropertyMap;
  * resource) in the project.  </p>
  * Properties are immutable: whoever sets a property first freezes it for the
  * rest of the build; they are most definitely not variable.
- * <p>There are five ways to set properties:</p>
+ * <p>There are seven ways to set properties:</p>
  * <ul>
  *   <li>By supplying both the <i>name</i> and <i>value</i> attribute.</li>
+ *   <li>By supplying the <i>name</i> and nested text.</li>
  *   <li>By supplying both the <i>name</i> and <i>refid</i> attribute.</li>
  *   <li>By setting the <i>file</i> attribute with the filename of the property
  *     file to load. This property file has the format as defined by the file used
  *     in the class java.util.Properties.</li>
+ *   <li>By setting the <i>url</i> attribute with the url from which to load the
+ *     properties. This url must be directed to a file that has the format as defined
+ *     by the file used in the class java.util.Properties.</li>
  *   <li>By setting the <i>resource</i> attribute with the resource name of the
  *     property file to load. This property file has the format as defined by the
  *     file used in the class java.util.Properties.</li>
@@ -86,6 +90,10 @@ public class Property extends Task {
     protected String prefix;
     private Project fallback;
     private Object untypedValue;
+    private boolean valueAttributeUsed = false;
+    private boolean relative = false;
+    private File basedir;
+    private boolean prefixValues = false;
 
     protected boolean userProperty; // set read-only properties
     // CheckStyle:VisibilityModifier ON
@@ -119,6 +127,24 @@ public class Property extends Task {
     }
 
     /**
+     * Sets 'relative' attribute.
+     * @param relative new value
+     * @since Ant 1.8.0
+     */
+    public void setRelative(boolean relative) {
+        this.relative = relative;
+    }
+
+    /**
+     * Sets 'basedir' attribute.
+     * @param basedir new value
+     * @since Ant 1.8.0
+     */
+    public void setBasedir(File basedir) {
+        this.basedir = basedir;
+    }
+
+    /**
      * The name of the property to set.
      * @param name property name
      */
@@ -145,7 +171,11 @@ public class Property extends Task {
      * @ant.attribute group="name"
      */
     public void setLocation(File location) {
-        setValue(location.getAbsolutePath());
+        if (relative) {
+            internalSetValue(location);
+        } else {
+            setValue(location.getAbsolutePath());
+        }
     }
 
     /* the following method is first in source so IH will pick it up first:
@@ -157,6 +187,11 @@ public class Property extends Task {
      * @param value the value to use.
      */
     public void setValue(Object value) {
+        valueAttributeUsed = true;
+        internalSetValue(value);
+    }
+
+    private void internalSetValue(Object value) {
         this.untypedValue = value;
         //preserve protected string value for subclasses :(
         this.value = value == null ? null : value.toString();
@@ -170,6 +205,25 @@ public class Property extends Task {
      */
     public void setValue(String value) {
         setValue((Object) value);
+    }
+
+    /**
+     * Set a (multiline) property as nested text.
+     * @param msg the text to append to the output text
+     * @since Ant 1.8.0
+     */
+    public void addText(String msg) {
+        if (!valueAttributeUsed) {
+            msg = getProject().replaceProperties(msg);
+            String currentValue = getValue();
+            if (currentValue != null) {
+                msg = currentValue + msg;
+            }
+            internalSetValue(msg);
+        } else if (msg.trim().length() > 0) {
+            throw new BuildException("can't combine nested text with value"
+                                     + " attribute");
+        }
     }
 
     /**
@@ -225,7 +279,7 @@ public class Property extends Task {
      */
     public void setPrefix(String prefix) {
         this.prefix = prefix;
-        if (!prefix.endsWith(".")) {
+        if (prefix != null && !prefix.endsWith(".")) {
             this.prefix += ".";
         }
     }
@@ -237,6 +291,26 @@ public class Property extends Task {
      */
     public String getPrefix() {
         return prefix;
+    }
+
+    /**
+     * Whether to apply the prefix when expanding properties on the
+     * right hand side of a properties file as well.
+     *
+     * @since Ant 1.8.2
+     */
+    public void setPrefixValues(boolean b) {
+        prefixValues = b;
+    }
+
+    /**
+     * Whether to apply the prefix when expanding properties on the
+     * right hand side of a properties file as well.
+     *
+     * @since Ant 1.8.2
+     */
+    public boolean getPrefixValues() {
+        return prefixValues;
     }
 
     /**
@@ -403,7 +477,19 @@ public class Property extends Task {
         }
 
         if (name != null && untypedValue != null) {
-            addProperty(name, untypedValue);
+            if (relative) {
+                try {
+                    File from = untypedValue instanceof File ? (File)untypedValue : new File(untypedValue.toString());
+                    File to = basedir != null ? basedir : getProject().getBaseDir();
+                    String relPath = FileUtils.getRelativePath(to, from);
+                    relPath = relPath.replace('/', File.separatorChar);
+                    addProperty(name, relPath);
+                } catch (Exception e) {
+                    throw new BuildException(e, getLocation());
+                }
+            } else {
+                addProperty(name, untypedValue);
+            }
         }
 
         if (file != null) {
@@ -436,7 +522,7 @@ public class Property extends Task {
             }
         }
     }
-
+    
     /**
      * load properties from a url
      * @param url url to load from
@@ -468,26 +554,15 @@ public class Property extends Task {
      * @param is    The input stream from where to load
      * @param isXml <tt>true</tt> if we should try to load from xml
      * @throws IOException if something goes wrong
-     * @since 1.7.1
+     * @since 1.8.0
      * @see http://java.sun.com/dtd/properties.dtd
      * @see java.util.Properties#loadFromXML(InputStream)
      */
     private void loadProperties(
-        Properties props, InputStream is, boolean isXml) throws IOException {
+                                Properties props, InputStream is, boolean isXml) throws IOException {
         if (isXml) {
             // load the xml based property definition
-            // use reflection because of bwc to Java 1.3
-            try {
-                Method loadXmlMethod = props.getClass().getMethod("loadFromXML",
-                        new Class[] {InputStream.class});
-                loadXmlMethod.invoke(props, new Object[] {is});
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-                log("Can not load xml based property definition on Java < 5");
-            } catch (Exception e) {
-                // no-op
-                e.printStackTrace();
-            }
+            props.loadFromXML(is);
         } else {
             // load ".properties" format
             props.load(is);
@@ -514,7 +589,7 @@ public class Property extends Task {
                 addProperties(props);
             } else {
                 log("Unable to find property file: " + file.getAbsolutePath(),
-                        Project.MSG_VERBOSE);
+                    Project.MSG_VERBOSE);
             }
         } catch (IOException ex) {
             throw new BuildException(ex, getLocation());
@@ -529,10 +604,11 @@ public class Property extends Task {
         Properties props = new Properties();
         log("Resource Loading " + name, Project.MSG_VERBOSE);
         InputStream is = null;
+        ClassLoader cL = null;
+        boolean cleanup = false;
         try {
-            ClassLoader cL = null;
-
             if (classpath != null) {
+                cleanup = true;
                 cL = getProject().createClassLoader(classpath);
             } else {
                 cL = this.getClass().getClassLoader();
@@ -560,6 +636,9 @@ public class Property extends Task {
                     // ignore
                 }
             }
+            if (cleanup && cL != null) {
+                ((AntClassLoader) cL).cleanup();
+            }
         }
     }
 
@@ -573,16 +652,10 @@ public class Property extends Task {
             prefix += ".";
         }
         log("Loading Environment " + prefix, Project.MSG_VERBOSE);
-        Vector osEnv = Execute.getProcEnvironment();
-        for (Enumeration e = osEnv.elements(); e.hasMoreElements();) {
-            String entry = (String) e.nextElement();
-            int pos = entry.indexOf('=');
-            if (pos == -1) {
-                log("Ignoring: " + entry, Project.MSG_WARN);
-            } else {
-                props.put(prefix + entry.substring(0, pos),
-                entry.substring(pos + 1));
-            }
+        Map osEnv = Execute.getEnvironmentVariables();
+        for (Iterator e = osEnv.entrySet().iterator(); e.hasNext(); ) {
+            Map.Entry entry = (Map.Entry) e.next();
+            props.put(prefix + entry.getKey(), entry.getValue());
         }
         addProperties(props);
     }
@@ -643,9 +716,10 @@ public class Property extends Task {
         PropertyHelper propertyHelper
             = (PropertyHelper) PropertyHelper.getPropertyHelper(getProject());
         new ResolvePropertyMap(
-            getProject(),
-            propertyHelper,
-            propertyHelper.getExpanders()).resolveAllProperties(props);
+                               getProject(),
+                               propertyHelper,
+                               propertyHelper.getExpanders())
+            .resolveAllProperties(props, getPrefix(), getPrefixValues());
     }
 
 }

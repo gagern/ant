@@ -22,6 +22,7 @@ import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.regexp.RegexpMatcher;
 import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * Implementation of FileNameMapper that does regular expression
@@ -50,7 +51,7 @@ public class RegexpPatternMapper implements FileNameMapper {
     private int     regexpOptions = 0;
 
     /**
-     * Attribute specifing whether to ignore the difference
+     * Attribute specifying whether to ignore the difference
      * between / and \ (the two common directory characters).
      * @param handleDirSep a boolean, default is false.
      * @since Ant 1.6.3
@@ -60,18 +61,14 @@ public class RegexpPatternMapper implements FileNameMapper {
     }
 
     /**
-     * Attribute specifing whether to ignore the case difference
+     * Attribute specifying whether to ignore the case difference
      * in the names.
      *
      * @param caseSensitive a boolean, default is false.
      * @since Ant 1.6.3
      */
     public void setCaseSensitive(boolean caseSensitive) {
-        if (!caseSensitive) {
-            regexpOptions = RegexpMatcher.MATCH_CASE_INSENSITIVE;
-        } else {
-            regexpOptions = 0;
-        }
+        regexpOptions = RegexpUtil.asOptions(caseSensitive);
     }
 
     /**
@@ -148,7 +145,7 @@ public class RegexpPatternMapper implements FileNameMapper {
                         result.append(to[i]);
                     }
                 } else {
-                    // XXX - should throw an exception instead?
+                    // TODO - should throw an exception instead?
                     result.append('\\');
                 }
             } else {

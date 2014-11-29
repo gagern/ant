@@ -18,7 +18,6 @@
 package org.apache.tools.ant.launch;
 
 import java.net.MalformedURLException;
-
 import java.net.URL;
 import java.io.File;
 import java.io.FilenameFilter;
@@ -27,6 +26,8 @@ import java.io.UnsupportedEncodingException;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Locale;
+
+import org.apache.tools.ant.util.FileUtils;
 
 // CheckStyle:LineLengthCheck OFF - urls are long!
 /**
@@ -114,7 +115,7 @@ public final class Locator {
      *
      * @since Ant 1.6
      */
-    public static File getClassSource(Class c) {
+    public static File getClassSource(Class<?> c) {
         String classResource = c.getName().replace('.', '/') + ".class";
         return getResourceSource(c.getClassLoader(), classResource);
     }
@@ -165,7 +166,7 @@ public final class Locator {
      *
      * <p>Will be an absolute path if the given URI is absolute.</p>
      *
-     * <p>Prior to Java 1.4,
+     * <p>Prior to Java 1.4,<!-- TODO is JDK version actually relevant? -->
      * swallows '%' that are not followed by two characters.</p>
      *
      * See <a href="http://www.w3.org/TR/xml11/#dt-sysid">dt-sysid</a>
@@ -178,76 +179,55 @@ public final class Locator {
      * @since Ant 1.6
      */
     public static String fromURI(String uri) {
+        return fromURIJava13(uri);
         // #buzilla8031: first try Java 1.4.
-        String result = null;
-        //result = fromUriJava14(uri);
-        if (result == null) {
-            result = fromURIJava13(uri);
-        }
-        return result;
+        // TODO should use java.net.URI now that we can rely on 1.4...
+        // but check for UNC-related regressions, e.g. #42275
+        // (and remember that \\server\share\file -> file:////server/share/file
+        // rather than -> file://server/share/file as it should;
+        // fixed only in JDK 7's java.nio.file.Path.toUri)
+        // return fromUriJava14(uri);
     }
-
 
     /**
      * Java1.4+ code to extract the path from the URI.
      * @param uri
      * @return null if a conversion was not possible
      */
+    /* currently unused:
     private static String fromUriJava14(String uri) {
-        Class uriClazz = null;
-        try {
-            uriClazz = Class.forName("java.net.URI");
-        } catch (ClassNotFoundException cnfe) {
-            // Fine, Java 1.3 or earlier, do it by hand.
-            return null;
-        }
         // Also check for properly formed URIs. Ant formerly recommended using
         // nonsense URIs such as "file:./foo.xml" in XML includes. You shouldn't
         // do that (just "foo.xml" is correct) but for compatibility we special-case
         // things when the path is not absolute, and fall back to the old parsing behavior.
-        if (uriClazz != null && uri.startsWith("file:/")) {
+        if (uri.startsWith("file:/")) {
             try {
-                java.lang.reflect.Method createMethod
-                        = uriClazz.getMethod("create", new Class[]{String.class});
-                Object uriObj = createMethod.invoke(null, new Object[]{encodeURI(uri)});
-                java.lang.reflect.Constructor fileConst
-                        = File.class.getConstructor(new Class[]{uriClazz});
-                File f = (File) fileConst.newInstance(new Object[]{uriObj});
+                File f = new File(URI.create(encodeURI(uri)));
                 //bug #42227 forgot to decode before returning
                 return decodeUri(f.getAbsolutePath());
-            } catch (java.lang.reflect.InvocationTargetException e) {
-                Throwable e2 = e.getTargetException();
-                if (e2 instanceof IllegalArgumentException) {
-                    // Bad URI, pass this on.
-                    // no, this is downgraded to a warning after various
-                    // JRE bugs surfaced. Hand off
-                    // to our built in code on a failure
-                    //throw new IllegalArgumentException(
-                    //   "Bad URI " + uri + ":" + e2.getMessage(), e2);
-                    e2.printStackTrace();
-
-                } else {
-                    // Unexpected target exception? Should not happen.
-                    e2.printStackTrace();
-                }
+            } catch (IllegalArgumentException e) {
+                // Bad URI, pass this on.
+                // no, this is downgraded to a warning after various
+                // JRE bugs surfaced. Hand off
+                // to our built in code on a failure
+                //throw new IllegalArgumentException(
+                //   "Bad URI " + uri + ":" + e.getMessage(), e);
+                e.printStackTrace();
             } catch (Exception e) {
-                // Reflection problems? Should not happen, debug.
+                // Unexpected exception? Should not happen.
                 e.printStackTrace();
             }
         }
         return null;
     }
-
-
-
+     */
 
     /**
-     * This method is public for testing; we may delete it without any warning -it is not part of Ant's stable API.
      * @param uri uri to expand
      * @return the decoded URI
      * @since Ant1.7.1
      */
-    public static String fromURIJava13(String uri) {
+    private static String fromURIJava13(String uri) {
         // Fallback method for Java 1.3 or earlier.
 
         URL url = null;
@@ -303,7 +283,7 @@ public final class Locator {
      * @since Ant1.7.1
      */
     public static String fromJarURI(String uri) {
-        int pling = uri.indexOf('!');
+        int pling = uri.indexOf("!/");
         String jarName = uri.substring("jar:".length(), pling);
         return fromURI(jarName);
     }
@@ -334,8 +314,11 @@ public final class Locator {
                         sb.write((char) ((i1 << NIBBLE) + i2));
                     }
                 }
-            } else {
+            } else if (c >= 0x0000 && c < 0x0080) {
                 sb.write(c);
+            } else { // #50543
+                byte[] bytes = String.valueOf(c).getBytes(URI_ENCODING);
+                sb.write(bytes, 0, bytes.length);
             }
         }
         return sb.toString(URI_ENCODING);
@@ -409,7 +392,7 @@ public final class Locator {
      * Convert a File to a URL.
      * File.toURL() does not encode characters like #.
      * File.toURI() has been introduced in java 1.4, so
-     * ANT cannot use it (except by reflection)
+     * Ant cannot use it (except by reflection) <!-- TODO no longer true -->
      * FileUtils.toURI() cannot be used by Locator.java
      * Implemented this way.
      * File.toURL() adds file: and changes '\' to '/' for dos OSes
@@ -417,14 +400,12 @@ public final class Locator {
      * @param file the file to convert
      * @return URL the converted File
      * @throws MalformedURLException on error
+     * @deprecated since 1.9, use {@link FileUtils#getFileURL(File)}
      */
+    @Deprecated
     public static URL fileToURL(File file)
         throws MalformedURLException {
-        try {
-            return new URL(encodeURI(file.toURL().toString()));
-        } catch (UnsupportedEncodingException ex) {
-            throw new MalformedURLException(ex.toString());
-        }
+        return new URL(file.toURI().toASCIIString());
     }
 
     /**
@@ -463,7 +444,7 @@ public final class Locator {
             // Found in java.home as given
             return toolsJar;
         }
-        if (javaHome.toLowerCase(Locale.US).endsWith(File.separator + "jre")) {
+        if (javaHome.toLowerCase(Locale.ENGLISH).endsWith(File.separator + "jre")) {
             javaHome = javaHome.substring(
                 0, javaHome.length() - "/jre".length());
             toolsJar = new File(javaHome + libToolsJar);
@@ -519,7 +500,7 @@ public final class Locator {
         if (!location.isDirectory()) {
             urls = new URL[1];
             String path = location.getPath();
-            String littlePath = path.toLowerCase(Locale.US);
+            String littlePath = path.toLowerCase(Locale.ENGLISH);
             for (int i = 0; i < extensions.length; ++i) {
                 if (littlePath.endsWith(extensions[i])) {
                     urls[0] = fileToURL(location);
@@ -531,7 +512,7 @@ public final class Locator {
         File[] matches = location.listFiles(
             new FilenameFilter() {
                 public boolean accept(File dir, String name) {
-                    String littleName = name.toLowerCase(Locale.US);
+                    String littleName = name.toLowerCase(Locale.ENGLISH);
                     for (int i = 0; i < extensions.length; ++i) {
                         if (littleName.endsWith(extensions[i])) {
                             return true;

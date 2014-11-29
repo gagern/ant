@@ -18,13 +18,19 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 
 import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.input.DefaultInputHandler;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.TeeOutputStream;
 
@@ -58,7 +64,6 @@ public class JavaTest extends BuildFileTest {
         //final String propname="tests-classpath.value";
         //String testClasspath=System.getProperty(propname);
         //System.out.println("Test cp="+testClasspath);
-        String propname="tests-classpath.value";
         String runFatal=System.getProperty("junit.run.fatal.tests");
         if(runFatal!=null)
             runFatalTests=true;
@@ -214,6 +219,87 @@ public class JavaTest extends BuildFileTest {
         executeTarget("redirector2");
     }
 
+    public void testReleasedInput() throws Exception {
+        PipedOutputStream out = new PipedOutputStream();
+        final PipedInputStream in = new PipedInputStream(out);
+        project.setInputHandler(new DefaultInputHandler() {
+            protected InputStream getInputStream() {
+                return in;
+            }
+        });
+        project.setDefaultInputStream(in);
+
+        Java java = new Java();
+        java.setProject(project);
+        java.setClassname("org.apache.tools.ant.Main");
+        java.setArgs("-version");
+        java.setFork(true);
+        // note: due to the missing classpath it will fail, but the input stream
+        // reader will be read
+        java.execute();
+
+        Thread inputThread = new Thread(new Runnable() {
+            public void run() {
+                Input input = new Input();
+                input.setProject(project);
+                input.setAddproperty("input.value");
+                input.execute();
+            }
+        });
+        inputThread.start();
+
+        // wait a little bit for the task to wait for input
+        Thread.sleep(100);
+
+        // write some stuff in the input stream to be catched by the input task
+        out.write("foo\n".getBytes());
+        out.flush();
+        try {
+            out.write("bar\n".getBytes());
+            out.flush();
+        } catch (IOException x) {
+            // "Pipe closed" on XP; ignore?
+        }
+
+        inputThread.join(2000);
+
+        assertEquals("foo", project.getProperty("input.value"));
+    }
+
+    public void testFlushedInput() throws Exception {
+        final PipedOutputStream out = new PipedOutputStream();
+        final PipedInputStream in = new PipedInputStream(out);
+        project.setInputHandler(new DefaultInputHandler() {
+            protected InputStream getInputStream() {
+                return in;
+            }
+        });
+        project.setDefaultInputStream(in);
+
+        final boolean[] timeout = new boolean[1];
+        timeout[0] = false;
+
+        Thread writingThread = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    // wait a little bit to have the target executed
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    // don't care
+                }
+                try {
+                    out.write("foo-FlushedInput\n".getBytes());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        writingThread.setDaemon(true);
+
+        writingThread.start();
+        executeTarget("flushedInput");
+    }
+
     /**
      * entry point class with no dependencies other
      * than normal JRE runtime
@@ -317,6 +403,7 @@ public class JavaTest extends BuildFileTest {
             }
             if (os != null) {
                 Thread t = new Thread(new StreamPumper(System.in, os, true));
+                t.setName("PipeEntryPoint " + args[0]);
                 t.start();
                 try {
                     t.join();
@@ -325,4 +412,12 @@ public class JavaTest extends BuildFileTest {
             }
         }
     }
+
+    public static class ReadPoint {
+        public static void main(String[] args) throws IOException {
+            String line = new BufferedReader(new InputStreamReader(System.in)).readLine();
+            System.out.println(line);
+        }
+    }
+
 }

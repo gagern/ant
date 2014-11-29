@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.rmi.Remote;
 import java.util.Vector;
+import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -82,9 +83,10 @@ public class Rmic extends MatchingTask {
 
     /** rmic failed message */
     public static final String ERROR_RMIC_FAILED
-            = "Rmic failed; see the compiler error output for details.";
+        = "Rmic failed; see the compiler error output for details.";
 
     private File baseDir;
+    private File destDir;
     private String classname;
     private File sourceBase;
     private String stubVersion;
@@ -103,7 +105,7 @@ public class Rmic extends MatchingTask {
 
     private Vector compileList = new Vector();
 
-    private ClassLoader loader = null;
+    private AntClassLoader loader = null;
 
     private FacadeTaskHelper facade;
     /** unable to verify message */
@@ -115,15 +117,19 @@ public class Rmic extends MatchingTask {
     /** loaded error message */
     public static final String ERROR_LOADING_CAUSED_EXCEPTION = ". Loading caused Exception: ";
     /** base not exists message */
-    public static final String ERROR_NO_BASE_EXISTS = "base does not exist: ";
+    public static final String ERROR_NO_BASE_EXISTS = "base or destdir does not exist: ";
     /** base not a directory message */
-    public static final String ERROR_NOT_A_DIR = "base is not a directory:";
+    public static final String ERROR_NOT_A_DIR = "base or destdir is not a directory:";
     /** base attribute not set message */
-    public static final String ERROR_BASE_NOT_SET = "base attribute must be set!";
+    public static final String ERROR_BASE_NOT_SET = "base or destdir attribute must be set!";
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     private String executable = null;
+
+    private boolean listFiles = false;
+
+    private RmicAdapter nestedAdapter = null;
 
     /**
      * Constructor for Rmic.
@@ -141,10 +147,40 @@ public class Rmic extends MatchingTask {
     }
 
     /**
+     * Sets the base directory to output the generated files.
+     * @param destdir the base directory to output the generated files.
+     * @since Ant 1.8.0
+     */
+    public void setDestdir(File destdir) {
+        this.destDir = destdir;
+    }
+
+    /**
+     * Gets the base directory to output the generated files.
+     * @return the base directory to output the generated files.
+     * @since Ant 1.8.0
+     */
+    public File getDestdir() {
+        return this.destDir;
+    }
+
+    /**
+     * Gets the base directory to output the generated files,
+     * favoring destdir if set, otherwise defaulting to basedir.
+     * @return the actual directory to output to (either destdir or basedir)
+     * @since Ant 1.8.0
+     */
+    public File getOutputDir() {
+        if (getDestdir() != null) {
+            return getDestdir();
+        }
+        return getBase();
+    }
+
+    /**
      * Gets the base directory to output generated class.
      * @return the location of the compiled files
      */
-
     public File getBase() {
         return this.baseDir;
     }
@@ -184,7 +220,7 @@ public class Rmic extends MatchingTask {
 
     /**
      * Specify the JDK version for the generated stub code.
-     * Specify &quot;1.1&quot; to pass the &quot;-v1.1&quot; option to rmic.</td>
+     * Specify &quot;1.1&quot; to pass the &quot;-v1.1&quot; option to rmic.
      * @param stubVersion the JDK version
      */
     public void setStubVersion(String stubVersion) {
@@ -450,7 +486,7 @@ public class Rmic extends MatchingTask {
      * Sets the compiler implementation to use; optional,
      * defaults to the value of the <code>build.rmic</code> property,
      * or failing that, default compiler for the current VM
-     * @param compiler the compiler implemention to use
+     * @param compiler the compiler implementation to use
      * @since Ant 1.5
      */
     public void setCompiler(String compiler) {
@@ -520,34 +556,60 @@ public class Rmic extends MatchingTask {
     }
 
     /**
+     * If true, list the source files being handed off to the compiler.
+     * @param list if true list the source files
+     * @since Ant 1.8.0
+     */
+    public void setListfiles(boolean list) {
+        listFiles = list;
+    }
+
+    /**
+     * Set the compiler adapter explicitly.
+     * @since Ant 1.8.0
+     */
+    public void add(RmicAdapter adapter) {
+        if (nestedAdapter != null) {
+            throw new BuildException("Can't have more than one rmic adapter");
+        }
+        nestedAdapter = adapter;
+    }
+
+    /**
      * execute by creating an instance of an implementation
      * class and getting to do the work
      * @throws org.apache.tools.ant.BuildException
      * if there's a problem with baseDir or RMIC
      */
     public void execute() throws BuildException {
-        if (baseDir == null) {
-            throw new BuildException(ERROR_BASE_NOT_SET, getLocation());
-        }
-        if (!baseDir.exists()) {
-            throw new BuildException(ERROR_NO_BASE_EXISTS + baseDir, getLocation());
-        }
-        if (!baseDir.isDirectory()) {
-            throw new BuildException(ERROR_NOT_A_DIR + baseDir, getLocation());
-        }
-        if (verify) {
-            log("Verify has been turned on.", Project.MSG_VERBOSE);
-        }
-        RmicAdapter adapter = RmicAdapterFactory.getRmic(getCompiler(), this,
-                                                         createCompilerClasspath());
-
-        // now we need to populate the compiler adapter
-        adapter.setRmic(this);
-
-        Path classpath = adapter.getClasspath();
-        loader = getProject().createClassLoader(classpath);
-
         try {
+            compileList.clear();
+
+            File outputDir = getOutputDir();
+            if (outputDir == null) {
+                throw new BuildException(ERROR_BASE_NOT_SET, getLocation());
+            }
+            if (!outputDir.exists()) {
+                throw new BuildException(ERROR_NO_BASE_EXISTS + outputDir,
+                                         getLocation());
+            }
+            if (!outputDir.isDirectory()) {
+                throw new BuildException(ERROR_NOT_A_DIR + outputDir, getLocation());
+            }
+            if (verify) {
+                log("Verify has been turned on.", Project.MSG_VERBOSE);
+            }
+            RmicAdapter adapter =
+                nestedAdapter != null ? nestedAdapter :
+                RmicAdapterFactory.getRmic(getCompiler(), this,
+                                           createCompilerClasspath());
+
+            // now we need to populate the compiler adapter
+            adapter.setRmic(this);
+
+            Path classpath = adapter.getClasspath();
+            loader = getProject().createClassLoader(classpath);
+
             // scan base dirs to build up compile lists only if a
             // specific classname is not given
             if (classname == null) {
@@ -556,20 +618,31 @@ public class Rmic extends MatchingTask {
                 scanDir(baseDir, files, adapter.getMapper());
             } else {
                 // otherwise perform a timestamp comparison - at least
-                String path = classname.replace('.', File.separatorChar) + ".class";
+                String path = classname.replace('.', File.separatorChar)
+                    + ".class";
                 File f = new File(baseDir, path);
                 if (f.isFile()) {
                     scanDir(baseDir, new String[] {path}, adapter.getMapper());
                 } else {
-                    // Does not exist, so checking whether it is up to date makes no sense.
-                    // Compilation will fail later anyway, but tests expect a certain output.
+                    // Does not exist, so checking whether it is up to
+                    // date makes no sense.  Compilation will fail
+                    // later anyway, but tests expect a certain
+                    // output.
                     compileList.add(classname);
                 }
             }
             int fileCount = compileList.size();
             if (fileCount > 0) {
-                log("RMI Compiling " + fileCount + " class" + (fileCount > 1 ? "es" : "") + " to "
-                        + baseDir, Project.MSG_INFO);
+                log("RMI Compiling " + fileCount + " class"
+                    + (fileCount > 1 ? "es" : "") + " to "
+                    + outputDir, Project.MSG_INFO);
+
+                if (listFiles) {
+                    for (int i = 0; i < fileCount; i++) {
+                        log(compileList.get(i).toString());
+                    }
+                }
+
                 // finally, lets execute the compiler!!
                 if (!adapter.execute()) {
                     throw new BuildException(ERROR_RMIC_FAILED, getLocation());
@@ -580,20 +653,35 @@ public class Rmic extends MatchingTask {
              * base directory and sourcebase are the same, the generated
              * sources are already in place.
              */
-            if (null != sourceBase && !baseDir.equals(sourceBase)
+            if (null != sourceBase && !outputDir.equals(sourceBase)
                 && fileCount > 0) {
                 if (idl) {
-                    log("Cannot determine sourcefiles in idl mode, ", Project.MSG_WARN);
-                    log("sourcebase attribute will be ignored.", Project.MSG_WARN);
+                    log("Cannot determine sourcefiles in idl mode, ",
+                        Project.MSG_WARN);
+                    log("sourcebase attribute will be ignored.",
+                        Project.MSG_WARN);
                 } else {
                     for (int j = 0; j < fileCount; j++) {
-                        moveGeneratedFile(baseDir, sourceBase, (String) compileList.elementAt(j),
-                                adapter);
+                        moveGeneratedFile(outputDir, sourceBase,
+                                          (String) compileList.elementAt(j),
+                                          adapter);
                     }
                 }
             }
         } finally {
-            compileList.removeAllElements();
+            cleanup();
+        }
+    }
+
+    /**
+     * Cleans up resources.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void cleanup() {
+        if (loader != null) {
+            loader.cleanup();
+            loader = null;
         }
     }
 
@@ -604,8 +692,9 @@ public class Rmic extends MatchingTask {
      * copying/removing files.
      */
     private void moveGeneratedFile(File baseDir, File sourceBaseFile, String classname,
-            RmicAdapter adapter) throws BuildException {
-        String classFileName = classname.replace('.', File.separatorChar) + ".class";
+                                   RmicAdapter adapter) throws BuildException {
+        String classFileName = classname.replace('.', File.separatorChar)
+            + ".class";
         String[] generatedFiles = adapter.getMapper().mapFileName(classFileName);
 
         for (int i = 0; i < generatedFiles.length; i++) {
@@ -615,7 +704,9 @@ public class Rmic extends MatchingTask {
                 // have a corresponding Java source for example.
                 continue;
             }
-            String sourceFileName = StringUtils.removeSuffix(generatedFile, ".class");
+            String sourceFileName = StringUtils.removeSuffix(generatedFile,
+                                                             ".class")
+                + ".java";
 
             File oldFile = new File(baseDir, sourceFileName);
             if (!oldFile.exists()) {
@@ -626,15 +717,17 @@ public class Rmic extends MatchingTask {
             File newFile = new File(sourceBaseFile, sourceFileName);
             try {
                 if (filtering) {
-                    FILE_UTILS.copyFile(oldFile, newFile, new FilterSetCollection(getProject()
-                            .getGlobalFilterSet()));
+                    FILE_UTILS.copyFile(oldFile, newFile,
+                                        new FilterSetCollection(getProject()
+                                                                .getGlobalFilterSet()));
                 } else {
                     FILE_UTILS.copyFile(oldFile, newFile);
                 }
                 oldFile.delete();
             } catch (IOException ioe) {
-                String msg = "Failed to copy " + oldFile + " to " + newFile + " due to "
-                        + ioe.getMessage();
+                String msg = "Failed to copy " + oldFile + " to " + newFile
+                    + " due to "
+                    + ioe.getMessage();
                 throw new BuildException(msg, ioe, getLocation());
             }
         }
@@ -653,10 +746,11 @@ public class Rmic extends MatchingTask {
             log("will leave uptodate test to rmic implementation in idl mode.",
                 Project.MSG_VERBOSE);
         } else if (iiop && iiopOpts != null && iiopOpts.indexOf("-always") > -1) {
-            log("no uptodate test as -always option has been specified", Project.MSG_VERBOSE);
+            log("no uptodate test as -always option has been specified",
+                Project.MSG_VERBOSE);
         } else {
             SourceFileScanner sfs = new SourceFileScanner(this);
-            newFiles = sfs.restrict(files, baseDir, baseDir, mapper);
+            newFiles = sfs.restrict(files, baseDir, getOutputDir(), mapper);
         }
         for (int i = 0; i < newFiles.length; i++) {
             String name = newFiles[i].replace(File.separatorChar, '.');
@@ -679,12 +773,15 @@ public class Rmic extends MatchingTask {
             }
             return isValidRmiRemote(testClass);
         } catch (ClassNotFoundException e) {
-            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname + ERROR_NOT_FOUND, Project.MSG_WARN);
+            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname + ERROR_NOT_FOUND,
+                Project.MSG_WARN);
         } catch (NoClassDefFoundError e) {
-            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname + ERROR_NOT_DEFINED, Project.MSG_WARN);
+            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname + ERROR_NOT_DEFINED,
+                Project.MSG_WARN);
         } catch (Throwable t) {
-            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname + ERROR_LOADING_CAUSED_EXCEPTION
-                    + t.getMessage(), Project.MSG_WARN);
+            log(ERROR_UNABLE_TO_VERIFY_CLASS + classname
+                + ERROR_LOADING_CAUSED_EXCEPTION + t.getMessage(),
+                Project.MSG_WARN);
         }
         // we only get here if an exception has been thrown
         return false;
@@ -733,7 +830,7 @@ public class Rmic extends MatchingTask {
      * implementation.
      */
     public class ImplementationSpecificArgument extends
-            org.apache.tools.ant.util.facade.ImplementationSpecificArgument {
+                                                    org.apache.tools.ant.util.facade.ImplementationSpecificArgument {
         /**
          * Only pass the specified argument if the
          * chosen compiler implementation matches the

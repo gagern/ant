@@ -50,11 +50,6 @@ public class ScriptDef extends DefBase {
      * script runner helper
      */
     private ScriptRunnerHelper helper = new ScriptRunnerHelper();
-    /**
-     * script runner.
-     */
-    /** Used to run the script */
-    private ScriptRunnerBase   runner = null;
 
     /** the name by which this script will be activated */
     private String name;
@@ -115,7 +110,7 @@ public class ScriptDef extends DefBase {
          * @param name the attribute name
          */
         public void setName(String name) {
-            this.name = name.toLowerCase(Locale.US);
+            this.name = name.toLowerCase(Locale.ENGLISH);
         }
     }
 
@@ -147,7 +142,7 @@ public class ScriptDef extends DefBase {
          * @param name the name of this nested element
          */
         public void setName(String name) {
-            this.name = name.toLowerCase(Locale.US);
+            this.name = name.toLowerCase(Locale.ENGLISH);
         }
 
         /**
@@ -202,9 +197,6 @@ public class ScriptDef extends DefBase {
         if (getAntlibClassLoader() != null || hasCpDelegate()) {
             helper.setClassLoader(createLoader());
         }
-
-        // Now create the scriptRunner
-        runner = helper.getScriptRunner();
 
         attributeSet = new HashSet();
         for (Iterator i = attributes.iterator(); i.hasNext();) {
@@ -348,6 +340,7 @@ public class ScriptDef extends DefBase {
      * @param instance   the script instance; can be null
      */
     public void executeScript(Map attributes, Map elements, ScriptDefBase instance) {
+        ScriptRunnerBase runner = helper.getScriptRunner();
         runner.addBean("attributes", attributes);
         runner.addBean("elements", elements);
         runner.addBean("project", getProject());

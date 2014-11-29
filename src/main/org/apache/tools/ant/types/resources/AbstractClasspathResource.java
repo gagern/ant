@@ -17,12 +17,14 @@
  */
 package org.apache.tools.ant.types.resources;
 
+import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.util.FileUtils;
 
+import java.io.FilterInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.util.Stack;
@@ -31,13 +33,14 @@ import java.util.Stack;
  *
  * A Resource representation of anything that is accessed via a Java classloader.
  * The core methods to set/resolve the classpath are provided.
- * @since Ant 1.8
+ * @since Ant 1.8.0
  *
  */
 
 public abstract class AbstractClasspathResource extends Resource {
     private Path classpath;
     private Reference loader;
+    private boolean parentFirst = true;
 
     /**
      * Set the classpath to use when looking up a resource.
@@ -117,6 +120,17 @@ public abstract class AbstractClasspathResource extends Resource {
     }
 
     /**
+     * Whether to consult the parent classloader first.
+     *
+     * <p>Only relevant if a classpath has been specified.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setParentFirst(boolean b) {
+        parentFirst = b;
+    }
+
+    /**
      * Overrides the super version.
      * @param r the Reference to set.
      */
@@ -158,13 +172,48 @@ public abstract class AbstractClasspathResource extends Resource {
             return ((Resource) getCheckedRef()).getInputStream();
         }
         dieOnCircularReference();
+
+        final ClassLoaderWithFlag classLoader = getClassLoader();
+        return !classLoader.needsCleanup()
+            ? openInputStream(classLoader.getLoader())
+            : new FilterInputStream(openInputStream(classLoader.getLoader())) {
+                    public void close() throws IOException {
+                        FileUtils.close(in);
+                        classLoader.cleanup();
+                    }
+                    protected void finalize() throws Throwable {
+                        try {
+                            close();
+                        } finally {
+                            super.finalize();
+                        }
+                    }
+                };
+    }
+
+    /**
+     * combines the various ways that could specify a ClassLoader and
+     * potentially creates one that needs to be cleaned up when it is
+     * no longer needed so that classes can get garbage collected.
+     */
+    protected ClassLoaderWithFlag getClassLoader() {
         ClassLoader cl = null;
+        boolean clNeedsCleanup = false;
         if (loader != null) {
             cl = (ClassLoader) loader.getReferencedObject();
         }
         if (cl == null) {
             if (getClasspath() != null) {
-                cl = getProject().createClassLoader(classpath);
+                Path p = getClasspath().concatSystemClasspath("ignore");
+                if (parentFirst) {
+                    cl = getProject().createClassLoader(p);
+                } else {
+                    cl = AntClassLoader.newAntClassLoader(getProject()
+                                                          .getCoreLoader(),
+                                                          getProject(),
+                                                          p, false);
+                }
+                clNeedsCleanup = loader == null;
             } else {
                 cl = JavaResource.class.getClassLoader();
             }
@@ -172,19 +221,18 @@ public abstract class AbstractClasspathResource extends Resource {
                 getProject().addReference(loader.getRefId(), cl);
             }
         }
-
-        return openInputStream(cl);
+        return new ClassLoaderWithFlag(cl, clNeedsCleanup);
     }
 
     /**
-     * open the inpout stream from a specific classloader
+     * open the input stream from a specific classloader
      * @param cl the classloader to use. Will be null if the system classloader is used
      * @return an open input stream for the resource
      * @throws IOException if an error occurs.
      */
     protected abstract InputStream openInputStream(ClassLoader cl) throws IOException;
 
-    protected synchronized void dieOnCircularReference(Stack stk, Project p) {
+    protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p) {
         if (isChecked()) {
             return;
         }
@@ -198,4 +246,20 @@ public abstract class AbstractClasspathResource extends Resource {
         }
     }
 
+    public static class ClassLoaderWithFlag {
+        private final ClassLoader loader;
+        private final boolean cleanup;
+
+        ClassLoaderWithFlag(ClassLoader l, boolean needsCleanup) {
+            loader = l;
+            cleanup = needsCleanup && l instanceof AntClassLoader;
+        }
+        public ClassLoader getLoader() { return loader; }
+        public boolean needsCleanup() { return cleanup; }
+        public void cleanup() {
+            if (cleanup) {
+                ((AntClassLoader) loader).cleanup();
+            }
+        }
+    }
 }

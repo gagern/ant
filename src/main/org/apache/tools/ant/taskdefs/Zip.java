@@ -32,7 +32,6 @@ import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Stack;
 import java.util.Vector;
@@ -63,10 +62,12 @@ import org.apache.tools.ant.util.IdentityMapper;
 import org.apache.tools.ant.util.MergingMapper;
 import org.apache.tools.ant.util.ResourceUtils;
 import org.apache.tools.zip.UnixStat;
+import org.apache.tools.zip.Zip64Mode;
 import org.apache.tools.zip.ZipEntry;
 import org.apache.tools.zip.ZipExtraField;
 import org.apache.tools.zip.ZipFile;
 import org.apache.tools.zip.ZipOutputStream;
+import org.apache.tools.zip.ZipOutputStream.UnicodeExtraFieldPolicy;
 
 /**
  * Create a Zip file.
@@ -84,9 +85,9 @@ public class Zip extends MatchingTask {
     // use to scan own archive
     private ZipScanner zs;
     private File baseDir;
-    protected Hashtable entries = new Hashtable();
-    private Vector groupfilesets = new Vector();
-    private Vector filesetsFromGroupfilesets = new Vector();
+    protected Hashtable<String, String> entries = new Hashtable<String, String>();
+    private Vector<FileSet> groupfilesets = new Vector<FileSet>();
+    private Vector<ZipFileSet> filesetsFromGroupfilesets = new Vector<ZipFileSet>();
     protected String duplicate = "add";
     private boolean doCompress = true;
     private boolean doUpdate = false;
@@ -98,9 +99,9 @@ public class Zip extends MatchingTask {
     // For directories:
     private static final long EMPTY_CRC = new CRC32 ().getValue ();
     protected String emptyBehavior = "skip";
-    private Vector resources = new Vector();
-    protected Hashtable addedDirs = new Hashtable();
-    private Vector addedFiles = new Vector();
+    private Vector<ResourceCollection> resources = new Vector<ResourceCollection>();
+    protected Hashtable<String, String> addedDirs = new Hashtable<String, String>();
+    private Vector<String> addedFiles = new Vector<String>();
 
     private static final ResourceSelector MISSING_SELECTOR =
         new ResourceSelector() {
@@ -214,12 +215,19 @@ public class Zip extends MatchingTask {
         UnicodeExtraField.NEVER;
 
     /**
-     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * Whether to fall back to UTF-8 if a name cannot be encoded using
      * the specified encoding.
      *
      * @since Ant 1.8.0
      */
     private boolean fallBackToUTF8 = false;
+
+    /**
+     * Whether to enable Zip64 extensions.
+     *
+     * @since Ant 1.9.1
+     */
+    private Zip64ModeAttribute zip64Mode = Zip64ModeAttribute.AS_NEEDED;
 
     /**
      * This is the name/location of where to
@@ -532,7 +540,7 @@ public class Zip extends MatchingTask {
     }
 
     /**
-     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * Whether to fall back to UTF-8 if a name cannot be encoded using
      * the specified encoding.
      *
      * <p>Defaults to false.</p>
@@ -544,13 +552,29 @@ public class Zip extends MatchingTask {
     }
 
     /**
-     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * Whether to fall back to UTF-8 if a name cannot be encoded using
      * the specified encoding.
      *
      * @since Ant 1.8.0
      */
     public boolean getFallBackToUTF8() {
         return fallBackToUTF8;
+    }
+
+    /**
+     * Whether Zip64 extensions should be used.
+     * @since Ant 1.9.1
+     */
+    public void setZip64Mode(Zip64ModeAttribute b) {
+        zip64Mode = b;
+    }
+
+    /**
+     * Whether Zip64 extensions will be used.
+     * @since Ant 1.9.1
+     */
+    public Zip64ModeAttribute getZip64Mode() {
+        return zip64Mode;
     }
 
     /**
@@ -596,13 +620,14 @@ public class Zip extends MatchingTask {
         processGroupFilesets();
 
         // collect filesets to pass them to getResourcesToAdd
-        Vector vfss = new Vector();
+        Vector<ResourceCollection> vfss = new Vector<ResourceCollection>();
         if (baseDir != null) {
             FileSet fs = (FileSet) getImplicitFileSet().clone();
             fs.setDir(baseDir);
             vfss.addElement(fs);
         }
-        for (int i = 0; i < resources.size(); i++) {
+        final int size = resources.size();
+        for (int i = 0; i < size; i++) {
             ResourceCollection rc = (ResourceCollection) resources.elementAt(i);
             vfss.addElement(rc);
         }
@@ -618,6 +643,13 @@ public class Zip extends MatchingTask {
             if (!state.isOutOfDate()) {
                 return;
             }
+
+            File parent = zipFile.getParentFile();
+            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                throw new BuildException("Failed to create missing parent"
+                                         + " directory for " + zipFile);
+            }
+
             updatedFile = true;
             if (!zipFile.exists() && state.isWithoutAnyResources()) {
                 createEmptyZip(zipFile);
@@ -648,6 +680,7 @@ public class Zip extends MatchingTask {
                     zOut.setMethod(doCompress
                         ? ZipOutputStream.DEFLATED : ZipOutputStream.STORED);
                     zOut.setLevel(level);
+                    zOut.setUseZip64(zip64Mode.getMode());
                 }
                 initZipOutputStream(zOut);
 
@@ -665,7 +698,8 @@ public class Zip extends MatchingTask {
                     oldFiles.setSrc(renamedFile);
                     oldFiles.setDefaultexcludes(false);
 
-                    for (int i = 0; i < addedFiles.size(); i++) {
+                    final int addSize = addedFiles.size();
+                    for (int i = 0; i < addSize; i++) {
                         PatternSet.NameEntry ne = oldFiles.createExclude();
                         ne.setName((String) addedFiles.elementAt(i));
                     }
@@ -816,7 +850,8 @@ public class Zip extends MatchingTask {
     /** Process groupfilesets */
     private void processGroupFilesets() {
         // Add the files found in groupfileset to fileset
-        for (int i = 0; i < groupfilesets.size(); i++) {
+        final int size = groupfilesets.size();
+        for (int i = 0; i < size; i++) {
 
             logWhenWriting("Processing groupfileset ", Project.MSG_VERBOSE);
             FileSet fs = (FileSet) groupfilesets.elementAt(i);
@@ -1019,7 +1054,7 @@ public class Zip extends MatchingTask {
                 try {
                     is = zf.getInputStream(ze);
                     zipFile(is, zOut, prefix + name, ze.getTime(),
-                            fromArchive, mode, ze.getExtraFields());
+                            fromArchive, mode, ze.getExtraFields(true));
                 } finally {
                     doCompress = oldCompress;
                     FileUtils.close(is);
@@ -1058,22 +1093,27 @@ public class Zip extends MatchingTask {
             return;
         }
         for (int i = 0; i < resources.length; i++) {
-            String name = resources[i].getName().replace(File.separatorChar,
-                                                         '/');
+            final Resource resource = resources[i];
+            String name = resource.getName();
+            if (name == null) {
+                continue;
+            }
+            name = name.replace(File.separatorChar, '/');
+
             if ("".equals(name)) {
                 continue;
             }
-            if (resources[i].isDirectory() && doFilesonly) {
+            if (resource.isDirectory() && doFilesonly) {
                 continue;
             }
             File base = null;
-            FileProvider fp = (FileProvider) resources[i].as(FileProvider.class);
+            FileProvider fp = resource.as(FileProvider.class);
             if (fp != null) {
                 base = ResourceUtils.asFileResource(fp).getBaseDir();
             }
 
-            if (resources[i].isDirectory()) {
-                addDirectoryResource(resources[i], name, "", base, zOut,
+            if (resource.isDirectory()) {
+                addDirectoryResource(resource, name, "", base, zOut,
                                      ArchiveFileSet.DEFAULT_DIR_MODE,
                                      ArchiveFileSet.DEFAULT_DIR_MODE);
 
@@ -1085,7 +1125,7 @@ public class Zip extends MatchingTask {
                     File f = (fp).getFile();
                     zipFile(f, zOut, name, ArchiveFileSet.DEFAULT_FILE_MODE);
                 } else {
-                    addResource(resources[i], name, "", zOut,
+                    addResource(resource, name, "", zOut,
                                 ArchiveFileSet.DEFAULT_FILE_MODE,
                                 null, null);
                 }
@@ -1173,7 +1213,7 @@ public class Zip extends MatchingTask {
      * third arg if they already know that the archive is
      * out-of-date.</p>
      *
-     * <p>This method first delegates to getNonFileSetResourceToAdd
+     * <p>This method first delegates to getNonFileSetResourcesToAdd
      * and then invokes the FileSet-arg version.  All this to keep
      * backwards compatibility for subclasses that don't know how to
      * deal with non-FileSet ResourceCollections.</p>
@@ -1194,8 +1234,8 @@ public class Zip extends MatchingTask {
                                              File zipFile,
                                              boolean needsUpdate)
         throws BuildException {
-        ArrayList filesets = new ArrayList();
-        ArrayList rest = new ArrayList();
+        ArrayList<ResourceCollection> filesets = new ArrayList<ResourceCollection>();
+        ArrayList<ResourceCollection> rest = new ArrayList<ResourceCollection>();
         for (int i = 0; i < rcs.length; i++) {
             if (rcs[i] instanceof FileSet) {
                 filesets.add(rcs[i]);
@@ -1203,7 +1243,7 @@ public class Zip extends MatchingTask {
                 rest.add(rcs[i]);
             }
         }
-        ResourceCollection[] rc = (ResourceCollection[])
+        ResourceCollection[] rc =
             rest.toArray(new ResourceCollection[rest.size()]);
         ArchiveState as = getNonFileSetResourcesToAdd(rc, zipFile,
                                                       needsUpdate);
@@ -1236,6 +1276,19 @@ public class Zip extends MatchingTask {
         return new ArchiveState(as2.isOutOfDate(), toAdd);
     }
 
+    /*
+     * This is yet another hacky construct to extend the FileSet[]
+     * getResourcesToAdd method so we can pass the information whether
+     * non-fileset resources have been available to it without having
+     * to move the withEmpty behavior checks (since either would break
+     * subclasses in several ways).
+     */
+    private static final ThreadLocal<Boolean> HAVE_NON_FILE_SET_RESOURCES_TO_ADD = new ThreadLocal<Boolean>() {
+            protected Boolean initialValue() {
+                return Boolean.FALSE;
+            }
+        };
+
     /**
      * Collect the resources that are newer than the corresponding
      * entries (or missing) in the original archive.
@@ -1265,48 +1318,55 @@ public class Zip extends MatchingTask {
 
         Resource[][] initialResources = grabResources(filesets);
         if (isEmpty(initialResources)) {
-            if (needsUpdate && doUpdate) {
-                /*
-                 * This is a rather hairy case.
-                 *
-                 * One of our subclasses knows that we need to update the
-                 * archive, but at the same time, there are no resources
-                 * known to us that would need to be added.  Only the
-                 * subclass seems to know what's going on.
-                 *
-                 * This happens if <jar> detects that the manifest has changed,
-                 * for example.  The manifest is not part of any resources
-                 * because of our support for inline <manifest>s.
-                 *
-                 * If we invoke createEmptyZip like Ant 1.5.2 did,
-                 * we'll loose all stuff that has been in the original
-                 * archive (bugzilla report 17780).
-                 */
-                return new ArchiveState(true, initialResources);
+            if (Boolean.FALSE.equals(HAVE_NON_FILE_SET_RESOURCES_TO_ADD.get())) {
+                if (needsUpdate && doUpdate) {
+                    /*
+                     * This is a rather hairy case.
+                     *
+                     * One of our subclasses knows that we need to
+                     * update the archive, but at the same time, there
+                     * are no resources known to us that would need to
+                     * be added.  Only the subclass seems to know
+                     * what's going on.
+                     *
+                     * This happens if <jar> detects that the manifest
+                     * has changed, for example.  The manifest is not
+                     * part of any resources because of our support
+                     * for inline <manifest>s.
+                     *
+                     * If we invoke createEmptyZip like Ant 1.5.2 did,
+                     * we'll loose all stuff that has been in the
+                     * original archive (bugzilla report 17780).
+                     */
+                    return new ArchiveState(true, initialResources);
+                }
+
+                if (emptyBehavior.equals("skip")) {
+                    if (doUpdate) {
+                        logWhenWriting(archiveType + " archive " + zipFile
+                                       + " not updated because no new files were"
+                                       + " included.", Project.MSG_VERBOSE);
+                    } else {
+                        logWhenWriting("Warning: skipping " + archiveType
+                                       + " archive " + zipFile
+                                       + " because no files were included.",
+                                       Project.MSG_WARN);
+                    }
+                } else if (emptyBehavior.equals("fail")) {
+                    throw new BuildException("Cannot create " + archiveType
+                                             + " archive " + zipFile
+                                             + ": no files were included.",
+                                             getLocation());
+                } else {
+                    // Create.
+                    if (!zipFile.exists())  {
+                        needsUpdate = true;
+                    }
+                }
             }
 
-            if (emptyBehavior.equals("skip")) {
-                if (doUpdate) {
-                    logWhenWriting(archiveType + " archive " + zipFile
-                                   + " not updated because no new files were"
-                                   + " included.", Project.MSG_VERBOSE);
-                } else {
-                    logWhenWriting("Warning: skipping " + archiveType
-                                   + " archive " + zipFile
-                                   + " because no files were included.",
-                                   Project.MSG_WARN);
-                }
-            } else if (emptyBehavior.equals("fail")) {
-                throw new BuildException("Cannot create " + archiveType
-                                         + " archive " + zipFile
-                                         + ": no files were included.",
-                                         getLocation());
-            } else {
-                // Create.
-                if (!zipFile.exists())  {
-                    needsUpdate = true;
-                }
-            }
+            // either there are non-fileset resources or we
+            // (re-)create the archive anyway
             return new ArchiveState(needsUpdate, initialResources);
         }
 
@@ -1422,7 +1482,9 @@ public class Zip extends MatchingTask {
          */
 
         Resource[][] initialResources = grabNonFileSetResources(rcs);
-        if (isEmpty(initialResources)) {
+        boolean empty = isEmpty(initialResources);
+        HAVE_NON_FILE_SET_RESOURCES_TO_ADD.set(Boolean.valueOf(!empty));
+        if (empty) {
             // no emptyBehavior handling since the FileSet version
             // will take care of it.
             return new ArchiveState(needsUpdate, initialResources);
@@ -1449,7 +1511,7 @@ public class Zip extends MatchingTask {
 
             for (int j = 0; j < initialResources[i].length; j++) {
                 FileProvider fp =
-                    (FileProvider) initialResources[i][j].as(FileProvider.class);
+                    initialResources[i][j].as(FileProvider.class);
                 if (fp != null && zipFile.equals(fp.getFile())) {
                     throw new BuildException("A zip file cannot include "
                                              + "itself", getLocation());
@@ -1489,10 +1551,10 @@ public class Zip extends MatchingTask {
                                             getZipScanner(),
                                             MISSING_DIR_PROVIDER);
             if (rc.size() > 0) {
-                ArrayList newer = new ArrayList();
+                ArrayList<Resource> newer = new ArrayList<Resource>();
                 newer.addAll(Arrays.asList(((Union) rc).listResources()));
                 newer.addAll(Arrays.asList(result));
-                result = (Resource[]) newer.toArray(result);
+                result = newer.toArray(result);
             }
         }
         return result;
@@ -1520,7 +1582,7 @@ public class Zip extends MatchingTask {
             if (rs instanceof ZipScanner) {
                 ((ZipScanner) rs).setEncoding(encoding);
             }
-            Vector resources = new Vector();
+            Vector<Resource> resources = new Vector<Resource>();
             if (!doFilesonly) {
                 String[] directories = rs.getIncludedDirectories();
                 for (int j = 0; j < directories.length; j++) {
@@ -1553,11 +1615,9 @@ public class Zip extends MatchingTask {
     protected Resource[][] grabNonFileSetResources(ResourceCollection[] rcs) {
         Resource[][] result = new Resource[rcs.length][];
         for (int i = 0; i < rcs.length; i++) {
-            Iterator iter = rcs[i].iterator();
-            ArrayList dirs = new ArrayList();
-            ArrayList files = new ArrayList();
-            while (iter.hasNext()) {
-                Resource r = (Resource) iter.next();
+            ArrayList<Resource> dirs = new ArrayList<Resource>();
+            ArrayList<Resource> files = new ArrayList<Resource>();
+            for (Resource r : rcs[i]) {
                 if (r.isExists()) {
                     if (r.isDirectory()) {
                         dirs.add(r);
@@ -1568,16 +1628,14 @@ public class Zip extends MatchingTask {
             }
             // make sure directories are in alpha-order - this also
             // ensures parents come before their children
-            Collections.sort(dirs, new Comparator() {
-                    public int compare(Object o1, Object o2) {
-                        Resource r1 = (Resource) o1;
-                        Resource r2 = (Resource) o2;
+            Collections.sort(dirs, new Comparator<Resource>() {
+                    public int compare(Resource r1, Resource r2) {
                         return r1.getName().compareTo(r2.getName());
                     }
                 });
-            ArrayList rs = new ArrayList(dirs);
+            ArrayList<Resource> rs = new ArrayList<Resource>(dirs);
             rs.addAll(files);
-            result[i] = (Resource[]) rs.toArray(new Resource[rs.size()]);
+            result[i] = rs.toArray(new Resource[rs.size()]);
         }
         return result;
     }
@@ -1667,6 +1725,31 @@ public class Zip extends MatchingTask {
         }
     }
 
+    /*
+     * This is a hacky construct to extend the zipFile method to
+     * support a new parameter (extra fields to preserve) without
+     * breaking subclasses that override the old method signature.
+     */
+    private static final ThreadLocal<ZipExtraField[]> CURRENT_ZIP_EXTRA = new ThreadLocal<ZipExtraField[]>();
+
+    /**
+     * Provides the extra fields for the zip entry currently being
+     * added to the archive - if any.
+     * @since Ant 1.8.0
+     */
+    protected final ZipExtraField[] getCurrentExtraFields() {
+        return (ZipExtraField[]) CURRENT_ZIP_EXTRA.get();
+    }
+
+    /**
+     * Sets the extra fields for the zip entry currently being
+     * added to the archive - if any.
+     * @since Ant 1.8.0
+     */
+    protected final void setCurrentExtraFields(ZipExtraField[] extra) {
+        CURRENT_ZIP_EXTRA.set(extra);
+    }
+
     /**
      * Adds a new entry to the archive, takes care of duplicates as well.
      *
@@ -1685,33 +1768,9 @@ public class Zip extends MatchingTask {
     protected void zipFile(InputStream in, ZipOutputStream zOut, String vPath,
                            long lastModified, File fromArchive, int mode)
         throws IOException {
-        zipFile(in, zOut, vPath, lastModified, fromArchive, mode, null);
-    }
-
-    /**
-     * Adds a new entry to the archive, takes care of duplicates as well.
-     *
-     * @param in the stream to read data for the entry from.  The
-     * caller of the method is responsible for closing the stream.
-     * @param zOut the stream to write to.
-     * @param vPath the name this entry shall have in the archive.
-     * @param lastModified last modification time for the entry.
-     * @param fromArchive the original archive we are copying this
-     * entry from, will be null if we are not copying from an archive.
-     * @param mode the Unix permissions to set.
-     * @param extra ZipExtraFields to add
-     *
-     * @since Ant 1.8.0
-     * @throws IOException on error
-     */
-    protected void zipFile(InputStream in, ZipOutputStream zOut, String vPath,
-                           long lastModified, File fromArchive,
-                           int mode, ZipExtraField[] extra)
-        throws IOException {
-
         // fromArchive is used in subclasses overriding this method
 
-        if (entries.contains(vPath)) {
+        if (entries.containsKey(vPath)) {
 
             if (duplicate.equals("preserve")) {
                 logWhenWriting(vPath + " already added, skipping",
@@ -1777,11 +1836,12 @@ public class Zip extends MatchingTask {
             }
 
             ze.setUnixMode(mode);
-            zOut.putNextEntry(ze);
-
+            ZipExtraField[] extra = getCurrentExtraFields();
             if (extra != null) {
                 ze.setExtraFields(extra);
             }
+
+            zOut.putNextEntry(ze);
 
             byte[] buffer = new byte[BUFFER_SIZE];
             int count = 0;
@@ -1793,6 +1853,35 @@ public class Zip extends MatchingTask {
             } while (count != -1);
         }
         addedFiles.addElement(vPath);
+    }
+
+    /**
+     * Adds a new entry to the archive, takes care of duplicates as well.
+     *
+     * @param in the stream to read data for the entry from.  The
+     * caller of the method is responsible for closing the stream.
+     * @param zOut the stream to write to.
+     * @param vPath the name this entry shall have in the archive.
+     * @param lastModified last modification time for the entry.
+     * @param fromArchive the original archive we are copying this
+     * entry from, will be null if we are not copying from an archive.
+     * @param mode the Unix permissions to set.
+     * @param extra ZipExtraFields to add
+     *
+     * @since Ant 1.8.0
+     * @throws IOException on error
+     */
+    protected final void zipFile(InputStream in, ZipOutputStream zOut,
+                                 String vPath, long lastModified,
+                                 File fromArchive, int mode,
+                                 ZipExtraField[] extra)
+        throws IOException {
+        try {
+            setCurrentExtraFields(extra);
+            zipFile(in, zOut, vPath, lastModified, fromArchive, mode);
+        } finally {
+            setCurrentExtraFields(null);
+        }
     }
 
     /**
@@ -1842,7 +1931,7 @@ public class Zip extends MatchingTask {
                                        int dirMode)
         throws IOException {
         if (!doFilesonly) {
-            Stack directories = new Stack();
+            Stack<String> directories = new Stack<String>();
             int slashPos = entry.length();
 
             while ((slashPos = entry.lastIndexOf('/', slashPos - 1)) != -1) {
@@ -1854,7 +1943,7 @@ public class Zip extends MatchingTask {
             }
 
             while (!directories.isEmpty()) {
-                String dir = (String) directories.pop();
+                String dir = directories.pop();
                 File f = null;
                 if (baseDir != null) {
                     f = new File(baseDir, dir);
@@ -1886,12 +1975,13 @@ public class Zip extends MatchingTask {
         entries.clear();
         addingNewFiles = false;
         doUpdate = savedDoUpdate;
-        Enumeration e = filesetsFromGroupfilesets.elements();
+        Enumeration<ZipFileSet> e = filesetsFromGroupfilesets.elements();
         while (e.hasMoreElements()) {
-            ZipFileSet zf = (ZipFileSet) e.nextElement();
+            ZipFileSet zf = e.nextElement();
             resources.removeElement(zf);
         }
         filesetsFromGroupfilesets.removeAllElements();
+        HAVE_NON_FILE_SET_RESOURCES_TO_ADD.set(Boolean.FALSE);
     }
 
     /**
@@ -1983,7 +2073,7 @@ public class Zip extends MatchingTask {
             return orig;
         }
 
-        ArrayList v = new ArrayList(orig.length);
+        ArrayList<Resource> v = new ArrayList<Resource>(orig.length);
         for (int i = 0; i < orig.length; i++) {
             if (selector.isSelected(orig[i])) {
                 v.add(orig[i]);
@@ -1991,8 +2081,7 @@ public class Zip extends MatchingTask {
         }
 
         if (v.size() != orig.length) {
-            Resource[] r = new Resource[v.size()];
-            return (Resource[]) v.toArray(r);
+            return v.toArray(new Resource[v.size()]);
         }
         return orig;
     }
@@ -2080,7 +2169,7 @@ public class Zip extends MatchingTask {
      * @since Ant 1.8.0
      */
     public static final class UnicodeExtraField extends EnumeratedAttribute {
-        private static final Map POLICIES = new HashMap();
+        private static final Map<String, UnicodeExtraFieldPolicy> POLICIES = new HashMap<String, UnicodeExtraFieldPolicy>();
         private static final String NEVER_KEY = "never";
         private static final String ALWAYS_KEY = "always";
         private static final String N_E_KEY = "not-encodeable";
@@ -2109,8 +2198,68 @@ public class Zip extends MatchingTask {
         }
 
         public ZipOutputStream.UnicodeExtraFieldPolicy getPolicy() {
-            return (ZipOutputStream.UnicodeExtraFieldPolicy)
-                POLICIES.get(getValue());
+            return POLICIES.get(getValue());
         }
     }
-}
+
+
+    /**
+     * The choices for Zip64 extensions.
+     *
+     * <p><b>never</b>: never add any Zip64 extensions.  This will
+     * cause the task to fail if you try to add entries bigger than
+     * 4GB or create an archive bigger than 4GB or holding more that
+     * 65535 entries.</p>
+     *
+     * <p><b>as-needed</b>: create Zip64 extensions only when the
+     * entry's size is bigger than 4GB or one of the archive limits is
+     * hit.  This mode also adds partial Zip64 extensions for all
+     * deflated entries written by Ant.</p>
+     *
+     * <p><b>always</b>: create Zip64 extensions for all entries.</p>
+     *
+     * <p><b>Note</b> some ZIP implementations don't handle Zip64
+     * extensions well and others may fail if the Zip64 extra field
+     * data is only present inside the local file header but not the
+     * central directory - which is what <em>as-needed</em> may result
+     * in.  Java5 and Microsoft Visual Studio's Extension loader are
+     * known to fconsider the archive broken in such cases.  If you
+     * are targeting such an archiver uset the value <em>never</em>
+     * unless you know you need Zip64 extensions.</p>
+     *
+     * @since Ant 1.9.1
+     */
+    public static final class Zip64ModeAttribute extends EnumeratedAttribute {
+        private static final Map<String, Zip64Mode> MODES = new HashMap<String, Zip64Mode>();
+
+        private static final String NEVER_KEY = "never";
+        private static final String ALWAYS_KEY = "always";
+        private static final String A_N_KEY = "as-needed";
+        static {
+            MODES.put(NEVER_KEY, Zip64Mode.Never);
+            MODES.put(ALWAYS_KEY, Zip64Mode.Always);
+            MODES.put(A_N_KEY, Zip64Mode.AsNeeded);
+        }
+
+        public String[] getValues() {
+            return new String[] {NEVER_KEY, ALWAYS_KEY, A_N_KEY};
+        }
+
+        public static final Zip64ModeAttribute NEVER =
+            new Zip64ModeAttribute(NEVER_KEY);
+        public static final Zip64ModeAttribute AS_NEEDED =
+            new Zip64ModeAttribute(A_N_KEY);
+
+        private Zip64ModeAttribute(String name) {
+            setValue(name);
+        }
+
+        public Zip64ModeAttribute() {
+        }
+
+        public Zip64Mode getMode() {
+            return MODES.get(getValue());
+        }
+
+    }
+ }

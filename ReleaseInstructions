@@ -29,7 +29,7 @@ Note: This document was updated in the context of releasing Ant 1.7.
 
 3.  Once the freeze date arrives, create a branch for the release builds,
     if this was decided in the release vote. This was done for Ant 1.6, 
-    but not for Ant 1.7. 
+    but not for Ant 1.7, nor for Ant 1.8.
 
     You will need to be comfortable in handling SVN branches with multiple
     merge-backs to the main branch and even selected merges from the the main
@@ -56,33 +56,16 @@ Note: This document was updated in the context of releasing Ant 1.7.
     ant -version and the naming of the distribution files.
 
     Update the following files for version number:
-
-        On the branch only :
-
-            * docs/manual/cover.html
-            * docs/manual/credits.html
-            * build.xml (version property & manifest-version property)
-
-        Commit your changes.
-
-        On the branch and on the main trunk (*):
-
-            * WHATSNEW
-            * xdocs/antnews.xml (Announcement)
-            * xdocs/faq.xml (Ant's history details - not for betas)
-            * xdocs/index.xml (Announcement, latest release details, link to
-            manual under "Documentation")
-            * xdocs/srcdownload.xml
-            * xdocs/bindownload.xml
-
-        Generate the html files by invoking ant on docs.xml
-        (use -projecthelp for instructions).
-        Commit the modified/generated files
+    
+    see at the end of this document the list of files containing version information
 
 6.  Ensure you have all the external libraries that Ant uses in your
-    lib/optional directory.  To find out what libraries you need, execute
+    lib/optional directory.  All dependencies are either provided by
+    JDK 1.5.0 or downloadable using
+    ant -f fetch.xml -Ddest=optional.
+    To find out whether you have all the libraries you need, execute
     the build with -verbose option and scan for lines beginning with
-    "Unable to load...".
+    "Unable to load...". 
 
 7.  Make sure that your directory tree is clean by running svn status.
     Some tests leave behind leftovers which end up in the source
@@ -92,71 +75,77 @@ Note: This document was updated in the context of releasing Ant 1.7.
     on the branch. It is important that this be a clean build. Label this with
     a tag ANT_170_B1.
 
+    The file release.sh gives an idea of how to do this build process.
+    buid.xml specifies that the code should be compiled with source=1.5 and target=1.5.
+
     C:\dev\asf\ant-core>
     svn copy https://svn.apache.org/repos/asf/ant/core/trunk \
     https://svn.apache.org/repos/asf/ant/core/tags/ANT_170_B1 \
     -m "Tagging version 1.7.0Beta1 of Ant"
 
-    Revision 437509 ?\195?\188bertragen.
+    Revision 437509 Uebertragen.
 
-9.  Sign the distribution files using the following simple script
-    #!/bin/sh
-    for i in `/usr/bin/find distribution \( -name "*.bz2" -o -name  "*.zip" -o -name "*.gz" \)`
-    do
-         echo "Signing " $i
-         gpg -a -b --force-v3-sigs $i
-    done
+9.  Sign the distribution files using the script release/signit.xml 
 
-    The --force-v3-sigs will improve the interoperability with PGP 5.x,
-    see <http://www.gnupg.org/(en)/documentation/faqs.html#q5.5>.
+    This script requires using commons-openpgp to sign the artefacts,
+
+    This tool can be checked out from 
+    http://svn.apache.org/repos/asf/commons/sandbox/openpgp/trunk
+    You have to build it using maven
+    
+    You can create a property file .gnupg.properties in your home directory 
+    with your key id
+    and pass your key passphrase on the command line with -Dpassword=****
 
     Before you do that, ensure that the key you use is inside the KEYS
     file in Ant's SVN repository
     <https://svn.apache.org/repos/asf/ant/antlibs/common/trunk/KEYS> -
-    and that you perform a svn update on the KEYS file in
-    /www/www.apache.org/dist/ant/common
+    and that you copy the KEYS file to
+    /www/www.apache.org/dist/ant
 
     Also make sure you have sent the key that you use to a public
     keyserver.
 
-10. The beta distribution is now ready to go. Bundle it up into a tar.gz file
-    and scp to your apache account.
+10. The beta distribution is now ready to go. Commit it to
+    https://dist.apache.org/repos/dist/dev/ant
 
 11. Meanwhile, convert the part of the WHATSNEW file covering the changes
     since the last release into HTML for the README file on the
     website. See the previous release directories for examples of these files.
     Add instructions and warnings (GNU tar format issues, etc).
 
-    You may choose to use the text2html convertor present at
-    http://txt2html.sourceforge.net/#test
+    Use the target txt2html of docs.xml
 
     Name the generated file RELEASE-NOTES-x.y.z.html.
 
     Change the title to something like "Release Notes of Apache Ant
     1.7.0Beta2" (from the default txt2html)
 
-    [[ TODO: This must perhaps be an Ant task. ]]
+12. Once this is committed call for a release vote on dev@ant.  The
+    vote will only pass if at least three PMC members have voted +1
+    and more +1s than -1s have been cast.  The vote will run for 3 days.
 
-12. Once this is uploaded, unpack things in your home directory
-    and call for a release vote on dev@ant.  The vote will only pass
-    if at least three PMC members have voted +1 and more +1s than -1s
-    have been cast.  The vote will run for a week.
+13. Update the files listed at the end of the document (files containing 
+    version information) to prepare the development of the next version of Ant
 
-13. Once the vote has passed, create the release directory,
-    something like v1.7.0Beta1, push the release and RELEASE-NOTES files
-    into this directory.  Create a symbolic link named README.html
-    that points to the RELEASE-NOTES.
+14. Once the vote has passed, the distrib artifacts should be published the
+    apache dist. It is managed via svnpubsub so the release should be
+    committed to the subversion repository
+    https://dist.apache.org/repos/dist/release/ant/.
 
-    The files should go to /www/www.apache.org/dist/ant/ on people.apache.org.
+    In order to keep the main dist area of a reasonable size, old releases
+    should be removed. They will disapear from the main dist but will still be
+    available via the archive. To do so, just use the "svn rm" command against
+    the artifacts or folders to remove.
 
-14. Address the available release tags in BugZilla. Create a new tag 1.7.0Beta1.
+15. Address the available release tags in BugZilla. Create a new tag 1.7.0Beta1.
     If there is a separate main branch, create a 1.8alpha tag.
     Assign all existing 1.7 alpha bugs to 1.7.0Beta1.
     Note that such massive changes can be done at once by choosing the
     link "Change several bugs at once" at the bottom of the bug list
     displaying the 1.7alpha bugs.
 
-15. Once that is done, do a test download to make sure everything is OK. A
+16. Once that is done, do a test download to make sure everything is OK. A
     common problem may be:
     * the file's mime type is not recognized and is interpreted as
       text/plain.  Fix it by using some .htaccess magic (AddEncoding stuff)
@@ -164,33 +153,21 @@ Note: This document was updated in the context of releasing Ant 1.7.
 
     If it looks OK, announce it on dev@ant and user@ant. After a few
     days pass and there are no major problems, a wider announcement is
-    made (ant website, main jakarta website, announcements@jakarta.apache.org,
-    etc).
+    made (ant website, announce@apache.org, etc).
 
-    and also perform a svn update on files in people.apache.org's
-    /www/ant.apache.org/
-
-    you also need to checkout parallel to ant-core
-    https://svn.apache.org/repos/asf/ant/site then go to the
-    subdirectory generated svn propedit svn:externals to change the
-    location of the manual
-
-    Announce beta releases at freshmeat.net (Stefan Bodewig is the
+    Announce beta releases at freecode.com (Stefan Bodewig is the
     owner of Ant's project entry - bug him ;-).
 
-16. As problems in the beta are discovered, there may be a need for
+17. As problems in the beta are discovered, there may be a need for
     one or more subsequent betas. The release manager makes this
     call. Each time, the versions are updated and the above process is
     repeated. Try not to have too many betas.
 
-17. Try to advertise the need for testing of the betas as much as possible.
+18. Try to advertise the need for testing of the betas as much as possible.
     This would eliminate the need to release minor patch versions like
     we had to do when releasing Ant 1.4.
 
-    To monitor the number of downloads, look at the access_log
-    file under /usr/local/apache2/logs
-
-18. When the final beta is considered OK, propose a vote on dev@ant to
+19. When the final beta is considered OK, propose a vote on dev@ant to
     officially adopt the latest beta as the Ant 1.6 release. If it is passed,
     (it usually does,) this would be labelled ANT_16 and built in a similar
     fashion to the above process.
@@ -199,80 +176,101 @@ Note: This document was updated in the context of releasing Ant 1.7.
     files ready in time for the vote so that no additional vote on the
     actual package is required later.
 
-19. This time you'll have to do some house-keeping for the old
+20. This time you'll have to do some house-keeping for the old
     release:
 
-    * upload the new release files to
+    * commit the new release files to
 
       from distribution
-      to   /www/www.apache.org/dist/ant/[source|binaries].
+      to   https://dist.apache.org/repos/dist/release/ant/[source|binaries|manual].
+
       
-      and 
+    * upload the maven artifacts located under java-repository/org/apache/ant
+      these artifacts comprise currently for each ant jar of one POM file, the corresponding jar file
+      and the corresponding GPG signatures (x.pom, x.jar, x.pom.asc, x.jar.asc)
+      MD5 and SHA1 are generated by ivy during the upload
 
-      from java-repository/org.apache.ant
-      to   /www/people.apache.org/repo/m1-ibiblio-rsync-repository/org.apache.ant
+      to  
 
-      this can be done using the target upload of the build.xml
+      https://repository.apache.org (nexus repository)
 
-    * remove the symbolic links from /www/www.apache.org/dist/ant.
+      using the build file release/upload.xml
+      
+      ant -Dupload.user=foo -Dupload.password=secret -lib location_of_ivy_jar -f upload.xml      
 
-    * Create proper -current symlinks in /www/www.apache.org/dist/ant/
+    *  after the upload, you need to access the web interface of nexus under https://repository.apache.org
+       login using your Apache credentials
+       select the Staging enterprise repository
+       expand org.apache.ant 
+       select the checkbox next to the upload that you just did
+       click the button "Close" on the top of the table listing the uploads
+       once this is done, you have to again select your upload in the web interface,
+       and click the button "Release".
+       4 hours later, the artefacts will be in the maven central repository.
+      
 
-    * Make sure that the symbolic link README.html points to the new
-      RELEASE-NOTES.
+    * Make README.html points to the new RELEASE-NOTES or is a copy of
+      it.
 
-    (**)
+    (*)
 
-20. Update the ant.apache.org site :
+21. Update the ant.apache.org site :
 
-    running svn update *.html under /www/ant.apache.org should update the
-    files regenerated and committed in point 5 above (index.html, faq.html,
-    antnews.html, srcdownload.html, bindownload.html).
+    The website is managed here: https://svn.apache.org/repos/asf/ant/site/ant/
 
-    Update the online manual too.
+    Update the following files for version number:
 
-21. Clean up.
+    * source/antnews.xml (Announcement)
+    * source/faq.xml (Ant's history details - not for betas)
+    * source/index.xml (Announcement, latest release details, link to
+    manual under "Documentation")
+    * source/srcdownload.xml
+    * source/bindownload.xml
+    * source/manualdownload.xml
+
+    Generate the html files by invoking 'ant'
+    Commit the modified/generated files in the 'production' folder, it will go
+    live on ant.apache.org in a matter on seconds.
+     
+    Change the version of the manual published on the site: svn copy the manual into
+    the production folder, using a command similar to :
+    svn copy https://svn.apache.org/repos/asf/ant/core/tags/ANT_190/manual/ .
+    followed by a commit.
+
+22. Clean up.
 
     * remove the remaining files of the previous release and betas from
-      /www/www.apache.org/dist/ant/[source|binaries].
+      https://dist.apache.org/repos/dist/release/ant/[source|binaries|manual].
       This includes the old release notes.
 
     (+)
 
-22. Now and perhaps during previous betas any changes on the branch must
+23. Now and perhaps during previous betas any changes on the branch must
     be merged back into the tree.
 
-23. At this point in time, the release is done and announcements are made.
+24. At this point in time, the release is done and announcements are made.
     PGP-sign your announcement posts.
 
     [[TODO: Identify the mailing lists where announcements are to be made.
       Also identify the webpages to which the announcements must go. ]]
 
     Apache mailing lists that should get the announcements:
-    announcements@jakarta.apache.org, announcements@xml.apache.org,
     announce@apache.org, dev@ant and user@ant.
 
-    Announce release at freshmeat.net
+    Announce release at freecode.com
     (Stefan Bodewig is the owner of Ant's project entry - bug him ;-).
 
-    Announce release in the usenet groups comp.lang.java.softwaretools
-    and comp.lang.java.announce.
+25. Add a new release tag to doap_Ant.rdf in Ant's site.
 
-24. Add a new release tag to doap_Ant.rdf in Ant's trunk.
+26. You can now reacquaint yourself with your family and friends.
 
-25. You can now reacquaint yourself with your family and friends.
-
-(*)  the xdocs need to be updated on both the branch and the HEAD revision
-     because traditionally the ant.apache.org web site reflects the HEAD
-     revision of the xdocs, but the users downloading a distribution will get
-     the xdocs and the generated html from the branch and will complain if there
-     are discrepancies in version numbers.
-
-(**) Mirrors : the srcdownload.html and bindownload.html each list a number of
-     mirrors. For ant 1.6.0 the mirrors picked up the new version in 8 hours
-     or less, the release having been done at midnight on Dec 18th, the
-     mirrors had it on Dec 19th at 8 am. The srcdownload/bindownload pages both
-     contain a note advising users to be patient immediately after the release.
+(*)  Mirrors : the srcdownload.html, bindownload.html and
+     manualdownload.html each list a number of mirrors. For ant 1.6.0
+     the mirrors picked up the new version in 8 hours or less, the
+     release having been done at midnight on Dec 18th, the mirrors had
+     it on Dec 19th at 8 am. The
+     srcdownload/bindownload/manualdownload pages all contain a note
+     advising users to be patient immediately after the release.
 
 (+)  Don't expect the old releases to disappear from
      www.apache.org/dist as soon as the new releases are there.
@@ -285,4 +283,39 @@ Related Information
 http://www.apache.org/dev/#releases
 http://commons.apache.org/releases/index.html
 http://wiki.apache.org/commons/SigningReleases
+
+Files containing version information
+------------------------------------
+
+   * manual/cover.html
+   * manual/credits.html
+   * build.xml properties : project.version,manifest-version,pom.version
+   * POM files under src/etc/poms and subdirectories
+   * ivy.xml in release subdirectory
+   * WHATSNEW
+   * src/etc/testcases/taskdefs/conditions/antversion.xml
+
+cover.html, credits.html, POM files, antversion.xml should be 
+adjusted for the [newversion] right after the build and tagging 
+of the release
+
+build.xml
+---------
+
+  right before a release :
+
+    the project.version gets bumped to the exact release
+    number, for instance 1.9.2
+
+  right after a release :
+ 
+    project.version property in build.xml gets bumped to
+    [newversion]alpha, for example 1.9.2alpha
+
+    manifest-version gets bumped to the exact next release number
+    for example 1.9.2
+
+    pom.version gets bumped to [newversion]-SNAPSHOT
+
+
 

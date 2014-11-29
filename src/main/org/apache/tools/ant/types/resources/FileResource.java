@@ -57,8 +57,8 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @param name   the relative filename.
      */
     public FileResource(File b, String name) {
-        setFile(FILE_UTILS.resolveFile(b, name));
-        setBaseDir(b);
+        this.baseDir = b;
+        this.file = FILE_UTILS.resolveFile(b, name);
     }
 
     /**
@@ -76,8 +76,8 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @since Ant 1.8
      */
     public FileResource(Project p, File f) {
+        this(f);
         setProject(p);
-        setFile(f);
     }
 
     /**
@@ -97,6 +97,9 @@ public class FileResource extends Resource implements Touchable, FileProvider,
     public void setFile(File f) {
         checkAttributesAllowed();
         file = f;
+        if (f != null && (getBaseDir() == null || !FILE_UTILS.isLeadingPath(getBaseDir(), f))) {
+            setBaseDir(f.getParentFile());
+        }
     }
 
     /**
@@ -108,6 +111,16 @@ public class FileResource extends Resource implements Touchable, FileProvider,
             return ((FileResource) getCheckedRef()).getFile();
         }
         dieOnCircularReference();
+        synchronized (this) {
+            if (file == null) {
+                //try to resolve file set via basedir/name property setters:
+                File d = getBaseDir();
+                String n = super.getName();
+                if (n != null) {
+                    setFile(FILE_UTILS.resolveFile(d, n));
+                }
+            }
+        }
         return file;
     }
 
@@ -252,27 +265,24 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @return a negative integer, zero, or a positive integer as this FileResource
      *         is less than, equal to, or greater than the specified Resource.
      */
-    public int compareTo(Object another) {
+    public int compareTo(Resource another) {
         if (isReference()) {
-            return ((Comparable) getCheckedRef()).compareTo(another);
+            return ((Resource) getCheckedRef()).compareTo(another);
         }
         if (this.equals(another)) {
             return 0;
         }
-        if (another instanceof Resource) {
-            Resource r = (Resource) another;
-            FileProvider otherFP = (FileProvider) r.as(FileProvider.class);
-            if (otherFP != null) {
-                File f = getFile();
-                if (f == null) {
-                    return -1;
-                }
-                File of = otherFP.getFile();
-                if (of == null) {
-                    return 1;
-                }
-                return f.compareTo(of);
+        FileProvider otherFP = another.as(FileProvider.class);
+        if (otherFP != null) {
+            File f = getFile();
+            if (f == null) {
+                return -1;
             }
+            File of = otherFP.getFile();
+            if (of == null) {
+                return 1;
+            }
+            return f.compareTo(of);
         }
         return super.compareTo(another);
     }
@@ -345,7 +355,9 @@ public class FileResource extends Resource implements Touchable, FileProvider,
             ((FileResource) getCheckedRef()).touch(modTime);
             return;
         }
-        getNotNullFile().setLastModified(modTime);
+        if (!getNotNullFile().setLastModified(modTime)) {
+            log("Failed to change file modification time", Project.MSG_WARN);
+        }
     }
 
     /**
@@ -363,7 +375,7 @@ public class FileResource extends Resource implements Touchable, FileProvider,
 
     /**
      * Create a new resource that matches a relative or absolute path.
-     * If the current instance has a baseDir attribute, it is copied.
+     * If the current instance has a compatible baseDir attribute, it is copied.
      * @param path relative/absolute path to a resource
      * @return a new resource of type FileResource
      * @throws BuildException if desired
@@ -372,7 +384,9 @@ public class FileResource extends Resource implements Touchable, FileProvider,
     public Resource getResource(String path) {
         File newfile = FILE_UTILS.resolveFile(getFile(), path);
         FileResource fileResource = new FileResource(newfile);
-        fileResource.setBaseDir(getBaseDir());
+        if (FILE_UTILS.isLeadingPath(getBaseDir(), newfile)) {
+            fileResource.setBaseDir(getBaseDir());
+        }
         return fileResource;
     }
 }

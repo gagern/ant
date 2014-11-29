@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.util.Hashtable;
 import java.util.Vector;
 import java.util.Enumeration;
@@ -54,7 +55,7 @@ import org.apache.tools.ant.types.XMLCatalog;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
-import org.apache.tools.ant.types.resources.URLResource;
+import org.apache.tools.ant.types.resources.URLProvider;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JAXPUtils;
 import org.xml.sax.EntityResolver;
@@ -266,13 +267,13 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
     }
 
     private String resourceToURI(Resource resource) {
-        // TODO turn URLResource into Provider
-        FileProvider fp = (FileProvider) resource.as(FileProvider.class);
+        FileProvider fp = resource.as(FileProvider.class);
         if (fp != null) {
             return FILE_UTILS.toURI(fp.getFile().getAbsolutePath());
         }
-        if (resource instanceof URLResource) {
-            URL u = ((URLResource) resource).getURL();
+        URLProvider up = resource.as(URLProvider.class);
+        if (up != null) {
+            URL u = up.getURL();
             return String.valueOf(u);
         } else {
             return resource.getName();
@@ -323,7 +324,8 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
         if (uriResolver != null) {
             transformer.setURIResolver(uriResolver);
         }
-        for (int i = 0; i < outputProperties.size(); i++) {
+        final int size = outputProperties.size();
+        for (int i = 0; i < size; i++) {
             final String[] pair = (String[]) outputProperties.elementAt(i);
             transformer.setOutputProperty(pair[0], pair[1]);
         }
@@ -416,10 +418,22 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
                 throw new BuildException(e);
             }
         }
+
+        try { // #51668, #52382
+            Field _isNotSecureProcessing = tfactory.getClass().getDeclaredField("_isNotSecureProcessing");
+            _isNotSecureProcessing.setAccessible(true);
+            _isNotSecureProcessing.set(tfactory, Boolean.TRUE);
+        } catch (Exception x) {
+            if (project != null) {
+                project.log(x.toString(), Project.MSG_DEBUG);
+            }
+        }
+
         tfactory.setErrorListener(this);
 
         // specific attributes for the transformer
-        for (int i = 0; i < attributes.size(); i++) {
+        final int size = attributes.size();
+        for (int i = 0; i < size; i++) {
             final Object[] pair = (Object[]) attributes.elementAt(i);
             tfactory.setAttribute((String) pair[0], pair[1]);
         }
@@ -514,7 +528,7 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
      */
     public void fatalError(TransformerException e) {
         logError(e, "Fatal Error");
-        throw new BuildException("Fatal error during transformation", e);
+        throw new BuildException("Fatal error during transformation using " + stylesheet + ": " + e.getMessageAndLocation(), e);
     }
 
     /**

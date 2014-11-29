@@ -66,20 +66,17 @@ public abstract class LineOrientedOutputStream extends OutputStream {
      * Flush this log stream
      * @throws IOException if there is an error.
      */
-    public final void flush() throws IOException {
-        if (buffer.size() > 0) {
-            processBuffer();
-        }
+    public void flush() throws IOException {
     }
 
     /**
-     * Converts the buffer to a string and sends it to
+     * Converts the buffer to a byte[] and sends it to
      * <code>processLine</code>
      * @throws IOException if there is an error.
      */
     protected void processBuffer() throws IOException {
         try {
-            processLine(buffer.toString());
+            processLine(buffer.toByteArray());
         } finally {
             buffer.reset();
         }
@@ -94,10 +91,27 @@ public abstract class LineOrientedOutputStream extends OutputStream {
     protected abstract void processLine(String line) throws IOException;
 
     /**
+     * Processes a line.
+     *
+     * <p>This implementations invokes the string-arg version
+     * converting the byte array using the default encoding.
+     * Subclasses are encouraged to override this method (and provide
+     * a dummy implementation of the String-arg version) so they don't
+     * interfere with the encoding of the underlying stream.</p>
+     *
+     * @param line the line to log.
+     * @throws IOException if there is an error.
+     * @since Ant 1.8.3
+     */
+    protected void processLine(byte[] line) throws IOException {
+        processLine(new String(line));
+    }
+
+    /**
      * Writes all remaining
      * @throws IOException if there is an error.
      */
-    public final void close() throws IOException {
+    public void close() throws IOException {
         if (buffer.size() > 0) {
             processBuffer();
         }

@@ -80,7 +80,7 @@ public class ScpFromMessageBySftp extends ScpFromMessage {
      * @param aRemoteFile the remote file name
      * @param aLocalFile  the local file
      * @param recursive   if true use recursion
-     * @param preservceLastModified whether to preserve file
+     * @param preserveLastModified whether to preserve file
      * modification times
      * @since Ant 1.8.0
      */
@@ -144,7 +144,8 @@ public class ScpFromMessageBySftp extends ScpFromMessage {
             localFile.mkdirs();
         }
         java.util.Vector files = channel.ls(remoteFile);
-        for (int i = 0; i < files.size(); i++) {
+        final int size = files.size();
+        for (int i = 0; i < size; i++) {
             ChannelSftp.LsEntry le = (ChannelSftp.LsEntry) files.elementAt(i);
             String name = le.getFilename();
             if (le.getAttrs().isDir()) {

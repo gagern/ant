@@ -20,7 +20,6 @@ package org.apache.tools.ant;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -170,6 +169,26 @@ public class DirectoryScanner
         SelectorUtils.DEEP_TREE_MATCH + "/.svn",
         SelectorUtils.DEEP_TREE_MATCH + "/.svn/" + SelectorUtils.DEEP_TREE_MATCH,
 
+        // Git
+        SelectorUtils.DEEP_TREE_MATCH + "/.git",
+        SelectorUtils.DEEP_TREE_MATCH + "/.git/" + SelectorUtils.DEEP_TREE_MATCH,
+        SelectorUtils.DEEP_TREE_MATCH + "/.gitattributes",
+        SelectorUtils.DEEP_TREE_MATCH + "/.gitignore",
+        SelectorUtils.DEEP_TREE_MATCH + "/.gitmodules",
+
+        // Mercurial
+        SelectorUtils.DEEP_TREE_MATCH + "/.hg",
+        SelectorUtils.DEEP_TREE_MATCH + "/.hg/" + SelectorUtils.DEEP_TREE_MATCH,
+        SelectorUtils.DEEP_TREE_MATCH + "/.hgignore",
+        SelectorUtils.DEEP_TREE_MATCH + "/.hgsub",
+        SelectorUtils.DEEP_TREE_MATCH + "/.hgsubstate",
+        SelectorUtils.DEEP_TREE_MATCH + "/.hgtags",
+
+        // Bazaar
+        SelectorUtils.DEEP_TREE_MATCH + "/.bzr",
+        SelectorUtils.DEEP_TREE_MATCH + "/.bzr/" + SelectorUtils.DEEP_TREE_MATCH,
+        SelectorUtils.DEEP_TREE_MATCH + "/.bzrignore",
+
         // Mac
         SelectorUtils.DEEP_TREE_MATCH + "/.DS_Store"
     };
@@ -197,7 +216,7 @@ public class DirectoryScanner
      *
      * @see #addDefaultExcludes()
      */
-    private static Set defaultExcludes = new HashSet();
+    private static final Set<String> defaultExcludes = new HashSet<String>();
     static {
         resetDefaultExcludes();
     }
@@ -220,43 +239,43 @@ public class DirectoryScanner
      * The files which matched at least one include and no excludes
      * and were selected.
      */
-    protected Vector filesIncluded;
+    protected Vector<String> filesIncluded;
 
     /** The files which did not match any includes or selectors. */
-    protected Vector filesNotIncluded;
+    protected Vector<String> filesNotIncluded;
 
     /**
      * The files which matched at least one include and at least
      * one exclude.
      */
-    protected Vector filesExcluded;
+    protected Vector<String> filesExcluded;
 
     /**
      * The directories which matched at least one include and no excludes
      * and were selected.
      */
-    protected Vector dirsIncluded;
+    protected Vector<String> dirsIncluded;
 
     /** The directories which were found and did not match any includes. */
-    protected Vector dirsNotIncluded;
+    protected Vector<String> dirsNotIncluded;
 
     /**
      * The directories which matched at least one include and at least one
      * exclude.
      */
-    protected Vector dirsExcluded;
+    protected Vector<String> dirsExcluded;
 
     /**
      * The files which matched at least one include and no excludes and
      * which a selector discarded.
      */
-    protected Vector filesDeselected;
+    protected Vector<String> filesDeselected;
 
     /**
      * The directories which matched at least one include and no excludes
      * but which a selector discarded.
      */
-    protected Vector dirsDeselected;
+    protected Vector<String> dirsDeselected;
 
     /** Whether or not our results were built by a slow scan. */
     protected boolean haveSlowResults = false;
@@ -290,7 +309,7 @@ public class DirectoryScanner
      *
      * @since Ant 1.6
      */
-    private Set scannedDirs = new HashSet();
+    private Set<String> scannedDirs = new HashSet<String>();
 
     /**
      * Map of all include patterns that are full file names and don't
@@ -307,7 +326,7 @@ public class DirectoryScanner
      *
      * @since Ant 1.8.0
      */
-    private Map includeNonPatterns = new HashMap();
+    private Map<String, TokenizedPath> includeNonPatterns = new HashMap<String, TokenizedPath>();
 
     /**
      * Map of all exclude patterns that are full file names and don't
@@ -324,7 +343,7 @@ public class DirectoryScanner
      *
      * @since Ant 1.8.0
      */
-    private Map excludeNonPatterns = new HashMap();
+    private Map<String, TokenizedPath> excludeNonPatterns = new HashMap<String, TokenizedPath>();
 
     /**
      * Array of all include patterns that contain wildcards.
@@ -403,7 +422,7 @@ public class DirectoryScanner
      *
      * @since Ant 1.8.0
      */
-    private Set/*<String>*/ notFollowedSymlinks = new HashSet();
+    private Set<String> notFollowedSymlinks = new HashSet<String>();
 
     /**
      * Sole constructor.
@@ -538,8 +557,10 @@ public class DirectoryScanner
      * @since Ant 1.6
      */
     public static String[] getDefaultExcludes() {
-        return (String[]) defaultExcludes.toArray(new String[defaultExcludes
-                                                             .size()]);
+        synchronized (defaultExcludes) {
+            return (String[]) defaultExcludes.toArray(new String[defaultExcludes
+                                                                 .size()]);
+        }
     }
 
     /**
@@ -553,7 +574,9 @@ public class DirectoryScanner
      * @since Ant 1.6
      */
     public static boolean addDefaultExclude(String s) {
-        return defaultExcludes.add(s);
+        synchronized (defaultExcludes) {
+            return defaultExcludes.add(s);
+        }
     }
 
     /**
@@ -568,7 +591,9 @@ public class DirectoryScanner
      * @since Ant 1.6
      */
     public static boolean removeDefaultExclude(String s) {
-        return defaultExcludes.remove(s);
+        synchronized (defaultExcludes) {
+            return defaultExcludes.remove(s);
+        }
     }
 
     /**
@@ -577,9 +602,11 @@ public class DirectoryScanner
      * @since Ant 1.6
      */
     public static void resetDefaultExcludes() {
-        defaultExcludes = new HashSet();
-        for (int i = 0; i < DEFAULTEXCLUDES.length; i++) {
-            defaultExcludes.add(DEFAULTEXCLUDES[i]);
+        synchronized (defaultExcludes) {
+            defaultExcludes.clear();
+            for (int i = 0; i < DEFAULTEXCLUDES.length; i++) {
+                defaultExcludes.add(DEFAULTEXCLUDES[i]);
+            }
         }
     }
 
@@ -902,7 +929,7 @@ public class DirectoryScanner
      */
     private void checkIncludePatterns() {
         ensureNonPatternSetsReady();
-        Map newroots = new HashMap();
+        Map<TokenizedPath, String> newroots = new HashMap<TokenizedPath, String>();
 
         // put in the newroots map the include patterns without
         // wildcard tokens
@@ -913,12 +940,10 @@ public class DirectoryScanner
                              pattern);
             }
         }
-        for (Iterator iter = includeNonPatterns.entrySet().iterator();
-             iter.hasNext(); ) {
-            Map.Entry entry = (Map.Entry) iter.next();
-            String pattern = (String) entry.getKey();
+        for (Map.Entry<String, TokenizedPath> entry : includeNonPatterns.entrySet()) {
+            String pattern = entry.getKey();
             if (!shouldSkipPattern(pattern)) {
-                newroots.put((TokenizedPath) entry.getValue(), pattern);
+                newroots.put(entry.getValue(), pattern);
             }
         }
 
@@ -927,10 +952,6 @@ public class DirectoryScanner
             // we are going to scan everything anyway
             scandir(basedir, "", true);
         } else {
-            // only scan directories that can include matched files or
-            // directories
-            Iterator it = newroots.entrySet().iterator();
-
             File canonBase = null;
             if (basedir != null) {
                 try {
@@ -939,9 +960,10 @@ public class DirectoryScanner
                     throw new BuildException(ex);
                 }
             }
-            while (it.hasNext()) {
-                Map.Entry entry = (Map.Entry) it.next();
-                TokenizedPath currentPath = (TokenizedPath) entry.getKey();
+            // only scan directories that can include matched files or
+            // directories
+            for (Map.Entry<TokenizedPath, String> entry : newroots.entrySet()) {
+                TokenizedPath currentPath = entry.getKey();
                 String currentelement = currentPath.toString();
                 if (basedir == null
                     && !FileUtils.isAbsolutePath(currentelement)) {
@@ -1042,14 +1064,14 @@ public class DirectoryScanner
      * Clear the result caches for a scan.
      */
     protected synchronized void clearResults() {
-        filesIncluded    = new VectorSet();
-        filesNotIncluded = new VectorSet();
-        filesExcluded    = new VectorSet();
-        filesDeselected  = new VectorSet();
-        dirsIncluded     = new VectorSet();
-        dirsNotIncluded  = new VectorSet();
-        dirsExcluded     = new VectorSet();
-        dirsDeselected   = new VectorSet();
+        filesIncluded    = new VectorSet<String>();
+        filesNotIncluded = new VectorSet<String>();
+        filesExcluded    = new VectorSet<String>();
+        filesDeselected  = new VectorSet<String>();
+        dirsIncluded     = new VectorSet<String>();
+        dirsNotIncluded  = new VectorSet<String>();
+        dirsExcluded     = new VectorSet<String>();
+        dirsDeselected   = new VectorSet<String>();
         everythingIncluded = (basedir != null);
         scannedDirs.clear();
         notFollowedSymlinks.clear();
@@ -1181,11 +1203,11 @@ public class DirectoryScanner
                                          + dir.getAbsolutePath() + "'");
             }
         }
-        scandir(dir, path, fast, newfiles, new LinkedList());
+        scandir(dir, path, fast, newfiles, new LinkedList<String>());
     }
 
     private void scandir(File dir, TokenizedPath path, boolean fast,
-                         String[] newfiles, LinkedList directoryNamesFollowed) {
+                         String[] newfiles, LinkedList<String> directoryNamesFollowed) {
         String vpath = path.toString();
         if (vpath.length() > 0 && !vpath.endsWith(File.separator)) {
             vpath += File.separator;
@@ -1196,7 +1218,7 @@ public class DirectoryScanner
             return;
         }
         if (!followSymlinks) {
-            ArrayList noLinks = new ArrayList();
+            ArrayList<String> noLinks = new ArrayList<String>();
             for (int i = 0; i < newfiles.length; i++) {
                 try {
                     if (SYMLINK_UTILS.isSymbolicLink(dir, newfiles[i])) {
@@ -1228,7 +1250,7 @@ public class DirectoryScanner
             TokenizedPath newPath = new TokenizedPath(path, newfiles[i]);
             File file = new File(dir, newfiles[i]);
             String[] children = file.list();
-            if (children == null) { // probably file
+            if (children == null || (children.length == 0 && file.isFile())) {
                 if (isIncluded(newPath)) {
                     accountForIncludedFile(newPath, file);
                 } else {
@@ -1255,7 +1277,8 @@ public class DirectoryScanner
                 } else {
                     everythingIncluded = false;
                     dirsNotIncluded.addElement(name);
-                    if (fast && couldHoldIncluded(newPath)) {
+                    if (fast && couldHoldIncluded(newPath)
+                        && !contentsExcluded(newPath)) {
                         scandir(file, newPath, fast, children,
                                 directoryNamesFollowed);
                     }
@@ -1299,7 +1322,7 @@ public class DirectoryScanner
     private void accountForIncludedDir(TokenizedPath name,
                                        File file, boolean fast,
                                        String[] children,
-                                       LinkedList directoryNamesFollowed) {
+                                       LinkedList<String> directoryNamesFollowed) {
         processIncluded(name, file, dirsIncluded, dirsExcluded, dirsDeselected);
         if (fast && couldHoldIncluded(name) && !contentsExcluded(name)) {
             scandir(file, name, fast, children, directoryNamesFollowed);
@@ -1307,8 +1330,8 @@ public class DirectoryScanner
     }
 
     private void processIncluded(TokenizedPath path,
-                                 File file, Vector inc, Vector exc,
-                                 Vector des) {
+                                 File file, Vector<String> inc, Vector<String> exc,
+                                 Vector<String> des) {
         String name = path.toString();
         if (inc.contains(name) || exc.contains(name) || des.contains(name)) {
             return;
@@ -1388,10 +1411,10 @@ public class DirectoryScanner
                 return true;
             }
         }
-        for (Iterator iter = includeNonPatterns.values().iterator();
+        for (Iterator<TokenizedPath> iter = includeNonPatterns.values().iterator();
              iter.hasNext(); ) {
             if (couldHoldIncluded(tokenizedName,
-                                  ((TokenizedPath) iter.next()).toPattern())) {
+                                  iter.next().toPattern())) {
                 return true;
             }
         }
@@ -1458,7 +1481,7 @@ public class DirectoryScanner
      * @param path the path to check.
      * @return whether all the specified directory's contents are excluded.
      */
-    private boolean contentsExcluded(TokenizedPath path) {
+    /* package */ boolean contentsExcluded(TokenizedPath path) {
         for (int i = 0; i < excludePatterns.length; i++) {
             if (excludePatterns[i].endsWith(SelectorUtils.DEEP_TREE_MATCH)
                 && excludePatterns[i].withoutLastToken()
@@ -1719,11 +1742,11 @@ public class DirectoryScanner
     public synchronized void addDefaultExcludes() {
         int excludesLength = excludes == null ? 0 : excludes.length;
         String[] newExcludes;
-        newExcludes = new String[excludesLength + defaultExcludes.size()];
+        String[] defaultExcludesTemp = getDefaultExcludes();
+        newExcludes = new String[excludesLength + defaultExcludesTemp.length];
         if (excludesLength > 0) {
             System.arraycopy(excludes, 0, newExcludes, 0, excludesLength);
         }
-        String[] defaultExcludesTemp = getDefaultExcludes();
         for (int i = 0; i < defaultExcludesTemp.length; i++) {
             newExcludes[i + excludesLength] =
                 defaultExcludesTemp[i].replace('/', File.separatorChar)
@@ -1760,7 +1783,7 @@ public class DirectoryScanner
      * Set is live and should not be modified.
      * @return the Set of relative directory names that have been scanned.
      */
-    /* package-private */ Set getScannedDirs() {
+    /* package-private */ Set<String> getScannedDirs() {
         return scannedDirs;
     }
 
@@ -1783,7 +1806,7 @@ public class DirectoryScanner
      *
      * @since Ant 1.6.3
      */
-    private synchronized void ensureNonPatternSetsReady() {
+    /* package */ synchronized void ensureNonPatternSetsReady() {
         if (!areNonPatternSetsReady) {
             includePatterns = fillNonPatternSet(includeNonPatterns, includes);
             excludePatterns = fillNonPatternSet(excludeNonPatterns, excludes);
@@ -1799,8 +1822,8 @@ public class DirectoryScanner
      * @param patterns String[] of patterns.
      * @since Ant 1.8.0
      */
-    private TokenizedPattern[] fillNonPatternSet(Map map, String[] patterns) {
-        ArrayList al = new ArrayList(patterns.length);
+    private TokenizedPattern[] fillNonPatternSet(Map<String, TokenizedPath> map, String[] patterns) {
+        ArrayList<TokenizedPattern> al = new ArrayList<TokenizedPattern>(patterns.length);
         for (int i = 0; i < patterns.length; i++) {
             if (!SelectorUtils.hasWildcards(patterns[i])) {
                 String s = isCaseSensitive()
@@ -1825,23 +1848,21 @@ public class DirectoryScanner
      * @since Ant 1.8.0
      */
     private boolean causesIllegalSymlinkLoop(String dirName, File parent,
-                                             LinkedList directoryNamesFollowed) {
+                                             LinkedList<String> directoryNamesFollowed) {
         try {
             if (directoryNamesFollowed.size() >= maxLevelsOfSymlinks
                 && CollectionUtils.frequency(directoryNamesFollowed, dirName)
                    >= maxLevelsOfSymlinks
                 && SYMLINK_UTILS.isSymbolicLink(parent, dirName)) {
 
-                ArrayList files = new ArrayList();
+                ArrayList<String> files = new ArrayList<String>();
                 File f = FILE_UTILS.resolveFile(parent, dirName);
                 String target = f.getCanonicalPath();
                 files.add(target);
 
                 String relPath = "";
-                for (Iterator i = directoryNamesFollowed.iterator();
-                     i.hasNext(); ) {
+                for (String dir : directoryNamesFollowed) {
                     relPath += "../";
-                    String dir = (String) i.next();
                     if (dirName.equals(dir)) {
                         f = FILE_UTILS.resolveFile(parent, relPath + dir);
                         files.add(f.getCanonicalPath());

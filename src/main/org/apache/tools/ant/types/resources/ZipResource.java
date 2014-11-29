@@ -41,6 +41,7 @@ public class ZipResource extends ArchiveResource {
 
     private String encoding;
     private ZipExtraField[] extras;
+    private int method;
 
     /**
      * Default constructor.
@@ -74,8 +75,8 @@ public class ZipResource extends ArchiveResource {
      * @return the zipfile as a File.
      */
     public File getZipfile() {
-        FileResource r = (FileResource) getArchive();
-        return r.getFile();
+        FileProvider fp = getArchive().as(FileProvider.class);
+        return fp.getFile();
     }
 
     /**
@@ -173,10 +174,22 @@ public class ZipResource extends ArchiveResource {
      * @since Ant 1.8.0
      */
     public ZipExtraField[] getExtraFields() {
+        if (isReference()) {
+            return ((ZipResource) getCheckedRef()).getExtraFields();
+        }
+        checkEntry();
         if (extras == null) {
             return new ZipExtraField[0];
         }
         return extras;
+    }
+
+    /**
+     * The compression method that has been used.
+     * @since Ant 1.8.0
+     */
+    public int getMethod() {
+        return method;
     }
 
     /**
@@ -191,13 +204,7 @@ public class ZipResource extends ArchiveResource {
             log(e.getMessage(), Project.MSG_DEBUG);
             throw new BuildException(e);
         } finally {
-            if (z != null) {
-                try {
-                    z.close();
-                } catch (IOException e) {
-                    //?
-                }
-            }
+            ZipFile.closeQuietly(z);
         }
     }
 
@@ -212,7 +219,8 @@ public class ZipResource extends ArchiveResource {
         setDirectory(e.isDirectory());
         setSize(e.getSize());
         setMode(e.getUnixMode());
-        extras = e.getExtraFields();
+        extras = e.getExtraFields(true);
+        method = e.getMethod();
     }
 
 }

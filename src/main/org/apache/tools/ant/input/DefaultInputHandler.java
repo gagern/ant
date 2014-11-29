@@ -22,8 +22,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Enumeration;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.util.KeepAliveInputStream;
 
 /**
  * Prompts on System.err, reads input from System.in
@@ -85,16 +85,12 @@ public class DefaultInputHandler implements InputHandler {
         String prompt = request.getPrompt();
         String def = request.getDefaultValue();
         if (request instanceof MultipleChoiceInputRequest) {
-            StringBuffer sb = new StringBuffer(prompt);
-            sb.append(" (");
-            Enumeration e =
-                ((MultipleChoiceInputRequest) request).getChoices().elements();
+            StringBuilder sb = new StringBuilder(prompt).append(" (");
             boolean first = true;
-            while (e.hasMoreElements()) {
+            for (String next : ((MultipleChoiceInputRequest) request).getChoices()) {
                 if (!first) {
                     sb.append(", ");
                 }
-                String next = (String) e.nextElement();
                 if (next.equals(def)) {
                     sb.append('[');
                 }
@@ -118,6 +114,6 @@ public class DefaultInputHandler implements InputHandler {
      * @return the input stream from which the user input should be read.
      */
     protected InputStream getInputStream() {
-        return System.in;
+        return KeepAliveInputStream.wrapSystemIn();
     }
 }

@@ -22,6 +22,7 @@ import org.apache.tools.ant.types.RegularExpression;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.regexp.Regexp;
+import org.apache.tools.ant.util.regexp.RegexpUtil;
 
 /**
  * Name ResourceSelector.
@@ -31,6 +32,7 @@ public class Name implements ResourceSelector {
     private String regex = null;
     private String pattern;
     private boolean cs = true;
+    private boolean handleDirSep = false;
 
     // caches for performance reasons
     private RegularExpression reg;
@@ -61,6 +63,7 @@ public class Name implements ResourceSelector {
     /**
      * Set the regular expression to compare names against.
      * @param r the regex to set.
+     * @since Ant 1.8.0
      */
     public void setRegex(String r) {
         regex = r;
@@ -70,6 +73,7 @@ public class Name implements ResourceSelector {
     /**
      * Get the regular expression used by this Name ResourceSelector.
      * @return the String selection pattern.
+     * @since Ant 1.8.0
      */
     public String getRegex() {
         return regex;
@@ -92,6 +96,26 @@ public class Name implements ResourceSelector {
     }
 
     /**
+     * Attribute specifying whether to ignore the difference
+     * between / and \ (the two common directory characters).
+     * @param handleDirSep a boolean, default is false.
+     * @since Ant 1.8.0
+     */
+    public void setHandleDirSep(boolean handleDirSep) {
+        this.handleDirSep = handleDirSep;
+    }
+
+    /**
+     * Whether the difference between / and \ (the two common
+     * directory characters) is ignored.
+     *
+     * @since Ant 1.8.0
+     */
+    public boolean doesHandledirSep() {
+        return handleDirSep;
+    }
+
+    /**
      * Return true if this Resource is selected.
      * @param r the Resource to check.
      * @return whether the Resource was selected.
@@ -107,18 +131,21 @@ public class Name implements ResourceSelector {
 
     private boolean matches(String name) {
         if (pattern != null) {
-            return SelectorUtils.match(pattern, name, cs);
+            return SelectorUtils.match(modify(pattern), modify(name), cs);
         } else {
             if (reg == null) {
                 reg = new RegularExpression();
                 reg.setPattern(regex);
                 expression = reg.getRegexp(project);
             }
-            int options = Regexp.MATCH_DEFAULT;
-            if (!cs) {
-                options |= Regexp.MATCH_CASE_INSENSITIVE;
-            }
-            return expression.matches(name, options);
+            return expression.matches(modify(name), RegexpUtil.asOptions(cs));
         }
+    }
+
+    private String modify(String s) {
+        if (s == null || !handleDirSep || s.indexOf("\\") == -1) {
+            return s;
+        }
+        return s.replace('\\', '/');
     }
 }

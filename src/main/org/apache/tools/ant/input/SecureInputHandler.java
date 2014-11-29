@@ -23,7 +23,7 @@ import org.apache.tools.ant.util.ReflectUtil;
 /**
  * Prompts and requests input.  May loop until a valid input has
  * been entered. Doesn't echo input (requires Java6). If Java6 is not
- * available, fallsback to the DefaultHandler (insecure).
+ * available, falls back to the DefaultHandler (insecure).
  * @since Ant 1.7.1
  */
 public class SecureInputHandler extends DefaultInputHandler {
@@ -42,8 +42,7 @@ public class SecureInputHandler extends DefaultInputHandler {
     public void handleInput(InputRequest request) throws BuildException {
         String prompt = getPrompt(request);
         try {
-            Class system = Class.forName("java.lang.System");
-            Object console = ReflectUtil.invokeStatic(system, "console");
+            Object console = ReflectUtil.invokeStatic(System.class, "console");
             do {
                 char[] input = (char[]) ReflectUtil.invoke(
                     console, "readPassword", String.class, prompt,
