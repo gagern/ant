@@ -28,6 +28,7 @@ import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.FileResourceIterator;
+import org.apache.tools.ant.types.resources.FileProvider;
 
 /**
  * ArchiveScanner accesses the pattern matching algorithm in DirectoryScanner,
@@ -86,11 +87,27 @@ public abstract class ArchiveScanner extends DirectoryScanner {
     private String encoding;
 
     /**
+     * @since Ant 1.8.0
+     */
+    private boolean errorOnMissingArchive = true;
+
+    /**
+     * Sets whether an error is thrown if an archive does not exist.
+     *
+     * @param errorOnMissingArchive true if missing archives cause errors,
+     *                        false if not.
+     * @since Ant 1.8.0
+     */
+    public void setErrorOnMissingArchive(boolean errorOnMissingArchive) {
+        this.errorOnMissingArchive = errorOnMissingArchive;
+    }
+
+    /**
      * Don't scan when we have no zipfile.
      * @since Ant 1.7
      */
     public void scan() {
-        if (src == null) {
+        if (src == null || (!src.isExists() && !errorOnMissingArchive)) {
             return;
         }
         super.scan();
@@ -114,8 +131,9 @@ public abstract class ArchiveScanner extends DirectoryScanner {
      */
     public void setSrc(Resource src) {
         this.src = src;
-        if (src instanceof FileResource) {
-            srcFile = ((FileResource) src).getFile();
+        FileProvider fp = (FileProvider) src.as(FileProvider.class);
+        if (fp != null) {
+            srcFile = fp.getFile();
         }
     }
 
@@ -302,6 +320,10 @@ public abstract class ArchiveScanner extends DirectoryScanner {
      * are put into the appropriate tables.
      */
     private void scanme() {
+        if (!src.isExists() && !errorOnMissingArchive) {
+            return;
+        }
+
         //do not use a FileResource b/c it pulls File info from the filesystem:
         Resource thisresource = new Resource(src.getName(),
                                              src.isExists(),

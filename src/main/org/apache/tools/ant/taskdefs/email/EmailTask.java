@@ -28,6 +28,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.ClasspathUtils;
@@ -102,6 +103,11 @@ public class EmailTask extends Task {
     private String password = null;
     /** indicate if the user wishes SSL-TLS */
     private boolean ssl = false;
+    /** indicate if the user wishes support for STARTTLS */
+    private boolean starttls = false;
+
+    /** ignore invalid recipients? */
+    private boolean ignoreInvalidRecipients = false;
 
     /**
      * Set the user for SMTP auth; this requires JavaMail.
@@ -128,6 +134,16 @@ public class EmailTask extends Task {
      */
     public void setSSL(boolean ssl) {
         this.ssl = ssl;
+    }
+
+    /**
+     * Set whether to allow authentication to switch to a TLS
+     * connection via STARTTLS.
+     * @param b boolean; if true STARTTLS will be supported.
+     * @since Ant 1.8.0
+     */
+    public void setEnableStartTLS(boolean b) {
+        this.starttls = b;
     }
 
     /**
@@ -403,6 +419,19 @@ public class EmailTask extends Task {
     }
 
     /**
+     * Whether invalid recipients should be ignored (but a warning
+     * will be logged) instead of making the task fail.
+     *
+     * <p>Even with this property set to true the task will still fail
+     * if the mail couldn't be sent to any recipient at all.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setIgnoreInvalidRecipients(boolean b) {
+        ignoreInvalidRecipients = b;
+    }
+
+    /**
      * Send an email.
      */
     public void execute() {
@@ -430,7 +459,6 @@ public class EmailTask extends Task {
                     log("Using MIME mail", Project.MSG_VERBOSE);
                 } catch (BuildException e) {
                     logBuildException("Failed to initialise MIME mail: ", e);
-                    return;
                 }
             }
             // SMTP auth only allowed with MIME mail
@@ -439,9 +467,10 @@ public class EmailTask extends Task {
                 throw new BuildException("SMTP auth only possible with MIME mail");
             }
             // SSL only allowed with MIME mail
-            if (!autoFound  && (ssl)
+            if (!autoFound  && (ssl || starttls)
                 && (encoding.equals(UU) || encoding.equals(PLAIN))) {
-                throw new BuildException("SSL only possible with MIME mail");
+                throw new BuildException("SSL and STARTTLS only possible with"
+                                         + " MIME mail");
             }
             // try UU format
             if (encoding.equals(UU)
@@ -454,7 +483,6 @@ public class EmailTask extends Task {
                     log("Using UU mail", Project.MSG_VERBOSE);
                 } catch (BuildException e) {
                     logBuildException("Failed to initialise UU mail: ", e);
-                    return;
                 }
             }
             // try plain format
@@ -506,7 +534,9 @@ public class EmailTask extends Task {
                 Iterator iter = attachments.iterator();
 
                 while (iter.hasNext()) {
-                    files.addElement(((FileProvider) iter.next()).getFile());
+                    Resource r = (Resource) iter.next();
+                    files.addElement(((FileProvider) r.as(FileProvider.class))
+                                     .getFile());
                 }
             }
             // let the user know what's going to happen
@@ -523,6 +553,7 @@ public class EmailTask extends Task {
             mailer.setUser(user);
             mailer.setPassword(password);
             mailer.setSSL(ssl);
+            mailer.setEnableStartTLS(starttls);
             mailer.setMessage(message);
             mailer.setFrom(from);
             mailer.setReplyToList(replyToList);
@@ -534,6 +565,7 @@ public class EmailTask extends Task {
             mailer.setTask(this);
             mailer.setIncludeFileNames(includeFileNames);
             mailer.setHeaders(headers);
+            mailer.setIgnoreInvalidRecipients(ignoreInvalidRecipients);
 
             // send the email
             mailer.send();

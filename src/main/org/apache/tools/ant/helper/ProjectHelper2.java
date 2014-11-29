@@ -24,6 +24,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.RuntimeConfigurable;
 import org.apache.tools.ant.Target;
+import org.apache.tools.ant.TargetGroup;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.UnknownElement;
 import org.apache.tools.ant.util.FileUtils;
@@ -45,6 +46,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Stack;
 
@@ -612,11 +614,6 @@ public class ProjectHelper2 extends ProjectHelper {
                 && (uri.equals("") || uri.equals(ANT_CORE_URI))) {
                 return ProjectHelper2.projectHandler;
             }
-//            if (context.importlevel > 0) {
-//                // we are in an imported file. Allow top-level <target>.
-//                if (qname.equals( "target" ) )
-//                    return ProjectHelper2.targetHandler;
-//            }
             if (name.equals(qname)) {
                 throw new SAXParseException("Unexpected element \"{" + uri
                     + "}" + name + "\" {" + ANT_CORE_URI + "}" + name, context.getLocator());
@@ -691,6 +688,14 @@ public class ProjectHelper2 extends ProjectHelper {
                         if (!context.isIgnoringProjectTag()) {
                             project.setName(value);
                             project.addReference(value, project);
+                        } else if (isInIncludeMode()) {
+                            if (!"".equals(value)
+                                && (getCurrentTargetPrefix() == null
+                                    || getCurrentTargetPrefix().length() == 0)
+                                ) {
+                                // help nested include tasks
+                                setCurrentTargetPrefix(value);
+                            }
                         }
                     }
                 } else if (key.equals("id")) {
@@ -768,18 +773,20 @@ public class ProjectHelper2 extends ProjectHelper {
          *
          * @exception org.xml.sax.SAXParseException if the tag given is not
          *            <code>"taskdef"</code>, <code>"typedef"</code>,
-         *            <code>"property"</code>, <code>"target"</code>
+         *            <code>"property"</code>, <code>"target"</code>,
+         *            <code>"target-group"</code>
          *            or a data type definition
          */
         public AntHandler onStartChild(String uri, String name, String qname, Attributes attrs,
                                        AntXMLContext context) throws SAXParseException {
-            return name.equals("target") && (uri.equals("") || uri.equals(ANT_CORE_URI))
-                    ? ProjectHelper2.targetHandler : ProjectHelper2.elementHandler;
+            return (name.equals("target") || name.equals("target-group"))
+                && (uri.equals("") || uri.equals(ANT_CORE_URI))
+                ? ProjectHelper2.targetHandler : ProjectHelper2.elementHandler;
         }
     }
 
     /**
-     * Handler for "target" elements.
+     * Handler for "target" and "target-group" elements.
      */
     public static class TargetHandler extends AntHandler {
 
@@ -807,9 +814,11 @@ public class ProjectHelper2 extends ProjectHelper {
                                    AntXMLContext context) throws SAXParseException {
             String name = null;
             String depends = "";
+            String targetGroup = null;
 
             Project project = context.getProject();
-            Target target = new Target();
+            Target target = "target".equals(tag)
+                ? new Target() : new TargetGroup();
             target.setProject(project);
             target.setLocation(new Location(context.getLocator()));
             context.addTarget(target);
@@ -839,6 +848,8 @@ public class ProjectHelper2 extends ProjectHelper {
                     }
                 } else if (key.equals("description")) {
                     target.setDescription(value);
+                } else if (key.equals("target-group")) {
+                    targetGroup = value;
                 } else {
                     throw new SAXParseException("Unexpected attribute \"" + key + "\"", context
                             .getLocator());
@@ -850,9 +861,27 @@ public class ProjectHelper2 extends ProjectHelper {
                         context.getLocator());
             }
 
+            String prefix = null;
+            boolean isInIncludeMode =
+                context.isIgnoringProjectTag() && isInIncludeMode();
+            String sep = getCurrentPrefixSeparator();
+
+            if (isInIncludeMode) {
+                prefix = getTargetPrefix(context);
+                if (prefix == null) {
+                    throw new BuildException("can't include build file "
+                                             + context.getBuildFile()
+                                             + ", no as attribute has been given"
+                                             + " and the project tag doesn't"
+                                             + " specify a name attribute");
+                }
+                name = prefix + sep + name;
+            }
+
             // Check if this target is in the current build file
             if (context.getCurrentTargets().get(name) != null) {
-                throw new BuildException("Duplicate target '" + name + "'", target.getLocation());
+                throw new BuildException("Duplicate target '" + name + "'",
+                                         target.getLocation());
             }
             Hashtable projectTargets = project.getTargets();
             boolean   usedTarget = false;
@@ -866,19 +895,71 @@ public class ProjectHelper2 extends ProjectHelper {
                 project.addOrReplaceTarget(name, target);
                 usedTarget = true;
             }
+
             if (depends.length() > 0) {
-                target.setDepends(depends);
+                if (!isInIncludeMode) {
+                    target.setDepends(depends);
+                } else {
+                    for (Iterator iter =
+                             Target.parseDepends(depends, name, "depends")
+                             .iterator();
+                         iter.hasNext(); ) {
+                        target.addDependency(prefix + sep + iter.next());
+                    }
+                }
             }
-            if (context.isIgnoringProjectTag() && context.getCurrentProjectName() != null
-                    && context.getCurrentProjectName().length() != 0) {
-                // In an impored file (and not completely
-                // ignoring the project tag)
-                String newName = context.getCurrentProjectName() + "." + name;
+            if (!isInIncludeMode && context.isIgnoringProjectTag()
+                && (prefix = getTargetPrefix(context)) != null) {
+                // In an imported file (and not completely
+                // ignoring the project tag or having a preconfigured prefix)
+                String newName = prefix + sep + name;
                 Target newTarget = usedTarget ? new Target(target) : target;
                 newTarget.setName(newName);
                 context.getCurrentTargets().put(newName, newTarget);
                 project.addOrReplaceTarget(newName, newTarget);
             }
+            if (targetGroup != null) {
+                for (Iterator iter =
+                         Target.parseDepends(targetGroup, name, "target-group")
+                         .iterator();
+                     iter.hasNext(); ) {
+                    String tgName = (String) iter.next();
+                    if (isInIncludeMode()) {
+                        tgName = prefix + sep + tgName;
+                    }
+                    if (!projectTargets.containsKey(tgName)) {
+                        throw new BuildException("can't add target "
+                                                 + name + " to target-group "
+                                                 + tgName
+                                                 + " because the target-group"
+                                                 + " is unknown.");
+                    }
+                    Target t = (Target) projectTargets.get(tgName);
+                    if (!(t instanceof TargetGroup)) {
+                        throw new BuildException("referenced target "
+                                                 + tgName
+                                                 + " is not a target-group");
+                    }
+                    t.addDependency(name);
+                }
+            }
+        }
+
+        private String getTargetPrefix(AntXMLContext context) {
+            String configuredValue = getCurrentTargetPrefix();
+            if (configuredValue != null && configuredValue.length() == 0) {
+                configuredValue = null;
+            }
+            if (configuredValue != null) {
+                return configuredValue;
+            }
+
+            String projectName = context.getCurrentProjectName();
+            if ("".equals(projectName)) {
+                projectName = null;
+            }
+
+            return projectName;
         }
 
         /**

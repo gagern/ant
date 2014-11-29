@@ -19,10 +19,12 @@ package org.apache.tools.ant.types;
 
 import java.io.File;
 import java.util.Iterator;
+import java.util.Stack;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.zip.UnixStat;
 
 /**
@@ -64,6 +66,10 @@ public abstract class ArchiveFileSet extends FileSet {
 
     private boolean fileModeHasBeenSet = false;
     private boolean dirModeHasBeenSet  = false;
+    private static final String ERROR_DIR_AND_SRC_ATTRIBUTES = "Cannot set both dir and src attributes";
+    private static final String ERROR_PATH_AND_PREFIX = "Cannot set both fullpath and prefix attributes";
+
+    private boolean errorOnMissingArchive = true;
 
     /** Constructor for ArchiveFileSet */
     public ArchiveFileSet() {
@@ -92,6 +98,7 @@ public abstract class ArchiveFileSet extends FileSet {
         dirMode = fileset.dirMode;
         fileModeHasBeenSet = fileset.fileModeHasBeenSet;
         dirModeHasBeenSet = fileset.dirModeHasBeenSet;
+        errorOnMissingArchive = fileset.errorOnMissingArchive;
     }
 
     /**
@@ -102,7 +109,7 @@ public abstract class ArchiveFileSet extends FileSet {
     public void setDir(File dir) throws BuildException {
         checkAttributesAllowed();
         if (src != null) {
-            throw new BuildException("Cannot set both dir and src attributes");
+            throw new BuildException(ERROR_DIR_AND_SRC_ATTRIBUTES);
         }
         super.setDir(dir);
         hasDir = true;
@@ -141,9 +148,10 @@ public abstract class ArchiveFileSet extends FileSet {
     public void setSrcResource(Resource src) {
         checkArchiveAttributesAllowed();
         if (hasDir) {
-            throw new BuildException("Cannot set both dir and src attributes");
+            throw new BuildException(ERROR_DIR_AND_SRC_ATTRIBUTES);
         }
         this.src = src;
+        setChecked(false);
     }
 
     /**
@@ -159,14 +167,48 @@ public abstract class ArchiveFileSet extends FileSet {
     }
 
     /**
+     * Sets whether an error is thrown if an archive does not exist.
+     *
+     * @param errorOnMissingArchive true if missing archives cause errors,
+     *                        false if not.
+     * @since Ant 1.8.0
+     */
+    public void setErrorOnMissingArchive(boolean errorOnMissingArchive) {
+        checkAttributesAllowed();
+        this.errorOnMissingArchive = errorOnMissingArchive;
+    }
+
+    /**
      * Get the archive file from which entries will be extracted.
      * @return the archive in case the archive is a file, null otherwise.
      */
     public File getSrc() {
-        if (src instanceof FileResource) {
-            return ((FileResource) src).getFile();
+        if (isReference()) {
+            return ((ArchiveFileSet) getCheckedRef()).getSrc();
+        }
+        dieOnCircularReference();
+        if (src != null) {
+            FileProvider fp = (FileProvider) src.as(FileProvider.class);
+            if (fp != null) {
+                return fp.getFile();
+            }
         }
         return null;
+    }
+
+    /**
+     * Performs the check for circular references and returns the
+     * referenced object.
+     * This is an override which does not delegate to the superclass; instead it invokes
+     * {@link #getRef(Project)}, because that conains the special support for fileset
+     * references, which can be handled by all ArchiveFileSets.
+     * @param p the Ant Project instance against which to resolve references.
+     * @return the dereferenced object.
+     * @throws BuildException if the reference is invalid (circular ref, wrong class, etc).
+     * @since Ant 1.8
+     */
+    protected Object getCheckedRef(Project p) {
+        return getRef(p);
     }
 
     /**
@@ -178,7 +220,7 @@ public abstract class ArchiveFileSet extends FileSet {
     public void setPrefix(String prefix) {
         checkArchiveAttributesAllowed();
         if (!"".equals(prefix) && !"".equals(fullpath)) {
-            throw new BuildException("Cannot set both fullpath and prefix attributes");
+            throw new BuildException(ERROR_PATH_AND_PREFIX);
         }
         this.prefix = prefix;
     }
@@ -192,6 +234,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(p)).getPrefix(p);
         }
+        dieOnCircularReference(p);
         return prefix;
     }
 
@@ -204,7 +247,7 @@ public abstract class ArchiveFileSet extends FileSet {
     public void setFullpath(String fullpath) {
         checkArchiveAttributesAllowed();
         if (!"".equals(prefix) && !"".equals(fullpath)) {
-            throw new BuildException("Cannot set both fullpath and prefix attributes");
+            throw new BuildException(ERROR_PATH_AND_PREFIX);
         }
         this.fullpath = fullpath;
     }
@@ -218,6 +261,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(p)).getFullpath(p);
         }
+        dieOnCircularReference(p);
         return fullpath;
     }
 
@@ -238,18 +282,20 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return getRef(p).getDirectoryScanner(p);
         }
+        dieOnCircularReference();
         if (src == null) {
             return super.getDirectoryScanner(p);
         }
-        if (!src.isExists()) {
+        if (!src.isExists() && errorOnMissingArchive) {
             throw new BuildException(
-                "the archive " + src.getName() + " doesn't exist");
+                "The archive " + src.getName() + " doesn't exist");
         }
         if (src.isDirectory()) {
-            throw new BuildException("the archive " + src.getName()
+            throw new BuildException("The archive " + src.getName()
                                      + " can't be a directory");
         }
         ArchiveScanner as = newArchiveScanner();
+        as.setErrorOnMissingArchive(errorOnMissingArchive);
         as.setSrc(src);
         super.setDir(p.getBaseDir());
         setupDirectoryScanner(as, p);
@@ -298,6 +344,10 @@ public abstract class ArchiveFileSet extends FileSet {
      * @since Ant 1.7
      */
     public boolean isFilesystemOnly() {
+        if (isReference()) {
+            return ((ArchiveFileSet) getCheckedRef()).isFilesystemOnly();
+        }
+        dieOnCircularReference();
         return src == null;
     }
 
@@ -336,6 +386,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(p)).getFileMode(p);
         }
+        dieOnCircularReference();
         return fileMode;
     }
 
@@ -347,6 +398,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(getProject())).hasFileModeBeenSet();
         }
+        dieOnCircularReference();
         return fileModeHasBeenSet;
     }
 
@@ -384,6 +436,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(p)).getDirMode(p);
         }
+        dieOnCircularReference();
         return dirMode;
     }
 
@@ -396,6 +449,7 @@ public abstract class ArchiveFileSet extends FileSet {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(getProject())).hasDirModeBeenSet();
         }
+        dieOnCircularReference();
         return dirModeHasBeenSet;
     }
 
@@ -488,6 +542,23 @@ public abstract class ArchiveFileSet extends FileSet {
                         getProject())
                     instanceof ArchiveFileSet))) {
             checkAttributesAllowed();
+        }
+    }
+
+    protected synchronized void dieOnCircularReference(Stack stk, Project p)
+        throws BuildException {
+        if (isChecked()) {
+            return;
+        }
+
+        // takes care of nested selectors
+        super.dieOnCircularReference(stk, p);
+
+        if (!isReference()) {
+            if (src != null) {
+                pushAndInvokeCircularReferenceCheck(src, stk, p);
+            }
+            setChecked(true);
         }
     }
 }

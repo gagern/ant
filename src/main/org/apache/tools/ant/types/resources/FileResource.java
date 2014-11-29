@@ -36,7 +36,7 @@ import org.apache.tools.ant.types.ResourceFactory;
  * @since Ant 1.7
  */
 public class FileResource extends Resource implements Touchable, FileProvider,
-        ResourceFactory {
+        ResourceFactory, Appendable {
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
     private static final int NULL_FILE
@@ -104,7 +104,11 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @return the File.
      */
     public File getFile() {
-        return isReference() ? ((FileResource) getCheckedRef()).getFile() : file;
+        if (isReference()) {
+            return ((FileResource) getCheckedRef()).getFile();
+        }
+        dieOnCircularReference();
+        return file;
     }
 
     /**
@@ -121,8 +125,11 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @return the basedir as File.
      */
     public File getBaseDir() {
-        return isReference()
-            ? ((FileResource) getCheckedRef()).getBaseDir() : baseDir;
+        if (isReference()) {
+            return ((FileResource) getCheckedRef()).getBaseDir();
+        }
+        dieOnCircularReference();
+        return baseDir;
     }
 
     /**
@@ -209,11 +216,25 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      */
     public OutputStream getOutputStream() throws IOException {
         if (isReference()) {
-            return ((Resource) getCheckedRef()).getOutputStream();
+            return ((FileResource) getCheckedRef()).getOutputStream();
         }
+        return getOutputStream(false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public OutputStream getAppendOutputStream() throws IOException {
+        if (isReference()) {
+            return ((FileResource) getCheckedRef()).getAppendOutputStream();
+        }
+        return getOutputStream(true);
+    }
+
+    private OutputStream getOutputStream(boolean append) throws IOException {
         File f = getNotNullFile();
         if (f.exists()) {
-            if (f.isFile()) {
+            if (f.isFile() && !append) {
                 f.delete();
             }
         } else {
@@ -222,7 +243,7 @@ public class FileResource extends Resource implements Touchable, FileProvider,
                 p.mkdirs();
             }
         }
-        return new FileOutputStream(f);
+        return append ? new FileOutputStream(f.getAbsolutePath(), true) : new FileOutputStream(f);
     }
 
     /**
@@ -238,16 +259,20 @@ public class FileResource extends Resource implements Touchable, FileProvider,
         if (this.equals(another)) {
             return 0;
         }
-        if (another instanceof FileProvider) {
-            File f = getFile();
-            if (f == null) {
-                return -1;
+        if (another instanceof Resource) {
+            Resource r = (Resource) another;
+            FileProvider otherFP = (FileProvider) r.as(FileProvider.class);
+            if (otherFP != null) {
+                File f = getFile();
+                if (f == null) {
+                    return -1;
+                }
+                File of = otherFP.getFile();
+                if (of == null) {
+                    return 1;
+                }
+                return f.compareTo(of);
             }
-            File of = ((FileProvider) another).getFile();
-            if (of == null) {
-                return 1;
-            }
-            return f.compareTo(of);
         }
         return super.compareTo(another);
     }
@@ -304,8 +329,11 @@ public class FileResource extends Resource implements Touchable, FileProvider,
      * @return whether this Resource is a FileResource.
      */
     public boolean isFilesystemOnly() {
-        return !isReference()
-            || ((FileResource) getCheckedRef()).isFilesystemOnly();
+        if (isReference()) {
+            return ((FileResource) getCheckedRef()).isFilesystemOnly();
+        }
+        dieOnCircularReference();
+        return true;
     }
 
     /**
@@ -329,6 +357,7 @@ public class FileResource extends Resource implements Touchable, FileProvider,
         if (getFile() == null) {
             throw new BuildException("file attribute is null!");
         }
+        dieOnCircularReference();
         return getFile();
     }
 

@@ -48,6 +48,8 @@ public abstract class Mailer {
     protected boolean includeFileNames = false;
     protected Vector headers = null;
     // CheckStyle:VisibilityModifier ON
+    private boolean ignoreInvalidRecipients = false;
+    private boolean starttls = false;
 
     /**
      * Set the mail server.
@@ -95,6 +97,20 @@ public abstract class Mailer {
      */
     public void setSSL(boolean ssl) {
         this.SSL = ssl;
+    }
+
+    /**
+     * Set whether to allow authentication to switch to a TLS
+     * connection via STARTTLS.
+     * @param b boolean; if true STARTTLS will be supported.
+     * @since Ant 1.8.0
+     */
+    public void setEnableStartTLS(boolean b) {
+        this.starttls = b;
+    }
+
+    protected boolean isStartTLSEnabled() {
+        return starttls;
     }
 
     /**
@@ -204,6 +220,28 @@ public abstract class Mailer {
      */
     public abstract void send()
          throws BuildException;
+
+    /**
+     * Whether invalid recipients should be ignored (but a warning
+     * will be logged) instead of making the task fail.
+     *
+     * <p>Even with this property set to true the task will still fail
+     * if the mail couldn't be sent to any recipient at all.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setIgnoreInvalidRecipients(boolean b) {
+        ignoreInvalidRecipients = b;
+    }
+
+    /**
+     * Whether invalid recipients should be ignored.
+     *
+     * @since Ant 1.8.0
+     */
+    protected boolean shouldIgnoreInvalidRecipients() {
+        return ignoreInvalidRecipients;
+    }
 
     /**
      * Return the current Date in a format suitable for a SMTP date

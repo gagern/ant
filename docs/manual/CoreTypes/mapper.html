@@ -93,7 +93,7 @@ instead.
 <p>The classpath can be specified via a nested
 <code>&lt;classpath&gt;</code>, as well - that is,
 a <a href="../using.html#path">path</a>-like structure.</p>
-<p><b>Since Ant 1.6.2,</b> nested File Mappers can
+<p><b>Since Ant 1.7.0,</b> nested File Mappers can
 be supplied via either <CODE>&lt;mapper&gt;</CODE> elements or
 <a href="../CoreTasks/typedef.html"><code>&lt;typedef&gt;</code></a>'d
 implementations of <CODE>org.apache.tools.ant.util.FileNameMapper</CODE>.
@@ -103,7 +103,7 @@ implicitly configured as a <a href="#composite-mapper">composite mapper</a>.
 <hr>
 <h3>The built-in mapper types are:</h3>
 <p>All built-in mappers are case-sensitive.</p>
-<p><b>As of Ant 1.6.2,</b> each of the built-in mapper implementation
+<p><b>As of Ant 1.7.0,</b> each of the built-in mapper implementation
   types is directly accessible using a specific tagname. This makes it
   possible for filename mappers to support attributes in addition to
   the generally available <i>to</i> and <i>from</i>.<br>
@@ -624,11 +624,14 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <!--           Composite Mapper             -->
     <!--                                        -->
 
-<h4><a name="composite-mapper">composite (since Ant 1.6.2)</a></h4>
+<h4><a name="composite-mapper">composite (since Ant 1.7.0)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to each nested
     <code>&lt;mapper&gt;</code> in turn, returning all results.
     The <i>to</i> and <i>from</i> attributes are ignored.</p>
+  <p>Starting with Ant 1.8.0 the order of the mapped results is the
+    same as the order of the nested mappers; prior to Ant 1.8.0 the
+    order has been undefined.</p>
 <b>Examples:</b>
 <blockquote><pre>
 &lt;compositemapper&gt;
@@ -657,7 +660,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <!--            Chained Mapper              -->
     <!--                                        -->
 
-<h4><a name="chained-mapper">chained (since Ant 1.6.2)</a></h4>
+<h4><a name="chained-mapper">chained (since Ant 1.7.0)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to the first
     nested mapper, its results to the second, and so on.  The target filenames
@@ -796,7 +799,7 @@ an explanation of scripts and dependencies.
     <tr>
       <td valign="top">setbeans</td>
       <td valign="top">whether to have all properties, references and targets as
-        global variables in the script.</td>
+        global variables in the script.  <em>since Ant 1.8.0</em></td>
       <td valign="top" align="center">No, default is "true".</td>
     </tr>
     <tr>
@@ -881,6 +884,39 @@ list of mapped names reset after every invocation.
     </table>
 
   <p>The scriptmapper has no corresponding
+    <code>&lt;mapper <b>type</b>&gt;</code> attribute.
+  </p>
+
+<h4><a name="firstmatch-mapper">firstmatchmapper (since Ant 1.8.0)</a></h4>
+    <p>
+      This mapper supports an arbitrary number of nested mappers and
+      returns the results of the first mapper that matches.  This is
+      different from <a href="#composite-mapper">composite mapper</a>
+      which collects the results of all matching children.</p>
+<b>Examples:</b>
+<blockquote><pre>
+&lt;firstmatchmapper&gt;
+  &lt;globmapper from="*.txt" to="*.bak"/&gt;
+  &lt;globmapper from="*A.*" to="*B.*"/&gt;
+&lt;/firstmatchmapper&gt;
+</pre></blockquote>
+
+<table border="1" cellpadding="2" cellspacing="0">
+  <tr>
+    <td valign="top"><b>Source file name</b></td>
+    <td valign="top"><b>Target file names</b></td>
+  </tr>
+  <tr>
+    <td valign="center"><code>foo/bar/A.txt</code></td>
+    <td valign="top"><code>foo/bar/A.bak</code></td>
+  </tr>
+  <tr>
+    <td valign="center"><code>foo/bar/A.java</code></td>
+    <td valign="top"><code>foo/bar/B.java</code></td>
+  </tr>
+</table>
+
+  <p>The firstmatchmapper has no corresponding
     <code>&lt;mapper <b>type</b>&gt;</code> attribute.
   </p>
 

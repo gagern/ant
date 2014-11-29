@@ -475,6 +475,21 @@ public final class IntrospectionHelper {
     }
 
     /**
+     * part of the error message created by {@link #throwNotSupported
+     * throwNotSupported}.
+     * @since Ant 1.8.0
+     */
+    protected static final String NOT_SUPPORTED_CHILD_PREFIX =
+        " doesn't support the nested \"";
+
+    /**
+     * part of the error message created by {@link #throwNotSupported
+     * throwNotSupported}.
+     * @since Ant 1.8.0
+     */
+    protected static final String NOT_SUPPORTED_CHILD_POSTFIX = "\" element.";
+
+    /**
      * Utility method to throw a NotSupported exception
      *
      * @param project the Project instance.
@@ -483,7 +498,8 @@ public final class IntrospectionHelper {
      */
     public void throwNotSupported(Project project, Object parent, String elementName) {
         String msg = project.getElementName(parent)
-                + " doesn't support the nested \"" + elementName + "\" element.";
+            + NOT_SUPPORTED_CHILD_PREFIX + elementName
+            + NOT_SUPPORTED_CHILD_POSTFIX;
         throw new UnsupportedElementException(msg, elementName);
     }
 
@@ -518,22 +534,15 @@ public final class IntrospectionHelper {
         if (nc == null) {
             nc = createAddTypeCreator(project, parent, elementName);
         }
-        if (nc == null && parent instanceof DynamicElementNS) {
-            DynamicElementNS dc = (DynamicElementNS) parent;
+        if (nc == null &&
+            (parent instanceof DynamicElementNS
+             || parent instanceof DynamicElement)
+            ) {
             String qName = child == null ? name : child.getQName();
-            final Object nestedElement = dc.createDynamicElement(
-                    child == null ? "" : child.getNamespace(), name, qName);
-            if (nestedElement != null) {
-                nc = new NestedCreator(null) {
-                    Object create(Project project, Object parent, Object ignore) {
-                        return nestedElement;
-                    }
-                };
-            }
-        }
-        if (nc == null && parent instanceof DynamicElement) {
-            DynamicElement dc = (DynamicElement) parent;
-            final Object nestedElement = dc.createDynamicElement(name.toLowerCase(Locale.US));
+            final Object nestedElement =
+                createDynamicElement(parent,
+                                     child == null ? "" : child.getNamespace(),
+                                     name, qName);
             if (nestedElement != null) {
                 nc = new NestedCreator(null) {
                     Object create(Project project, Object parent, Object ignore) {
@@ -546,6 +555,27 @@ public final class IntrospectionHelper {
             throwNotSupported(project, parent, elementName);
         }
         return nc;
+    }
+
+    /**
+     * Invokes the "correct" createDynamicElement method on parent in
+     * order to obtain a child element by name.
+     *
+     * @since Ant 1.8.0.
+     */
+    private Object createDynamicElement(Object parent, String ns,
+                                        String localName, String qName) {
+        Object nestedElement = null;
+        if (parent instanceof DynamicElementNS) {
+            DynamicElementNS dc = (DynamicElementNS) parent;
+            nestedElement = dc.createDynamicElement(ns, localName, qName);
+        }
+        if (nestedElement == null && parent instanceof DynamicElement) {
+            DynamicElement dc = (DynamicElement) parent;
+            nestedElement =
+                dc.createDynamicElement(localName.toLowerCase(Locale.US));
+        }
+        return nestedElement;
     }
 
     /**
@@ -654,6 +684,12 @@ public final class IntrospectionHelper {
      * Indicate if this element supports a nested element of the
      * given name.
      *
+     * <p>Note that this method will always return true if the
+     * introspected class is {@link #isDynamic dynamic} or contains a
+     * method named "add" with void return type and a single argument.
+     * To ge a more thorough answer, use the four-arg version of this
+     * method instead.</p>
+     *
      * @param parentUri   the uri of the parent
      * @param elementName the name of the nested element being checked
      *
@@ -664,6 +700,32 @@ public final class IntrospectionHelper {
             return true;
         }
         return supportsReflectElement(parentUri, elementName);
+    }
+
+    /**
+     * Indicate if this element supports a nested element of the
+     * given name.
+     *
+     * <p>Note that this method will always return true if the
+     * introspected class is {@link #isDynamic dynamic}, so be
+     * prepared to catch an exception about unsupported children when
+     * calling {@link #getElementCreator getElementCreator}.</p>
+     *
+     * @param parentUri   the uri of the parent
+     * @param elementName the name of the nested element being checked
+     * @param project currently executing project instance
+     * @param parent the parent element
+     *
+     * @return true if the given nested element is supported
+     * @since Ant 1.8.0.
+     */
+    public boolean supportsNestedElement(String parentUri, String elementName,
+                                         Project project, Object parent) {
+        if (addTypeMethods.size() > 0
+            && createAddTypeCreator(project, parent, elementName) != null) {
+            return true;
+        }
+        return isDynamic() || supportsReflectElement(parentUri, elementName);
     }
 
     /**
@@ -1077,6 +1139,10 @@ public final class IntrospectionHelper {
                     try {
                         m.invoke(parent, new Object[] {
                                 new Long(StringUtils.parseHumanSizes(value)) });
+                    } catch (NumberFormatException e) {
+                        throw new BuildException("Can't assign non-numeric"
+                                                 + " value '" + value + "' to"
+                                                 + " attribute " + attrName);
                     } catch (InvocationTargetException e) {
                         throw e;
                     } catch (IllegalAccessException e) {
@@ -1122,6 +1188,17 @@ public final class IntrospectionHelper {
                         p.setProjectReference(attribute);
                     }
                     m.invoke(parent, new Object[] {attribute});
+                } catch (InvocationTargetException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof IllegalArgumentException) {
+                        throw new BuildException("Can't assign value '" + value
+                                                 + "' to attribute " + attrName
+                                                 + ", reason: "
+                                                 + cause.getClass()
+                                                 + " with message '"
+                                                 + cause.getMessage() + "'");
+                    }
+                    throw e;
                 } catch (InstantiationException ie) {
                     throw new BuildException(ie);
                 }

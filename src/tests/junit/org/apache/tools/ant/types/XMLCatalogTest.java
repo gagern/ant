@@ -71,36 +71,50 @@ public class XMLCatalogTest extends TestCase {
         catalog = newCatalog();
     }
 
-   public void tearDown() {
-      project = null;
-      catalog = null;
-   }
+    public void tearDown() {
+        project = null;
+        catalog = null;
+    }
 
-   public void testEmptyCatalog() {
-       try {
-           InputSource result = catalog.resolveEntity("PUBLIC ID ONE",
-                                                      "i/dont/exist.dtd");
-           assertNull("Empty catalog should return null", result);
-       } catch (Exception e) {
-           fail("resolveEntity() failed!" + e.toString());
-       }
+    public void testEmptyCatalog() {
+        try {
+            InputSource result = catalog.resolveEntity("PUBLIC ID ONE",
+                                                       "i/dont/exist.dtd");
+            assertNull("Empty catalog should return null", result);
+        } catch (Exception e) {
+            fail("resolveEntity() failed!" + e.toString());
+        }
 
-       try {
-           Source result = catalog.resolve("i/dont/exist.dtd", null);
-           String expected = toURLString(new File(project.getBaseDir() +
-                                                  "/i/dont/exist.dtd"));
-           //
-           // These shenanigans are necessary b/c Norm Walsh's resolver
-           // has a different idea of how file URLs are created on windoze
-           // ie file://c:/foo instead of file:///c:/foo
-           //
-           String resultStr = new URL(((SAXSource)result).getInputSource().getSystemId()).getFile();
-           assertTrue("Empty catalog should return input",
-                      expected.endsWith(resultStr));
-       } catch (Exception e) {
-           fail("resolve() failed!" + e.toString());
-       }
-   }
+        try {
+            Source result = catalog.resolve("i/dont/exist.dtd", null);
+            String expected = toURLString(new File(project.getBaseDir() +
+                                                   "/i/dont/exist.dtd"));
+            String resultStr =
+                fileURLPartWithoutLeadingSlashes((SAXSource)result);
+            assertTrue("Empty catalog should return input with a system ID like "
+                       + expected + " but was " + resultStr,
+                       expected.endsWith(resultStr));
+        } catch (Exception e) {
+            fail("resolve() failed!" + e.toString());
+        }
+    }
+
+    private static String fileURLPartWithoutLeadingSlashes(SAXSource result)
+        throws MalformedURLException {
+        //
+        // These shenanigans are necessary b/c Norm Walsh's resolver
+        // has a different idea of how file URLs are created on windoze
+        // ie file://c:/foo instead of file:///c:/foo
+        //
+        String resultStr =
+            new URL(result.getInputSource().getSystemId()).getFile();
+        // on Sun's Java6 this returns an unexpected number of four
+        // leading slashes, at least on Linux - strip all of them
+        while (resultStr.startsWith("/")) {
+            resultStr = resultStr.substring(1);
+        }
+        return resultStr;
+    }
 
     public void testNonExistentEntry() {
 
@@ -120,8 +134,10 @@ public class XMLCatalogTest extends TestCase {
             Source result = catalog.resolve("i/dont/exist.dtd", null);
             String expected = toURLString(new File(project.getBaseDir().toURL() +
                                                    "/i/dont/exist.dtd"));
-            String resultStr = new URL(((SAXSource)result).getInputSource().getSystemId()).getFile();
-            assertTrue("Nonexistent Catalog entry return input",
+            String resultStr =
+                fileURLPartWithoutLeadingSlashes((SAXSource)result);
+            assertTrue("Nonexistent Catalog entry return input with a system ID like "
+                       + expected + " but was " + resultStr,
                        expected.endsWith(resultStr));
         } catch (Exception e) {
             fail("resolve() failed!" + e.toString());

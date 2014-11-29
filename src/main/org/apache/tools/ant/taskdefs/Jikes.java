@@ -17,11 +17,10 @@
  */
 package org.apache.tools.ant.taskdefs;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Random;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -84,14 +83,14 @@ public class Jikes {
 
             if (myos.toLowerCase().indexOf("windows") >= 0
                 && args.length > MAX_FILES_ON_COMMAND_LINE) {
-                PrintWriter out = null;
+                BufferedWriter out = null;
                 try {
-                    String tempFileName = "jikes"
-                        + (new Random(System.currentTimeMillis())).nextLong();
-                    tmpFile = new File(tempFileName);
-                    out = new PrintWriter(new FileWriter(tmpFile));
+                    tmpFile = FileUtils.getFileUtils().createTempFile("jikes",
+                            "tmp", null, false, true);
+                    out = new BufferedWriter(new FileWriter(tmpFile));
                     for (int i = 0; i < args.length; i++) {
-                        out.println(args[i]);
+                        out.write(args[i]);
+                        out.newLine();
                     }
                     out.flush();
                     commandArray = new String[] {command,
@@ -123,7 +122,9 @@ public class Jikes {
             }
         } finally {
             if (tmpFile != null) {
-                tmpFile.delete();
+                if (!tmpFile.delete()) {
+                    tmpFile.deleteOnExit();
+                }
             }
         }
     }

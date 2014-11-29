@@ -299,7 +299,8 @@ public class Touch extends Task {
         Iterator iter = resources.iterator();
         while (iter.hasNext()) {
             Resource r = (Resource) iter.next();
-            if (!(r instanceof Touchable)) {
+            Touchable t = (Touchable) r.as(Touchable.class);
+            if (t == null) {
                 throw new BuildException("Can't touch " + r);
             }
             touch(r, defaultTimestamp);
@@ -339,11 +340,12 @@ public class Touch extends Task {
 
     private void touch(Resource r, long defaultTimestamp) {
         if (fileNameMapper == null) {
-            if (r instanceof FileProvider) {
+            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            if (fp != null) {
                 // use this to create file and deal with non-writable files
-                touch(((FileProvider) r).getFile(), defaultTimestamp);
+                touch(fp.getFile(), defaultTimestamp);
             } else {
-                ((Touchable) r).touch(defaultTimestamp);
+                ((Touchable) r.as(Touchable.class)).touch(defaultTimestamp);
             }
         } else {
             String[] mapped = fileNameMapper.mapFileName(r.getName());

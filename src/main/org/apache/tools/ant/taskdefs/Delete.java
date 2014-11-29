@@ -26,9 +26,11 @@ import java.util.Comparator;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.PatternSet;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.Sort;
@@ -58,6 +60,7 @@ import org.apache.tools.ant.types.selectors.MajoritySelector;
 import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
 import org.apache.tools.ant.types.selectors.modifiedselector.ModifiedSelector;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.SymbolicLinkUtils;
 
 /**
  * Deletes a file or directory, or set of files defined by a fileset.
@@ -74,7 +77,6 @@ import org.apache.tools.ant.util.FileUtils;
  * @ant.task category="filesystem"
  */
 public class Delete extends MatchingTask {
-    private static final int DELETE_RETRY_SLEEP_MILLIS = 10;
     private static final ResourceComparator REVERSE_FILESYSTEM = new Reverse(new FileSystem());
     private static final ResourceSelector EXISTS = new Exists();
 
@@ -107,14 +109,17 @@ public class Delete extends MatchingTask {
     protected boolean usedMatchingTask = false;
     // by default, remove matching empty dirs
     protected boolean includeEmpty = false;
+    // CheckStyle:VisibilityModifier ON
 
     private int verbosity = Project.MSG_VERBOSE;
     private boolean quiet = false;
     private boolean failonerror = true;
     private boolean deleteOnExit = false;
+    private boolean removeNotFollowedSymlinks = false;
     private Resources rcs = null;
     private static FileUtils FILE_UTILS = FileUtils.getFileUtils();
-    // CheckStyle:VisibilityModifier ON
+    private static SymbolicLinkUtils SYMLINK_UTILS =
+        SymbolicLinkUtils.getSymbolicLinkUtils();
 
     /**
      * Set the name of a single file to be removed.
@@ -333,6 +338,16 @@ public class Delete extends MatchingTask {
     public void setFollowSymlinks(boolean followSymlinks) {
         usedMatchingTask = true;
         super.setFollowSymlinks(followSymlinks);
+    }
+
+    /**
+     * Sets whether the symbolic links that have not been followed
+     * shall be removed (the links, not the locations they point at).
+     *
+     * @since Ant 1.8.0
+     */
+    public void setRemoveNotFollowedSymlinks(boolean b) {
+        removeNotFollowedSymlinks = b;
     }
 
     /**
@@ -590,9 +605,29 @@ public class Delete extends MatchingTask {
                 handle("Directory does not exist:" + fsDir);
             } else {
                 resourcesToDelete.add(fs);
+                DirectoryScanner ds = fs.getDirectoryScanner();
                 if (includeEmpty) {
-                    filesetDirs.add(new ReverseDirs(getProject(), fsDir, fs
-                            .getDirectoryScanner().getIncludedDirectories()));
+                    filesetDirs.add(new ReverseDirs(getProject(), fsDir,
+                                                    ds
+                                                    .getIncludedDirectories()));
+                }
+
+                if (removeNotFollowedSymlinks) {
+                    String[] n = ds.getNotFollowedSymlinks();
+                    if (n.length > 0) {
+                        String[] links = new String[n.length];
+                        System.arraycopy(n, 0, links, 0, n.length);
+                        Arrays.sort(links, ReverseDirs.REVERSE);
+                        for (int l = 0; l < links.length; l++) {
+                            try {
+                                SYMLINK_UTILS
+                                    .deleteSymbolicLink(new File(links[l]),
+                                                        this);
+                            } catch (java.io.IOException ex) {
+                                handle(ex);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -612,7 +647,9 @@ public class Delete extends MatchingTask {
                 for (Iterator iter = resourcesToDelete.iterator(); iter.hasNext();) {
                     // nonexistent resources could only occur if we already
                     // deleted something from a fileset:
-                    File f = ((FileProvider) iter.next()).getFile();
+                    Resource r = (Resource) iter.next();
+                    File f = ((FileProvider) r.as(FileProvider.class))
+                              .getFile();
                     if (!f.exists()) {
                         continue;
                     }
@@ -658,26 +695,16 @@ public class Delete extends MatchingTask {
      * wait a little and try again.
      */
     private boolean delete(File f) {
-        if (!f.delete()) {
-            if (Os.isFamily("windows")) {
-                System.gc();
+        if (!FILE_UTILS.tryHardToDelete(f)) {
+            if (deleteOnExit) {
+                int level = quiet ? Project.MSG_VERBOSE : Project.MSG_INFO;
+                log("Failed to delete " + f + ", calling deleteOnExit."
+                    + " This attempts to delete the file when the Ant jvm"
+                    + " has exited and might not succeed.", level);
+                f.deleteOnExit();
+                return true;
             }
-            try {
-                Thread.sleep(DELETE_RETRY_SLEEP_MILLIS);
-            } catch (InterruptedException ex) {
-                // Ignore Exception
-            }
-            if (!f.delete()) {
-                if (deleteOnExit) {
-                    int level = quiet ? Project.MSG_VERBOSE : Project.MSG_INFO;
-                    log("Failed to delete " + f + ", calling deleteOnExit."
-                        + " This attempts to delete the file when the Ant jvm"
-                        + " has exited and might not succeed.", level);
-                    f.deleteOnExit();
-                    return true;
-                }
-                return false;
-            }
+            return false;
         }
         return true;
     }
@@ -706,7 +733,7 @@ public class Delete extends MatchingTask {
         }
         log("Deleting directory " + d.getAbsolutePath(), verbosity);
         if (!delete(d)) {
-            handle("Unable to delete directory " + dir.getAbsolutePath());
+            handle("Unable to delete directory " + d.getAbsolutePath());
         }
     }
 
@@ -760,8 +787,7 @@ public class Delete extends MatchingTask {
 
     private boolean isDanglingSymlink(File f) {
         try {
-            return FILE_UTILS.isDanglingSymbolicLink(f.getParentFile(),
-                                                     f.getName());
+            return SYMLINK_UTILS.isDanglingSymbolicLink(f);
         } catch (java.io.IOException e) {
             log("Error while trying to detect " + f.getAbsolutePath()
                 + " as broken symbolic link. " + e.getMessage(),

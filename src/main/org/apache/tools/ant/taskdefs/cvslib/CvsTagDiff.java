@@ -25,14 +25,18 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
 import java.util.StringTokenizer;
+import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.AbstractCvsTask;
 import org.apache.tools.ant.util.DOMElementWriter;
 import org.apache.tools.ant.util.DOMUtils;
+import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
 
 import org.w3c.dom.Document;
@@ -83,6 +87,10 @@ public class CvsTagDiff extends AbstractCvsTask {
      * Token to identify the word file in the rdiff log
      */
     static final String FILE_STRING = "File ";
+    /**
+     * Length of token to identify the word file in the rdiff log
+     */
+    static final int FILE_STRING_LENGTH = FILE_STRING.length();
     /**
      * Token to identify the word file in the rdiff log
      */
@@ -135,6 +143,26 @@ public class CvsTagDiff extends AbstractCvsTask {
      * The file in which to write the diff report.
      */
     private File mydestfile;
+
+    /**
+     * Used to skip over removed files 
+     */
+    private boolean ignoreRemoved = false;
+
+    /**
+     * temporary list of package names.
+     */
+    private List packageNames = new ArrayList();
+
+    /**
+     * temporary list of "File:" + package name + "/" for all packages.
+     */
+    private String[] packageNamePrefixes = null;
+
+    /**
+     * temporary list of length values for prefixes.
+     */
+    private int[] packageNamePrefixLengths = null;
 
     /**
      * The package/module to analyze.
@@ -190,6 +218,18 @@ public class CvsTagDiff extends AbstractCvsTask {
     }
 
     /**
+     * Set the ignore removed indicator.
+     *
+     * @param b the ignore removed indicator.
+     *
+     * @since Ant 1.8.0
+     */ 
+    public void setIgnoreRemoved(boolean b) {
+        ignoreRemoved = b;
+    }
+
+
+    /**
      * Execute task.
      *
      * @exception BuildException if an error occurs
@@ -215,16 +255,15 @@ public class CvsTagDiff extends AbstractCvsTask {
             addCommandArgument("-D");
             addCommandArgument(myendDate);
         }
-        // support multiple packages
-        StringTokenizer myTokenizer = new StringTokenizer(mypackage);
-        while (myTokenizer.hasMoreTokens()) {
-            addCommandArgument(myTokenizer.nextToken());
-        }
+
         // force command not to be null
         setCommand("");
         File tmpFile = null;
         try {
-            tmpFile = FILE_UTILS.createTempFile("cvstagdiff", ".log", null, true, true);
+            handlePackageNames();
+
+            tmpFile = FILE_UTILS.createTempFile("cvstagdiff", ".log", null,
+                                                true, true);
             setOutput(tmpFile);
 
             // run the cvs command
@@ -237,6 +276,9 @@ public class CvsTagDiff extends AbstractCvsTask {
             writeTagDiff(entries);
 
         } finally {
+            packageNamePrefixes = null;
+            packageNamePrefixLengths = null;
+            packageNames.clear();
             if (tmpFile != null) {
                 tmpFile.delete();
             }
@@ -272,20 +314,14 @@ public class CvsTagDiff extends AbstractCvsTask {
             // File testantoine/antoine.bat is removed; TESTANTOINE_1 revision 1.1.1.1
             //
             // get rid of 'File module/"
-            String toBeRemoved = FILE_STRING + mypackage + "/";
-            int headerLength = toBeRemoved.length();
             Vector entries = new Vector();
 
             String line = reader.readLine();
 
             while (null != line) {
-                if (line.length() > headerLength) {
-                    if (line.startsWith(toBeRemoved)) {
-                        line = line.substring(headerLength);
-                    } else {
-                        line = line.substring(FILE_STRING.length());
-                    }
-
+                line = removePackageName(line, packageNamePrefixes,
+                                         packageNamePrefixLengths);
+                if (line != null) {
                     // use || in a perl like fashion
                     boolean processed
                         =  doFileIsNew(entries, line)
@@ -353,6 +389,9 @@ public class CvsTagDiff extends AbstractCvsTask {
     }
 
     private boolean doFileWasRemoved(Vector entries, String line) {
+        if (ignoreRemoved) {
+            return false;
+        }
         int index = line.indexOf(FILE_WAS_REMOVED);
         if (index == -1) {
             return false;
@@ -397,7 +436,8 @@ public class CvsTagDiff extends AbstractCvsTask {
             }
 
             root.setAttribute("cvsroot", getCvsRoot());
-            root.setAttribute("package", mypackage);
+            root.setAttribute("package",
+                              CollectionUtils.flattenToString(packageNames));
             DOM_WRITER.openElement(root, writer, 0, "\t");
             writer.println();
             for (int i = 0, c = entries.length; i < c; i++) {
@@ -405,6 +445,9 @@ public class CvsTagDiff extends AbstractCvsTask {
             }
             DOM_WRITER.closeElement(root, writer, 0, "\t", true);
             writer.flush();
+            if (writer.checkError()) {
+                throw new IOException("Encountered an error writing tagdiff");
+            }
             writer.close();
         } catch (UnsupportedEncodingException uee) {
             log(uee.toString(), Project.MSG_ERR);
@@ -450,7 +493,7 @@ public class CvsTagDiff extends AbstractCvsTask {
      * @exception BuildException if a parameter is not correctly set
      */
     private void validate() throws BuildException {
-        if (null == mypackage) {
+        if (null == mypackage && getModules().size() == 0) {
             throw new BuildException("Package/module must be set.");
         }
 
@@ -475,5 +518,58 @@ public class CvsTagDiff extends AbstractCvsTask {
             throw new BuildException("Only one of end tag and end date must "
                                      + "be set.");
         }
+    }
+
+    /**
+     * collects package names from the package attribute and nested
+     * module elements.
+     */
+    private void handlePackageNames() {
+        if (mypackage != null) {
+            // support multiple packages
+            StringTokenizer myTokenizer = new StringTokenizer(mypackage);
+            while (myTokenizer.hasMoreTokens()) {
+                String pack = myTokenizer.nextToken();
+                packageNames.add(pack);
+                addCommandArgument(pack);
+            }
+        }
+        for (Iterator iter = getModules().iterator(); iter.hasNext();) {
+            AbstractCvsTask.Module m = (AbstractCvsTask.Module) iter.next();
+            packageNames.add(m.getName());
+            // will be added to command line in super.execute()
+        }
+        packageNamePrefixes = new String[packageNames.size()];
+        packageNamePrefixLengths = new int[packageNames.size()];
+        for (int i = 0; i < packageNamePrefixes.length; i++) {
+            packageNamePrefixes[i] = FILE_STRING + packageNames.get(i) + "/";
+            packageNamePrefixLengths[i] = packageNamePrefixes[i].length();
+        }
+    }
+
+
+    /**
+     * removes a "File: module/" prefix if present.
+     *
+     * @return null if the line was shorter than expected.
+     */
+    private static String removePackageName(String line,
+                                            String[] packagePrefixes,
+                                            int[] prefixLengths) {
+        if (line.length() < FILE_STRING_LENGTH) {
+            return null;
+        }
+        boolean matched = false;
+        for (int i = 0; i < packagePrefixes.length; i++) {
+            if (line.startsWith(packagePrefixes[i])) {
+                matched = true;
+                line = line.substring(prefixLengths[i]);
+                break;
+            }
+        }
+        if (!matched) {
+            line = line.substring(FILE_STRING_LENGTH);
+        }
+        return line;
     }
 }

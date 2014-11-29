@@ -464,13 +464,21 @@ public class Copy extends Task {
                     while (resources.hasNext()) {
                         Resource r = (Resource) resources.next();
                         if (!r.isExists()) {
+                            String message = "Warning: Could not find resource "
+                                + r.toLongString() + " to copy.";
+                            if (!failonerror) {
+                                log(message, Project.MSG_ERR);
+                            } else {
+                                throw new BuildException(message);
+                            }
                             continue;
                         }
 
                         File baseDir = NULL_FILE_PLACEHOLDER;
                         String name = r.getName();
-                        if (r instanceof FileProvider) {
-                            FileResource fr = ResourceUtils.asFileResource((FileProvider) r);
+                        FileProvider fp = (FileProvider) r.as(FileProvider.class);
+                        if (fp != null) {
+                            FileResource fr = ResourceUtils.asFileResource(fp);
                             baseDir = getKeyFile(fr.getBaseDir());
                             if (fr.getBaseDir() == null) {
                                 name = fr.getFile().getAbsolutePath();
@@ -480,7 +488,7 @@ public class Copy extends Task {
                         // copying of dirs is trivial and can be done
                         // for non-file resources as well as for real
                         // files.
-                        if (r.isDirectory() || r instanceof FileProvider) {
+                        if (r.isDirectory() || fp != null) {
                             add(baseDir, name,
                                 r.isDirectory() ? dirsByBasedir
                                                 : filesByBasedir);
@@ -567,8 +575,10 @@ public class Copy extends Task {
             }
         }
     }
+
     private void iterateOverBaseDirs(
         HashSet baseDirs, HashMap dirsByBasedir, HashMap filesByBasedir) {
+
         Iterator iter = baseDirs.iterator();
         while (iter.hasNext()) {
             File f = (File) iter.next();
@@ -624,7 +634,8 @@ public class Copy extends Task {
                     throw new BuildException(
                         "Cannot perform operation from directory to file.");
                 } else if (rc.size() == 1) {
-                    FileProvider r = (FileProvider) rc.iterator().next();
+                    Resource res = (Resource) rc.iterator().next();
+                    FileProvider r = (FileProvider) res.as(FileProvider.class);
                     if (file == null) {
                         file = r.getFile();
                         rcs.removeElementAt(0);
@@ -755,6 +766,13 @@ public class Copy extends Task {
         }
         for (int i = 0; i < toCopy.length; i++) {
             String[] mappedFiles = mapper.mapFileName(toCopy[i].getName());
+            for (int j = 0; j < mappedFiles.length; j++) {
+                if (mappedFiles[j] == null) {
+                    throw new BuildException("Can't copy a resource without a"
+                                             + " name if the mapper doesn't"
+                                             + " provide one.");
+                }
+            }
 
             if (!enableMultipleMappings) {
                 map.put(toCopy[i],

@@ -189,7 +189,7 @@
             </ul>
     </div>
     <center>
-    <!--#include virtual="/ads/buttonbar.html" -->
+    <a href="http://www.apache.org/events/current-event.html"><img border="0" title="ApacheCon" alt="ApacheCon - logo" src="http://www.apache.org/events/current-event-125x125.png" style="width: 125px;height: 125px;"></a>
     </center>
     <img style="float: left" height="10" width="10" border="0" alt="" src="./images/menu-left.gif">
     <img style="float: right" height="10" width="10" border="0" alt="" src="./images/menu-right.gif">
@@ -243,6 +243,9 @@
             </ul>
                 <h4 class="toc">How do I ...</h4>
         <ul>
+                <li><a href="#precompile-jsps">
+  How to I precompile Java Server Pages (JSPs)?
+      </a></li>
                 <li><a href="#implement-os-specific-configuration">
   How do I realize os--specific configurations?
       </a></li>
@@ -451,6 +454,12 @@
   
         <code>&lt;junitreport&gt;</code> doesn't work with JDK 1.5 but
         worked fine with JDK 1.4.
+      
+      </a></li>
+                <li><a href="#oom-on-mac">
+  
+        Ant runs into an infinite loop/throws an OutOufMemoryError
+        when I compile my project under Mac OS X.
       
       </a></li>
             </ul>
@@ -738,8 +747,62 @@
           the version of Java, the more Ant tasks you get.</p>
                         <p>If only the JRE is present but not a full JDK then many
           tasks will not work.</p>
-                        <p>Ant 1.6.* works with jdk 1.2 and higher, Ant 1.1 to Ant
-          1.5.* work with jdk 1.1 and higher.</p>
+                        <p>The following table lists the minimum Java versions
+          required to compile and run Ant.  Note that most committers
+          work with more recent versions of the JDK and that Ant doesn't
+          get tested much for older versions.</p>
+                              <table class="ForrestTable" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant Version
+      </th>
+                          <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Minimum Java Version
+      </th>
+      </tr>
+                  <tr>
+                      <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.1 up to 1.5.4
+      </td>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.1
+      </td>
+      </tr>
+                  <tr>
+                      <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.6.0 up to 1.6.5
+      </td>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.2
+      </td>
+      </tr>
+                  <tr>
+                      <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.7.0 up to 1.7.1
+      </td>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.3
+      </td>
+      </tr>
+                  <tr>
+                      <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          current svn trunk
+      </td>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          1.4
+      </td>
+      </tr>
+          </table>
                     <p class="faq">
       <a name="no-gnu-tar"></a>
       I get checksum errors when I try to extract the
@@ -781,6 +844,19 @@ $ ant -version
 Apache Ant version 1.6.2 compiled on July 16 2004
 </pre>
                                 <p class="faq">
+      <a name="precompile-jsps"></a>
+      How to I precompile Java Server Pages (JSPs)?
+    </p>
+                  <p>Ant has a built in optional task <a href="/manual/OptionalTasks/jspc.html">&lt;jspc&gt;</a>
+        which was intended for that. <b>But this task is deprecated.</b>
+        Here the alternative suggested by the manual:</p>
+                        <p><i>Instead of relying on container specific JSP-compilers we suggest deploying
+        the raw files (*.jsp) and use the container build-in functions: after deploying
+        run a test suite (e.g. with
+        <a href="http://jakarta.apache.org/cactus/">Cactus</a> or
+        <a href="http://httpunit.sourceforge.net/">HttpUnit</a>) against the deployed web
+        application. So you'll get then test result and the compiled JSPs.</i></p>
+                    <p class="faq">
       <a name="implement-os-specific-configuration"></a>
       How do I realize os--specific configurations?
     </p>
@@ -2160,6 +2236,50 @@ mv /tmp/foo $ANT_HOME/bin/antRun
         to use this task with JDK 1.5 in older versions of Ant.</p>
                         <p>Starting with Ant 1.6.2 <code>&lt;junitreport&gt;</code>
         supports JDK 1.5.</p>
+                    <p class="faq">
+      <a name="oom-on-mac"></a>
+      
+        Ant runs into an infinite loop/throws an OutOufMemoryError
+        when I compile my project under Mac OS X.
+      
+    </p>
+                  <p>Apple's Java VMs reside
+        in <code>/System/Library/Frameworks/JavaVM.framework/Versions/X.Y.Z</code>
+          and <code>JAVA_HOME</code> will usually be something
+        like <code>/System/Library/Frameworks/JavaVM.framework/Versions/X.Y.Z/Home</code>.</p>
+                        <p>Inside this home directory there is a symbolic link
+        named <code>shared_bundle</code> that links three levels up,
+        i.e. to <code>/System/Library/Frameworks/JavaVM.framework</code>.</p>
+                        <p>If your build file contains a <code>fileset</code> like</p>
+                        <pre class="code">
+&lt;fileset dir=&quot;${java.home}&quot; includes=&quot;**/*.jar&quot;/&gt;
+</pre>
+                        <p>Ant is going to follow the <code>shared_bundle</code>
+        symlink and ends up recursing into all your installed VMs.
+        Even worse, it will
+        enter <code>/System/Library/Frameworks/JavaVM.framework/Versions/X.Y.Z/Home</code>
+          and will once again follow the same symlink.</p>
+                        <p>Ant versions after Ant 1.7.1 will detect the infinite loop
+        they are in, but the resulting fileset may still be too big to
+        deal with, in particular if you have many different VM
+        versions installed.  The problem is amplified by the fact that
+        each installed version has a <code>shared_bundle</code>
+        symlink in it.</p>
+                        <p>One solution is to not allow the fileset to follow symbolic
+          links at all, like in</p>
+                        <pre class="code">
+&lt;fileset dir=&quot;${java.home}&quot; includes=&quot;**/*.jar&quot; followsymlinks=&quot;false&quot;/&gt;
+</pre>
+                        <p>another one excludes the <code>shared_bundle</code>
+        directories:</p>
+                        <pre class="code">
+&lt;fileset dir=&quot;${java.home}&quot; includes=&quot;**/*.jar&quot; excludes=&quot;**/shared_bundle/**&quot;/&gt;
+</pre>
+                        <p>For Ant 1.7.1 and earlier
+        excluding <code>shared_bundle</code> may not be enough since
+        there is another symlink <code>bundle</code> that points to
+        the <code>Home</code> directory and will cause infite
+        recursions as well.</p>
                     </div>
   </div>
 
@@ -2171,6 +2291,10 @@ mv /tmp/foo $ANT_HOME/bin/antRun
       </p>
     </body>
   </html>
+
+
+
+
 
 
 

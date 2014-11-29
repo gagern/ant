@@ -39,6 +39,7 @@ import org.apache.tools.ant.types.TimeComparison;
 import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.FilterSetCollection;
+import org.apache.tools.ant.types.resources.Appendable;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
@@ -129,12 +130,51 @@ public class ResourceUtils {
                                                             FileNameMapper mapper,
                                                             ResourceFactory targets,
                                                             final long granularity) {
+        logFuture(logTo, source, granularity);
+        ResourceSelectorProvider p = 
+            new ResourceSelectorProvider() {
+                public ResourceSelector
+                    getTargetSelectorForSource(final Resource sr) {
+                    return new ResourceSelector() {
+                        public boolean isSelected(Resource target) {
+                            /* Extra I/O, probably wasted:
+                               if (target.isDirectory()) {
+                               return false;
+                               }
+                            */
+                            return SelectorUtils.isOutOfDate(sr, target,
+                                                             granularity);
+                        }
+                    };
+                }
+            };
+        return selectSources(logTo, source, mapper, targets, p);
+    }
+
+    /**
+     * Tells which sources should be reprocessed because the given
+     * selector selects at least one target.
+     * 
+     * @param logTo where to send (more or less) interesting output.
+     * @param source ResourceCollection.
+     * @param mapper filename mapper indicating how to find the target Resources.
+     * @param targets object able to map a relative path as a Resource.
+     * @param selector returns a selector that is applied to target
+     * files.  If it selects at least one target the source will be
+     * added to the returned collection.
+     * @return ResourceCollection.
+     * @since Ant 1.8.0
+     */
+    public static ResourceCollection selectSources(ProjectComponent logTo,
+                                                   ResourceCollection source,
+                                                   FileNameMapper mapper,
+                                                   ResourceFactory targets,
+                                                   ResourceSelectorProvider selector) {
         if (source.size() == 0) {
             logTo.log("No sources found.", Project.MSG_VERBOSE);
             return Resources.NONE;
         }
         source = Union.getInstance(source);
-        logFuture(logTo, source, granularity);
 
         Union result = new Union();
         for (Iterator iter = source.iterator(); iter.hasNext();) {
@@ -155,6 +195,11 @@ public class ResourceUtils {
                       Project.MSG_VERBOSE);
                 continue;
             }
+            for (int i = 0; i < targetnames.length; i++) {
+                if (targetnames[i] == null) {
+                    targetnames[i] = "(no name)";
+                }
+            }
             Union targetColl = new Union();
             for (int i = 0; i < targetnames.length; i++) {
                 targetColl.add(targets.getResource(
@@ -162,16 +207,7 @@ public class ResourceUtils {
             }
             //find the out-of-date targets:
             Restrict r = new Restrict();
-            r.add(new ResourceSelector() {
-                public boolean isSelected(Resource target) {
-                    /* Extra I/O, probably wasted:
-                    if (target.isDirectory()) {
-                        return false;
-                    }
-                     */
-                    return SelectorUtils.isOutOfDate(sr, target, granularity);
-                }
-            });
+            r.add(selector.getTargetSelectorForSource(sr));
             r.add(targetColl);
             if (r.size() > 0) {
                 result.add(sr);
@@ -260,12 +296,46 @@ public class ResourceUtils {
                              String inputEncoding, String outputEncoding,
                              Project project)
         throws IOException {
-        if (!overwrite) {
-            long slm = source.getLastModified();
-            if (dest.isExists() && slm != 0
-                && dest.getLastModified() > slm) {
-                return;
-            }
+        copyResource(source, dest, filters, filterChains, overwrite, preserveLastModified, false, inputEncoding, outputEncoding, project);
+    }
+
+    // CheckStyle:ParameterNumberCheck OFF - bc
+    /**
+     * Convenience method to copy content from one Resource to another
+     * specifying whether token filtering must be used, whether filter chains
+     * must be used, whether newer destination files may be overwritten and
+     * whether the last modified time of <code>dest</code> file should be made
+     * equal to the last modified time of <code>source</code>.
+     *
+     * @param source the Resource to copy from.
+     *                   Must not be <code>null</code>.
+     * @param dest   the Resource to copy to.
+     *                 Must not be <code>null</code>.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination Resource should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the destination Resource should be set to that
+     *                             of the source.
+     * @param append Whether to append to an Appendable Resource.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.8
+     */
+    public static void copyResource(Resource source, Resource dest,
+                            FilterSetCollection filters, Vector filterChains,
+                            boolean overwrite, boolean preserveLastModified, boolean append,
+                            String inputEncoding, String outputEncoding,
+                            Project project)
+        throws IOException {
+        if (!(overwrite || SelectorUtils.isOutOfDate(source, dest, FileUtils.getFileUtils()
+                .getFileTimestampGranularity()))) {
+            return;
         }
         final boolean filterSetsAvailable = (filters != null
                                              && filters.hasFilters());
@@ -283,12 +353,12 @@ public class ResourceUtils {
                                                 inputEncoding);
                 }
                 in = new BufferedReader(isr);
-                OutputStreamWriter osw = null;
+                OutputStream os = getOutputStream(dest, append, project);
+                OutputStreamWriter osw;
                 if (outputEncoding == null) {
-                    osw = new OutputStreamWriter(dest.getOutputStream());
+                    osw = new OutputStreamWriter(os);
                 } else {
-                    osw = new OutputStreamWriter(dest.getOutputStream(),
-                                                 outputEncoding);
+                    osw = new OutputStreamWriter(os, outputEncoding);
                 }
                 out = new BufferedWriter(osw);
                 if (filterChainsAvailable) {
@@ -334,12 +404,12 @@ public class ResourceUtils {
                                                 inputEncoding);
                 }
                 in = new BufferedReader(isr);
-                OutputStreamWriter osw = null;
+                OutputStream os = getOutputStream(dest, append, project);
+                OutputStreamWriter osw;
                 if (outputEncoding == null) {
-                    osw = new OutputStreamWriter(dest.getOutputStream());
+                    osw = new OutputStreamWriter(os);
                 } else {
-                    osw = new OutputStreamWriter(dest.getOutputStream(),
-                                                 outputEncoding);
+                    osw = new OutputStreamWriter(os, outputEncoding);
                 }
                 out = new BufferedWriter(osw);
                 if (filterChainsAvailable) {
@@ -368,7 +438,7 @@ public class ResourceUtils {
             OutputStream out = null;
             try {
                 in = source.getInputStream();
-                out = dest.getOutputStream();
+                out = getOutputStream(dest, append, project);
 
                 byte[] buffer = new byte[FileUtils.BUF_SIZE];
                 int count = 0;
@@ -381,8 +451,11 @@ public class ResourceUtils {
                 FileUtils.close(in);
             }
         }
-        if (preserveLastModified && dest instanceof Touchable) {
-            setLastModified((Touchable) dest, source.getLastModified());
+        if (preserveLastModified) {
+            Touchable t = (Touchable) dest.as(Touchable.class);
+            if (t != null) {
+                setLastModified(t, source.getLastModified());
+            }
         }
     }
     // CheckStyle:ParameterNumberCheck ON
@@ -478,10 +551,12 @@ public class ResourceUtils {
     }
 
     /**
-     * Convenience method to turn any fileProvider into a basic FileResource with the
-     * file's immediate parent as the basedir, for tasks that need one.
+     * Convenience method to turn any fileProvider into a basic
+     * FileResource with the file's immediate parent as the basedir,
+     * for tasks that need one.
      * @param fileProvider input
-     * @return fileProvider if it is a FileResource instance, or a new FileResource with fileProvider's file.
+     * @return fileProvider if it is a FileResource instance, or a new
+     * FileResource with fileProvider's file.
      * @since Ant 1.8
      */
     public static FileResource asFileResource(FileProvider fileProvider) {
@@ -582,4 +657,20 @@ public class ResourceUtils {
         }
     }
 
+    private static OutputStream getOutputStream(Resource resource, boolean append, Project project)
+            throws IOException {
+        if (append) {
+            Appendable a = (Appendable) resource.as(Appendable.class);
+            if (a != null) {
+                return a.getAppendOutputStream();
+            }
+            project.log("Appendable OutputStream not available for non-appendable resource "
+                    + resource + "; using plain OutputStream", Project.MSG_VERBOSE);
+        }
+        return resource.getOutputStream();
+    }
+
+    public static interface ResourceSelectorProvider {
+        ResourceSelector getTargetSelectorForSource(Resource source);
+    }
 }

@@ -26,9 +26,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.zip.CRC32;
@@ -47,6 +52,10 @@ import org.apache.tools.ant.types.ZipFileSet;
 import org.apache.tools.ant.types.ZipScanner;
 import org.apache.tools.ant.types.resources.ArchiveResource;
 import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.Union;
+import org.apache.tools.ant.types.resources.ZipResource;
+import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.GlobPatternMapper;
@@ -93,8 +102,51 @@ public class Zip extends MatchingTask {
     protected Hashtable addedDirs = new Hashtable();
     private Vector addedFiles = new Vector();
 
+    private static final ResourceSelector MISSING_SELECTOR =
+        new ResourceSelector() {
+            public boolean isSelected(Resource target) {
+                return !target.isExists();
+            }
+        };
+
+    private static final ResourceUtils.ResourceSelectorProvider
+        MISSING_DIR_PROVIDER = new ResourceUtils.ResourceSelectorProvider() {
+                public ResourceSelector
+                    getTargetSelectorForSource(Resource sr) {
+                    return MISSING_SELECTOR;
+                }
+            };
+
+    /**
+     * If this flag is true, execute() will run most operations twice,
+     * the first time with {@link #skipWriting skipWriting} set to
+     * true and the second time with setting it to false.
+     *
+     * <p>The only situation in Ant's current code base where this is
+     * ever going to be true is if the jar task has been configured
+     * with a filesetmanifest other than "skip".</p>
+     */
     protected boolean doubleFilePass = false;
+    /**
+     * whether the methods should just perform some sort of dry-run.
+     *
+     * <p>Will only ever be true in the first pass if the task
+     * performs two passes because {@link #doubleFilePass
+     * doubleFilePass} is true.</p>
+     */
     protected boolean skipWriting = false;
+
+    /**
+     * Whether this is the first time the archive building methods are invoked.
+     *
+     * @return true if either {@link #doubleFilePass doubleFilePass}
+     * is false or {@link #skipWriting skipWriting} is true.
+     *
+     * @since Ant 1.8.0
+     */
+    protected final boolean isFirstPass() {
+        return !doubleFilePass || skipWriting;
+    }
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
@@ -145,6 +197,29 @@ public class Zip extends MatchingTask {
      * @since Ant 1.8.0
      */
     private boolean preserve0Permissions = false;
+
+    /**
+     * Whether to set the language encoding flag when creating the archive.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean useLanguageEncodingFlag = true;
+
+    /**
+     * Whether to add unicode extra fields.
+     *
+     * @since Ant 1.8.0
+     */
+    private UnicodeExtraField createUnicodeExtraFields =
+        UnicodeExtraField.NEVER;
+
+    /**
+     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * the specified encoding.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean fallBackToUTF8 = false;
 
     /**
      * This is the name/location of where to
@@ -425,6 +500,60 @@ public class Zip extends MatchingTask {
     }
 
     /**
+     * Whether to set the language encoding flag.
+     * @since Ant 1.8.0
+     */
+    public void setUseLanguageEncodingFlag(boolean b) {
+        useLanguageEncodingFlag = b;
+    }
+
+    /**
+     * Whether the language encoding flag will be used.
+     * @since Ant 1.8.0
+     */
+    public boolean getUseLanguageEnodingFlag() {
+        return useLanguageEncodingFlag;
+    }
+
+    /**
+     * Whether Unicode extra fields will be created.
+     * @since Ant 1.8.0
+     */
+    public void setCreateUnicodeExtraFields(UnicodeExtraField b) {
+        createUnicodeExtraFields = b;
+    }
+
+    /**
+     * Whether Unicode extra fields will be created.
+     * @since Ant 1.8.0
+     */
+    public UnicodeExtraField getCreateUnicodeExtraFields() {
+        return createUnicodeExtraFields;
+    }
+
+    /**
+     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * the specified encoding.
+     *
+     * <p>Defaults to false.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFallBackToUTF8(boolean b) {
+        fallBackToUTF8 = b;
+    }
+
+    /**
+     * Whether to fall back to UTF-8 if a name cannot be enoded using
+     * the specified encoding.
+     *
+     * @since Ant 1.8.0
+     */
+    public boolean getFallBackToUTF8() {
+        return fallBackToUTF8;
+    }
+
+    /**
      * validate and build
      * @throws BuildException on error
      */
@@ -502,7 +631,9 @@ public class Zip extends MatchingTask {
 
             String action = doUpdate ? "Updating " : "Building ";
 
-            log(action + archiveType + ": " + zipFile.getAbsolutePath());
+            if (!skipWriting) {
+                log(action + archiveType + ": " + zipFile.getAbsolutePath());
+            }
 
             ZipOutputStream zOut = null;
             try {
@@ -510,6 +641,10 @@ public class Zip extends MatchingTask {
                     zOut = new ZipOutputStream(zipFile);
 
                     zOut.setEncoding(encoding);
+                    zOut.setUseLanguageEncodingFlag(useLanguageEncodingFlag);
+                    zOut.setCreateUnicodeExtraFields(createUnicodeExtraFields.
+                                                     getPolicy());
+                    zOut.setFallbackToUTF8(fallBackToUTF8);
                     zOut.setMethod(doCompress
                         ? ZipOutputStream.DEFLATED : ZipOutputStream.STORED);
                     zOut.setLevel(level);
@@ -673,8 +808,8 @@ public class Zip extends MatchingTask {
         // we don't need to update if the original file doesn't exist
         if (doUpdate && !zipFile.exists()) {
             doUpdate = false;
-            log("ignoring update attribute as " + archiveType
-                + " doesn't exist.", Project.MSG_DEBUG);
+            logWhenWriting("ignoring update attribute as " + archiveType
+                           + " doesn't exist.", Project.MSG_DEBUG);
         }
     }
 
@@ -683,15 +818,15 @@ public class Zip extends MatchingTask {
         // Add the files found in groupfileset to fileset
         for (int i = 0; i < groupfilesets.size(); i++) {
 
-            log("Processing groupfileset ", Project.MSG_VERBOSE);
+            logWhenWriting("Processing groupfileset ", Project.MSG_VERBOSE);
             FileSet fs = (FileSet) groupfilesets.elementAt(i);
             FileScanner scanner = fs.getDirectoryScanner(getProject());
             String[] files = scanner.getIncludedFiles();
             File basedir = scanner.getBasedir();
             for (int j = 0; j < files.length; j++) {
 
-                log("Adding file " + files[j] + " to fileset",
-                    Project.MSG_VERBOSE);
+                logWhenWriting("Adding file " + files[j] + " to fileset",
+                               Project.MSG_VERBOSE);
                 ZipFileSet zf = new ZipFileSet();
                 zf.setProject(getProject());
                 zf.setSrc(new File(basedir, files[j]));
@@ -781,89 +916,124 @@ public class Zip extends MatchingTask {
                 if ("".equals(name)) {
                     continue;
                 }
-                if (resources[i].isDirectory() && !name.endsWith("/")) {
-                    name = name + "/";
-                }
 
-                if (!doFilesonly && !dealingWithFiles
-                    && resources[i].isDirectory()
-                    && !zfs.hasDirModeBeenSet()) {
-                    int nextToLastSlash = name.lastIndexOf("/",
-                                                           name.length() - 2);
-                    if (nextToLastSlash != -1) {
-                        addParentDirs(base, name.substring(0,
-                                                           nextToLastSlash + 1),
-                                      zOut, prefix, dirMode);
+                if (resources[i].isDirectory()) {
+                    if (doFilesonly) {
+                        continue;
                     }
-                    if (zf != null) {
-                        ZipEntry ze = zf.getEntry(resources[i].getName());
-                        int unixMode = ze.getUnixMode();
-                        if ((unixMode == 0 || unixMode == UnixStat.DIR_FLAG)
-                            && !preserve0Permissions) {
-                            unixMode = dirMode;
-                        }
-                        addParentDirs(base, name, zOut, prefix,
-                                      unixMode);
-                    } else {
-                        ArchiveResource tr = (ArchiveResource) resources[i];
-                        addParentDirs(base, name, zOut, prefix,
-                                      tr.getMode());
-                    }
+                    int thisDirMode = zfs != null && zfs.hasDirModeBeenSet()
+                        ? dirMode : getUnixMode(resources[i], zf, dirMode);
+                    addDirectoryResource(resources[i], name, prefix,
+                                         base, zOut,
+                                         dirMode, thisDirMode);
 
-                } else {
+                } else { // !isDirectory
+
                     addParentDirs(base, name, zOut, prefix, dirMode);
-                }
 
-                if (!resources[i].isDirectory() && dealingWithFiles) {
-                    File f = FILE_UTILS.resolveFile(base,
-                                                   resources[i].getName());
-                    zipFile(f, zOut, prefix + name, fileMode);
-                } else if (!resources[i].isDirectory()) {
-                    if (zf != null) {
-                    ZipEntry ze = zf.getEntry(resources[i].getName());
-
-                    if (ze != null) {
-                        boolean oldCompress = doCompress;
-                        if (keepCompression) {
-                            doCompress = (ze.getMethod() == ZipEntry.DEFLATED);
-                        }
-                        InputStream is = null;
-                        try {
-                            is = zf.getInputStream(ze);
-                            int unixMode = ze.getUnixMode();
-                            if (zfs.hasFileModeBeenSet()
-                                || ((unixMode == 0
-                                     || unixMode == UnixStat.FILE_FLAG)
-                                    && !preserve0Permissions)) {
-                                unixMode = fileMode;
-                            }
-                            zipFile(is, zOut, prefix + name,
-                                    ze.getTime(), zfs.getSrc(getProject()),
-                                    unixMode);
-                        } finally {
-                            doCompress = oldCompress;
-                            FileUtils.close(is);
-                        }
-                    }
+                    if (dealingWithFiles) {
+                        File f = FILE_UTILS.resolveFile(base,
+                                                        resources[i].getName());
+                        zipFile(f, zOut, prefix + name, fileMode);
                     } else {
-                        ArchiveResource tr = (ArchiveResource) resources[i];
-                        InputStream is = null;
-                        try {
-                            is = tr.getInputStream();
-                            zipFile(is, zOut, prefix + name,
-                                    resources[i].getLastModified(),
-                                    zfs.getSrc(getProject()),
-                                    zfs.hasFileModeBeenSet() ? fileMode
-                                    : tr.getMode());
-                        } finally {
-                            FileUtils.close(is);
-                        }
+                        int thisFileMode =
+                            zfs != null && zfs.hasFileModeBeenSet()
+                            ? fileMode : getUnixMode(resources[i], zf,
+                                                     fileMode);
+                        addResource(resources[i], name, prefix,
+                                    zOut, thisFileMode, zf,
+                                    zfs == null
+                                    ? null : zfs.getSrc(getProject()));
                     }
                 }
             }
         } finally {
             if (zf != null) {
                 zf.close();
+            }
+        }
+    }
+
+    /**
+     * Add a directory entry to the archive using a specified
+     * Unix-mode and the default mode for its parent directories (if
+     * necessary).
+     */
+    private void addDirectoryResource(Resource r, String name, String prefix,
+                                      File base, ZipOutputStream zOut,
+                                      int defaultDirMode, int thisDirMode)
+        throws IOException {
+
+        if (!name.endsWith("/")) {
+            name = name + "/";
+        }
+
+        int nextToLastSlash = name.lastIndexOf("/", name.length() - 2);
+        if (nextToLastSlash != -1) {
+            addParentDirs(base, name.substring(0, nextToLastSlash + 1),
+                          zOut, prefix, defaultDirMode);
+        }
+        zipDir(r, zOut, prefix + name, thisDirMode,
+               r instanceof ZipResource
+               ? ((ZipResource) r).getExtraFields() : null);
+    }
+
+    /**
+     * Determine a Resource's Unix mode or return the given default
+     * value if not available.
+     */
+    private int getUnixMode(Resource r, ZipFile zf, int defaultMode)
+        throws IOException {
+
+        int unixMode = defaultMode;
+        if (zf != null) {
+            ZipEntry ze = zf.getEntry(r.getName());
+            unixMode = ze.getUnixMode();
+            if ((unixMode == 0 || unixMode == UnixStat.DIR_FLAG)
+                && !preserve0Permissions) {
+                unixMode = defaultMode;
+            }
+        } else if (r instanceof ArchiveResource) {
+            unixMode = ((ArchiveResource) r).getMode();
+        }
+        return unixMode;
+    }
+
+    /**
+     * Add a file entry.
+     */
+    private void addResource(Resource r, String name, String prefix,
+                             ZipOutputStream zOut, int mode,
+                             ZipFile zf, File fromArchive)
+        throws IOException {
+
+        if (zf != null) {
+            ZipEntry ze = zf.getEntry(r.getName());
+
+            if (ze != null) {
+                boolean oldCompress = doCompress;
+                if (keepCompression) {
+                    doCompress = (ze.getMethod() == ZipEntry.DEFLATED);
+                }
+                InputStream is = null;
+                try {
+                    is = zf.getInputStream(ze);
+                    zipFile(is, zOut, prefix + name, ze.getTime(),
+                            fromArchive, mode, ze.getExtraFields());
+                } finally {
+                    doCompress = oldCompress;
+                    FileUtils.close(is);
+                }
+            }
+        } else {
+            InputStream is = null;
+            try {
+                is = r.getInputStream();
+                zipFile(is, zOut, prefix + name, r.getLastModified(),
+                        fromArchive, mode, r instanceof ZipResource
+                        ? ((ZipResource) r).getExtraFields() : null);
+            } finally {
+                FileUtils.close(is);
             }
         }
     }
@@ -897,32 +1067,27 @@ public class Zip extends MatchingTask {
                 continue;
             }
             File base = null;
-            if (resources[i] instanceof FileProvider) {
-                base = ResourceUtils.asFileResource((FileProvider) resources[i]).getBaseDir();
+            FileProvider fp = (FileProvider) resources[i].as(FileProvider.class);
+            if (fp != null) {
+                base = ResourceUtils.asFileResource(fp).getBaseDir();
             }
+
             if (resources[i].isDirectory()) {
-                if (!name.endsWith("/")) {
-                    name = name + "/";
-                }
-            }
+                addDirectoryResource(resources[i], name, "", base, zOut,
+                                     ArchiveFileSet.DEFAULT_DIR_MODE,
+                                     ArchiveFileSet.DEFAULT_DIR_MODE);
 
-            addParentDirs(base, name, zOut, "",
-                          ArchiveFileSet.DEFAULT_DIR_MODE);
+            } else {
+                addParentDirs(base, name, zOut, "",
+                              ArchiveFileSet.DEFAULT_DIR_MODE);
 
-            if (!resources[i].isDirectory()) {
-                if (resources[i] instanceof FileProvider) {
-                    File f = ((FileProvider) resources[i]).getFile();
+                if (fp != null) {
+                    File f = (fp).getFile();
                     zipFile(f, zOut, name, ArchiveFileSet.DEFAULT_FILE_MODE);
                 } else {
-                    InputStream is = null;
-                    try {
-                        is = resources[i].getInputStream();
-                        zipFile(is, zOut, name,
-                                resources[i].getLastModified(),
-                                null, ArchiveFileSet.DEFAULT_FILE_MODE);
-                    } finally {
-                        FileUtils.close(is);
-                    }
+                    addResource(resources[i], name, "", zOut,
+                                ArchiveFileSet.DEFAULT_FILE_MODE,
+                                null, null);
                 }
             }
         }
@@ -958,8 +1123,10 @@ public class Zip extends MatchingTask {
         // In this case using java.util.zip will not work
         // because it does not permit a zero-entry archive.
         // Must create it manually.
-        log("Note: creating empty " + archiveType + " archive " + zipFile,
-            Project.MSG_INFO);
+        if (!skipWriting) {
+            log("Note: creating empty " + archiveType + " archive " + zipFile,
+                Project.MSG_INFO);
+        }
         OutputStream os = null;
         try {
             os = new FileOutputStream(zipFile);
@@ -1120,13 +1287,14 @@ public class Zip extends MatchingTask {
 
             if (emptyBehavior.equals("skip")) {
                 if (doUpdate) {
-                    log(archiveType + " archive " + zipFile
-                        + " not updated because no new files were included.",
-                        Project.MSG_VERBOSE);
+                    logWhenWriting(archiveType + " archive " + zipFile
+                                   + " not updated because no new files were"
+                                   + " included.", Project.MSG_VERBOSE);
                 } else {
-                    log("Warning: skipping " + archiveType + " archive "
-                        + zipFile + " because no files were included.",
-                        Project.MSG_WARN);
+                    logWhenWriting("Warning: skipping " + archiveType
+                                   + " archive " + zipFile
+                                   + " because no files were included.",
+                                   Project.MSG_WARN);
                 }
             } else if (emptyBehavior.equals("fail")) {
                 throw new BuildException("Cannot create " + archiveType
@@ -1203,16 +1371,8 @@ public class Zip extends MatchingTask {
                 }
             }
 
-            Resource[] resources = initialResources[i];
-            if (doFilesonly) {
-                resources = selectFileResources(resources);
-            }
-
-            newerResources[i] =
-                ResourceUtils.selectOutOfDateSources(this,
-                                                     resources,
-                                                     myMapper,
-                                                     getZipScanner());
+            newerResources[i] = selectOutOfDateResources(initialResources[i],
+                                                         myMapper);
             needsUpdate = needsUpdate || (newerResources[i].length > 0);
 
             if (needsUpdate && !doUpdate) {
@@ -1288,24 +1448,16 @@ public class Zip extends MatchingTask {
             }
 
             for (int j = 0; j < initialResources[i].length; j++) {
-                if (initialResources[i][j] instanceof FileProvider
-                    && zipFile.equals(((FileProvider)
-                                       initialResources[i][j]).getFile())) {
+                FileProvider fp =
+                    (FileProvider) initialResources[i][j].as(FileProvider.class);
+                if (fp != null && zipFile.equals(fp.getFile())) {
                     throw new BuildException("A zip file cannot include "
                                              + "itself", getLocation());
                 }
             }
 
-            Resource[] rs = initialResources[i];
-            if (doFilesonly) {
-                rs = selectFileResources(rs);
-            }
-
-            newerResources[i] =
-                ResourceUtils.selectOutOfDateSources(this,
-                                                     rs,
-                                                     new IdentityMapper(),
-                                                     getZipScanner());
+            newerResources[i] = selectOutOfDateResources(initialResources[i],
+                                                         new IdentityMapper());
             needsUpdate = needsUpdate || (newerResources[i].length > 0);
 
             if (needsUpdate && !doUpdate) {
@@ -1321,6 +1473,29 @@ public class Zip extends MatchingTask {
         }
 
         return new ArchiveState(needsUpdate, newerResources);
+    }
+
+    private Resource[] selectOutOfDateResources(Resource[] initial,
+                                                FileNameMapper mapper) {
+        Resource[] rs = selectFileResources(initial);
+        Resource[] result =
+            ResourceUtils.selectOutOfDateSources(this, rs, mapper,
+                                                 getZipScanner());
+        if (!doFilesonly) {
+            Union u = new Union();
+            u.addAll(Arrays.asList(selectDirectoryResources(initial)));
+            ResourceCollection rc =
+                ResourceUtils.selectSources(this, u, mapper,
+                                            getZipScanner(),
+                                            MISSING_DIR_PROVIDER);
+            if (rc.size() > 0) {
+                ArrayList newer = new ArrayList();
+                newer.addAll(Arrays.asList(((Union) rc).listResources()));
+                newer.addAll(Arrays.asList(result));
+                result = (Resource[]) newer.toArray(result);
+            }
+        }
+        return result;
     }
 
     /**
@@ -1379,18 +1554,29 @@ public class Zip extends MatchingTask {
         Resource[][] result = new Resource[rcs.length][];
         for (int i = 0; i < rcs.length; i++) {
             Iterator iter = rcs[i].iterator();
-            ArrayList rs = new ArrayList();
-            int lastDir = 0;
+            ArrayList dirs = new ArrayList();
+            ArrayList files = new ArrayList();
             while (iter.hasNext()) {
                 Resource r = (Resource) iter.next();
                 if (r.isExists()) {
                     if (r.isDirectory()) {
-                        rs.add(lastDir++, r);
+                        dirs.add(r);
                     } else {
-                        rs.add(r);
+                        files.add(r);
                     }
                 }
             }
+            // make sure directories are in alpha-order - this also
+            // ensures parents come before their children
+            Collections.sort(dirs, new Comparator() {
+                    public int compare(Object o1, Object o2) {
+                        Resource r1 = (Resource) o1;
+                        Resource r2 = (Resource) o2;
+                        return r1.getName().compareTo(r2.getName());
+                    }
+                });
+            ArrayList rs = new ArrayList(dirs);
+            rs.addAll(files);
             result[i] = (Resource[]) rs.toArray(new Resource[rs.size()]);
         }
         return result;
@@ -1413,7 +1599,7 @@ public class Zip extends MatchingTask {
 
     /**
      * Add a directory to the zip stream.
-     * @param dir  the directort to add to the archive
+     * @param dir  the directory to add to the archive
      * @param zOut the stream to write to
      * @param vPath the name this entry shall have in the archive
      * @param mode the Unix permissions to set.
@@ -1424,9 +1610,27 @@ public class Zip extends MatchingTask {
     protected void zipDir(File dir, ZipOutputStream zOut, String vPath,
                           int mode, ZipExtraField[] extra)
         throws IOException {
+        zipDir(dir == null ? (Resource) null : new FileResource(dir),
+               zOut, vPath, mode, extra);
+    }
+
+    /**
+     * Add a directory to the zip stream.
+     * @param dir  the directory to add to the archive
+     * @param zOut the stream to write to
+     * @param vPath the name this entry shall have in the archive
+     * @param mode the Unix permissions to set.
+     * @param extra ZipExtraFields to add
+     * @throws IOException on error
+     * @since Ant 1.8.0
+     */
+    protected void zipDir(Resource dir, ZipOutputStream zOut, String vPath,
+                          int mode, ZipExtraField[] extra)
+        throws IOException {
         if (doFilesonly) {
-            log("skipping directory " + vPath + " for file-only archive",
-                    Project.MSG_VERBOSE);
+            logWhenWriting("skipping directory " + vPath
+                           + " for file-only archive",
+                           Project.MSG_VERBOSE);
             return;
         }
         if (addedDirs.get(vPath) != null) {
@@ -1435,18 +1639,19 @@ public class Zip extends MatchingTask {
             return;
         }
 
-        log("adding directory " + vPath, Project.MSG_VERBOSE);
+        logWhenWriting("adding directory " + vPath, Project.MSG_VERBOSE);
         addedDirs.put(vPath, vPath);
 
         if (!skipWriting) {
             ZipEntry ze = new ZipEntry (vPath);
-            if (dir != null && dir.exists()) {
-                // ZIPs store time with a granularity of 2 seconds, round up
-                ze.setTime(dir.lastModified() + (roundUp ? ROUNDUP_MILLIS : 0));
+
+            // ZIPs store time with a granularity of 2 seconds, round up
+            int millisToAdd = roundUp ? ROUNDUP_MILLIS : 0;
+
+            if (dir != null && dir.isExists()) {
+                ze.setTime(dir.getLastModified() + millisToAdd);
             } else {
-                // ZIPs store time with a granularity of 2 seconds, round up
-                ze.setTime(System.currentTimeMillis()
-                           + (roundUp ? ROUNDUP_MILLIS : 0));
+                ze.setTime(System.currentTimeMillis() + millisToAdd);
             }
             ze.setSize (0);
             ze.setMethod (ZipEntry.STORED);
@@ -1465,7 +1670,8 @@ public class Zip extends MatchingTask {
     /**
      * Adds a new entry to the archive, takes care of duplicates as well.
      *
-     * @param in the stream to read data for the entry from.
+     * @param in the stream to read data for the entry from.  The
+     * caller of the method is responsible for closing the stream.
      * @param zOut the stream to write to.
      * @param vPath the name this entry shall have in the archive.
      * @param lastModified last modification time for the entry.
@@ -1479,10 +1685,37 @@ public class Zip extends MatchingTask {
     protected void zipFile(InputStream in, ZipOutputStream zOut, String vPath,
                            long lastModified, File fromArchive, int mode)
         throws IOException {
+        zipFile(in, zOut, vPath, lastModified, fromArchive, mode, null);
+    }
+
+    /**
+     * Adds a new entry to the archive, takes care of duplicates as well.
+     *
+     * @param in the stream to read data for the entry from.  The
+     * caller of the method is responsible for closing the stream.
+     * @param zOut the stream to write to.
+     * @param vPath the name this entry shall have in the archive.
+     * @param lastModified last modification time for the entry.
+     * @param fromArchive the original archive we are copying this
+     * entry from, will be null if we are not copying from an archive.
+     * @param mode the Unix permissions to set.
+     * @param extra ZipExtraFields to add
+     *
+     * @since Ant 1.8.0
+     * @throws IOException on error
+     */
+    protected void zipFile(InputStream in, ZipOutputStream zOut, String vPath,
+                           long lastModified, File fromArchive,
+                           int mode, ZipExtraField[] extra)
+        throws IOException {
+
+        // fromArchive is used in subclasses overriding this method
+
         if (entries.contains(vPath)) {
 
             if (duplicate.equals("preserve")) {
-                log(vPath + " already added, skipping", Project.MSG_INFO);
+                logWhenWriting(vPath + " already added, skipping",
+                               Project.MSG_INFO);
                 return;
             } else if (duplicate.equals("fail")) {
                 throw new BuildException("Duplicate file " + vPath
@@ -1490,11 +1723,11 @@ public class Zip extends MatchingTask {
                                          + "attribute is 'fail'.");
             } else {
                 // duplicate equal to add, so we continue
-                log("duplicate file " + vPath
-                    + " found, adding.", Project.MSG_VERBOSE);
+                logWhenWriting("duplicate file " + vPath
+                               + " found, adding.", Project.MSG_VERBOSE);
             }
         } else {
-            log("adding entry " + vPath, Project.MSG_VERBOSE);
+            logWhenWriting("adding entry " + vPath, Project.MSG_VERBOSE);
         }
 
         entries.put(vPath, vPath);
@@ -1545,6 +1778,10 @@ public class Zip extends MatchingTask {
 
             ze.setUnixMode(mode);
             zOut.putNextEntry(ze);
+
+            if (extra != null) {
+                ze.setExtraFields(extra);
+            }
 
             byte[] buffer = new byte[BUFFER_SIZE];
             int count = 0;
@@ -1702,26 +1939,74 @@ public class Zip extends MatchingTask {
      * @since Ant 1.6
      */
     protected Resource[] selectFileResources(Resource[] orig) {
+        return selectResources(orig,
+                               new ResourceSelector() {
+                                   public boolean isSelected(Resource r) {
+                                       if (!r.isDirectory()) {
+                                           return true;
+                                       } else if (doFilesonly) {
+                                           logWhenWriting("Ignoring directory "
+                                                          + r.getName()
+                                                          + " as only files will"
+                                                          + " be added.",
+                                                          Project.MSG_VERBOSE);
+                                       }
+                                       return false;
+                                   }
+                               });
+    }
+
+    /**
+     * Drops all non-directory resources from the given array.
+     * @param orig the resources to filter
+     * @return the filters resources
+     * @since Ant 1.8.0
+     */
+    protected Resource[] selectDirectoryResources(Resource[] orig) {
+        return selectResources(orig,
+                               new ResourceSelector() {
+                                   public boolean isSelected(Resource r) {
+                                       return r.isDirectory();
+                                   }
+                               });
+    }
+
+    /**
+     * Drops all resources from the given array that are not selected
+     * @param orig the resources to filter
+     * @return the filters resources
+     * @since Ant 1.8.0
+     */
+    protected Resource[] selectResources(Resource[] orig,
+                                         ResourceSelector selector) {
         if (orig.length == 0) {
             return orig;
         }
 
-        Vector v = new Vector(orig.length);
+        ArrayList v = new ArrayList(orig.length);
         for (int i = 0; i < orig.length; i++) {
-            if (!orig[i].isDirectory()) {
-                v.addElement(orig[i]);
-            } else {
-                log("Ignoring directory " + orig[i].getName()
-                    + " as only files will be added.", Project.MSG_VERBOSE);
+            if (selector.isSelected(orig[i])) {
+                v.add(orig[i]);
             }
         }
 
         if (v.size() != orig.length) {
             Resource[] r = new Resource[v.size()];
-            v.copyInto(r);
-            return r;
+            return (Resource[]) v.toArray(r);
         }
         return orig;
+    }
+
+    /**
+     * Logs a message at the given output level, but only if this is
+     * the pass that will actually create the archive.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void logWhenWriting(String msg, int level) {
+        if (!skipWriting) {
+            log(msg, level);
+        }
     }
 
     /**
@@ -1785,6 +2070,47 @@ public class Zip extends MatchingTask {
                 }
             }
             return true;
+        }
+    }
+
+    /**
+     * Policiy for creation of Unicode extra fields: never, always or
+     * not-encodeable.
+     *
+     * @since Ant 1.8.0
+     */
+    public static final class UnicodeExtraField extends EnumeratedAttribute {
+        private static final Map POLICIES = new HashMap();
+        private static final String NEVER_KEY = "never";
+        private static final String ALWAYS_KEY = "always";
+        private static final String N_E_KEY = "not-encodeable";
+        static {
+            POLICIES.put(NEVER_KEY,
+                         ZipOutputStream.UnicodeExtraFieldPolicy.NEVER);
+            POLICIES.put(ALWAYS_KEY,
+                         ZipOutputStream.UnicodeExtraFieldPolicy.ALWAYS);
+            POLICIES.put(N_E_KEY,
+                         ZipOutputStream.UnicodeExtraFieldPolicy
+                         .NOT_ENCODEABLE);
+        }
+
+        public String[] getValues() {
+            return new String[] {NEVER_KEY, ALWAYS_KEY, N_E_KEY};
+        }
+
+        public static final UnicodeExtraField NEVER =
+            new UnicodeExtraField(NEVER_KEY);
+
+        private UnicodeExtraField(String name) {
+            setValue(name);
+        }
+
+        public UnicodeExtraField() {
+        }
+
+        public ZipOutputStream.UnicodeExtraFieldPolicy getPolicy() {
+            return (ZipOutputStream.UnicodeExtraFieldPolicy)
+                POLICIES.get(getValue());
         }
     }
 }

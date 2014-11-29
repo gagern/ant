@@ -28,6 +28,7 @@ import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.channels.Channel;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,6 +55,7 @@ import org.apache.tools.ant.types.resources.FileResource;
  *
  */
 public class FileUtils {
+    private static final int DELETE_RETRY_SLEEP_MILLIS = 10;
     private static final int EXPAND_SPACE = 50;
     private static final FileUtils PRIMARY_INSTANCE = new FileUtils();
 
@@ -468,14 +470,51 @@ public class FileUtils {
      * @since Ant 1.6
      */
     public void copyFile(File sourceFile, File destFile,
+            FilterSetCollection filters, Vector filterChains,
+            boolean overwrite, boolean preserveLastModified,
+            String inputEncoding, String outputEncoding,
+            Project project) throws IOException {
+        copyFile(sourceFile, destFile, filters, filterChains, overwrite, preserveLastModified,
+                false, inputEncoding, outputEncoding, project);
+    }
+
+    /**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * <code>destFile</code> file should be made equal
+     * to the last modified time of <code>sourceFile</code>.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be <code>null</code>.
+     * @param destFile the file to copy to.
+     *                 Must not be <code>null</code>.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param append whether to append to the destination file.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     *
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.8
+     */
+    public void copyFile(File sourceFile, File destFile,
                          FilterSetCollection filters, Vector filterChains,
-                         boolean overwrite, boolean preserveLastModified,
+                         boolean overwrite, boolean preserveLastModified, boolean append,
                          String inputEncoding, String outputEncoding,
                          Project project) throws IOException {
-        ResourceUtils.copyResource(
-            new FileResource(sourceFile), new FileResource(destFile),
-            filters, filterChains, overwrite, preserveLastModified,
-            inputEncoding, outputEncoding, project);
+        ResourceUtils.copyResource(new FileResource(sourceFile), new FileResource(destFile),
+                filters, filterChains, overwrite, preserveLastModified, append, inputEncoding,
+                outputEncoding, project);
     }
 
     // CheckStyle:ParameterNumberCheck ON
@@ -852,7 +891,7 @@ public class FileUtils {
             synchronized (rand) {
                 do {
                     result = new File(parent, prefix
-                            + fmt.format(Math.abs(rand.nextInt())) + suffix);
+                            + fmt.format(rand.nextInt(Integer.MAX_VALUE)) + suffix);
                 } while (result.exists());
             }
         }
@@ -1039,57 +1078,15 @@ public class FileUtils {
      * @return true if the file is a symbolic link.
      * @throws IOException on error.
      * @since Ant 1.5
+     * @deprecated use SymbolicLinkUtils instead
      */
     public boolean isSymbolicLink(File parent, String name)
         throws IOException {
+        SymbolicLinkUtils u = SymbolicLinkUtils.getSymbolicLinkUtils();
         if (parent == null) {
-            File f = new File(name);
-            parent = f.getParentFile();
-            name = f.getName();
+            return u.isSymbolicLink(name);
         }
-        File toTest = new File(parent.getCanonicalPath(), name);
-        return !toTest.getAbsolutePath().equals(toTest.getCanonicalPath());
-    }
-
-    /**
-     * Checks whether a given file is a broken symbolic link.
-     *
-     * <p>It doesn't really test for symbolic links but whether Java
-     * reports that the File doesn't exist but its parent's child list
-     * contains it--this may lead to false positives on some
-     * platforms.</p>
-     *
-     * <p>Note that #isSymbolicLink returns false if this method
-     * returns true since Java won't produce a canonical name
-     * different from the abolute one if the link is broken.</p>
-     *
-     * @param parent the parent directory of the file to test
-     * @param name the name of the file to test.
-     *
-     * @return true if the file is a broken symbolic link.
-     * @throws IOException on error.
-     * @since Ant 1.8.0
-     */
-    public boolean isDanglingSymbolicLink(File parent, String name) 
-        throws IOException {
-        File f = null;
-        if (parent == null) {
-            f = new File(name);
-            parent = f.getParentFile();
-            name = f.getName();
-        } else {
-            f = new File(parent, name);
-        }
-        if (!f.exists()) {
-            final String localName = f.getName();
-            String[] c = parent.list(new FilenameFilter() {
-                    public boolean accept(File d, String n) {
-                        return localName.equals(n);
-                    }
-                });
-            return c != null && c.length > 0;
-        }
-        return false;
+        return u.isSymbolicLink(parent, name);
     }
 
     /**
@@ -1157,46 +1154,7 @@ public class FileUtils {
      * @since Ant 1.6
      */
     public String toURI(String path) {
-        // #8031: first try Java 1.4.
-        Class uriClazz = null;
-        try {
-            uriClazz = Class.forName("java.net.URI");
-        } catch (ClassNotFoundException e) {
-            // OK, Java 1.3.
-        }
-        if (uriClazz != null) {
-            try {
-                File f = new File(path).getAbsoluteFile();
-                java.lang.reflect.Method toURIMethod = File.class.getMethod("toURI", new Class[0]);
-                Object uriObj = toURIMethod.invoke(f, new Object[] {});
-                java.lang.reflect.Method toASCIIStringMethod
-                        = uriClazz.getMethod("toASCIIString", new Class[0]);
-                return (String) toASCIIStringMethod.invoke(uriObj, new Object[] {});
-            } catch (Exception e) {
-                // Reflection problems? Should not happen, debug.
-                e.printStackTrace();
-            }
-        }
-        boolean isDir = new File(path).isDirectory();
-
-        StringBuffer sb = new StringBuffer("file:");
-
-        path = resolveFile(null, path).getPath();
-        sb.append("//");
-        // add an extra slash for filesystems with drive-specifiers
-        if (!path.startsWith(File.separator)) {
-            sb.append("/");
-        }
-        path = path.replace('\\', '/');
-        try {
-            sb.append(Locator.encodeURI(path));
-        } catch (UnsupportedEncodingException exc) {
-            throw new BuildException(exc);
-        }
-        if (isDir && !path.endsWith("/")) {
-            sb.append('/');
-        }
-        return sb.toString();
+        return new File(path).getAbsoluteFile().toURI().toASCIIString();
     }
 
     /**
@@ -1271,7 +1229,8 @@ public class FileUtils {
             System.err.println("Rename of " + from + " to " + to + " is a no-op.");
             return;
         }
-        if (to.exists() && !(from.equals(to.getCanonicalFile()) || to.delete())) {
+        if (to.exists() &&
+            !(from.equals(to.getCanonicalFile()) || tryHardToDelete(to))) {
             throw new IOException("Failed to delete " + to + " while trying to rename " + from);
         }
         File parent = to.getParentFile();
@@ -1281,7 +1240,7 @@ public class FileUtils {
         }
         if (!from.renameTo(to)) {
             copyFile(from, to);
-            if (!from.delete()) {
+            if (!tryHardToDelete(from)) {
                 throw new IOException("Failed to delete " + from + " while trying to rename it.");
             }
         }
@@ -1469,6 +1428,23 @@ public class FileUtils {
     }
 
     /**
+     * Close a Channel without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     *
+     * @param device channel, can be null.
+     * @since Ant 1.8.0
+     */
+    public static void close(Channel device) {
+        if (null != device) {
+            try {
+                device.close();
+            } catch (IOException e) {
+                //ignore
+            }
+        }
+    }
+
+    /**
      * Delete the file with {@link File#delete()} if the argument is not null.
      * Do nothing on a null argument.
      * @param file file to delete.
@@ -1478,6 +1454,30 @@ public class FileUtils {
             file.delete();
         }
     }
+
+    /**
+     * Accommodate Windows bug encountered in both Sun and IBM JDKs.
+     * Others possible. If the delete does not work, call System.gc(),
+     * wait a little and try again.
+     *
+     * @return whether deletion was successful
+     * @since Ant 1.8.0
+     */
+    public boolean tryHardToDelete(File f) {
+        if (!f.delete()) {
+            if (ON_WINDOWS) {
+                System.gc();
+            }
+            try {
+                Thread.sleep(DELETE_RETRY_SLEEP_MILLIS);
+            } catch (InterruptedException ex) {
+                // Ignore Exception
+            }
+            return f.delete();
+        }
+        return true;
+    }
+
 
     /**
      * Calculates the relative path between two files.

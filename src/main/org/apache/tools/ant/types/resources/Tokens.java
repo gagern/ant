@@ -102,6 +102,7 @@ public class Tokens extends BaseResourceCollectionWrapper {
             throw new BuildException("Only one nested tokenizer allowed.");
         }
         this.tokenizer = tokenizer;
+        setChecked(false);
     }
 
     /**
@@ -116,12 +117,14 @@ public class Tokens extends BaseResourceCollectionWrapper {
         if (isChecked()) {
             return;
         }
-        if (isReference()) {
-            super.dieOnCircularReference(stk, p);
-        } else {
+
+        // check nested collection
+        super.dieOnCircularReference(stk, p);
+
+        if (!isReference()) {
             if (tokenizer instanceof DataType) {
-                stk.push(tokenizer);
-                invokeCircularReferenceCheck((DataType) tokenizer, stk, p);
+                pushAndInvokeCircularReferenceCheck((DataType) tokenizer, stk,
+                                                    p);
             }
             setChecked(true);
         }

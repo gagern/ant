@@ -122,6 +122,12 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
     /** factory attributes */
     private Vector attributes = new Vector();
 
+    /** whether to suppress warnings */
+    private boolean suppressWarnings = false;
+
+    /** optional trace configuration. */
+    private XSLTProcess.TraceConfiguration traceConfiguration = null;
+
     /**
      * Constructor for TraXLiaison.
      * @throws Exception never
@@ -190,20 +196,8 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
             // make sure to close all handles, otherwise the garbage
             // collector will close them...whenever possible and
             // Windows may complain about not being able to delete files.
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException ignored) {
-                // ignore
-            }
-            try {
-                if (fos != null) {
-                    fos.close();
-                }
-            } catch (IOException ignored) {
-                // ignore
-            }
+            FileUtils.close(fis);
+            FileUtils.close(fos);
         }
     }
 
@@ -272,9 +266,10 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
     }
 
     private String resourceToURI(Resource resource) {
-        if (resource instanceof FileProvider) {
-            File f = ((FileProvider) resource).getFile();
-            return FILE_UTILS.toURI(f.getAbsolutePath());
+        // TODO turn URLResource into Provider
+        FileProvider fp = (FileProvider) resource.as(FileProvider.class);
+        if (fp != null) {
+            return FILE_UTILS.toURI(fp.getFile().getAbsolutePath());
         }
         if (resource instanceof URLResource) {
             URL u = ((URLResource) resource).getURL();
@@ -332,6 +327,37 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
             final String[] pair = (String[]) outputProperties.elementAt(i);
             transformer.setOutputProperty(pair[0], pair[1]);
         }
+
+        if (traceConfiguration != null) {
+            if ("org.apache.xalan.transformer.TransformerImpl"
+                .equals(transformer.getClass().getName())) {
+                try {
+                    Class traceSupport =
+                        Class.forName("org.apache.tools.ant.taskdefs.optional."
+                                      + "Xalan2TraceSupport", true,
+                                      Thread.currentThread()
+                                      .getContextClassLoader());
+                    XSLTTraceSupport ts =
+                        (XSLTTraceSupport) traceSupport.newInstance();
+                    ts.configureTrace(transformer, traceConfiguration);
+                } catch (Exception e) {
+                    String msg = "Failed to enable tracing because of " + e;
+                    if (project != null) {
+                        project.log(msg, Project.MSG_WARN);
+                    } else {
+                        System.err.println(msg);
+                    }
+                }
+            } else {
+                String msg = "Not enabling trace support for transformer"
+                    + " implementation" + transformer.getClass().getName();
+                if (project != null) {
+                    project.log(msg, Project.MSG_WARN);
+                } else {
+                    System.err.println(msg);
+                }
+            }
+        }
     }
 
     /**
@@ -363,7 +389,28 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
             tfactory = TransformerFactory.newInstance();
         } else {
             try {
-                Class clazz = Class.forName(factoryName);
+                Class clazz = null;
+                try {
+                    clazz =
+                        Class.forName(factoryName, true,
+                                      Thread.currentThread()
+                                      .getContextClassLoader());
+                } catch (ClassNotFoundException cnfe) {
+                    String msg = "Failed to load " + factoryName
+                        + " via the configured classpath, will try"
+                        + " Ant's classpath instead.";
+                    if (logger != null) {
+                        logger.log(msg);
+                    } else if (project != null) {
+                        project.log(msg, Project.MSG_WARN);
+                    } else {
+                        System.err.println(msg);
+                    }
+                }
+
+                if (clazz == null) {
+                    clazz = Class.forName(factoryName);
+                }
                 tfactory = (TransformerFactory) clazz.newInstance();
             } catch (Exception e) {
                 throw new BuildException(e);
@@ -475,7 +522,9 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
      * @param e the exception to log.
      */
     public void warning(TransformerException e) {
-        logError(e, "Warning");
+        if (!suppressWarnings) {
+            logError(e, "Warning");
+        }
     }
 
     private void logError(TransformerException e, String type) {
@@ -566,5 +615,9 @@ public class TraXLiaison implements XSLTLiaison3, ErrorListener, XSLTLoggerAware
                 = (XSLTProcess.OutputProperty) props.nextElement();
             setOutputProperty(prop.getName(), prop.getValue());
         }
+
+        suppressWarnings = xsltTask.getSuppressWarnings();
+
+        traceConfiguration = xsltTask.getTraceConfiguration();
     }
 }

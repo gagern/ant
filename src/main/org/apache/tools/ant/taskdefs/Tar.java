@@ -561,7 +561,9 @@ public class Tar extends MatchingTask {
             HashMap basedirToFilesMap = new HashMap();
             Iterator iter = rc.iterator();
             while (iter.hasNext()) {
-                FileResource r = ResourceUtils.asFileResource((FileProvider) iter.next());
+                Resource res = (Resource) iter.next();
+                FileResource r = ResourceUtils
+                    .asFileResource((FileProvider) res.as(FileProvider.class));
                 File base = r.getBaseDir();
                 if (base == null) {
                     base = Copy.NULL_FILE_PLACEHOLDER;
@@ -654,7 +656,8 @@ public class Tar extends MatchingTask {
         } else if (rc.isFilesystemOnly()) {
             Iterator iter = rc.iterator();
             while (iter.hasNext()) {
-                File f = ((FileProvider) iter.next()).getFile();
+                Resource r = (Resource) iter.next();
+                File f = ((FileProvider) r.as(FileProvider.class)).getFile();
                 tarFile(f, tOut, f.getName(), tfs);
             }
         } else { // non-file resources
@@ -673,7 +676,7 @@ public class Tar extends MatchingTask {
      * @return true if the collection is a fileset.
      * @since Ant 1.7
      */
-    protected static final boolean isFileFileSet(ResourceCollection rc) {
+    protected static boolean isFileFileSet(ResourceCollection rc) {
         return rc instanceof FileSet && rc.isFilesystemOnly();
     }
 
@@ -684,7 +687,7 @@ public class Tar extends MatchingTask {
      * @return a list of the filenames.
      * @since Ant 1.7
      */
-    protected static final String[] getFileNames(FileSet fs) {
+    protected static String[] getFileNames(FileSet fs) {
         DirectoryScanner ds = fs.getDirectoryScanner(fs.getProject());
         String[] directories = ds.getIncludedDirectories();
         String[] filesPerSe = ds.getIncludedFiles();

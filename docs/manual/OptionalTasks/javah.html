@@ -42,6 +42,12 @@ name="implementationvalues">Here are the choices</a>:</p>
   <li>kaffeh (the native standard compiler of <a href="http://www.kaffe.org" target="_top">Kaffe</a>)</li>
 </ul>
 
+<p><b>Note:</b> if you are using this task to work on multiple files
+  the command line may become too long on some operating systems.
+  Unfortunately the javah command doesn't support command argument
+  files the way javac (for example) does, so all that can be done is
+  breaking the amount of classes to compile into smaller chunks.</p>
+
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
   <tr>
@@ -144,6 +150,17 @@ only if a given compiler implementation will be used.</p>
     <td valign="top">path</td>
   </tr>
   <tr>
+    <td valign="top">prefix</td>
+    <td align="center" rowspan="2">See
+    <a href="../using.html#arg">Command-line Arguments</a>.
+    <em>Since Ant 1.8.</em></td>
+    <td valign="top" align="center">No</td>
+  </tr>
+  <tr>
+    <td valign="top">suffix</td>
+    <td valign="top" align="center">No</td>
+  </tr>
+  <tr>
     <td valign="top">implementation</td>
     <td>Only pass the specified argument if the chosen compiler
     implementation matches the value of this attribute.  Legal values
@@ -152,6 +169,13 @@ only if a given compiler implementation will be used.</p>
     <td align="center">No</td>
   </tr>
 </table>
+
+<h4>implementationclasspath <em>since Ant 1.8.0</em></h4>
+
+<p>A <a href="../using.html#path">PATH like structure</a> holding the
+  classpath to use when loading the compiler implementation if a
+  custom class has been specified.  Doesn't have any effect when
+  using one of the built-in compilers.</p>
 
 <h3>Examples</h3>
 <pre>  &lt;javah destdir=&quot;c&quot; class=&quot;org.foo.bar.Wibble&quot;/&gt;</pre>

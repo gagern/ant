@@ -426,8 +426,9 @@ public class ExecuteOn extends ExecTask {
 
                     File base = null;
                     String name = res.getName();
-                    if (res instanceof FileProvider) {
-                        FileResource fr = ResourceUtils.asFileResource((FileProvider) res);
+                    FileProvider fp = (FileProvider) res.as(FileProvider.class);
+                    if (fp != null) {
+                        FileResource fr = ResourceUtils.asFileResource(fp);
                         base = fr.getBaseDir();
                         if (base == null) {
                             name = fr.getFile().getAbsolutePath();
@@ -548,8 +549,7 @@ public class ExecuteOn extends ExecTask {
                 }
             }
         }
-        String[] targetFiles = new String[targets.size()];
-        targets.copyInto(targetFiles);
+        String[] targetFiles = (String[]) targets.toArray(new String[targets.size()]);
 
         if (!addSourceFile) {
             srcFiles = new String[0];
@@ -576,10 +576,10 @@ public class ExecuteOn extends ExecTask {
                                  srcIndex + srcFiles.length,
                                  targetIndex - srcIndex);
 
-                // targets are already absolute file names
-                System.arraycopy(targetFiles, 0, result,
-                                 targetIndex + srcFiles.length,
-                                 targetFiles.length);
+                insertTargetFiles(targetFiles, result,
+                                  targetIndex + srcFiles.length,
+                                  targetFilePos.getPrefix(),
+                                  targetFilePos.getSuffix());
 
                 // targetIndex --> end
                 System.arraycopy(orig, targetIndex, result,
@@ -589,10 +589,9 @@ public class ExecuteOn extends ExecTask {
                 // 0 --> targetIndex
                 System.arraycopy(orig, 0, result, 0, targetIndex);
 
-                // targets are already absolute file names
-                System.arraycopy(targetFiles, 0, result,
-                                 targetIndex,
-                                 targetFiles.length);
+                insertTargetFiles(targetFiles, result, targetIndex,
+                                  targetFilePos.getPrefix(),
+                                  targetFilePos.getSuffix());
 
                 // targetIndex --> srcIndex
                 System.arraycopy(orig, targetIndex, result,
@@ -617,16 +616,21 @@ public class ExecuteOn extends ExecTask {
         }
         // fill in source file names
         for (int i = 0; i < srcFiles.length; i++) {
-            if (!relative) {
-                result[srcIndex + i] =
-                    (new File(baseDirs[i], srcFiles[i])).getAbsolutePath();
+            String src;
+            if (relative) {
+                src = srcFiles[i];
             } else {
-                result[srcIndex + i] = srcFiles[i];
+                src = new File(baseDirs[i], srcFiles[i]).getAbsolutePath();
             }
             if (forwardSlash && fileSeparator != '/') {
-                result[srcIndex + i] =
-                    result[srcIndex + i].replace(fileSeparator, '/');
+                src = src.replace(fileSeparator, '/');
             }
+            if (srcFilePos != null &&
+                (srcFilePos.getPrefix().length() > 0
+                 || srcFilePos.getSuffix().length() > 0)) {
+                src = srcFilePos.getPrefix() + src + srcFilePos.getSuffix();
+            }
+            result[srcIndex + i] = src;
         }
         return result;
     }
@@ -736,6 +740,26 @@ public class ExecuteOn extends ExecTask {
     }
 
     /**
+     * Inserts target file names (which are already absolute paths)
+     * into the list of arguments, taking prefix and postfix into
+     * account.
+     */
+    private static void insertTargetFiles(String[] targetFiles,
+                                          String[] arguments,
+                                          int insertPosition,
+                                          String prefix, String suffix) {
+        if (prefix.length() == 0 && suffix.length() == 0) {
+            System.arraycopy(targetFiles, 0, arguments, insertPosition,
+                             targetFiles.length);
+        } else {
+            for (int i = 0; i < targetFiles.length; i++) {
+                arguments[insertPosition + i] =
+                    prefix + targetFiles[i] + suffix;
+            }
+        }
+    }
+
+    /**
      * Enumerated attribute with the values "file", "dir" and "both"
      * for the type attribute.
      */
@@ -752,4 +776,5 @@ public class ExecuteOn extends ExecTask {
             return new String[] {FILE, DIR, "both"};
         }
     }
+
 }

@@ -380,7 +380,7 @@ public class Resource extends DataType implements Cloneable, Comparable, Resourc
      */
     public boolean isFilesystemOnly() {
         return (isReference() && ((Resource) getCheckedRef()).isFilesystemOnly())
-                || this instanceof FileProvider;
+            || this.as(FileProvider.class) != null;
     }
 
     /**
@@ -423,4 +423,20 @@ public class Resource extends DataType implements Cloneable, Comparable, Resourc
         super.setRefid(r);
     }
 
+    /**
+     * Returns a view of this resource that implements the interface
+     * given as the argument or null if there is no such view.
+     *
+     * <p>This allows extension interfaces to be added to resources
+     * without growing the number of permutations of interfaces
+     * decorators/adapters need to implement.</p>
+     *
+     * <p>This implementation of the method will return the current
+     * instance itself if it can be assigned to the given class.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public Object as(Class clazz) {
+        return clazz.isAssignableFrom(getClass()) ? this : null;
+    }
 }

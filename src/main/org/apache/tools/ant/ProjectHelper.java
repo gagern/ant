@@ -102,24 +102,9 @@ public class ProjectHelper {
     // The following properties are required by import ( and other tasks
     // that read build files using ProjectHelper ).
 
-    // A project helper may process multiple files. We'll keep track
-    // of them - to avoid loops and to allow caching. The caching will
-    // probably accelerate things like <antCall>.
-    // The key is the absolute file, the value is a processed tree.
-    // Since the tree is composed of UE and RC - it can be reused !
-    // protected Hashtable processedFiles=new Hashtable();
-
     private Vector importStack = new Vector();
 
-    // Temporary - until we figure a better API
-    /** EXPERIMENTAL WILL_CHANGE
-     *
-     */
-//    public Hashtable getProcessedFiles() {
-//        return processedFiles;
-//    }
-
-    /** EXPERIMENTAL WILL_CHANGE
+    /**
      *  Import stack.
      *  Used to keep track of imported files. Error reporting should
      *  display the import path.
@@ -128,6 +113,95 @@ public class ProjectHelper {
      */
     public Vector getImportStack() {
         return importStack;
+    }
+
+    private final static ThreadLocal targetPrefix = new ThreadLocal() {
+            protected Object initialValue() {
+                return (String) null;
+            }
+        };
+
+    /**
+     * The prefix to prepend to imported target names.
+     *
+     * <p>May be set by &lt;import&gt;'s as attribute.</p>
+     *
+     * @return the configured prefix or null
+     *
+     * @since Ant 1.8.0
+     */
+    public static String getCurrentTargetPrefix() {
+        return (String) targetPrefix.get();
+    }
+
+    /**
+     * Sets the prefix to prepend to imported target names.
+     *
+     * @since Ant 1.8.0
+     */
+    public static void setCurrentTargetPrefix(String prefix) {
+        targetPrefix.set(prefix);
+    }
+
+    private final static ThreadLocal prefixSeparator = new ThreadLocal() {
+            protected Object initialValue() {
+                return ".";
+            }
+        };
+
+    /**
+     * The separator between the prefix and the target name.
+     *
+     * <p>May be set by &lt;import&gt;'s prefixSeperator attribute.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public static String getCurrentPrefixSeparator() {
+        return (String) prefixSeparator.get();
+    }
+
+    /**
+     * Sets the separator between the prefix and the target name.
+     *
+     * @since Ant 1.8.0
+     */
+    public static void setCurrentPrefixSeparator(String sep) {
+        prefixSeparator.set(sep);
+    }
+
+    private final static ThreadLocal inIncludeMode = new ThreadLocal() {
+            protected Object initialValue() {
+                return Boolean.FALSE;
+            }
+        };
+
+    /**
+     * Whether the current file should be read in include as opposed
+     * to import mode.
+     *
+     * <p>In include mode included targets are only known by their
+     * prefixed names and their depends lists get rewritten so that
+     * all dependencies get the prefix as well.</p>
+     *
+     * <p>In import mode imported targets are known by an adorned as
+     * well as a prefixed name and the unadorned target may be
+     * overwritten in the importing build file.  The depends list of
+     * the imported targets is not modified at all.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public static boolean isInIncludeMode() {
+        return inIncludeMode.get() == Boolean.TRUE;
+    }
+
+    /**
+     * Sets whether the current file should be read in include as
+     * opposed to import mode.
+     *
+     * @since Ant 1.8.0
+     */
+    public static void setInIncludeMode(boolean includeMode) {
+        inIncludeMode.set(includeMode ? Boolean.TRUE : Boolean.FALSE);
     }
 
     // --------------------  Parse method  --------------------

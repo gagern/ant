@@ -4,6 +4,8 @@ Changes from Ant 1.7.x TO current SVN version
 Changes that could break older environments:
 -------------------------------------------
 
+* Ant now requires Java 1.4 or later.
+
 * Improved handling of InterruptException (lets suppose someone/thing is
   trying to kill the thread when we receive an InterruptException),
   when an InterruptException is received, we do not wait anymore in a while
@@ -106,8 +108,53 @@ Changes that could break older environments:
    scanned and always seem empty.
    Bugzilla Report 45741.
 
+ * the .NET tasks that have been deprecated since Ant 1.7.0 have been
+   removed, please use the stand-alone Antlib you can find at
+   http://ant.apache.org/antlibs/dotnet/index.html
+   instead.
+
+ * the logic of closing streams connected to forked processes (read
+   the input and output of <exec> and friends) has been changed to
+   deal with cases where child processes of the forked processes live
+   longer than their parents and keep Ant from exiting.
+   It is unlikely but possible that the changed logic breaks stream
+   handling on certain Java VMs.
+   Bugzilla issue 5003.
+
+ * <checksum>'s totalproperty was platform dependent because it relied
+   on java.io.File#compareTo.  It has now been made platform
+   independent, which means that totalPropery values obtained on
+   Windows (and other systems where the sort order of File is not case
+   sensitive) can be different from the values obtained with earlier
+   versions of Ant.
+   Bugzilla Report 36748.
+
+ * globmapper didn't work properly if the "to" pattern didn't contain
+   a "*".  In particular it implicitly added a * to the end of the
+   pattern.  This is no longer the case.  If you relied on this
+   behavior you will now need to explicitly specify the trailing *.
+   Bugzilla Report 46506.
+
+ * <copy> silently ignored missing resources even with
+   failOnError="true".  If your build tries to copy non-existant
+   resources and you relied on this behavior you must now explicitly
+   set failOnError to false.
+   Bugzilla Report 47362.
+
 Fixed bugs:
 -----------
+
+ * Better handling of package-info.class. Bugzilla Report 43114.
+
+ * RPM task needed an inserted space between the define and the value.
+   bugzilla Report 46659.
+
+ * Got rid of deadlock between in in, out and err in the Redirector. 
+   Bugzilla Report 44544.
+
+ * Caused by AssertionError no longer filtered. Bugzilla report 45631.
+ 
+ * <zip> would sometimes recreate JARs unnecessarily. Bugzilla report 45902.
 
  * <symlink> task couldn't overwrite existing symlinks that pointed to nonexistent files
    Bugzilla report 38199.
@@ -229,8 +276,150 @@ Fixed bugs:
  * <filterset> could miss multi-character begin tokens in some cases.
    Bugzilla Report 45094.
 
+ * <depend> didn't close JARs that were part of the classpath.
+   Bugzilla Report 45955.
+
+ * in some cases <depend> would delete class files even if it didn't
+   find the corresponding source files.
+   Bugzilla Report 45916.
+
+ * <javadoc> failed if the nested <bottom> or <head> contained line
+   breaks.
+   Bugzilla Report 43342.
+
+ * encoding="auto" has been broken in <mail> since Ant 1.7.0 and only
+   worked if JavaMail was available.
+   Bugzilla Report 42389.
+
+ * MailLogger could cause a NullPointerException.
+   Bugzilla Report 44009.
+
+ * <junit> didn't recognize failed assertions as failures if they
+   caused subclasses of AssertionError to be thrown (like
+   org.junit.ComparisonFailure that is thrown when assertEquals
+   fails).
+   Bugzilla Report 45028.
+
+ * the Unix "ant" wrapper script failed to protect wildcards in
+   command line arguments in some cases.
+   Bugzilla Report 31601.
+
+ * <cvstagdiff> crippled file names and could miss some entries if
+   multiple modules have been specified.
+   Bugzilla Report 35301.
+
+ * Tasks with a "public void add(SomeType)" method failed to work as
+   TaskContainers at the same time.
+   Bugzilla Report 41647.
+
+ * Tasks that implementes DynamicElemen or DynamicElementNS failed to
+   work as TaskContainers at the same time.
+   Bugzilla Report 41647.
+
+ * combining SSL and authentication in <mail> and MailLogger failed in
+   some setups.
+   Bugzilla Report 46063.
+
+ * if an error occurs while logging the buildFinished event, the
+   original error is now logged to System.err.
+   Bugzilla Report 25086.
+
+ * <copy> failed with a NullPointerException when copying a resource
+   without a name.  It will now fail with a meaningful error message.
+   Bugzilla Report 39960.
+
+ * <xslt> now uses the configured classpath to load the factory (when
+   using TraX) before falling back to Ant's own classpath.
+   Bugzilla Report 46172.
+
+ * <dependset> complained about files being modified in the future if
+   they had been just very recently (within Ant's assumed granularity
+   of the file system).
+   Bugzilla Report 43665.
+
+ * <sshexec> didn't store the ouput in outputproperty if the remote
+   command failed.
+   Bugzilla Report 46340.
+
+ * DirectoryScanner's slow-scanning algorithm that is used when you
+   ask for excluded or not-included files and/or directories could
+   miss some files and directories in the presence of recursive
+   exclude patterns.
+
+ * <sort> resource collection kept only one of entries deemed equal by
+   the chosen Comparator.  Bugzilla report 46527.
+
+ * the ZipFile class used by <unzip> and others could leave the
+   archive open (making it undeletable on Windows as long as the java
+   VM was running) for files with an unexpected internal structure.
+   Bugzilla Report 46559.
+
+ * The zip package now supports the extra fields invented by InfoZIP
+   in order to store Unicode file names and comments.
+
+ * The zip package detects the encoding bit set by more modern
+   archivers when they write UTF-8 filenames and optionally sets it
+   when writing zips or jars.
+   Bugzilla Report 45548
+
+ * <sync> could run into a NullPointerException when faced with broken
+   symbolic links.
+   Bugzilla Report 46747.
+
+ * The ant shell script should now support MSYS/MinGW as well.
+   Bugzilla Report 46936.
+
+ * <signjar> has a new force attribute that allows re-signing of jars
+   that are already signed.
+   Bugzilla Report 46891.
+
+ * <sshexec> now again honors failonerror in the face of connection
+   errors.
+   Bugzilla Report 46829.
+
+ * The <replacetokens> filter threw an exception if the stream to
+   filter ended with a begin token.
+   Bugzilla Report 47306.
+
+ * <scriptmapper>, <scriptfilter> and <scriptcondition> didn't support
+   the setbeans attribute.
+   Bugzilla Report 47336.
+
+ * <loadproperties>' encoding attribute didn't work.
+   Bugzilla Report 47382.
+
+ * Ant created tar archives could contain random bytes at the end
+   which confused some untar implementations.
+   Bugzilla Report 47421.
+
+ * various places where unchecked PrintWriters could hide exceptions
+   have been revisited to now check the error status or not use a
+   PrintWriter at all.
+   Bugzilla Report 43537.
+
+ * filesetmanifest="mergewithoutmain" in <jar> didn't treat inline
+   manifests as expected.
+   Bugzilla Report 29731.
+
+ * <record> didn't work properly with nested builds.
+   Bugzilla Report 41368. 
+
+ * <jar> with filesetmanifest different from skip didn't work if the
+   update attribute has been set to true.
+   Bugzilla Report 30751.
+
+ * The default stylesheets for <junitreport> failed to properly escape
+   XML content in exception stack traces.
+   Bugzilla Report 39492
+
 Other changes:
 --------------
+ * The get task now also follows redirects from http to https
+   Bugzilla report 47433
+
+ * A HostInfo task was added performing information on hosts, including info on 
+   the host ant is running on. 
+   Bugzilla reports 45861 and 31164.
 
  * There is now a FileProvider interface for resources that act as a source
    of filenames. This should be used by tasks that require resources
@@ -381,6 +570,224 @@ Other changes:
  * It is now possible to explicitly set the executable used by
    <signjar>.
    Bugzilla Report 39189.
+
+ * <compositemapper>'s order of results is now predictable.
+   Bugzilla Report 44873
+
+ * a new <firstmatchmapper> has been added, which works similar to
+   <compositemapper> but only returns the results of the first nested
+   mapper that matches.
+   Bugzilla Report 44873
+
+ * <get> has a new maxtime attribute that terminates downloads that
+   are taking too long.
+   Bugzilla Report 45181.
+
+ * <ftp> now supports selectors for remote directories as well.
+   Bugzilla Report 44726.
+
+ * In some cases Ant fails to rename files if the source or target
+   file has just recently been closed on Windows.  It will now try to
+   delete the offending file once again after giving the Java VM time
+   to really close the file.
+   Bugzilla Report 45960.
+
+ * two new properties can be used to set the MIME-Type and charset
+   used by MailLogger.
+   Bugzilla Report 27211.
+
+ * a new attribute of <mail> allows the task to succeed if it can
+   reach at least one given recipient.
+   Bugzilla Report 36446.
+
+ * two new properties allow MailLogger to send a fixed text instead of
+   the log file.
+   Bugzilla Report 38029.
+
+ * <cvsversion> is supposed to support CVSNT now.
+   Bugzilla Report 31409.
+
+ * <cvs>' port attribute should now work for all clients that use the
+   environment variable CVS_PSERVER_PORT instead of the "official"
+   CVS_CLIENT_PORT.
+   Bugzilla Report 30124.
+
+ * <cvsversion> now works for local repositories as well.
+
+ * <cvstagdiff> has an option to ignore removed files now.
+   Bugzilla Report 26257.
+
+ * <cvs> and friends now support modules with spaces in their names
+   via nested <module> elements.
+
+ * A new attribute "ignoreEmpty" controls how <concat> deals when
+   there are no resources to concatenate.  If it is set to false, the
+   destination file will be created regardless, which reinstates the
+   behavior of Ant 1.7.0.
+   Bugzilla Report 46010.
+
+ * If the new remote attribute is set to true, <cvschangelog> can now
+   work against a remote repository without any working copy.
+   Bugzilla Report 27419.
+
+ * start and end tags can now be used instead of dates in
+   <cvschangelog>.
+   Bugzilla Report 27419.
+
+ * MailLogger and <mail> can now optionally enable support for
+   STARTTLS.
+   Bugzilla Report 46063.
+
+ * <import> has new attributes "as" and "prefixSeparator" that can be
+   used to control the prefix prepended to the imported target's
+   names.
+
+ * a new task <include> provides an alternative to <import> that
+   should be preferred when you don't want to override any targets.
+
+ * delete has a new attribute removeNotFollowedSymlink.  If set to
+   true, symbolic links not followed (because followSymlinks was false
+   or the number of symlinks was too big) will be removed.
+   Bugzilla Report 36658.
+
+ * the os and osfamily attributes of <chown>, <chgrp>, <chmod> and
+   <attrib> can now be used to run the commands on operating systems
+   other than their "native" environment, i.e. non-Unix or non-Windows
+   operating systems repsectively.
+   Bugzilla Report 7624.
+
+ * a new resource collection <mappedresources> generalizes the prefix
+   and fullpath attributes of <zipfileset> to arbitrary mappers that
+   can be applied to arbitrary resource collections.
+   Bugzilla Report 4240.
+
+ * <tarfileset> and <zipfileset> have a new attribute
+   errorOnMissingArchive that allows "optional" filesets that don't
+   break the build if the archive doesn't exist.
+   Bugzilla Report 46091.
+
+ * <javadoc> has new attributes that correspond to the
+   -docfilessubdirs and -excludedocfilessubdir command line arguments.
+   Bugzilla Report 34455.
+
+ * <xslt> now fails early if a specified stylesheet doesn't exist.
+   Bugzilla Report 34525.
+
+ * <xslt> now has an option to supress transformer warnings.  This
+   option only has an effect for processors that support this feature;
+   the "trax" processor included with Ant does support it.
+   Bugzilla Report 18897.
+
+ * <xslt> has two new attributes failOnError and
+   failOnTransformationError that can be used to not make the build
+   process proceed if an error occurs.
+   Bugzilla Report 36260.
+
+ * <xslt> has a new attribute failOnNoResources that can be used to 
+   make the build fail/continue if the collection of resources to
+   transform is empty.
+   Bugzilla Report 46274.
+
+ * It is now possible to define system properties that should be set
+   during xslt's transformation.  This can be used to enable XInclude
+   processing in Xerces, for example.
+   Bugzilla Report 36653.
+
+ * a new resource collection <archives> can be used to specify
+   collections of ZIP and TAR archives as source and extracts them on
+   the fly.  This is a generalization of the <zipgroupfileset> found
+   as nested element of <zip> and friends.
+   Bugzilla Report 46257.
+
+ * <dependset> has a new verbose attribute that makes the task list
+   all deleted targets and give a hint as to why it deleted them.
+   Bugzilla Report 13681.
+
+ * <replaceregexp> now supports arbitrary filesystem based resource
+   collections.
+   Bugzilla Report 46341.
+
+ * <replace> now supports arbitrary filesystem based resource
+   collections.
+   Bugzilla Report 24062.
+
+ * token and value of <replace>'s nested <replacefilter> can now also
+   be specified as nested elements to allow multiline content more
+   easily.
+   Bugzilla Report 39568.
+
+ * <replace> and <replaceregexp> can now optionally preserve the file
+   timestamp even if the file is modified.
+   Bugzilla Report 39002.
+
+ * The <replace> child-elements <replacetoken> and <replacevalue> have
+   a new attribute that controls whether properties in nested text get
+   expanded.
+   Bugzilla Report 11585.
+
+ * <replace> has a new attribute failOnNoReplacements that makes the
+   build fail if the task didn't do anything.
+   Bugzilla Report 21064.
+
+ * <sync>'s <preserveInTarget> has a new attribute that conrols
+   whether empty directories should be kept.
+   Bugzilla Report 43159.
+
+ * ant -diagnostics now checks that it can read as much from the
+   temporary directory as it has written.  This may help detecting a
+   full filesystem.
+   Bugzilla Report 32676.
+
+ * <pathconvert> has a new preserveduplicates attribute--historically
+   these were eliminated in the interest of behaving in the manner
+   of a "path."
+
+ * <javac>'s source and target attributes are no longer ignored when
+   using gcj.
+   Bugzilla Issue 46617.
+
+ * ant -diagnostics now outputs information about the default XSLT
+   processor.
+   Bugzilla Issue 46612.
+
+ * the ZIP library will now ignore ZIP extra fields that don't specify
+   a size.
+   Bugzilla Report 42940.
+
+ * CBZip2OutputStream now has a finish method separate from close.
+   Bugzilla Report 42713.
+
+ * the <zip> and <unzip> family of tasks has new options to deal with
+   file name and comment encoding.  Please see the zip tasks'
+   documentation for details.
+
+ * <input ...><handler type="secure" /></input> now uses previously undocumented
+   SecureInputHandler shipped with Ant 1.7.1.
+
+ * Command line arguments for <exec> and similar tasks can now have
+   optional prefix and suffix attributes.
+   Bugzilla Report 47365
+
+ * <apply>'s srcfile and targetfile child elements can now have
+   optional prefix and suffix attributes.
+   Bugzilla Report 45625
+
+ * <jar> has a new attribute to enable indexing of META-INF
+   directories which is desabled for backwards compatibility reasons.
+   Bugzilla Report 47457
+
+ * <apt>'s executable attribute can be used to specify a different
+   executable.
+   Bugzilla Report 46230.
+
+ * <rmic>'s new executable attribute can be used to specify a
+   different executable.
+   Bugzilla Report 42132.
+
+ * <javac>, <rmic>, <javah> and <native2ascii> now provide a nested
+   element to specify a classpath that will be used when loading the
+   task's (compiler) adapter class.
+   Bugzilla Issue 11143.
 
 Changes from Ant 1.7.0 TO Ant 1.7.1
 =============================================
@@ -607,6 +1014,9 @@ Other changes:
 
 * <javac> handles package-info.java files, there were repeatedly compiled.
   Bugzilla 43114.
+
+* SecureInputHandler added to use Java 6 System.console().readPassword()
+  when available.
 
 Changes from Ant 1.6.5 to Ant 1.7.0
 ===================================

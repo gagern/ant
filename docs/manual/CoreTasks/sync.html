@@ -56,7 +56,15 @@ dir, it will get removed from the target.</p>
   </tr>
   <tr>
     <td valign="top">includeEmptyDirs</td>
-     <td valign="top">Copy any empty directories included in the resource collection(s).
+     <td valign="top">Copy any empty directories included in the
+       resource collection(s).<br/>
+       <b>Note</b> this attribute also controls the behavior for any
+       nested &lt;preserveintarget&gt; element.  If this attribute is
+       false (the default) empty directories that only exist in the
+       target directory will be removed even if they are matched by
+       the patterns of &lt;preserveintarget&gt;.  This can be
+       overridden by &lt;preserveintarget&gt;'s
+       preserveEmptyDirs attribute.
      </td>
      <td valign="top" align="center">No; defaults to false.</td>
   </tr>
@@ -97,6 +105,8 @@ supported as a nested element.</p>
 
 <h4>preserveInTarget</h4>
 
+<p><em>Since Ant 1.7.0</em></p>
+
 <p>Specifies files or directories that should be kept in the target
 directory even if they are not present in one of the source
 directories.</p>
@@ -105,6 +115,26 @@ directories.</p>
 href="../CoreTypes/fileset.html">FileSet</a> except that it doesn't
 support the dir attribute and the usedefaultexcludes attribute
 defaults to false.</p>
+
+<h5>Additional Parameters</h5>
+<table border="1" cellpadding="2" cellspacing="0">
+  <tr>
+    <td valign="top"><b>Attribute</b></td>
+    <td valign="top"><b>Description</b></td>
+    <td align="center" valign="top"><b>Required</b></td>
+  </tr>
+  <tr>
+    <td valign="top">preserveEmptyDirs</td>
+    <td valign="top">Overrules the includeEmptydirs setting for
+      directories matched by this element.  If you want to preserve
+      empty directories that are not in your source directory you can
+      either set the task's includeemptydirs attribute or this one.
+      If the two attribute values conflict, this attribute
+      "wins".</td>
+    <td align="center" valign="top">No, defaults to the value of the
+      task's includeemptydirs attribute</td>
+  </tr>  
+</table>
 
 <h3>Examples</h3>
 

@@ -86,6 +86,7 @@
   <property name="build.junit.xml" location="${build.tests}/xml"/>
   <property name="antunit.xml" location="${build.dir}/antunit/xml"/>
   <property name="antunit.reports" location="${build.dir}/antunit/reports"/>
+  <property name="antunit.loglevel" value="none"/>
   <property name="build.junit.reports" location="${build.tests}/reports"/>
   <property name="manifest.tmp" value="${build.dir}/optional.manifest"/>
   <!-- the absolute path -->
@@ -119,7 +120,7 @@
        ===================================================================
   -->
   <path id="classpath">
-    <fileset dir="lib/optional" includes="junit*.jar"/>
+    <fileset dir="lib/optional" includes="*.jar"/>
   </path>
 
   <path id="tests-classpath">
@@ -170,21 +171,6 @@
        ===================================================================
   -->
   <!-- depends on JDK version -->
-  <selector id="needs.jdk1.3+">
-    <or>
-      <filename name="${ant.package}/taskdefs/TestProcess*"/>
-      <filename name="${optional.package}/extension/**"/>
-    </or>
-  </selector>
-
-  <selector id="needs.jdk1.4+">
-    <or>
-      <filename name="${regexp.package}/Jdk14Regexp*"/>
-      <filename name="${ant.package}/types/AssertionsTest.java"/>
-      <filename name="${ant.package}/launch/LocatorTest*"/>
-    </or>
-  </selector>
-
   <selector id="needs.jdk1.5+">
     <or>
       <filename name="${taskdefs.package}/AptTest*"/>
@@ -204,6 +190,7 @@
   <selector id="needs.trax">
     <or>
       <filename name="${optional.package}/TraXLiaison*"/>
+      <filename name="${optional.package}/XSLTTraceSupport*"/>
       <filename name="${optional.package}/XsltTest*"/>
       <filename name="${type.package}/XMLCatalogBuildFileTest*"/>
     </or>
@@ -300,6 +287,11 @@
     <filename name="${optional.package}/ssh/*"/>
   </selector>
 
+  <!-- needs TraceListenerEx3 interface implemented by PrintTraceListener -->
+  <selector id="needs.apache-xalan2">
+    <filename name="${optional.package}/Xalan2TraceSupport*"/>
+  </selector>
+
   <selector id="ant.launcher">
     <filename name="${ant.package}/launch/**/*"/>
   </selector>
@@ -314,8 +306,6 @@
     <!-- an unless-attribute on each exclude-element.                      -->
     <exclude unless="run.failing.tests" name="${optional.package}/BeanShellScriptTest.java"/>
     <exclude unless="run.failing.tests" name="${optional.package}/jdepend/JDependTest.java"/>
-    <exclude unless="run.failing.tests" name="${optional.package}/DotnetTest.java"/>
-    <exclude unless="run.failing.tests" name="${optional.package}/WsdlToDotnetTest.java"/>
   </patternset>
 
   <!--tests that need an XML Schema-supporting parser to work-->
@@ -358,8 +348,6 @@
        ===================================================================
   -->
   <target name="check_for_optional_packages">
-    <available property="jdk1.3+" classname="java.lang.StrictMath"/>
-    <available property="jdk1.4+" classname="java.lang.CharSequence"/>
     <available property="jdk1.5+" classname="java.net.Proxy"/>
     <available property="jdk1.6+" classname="java.util.ServiceLoader"/>
     <available property="kaffe" classname="kaffe.util.NotImplemented"/>
@@ -387,6 +375,9 @@
       classpathref="classpath"/>
     <available property="xalan2.present"
       classname="org.apache.xalan.transformer.TransformerImpl"
+      classpathref="classpath"/>
+    <available property="recent.xalan2.present"
+      classname="org.apache.xalan.trace.TraceListenerEx3"
       classpathref="classpath"/>
     <available property="junit.present"
       classname="junit.framework.TestCase"
@@ -447,14 +438,6 @@
       </and>
     </condition>
 
-    <condition property="some.regexp.support">
-      <or>
-        <isset property="jdk1.4+"/>
-        <isset property="apache.regexp.present"/>
-        <isset property="apache.oro.present"/>
-      </or>
-    </condition>
-
     <condition property="tests.and.ant.share.classloader">
       <or>
         <equals arg1="${junit.fork}" arg2="true"/>
@@ -510,31 +493,6 @@
       </and>
     </condition>
 
-    <condition property="wsdl.found">
-      <or>
-        <available file="wsdl" filepath="${env.PATH}"/>
-        <available file="wsdl.exe" filepath="${env.PATH}"/>
-        <available file="wsdl.exe" filepath="${env.Path}"/>
-      </or>
-    </condition>
-    <echo level="verbose"> wsdl.found=${wsdl.found}</echo>
-    <condition property="csc.found">
-      <or>
-        <available file="mcs" filepath="${env.PATH}"/>
-        <available file="csc" filepath="${env.PATH}"/>
-        <available file="csc.exe" filepath="${env.PATH}"/>
-        <available file="csc.exe" filepath="${env.Path}"/>
-      </or>
-    </condition>
-    <echo level="verbose"> csc.found=${csc.found}</echo>
-    <condition property="dotnetapps.found">
-      <and>
-        <isset property="csc.found"/>
-        <isset property="wsdl.found"/>
-      </and>
-    </condition>
-    <echo level="verbose"> dotnetapps.found=${dotnetapps.found}</echo>
-
     <available property="rhino.present"
       classname="org.mozilla.javascript.Scriptable"
       classpathref="classpath"/>
@@ -548,11 +506,6 @@
       classname="com.jcraft.jsch.Session"
       classpathref="classpath"/>
 
-    <condition property="build.compiler" value="classic">
-      <not>
-        <isset property="jdk1.3+"/>
-      </not>
-    </condition>
     <property name="build.compiler" value="modern"/>
 
     <!--check for XSD support in the parser-->
@@ -595,6 +548,7 @@
     <mkdir dir="${build.lib}"/>
 
     <javac srcdir="${java.dir}"
+      includeantruntime="false"
       destdir="${build.classes}"
       debug="${debug}"
       deprecation="${deprecation}"
@@ -606,8 +560,6 @@
       <selector id="conditional-patterns">
         <not>
           <or>
-            <selector refid="needs.jdk1.3+" unless="jdk1.3+"/>
-            <selector refid="needs.jdk1.4+" unless="jdk1.4+"/>
             <selector refid="needs.jdk1.5+" unless="jdk1.5+"/>
             <selector refid="not.in.kaffe" if="kaffe"/>
 
@@ -633,6 +585,10 @@
             <selector refid="needs.swing" unless="swing.present"/>
             <selector refid="needs.jsch" unless="jsch.present"/>
             <selector refid="needs.xmlschema" unless="xmlschema.present"/>
+            <selector refid="needs.apache-xalan2"
+                      unless="recent.xalan2.present"/>
+            <!-- Java 1.4's built-in Xalan is first on the classpath -->
+            <selector refid="needs.apache-xalan2" unless="jdk1.5+"/>
           </or>
         </not>
       </selector>
@@ -731,7 +687,6 @@
             <selector refid="needs.apache-regexp"/>
             <selector refid="needs.apache-resolver"/>
             <selector refid="needs.apache-oro"/>
-            <selector refid="needs.jdk1.4+"/>
             <selector refid="needs.jdk1.5+"/>
             <selector refid="needs.javamail"/>
             <selector refid="ant.launcher"/>
@@ -810,6 +765,7 @@
             <selector refid="needs.jdepend"/>
             <selector refid="needs.swing"/>
             <selector refid="needs.jsch"/>
+            <selector refid="needs.apache-xalan2"/>
           </or>
         </not>
       </and>
@@ -850,6 +806,7 @@
     <optional-jar dep="swing"/>
     <optional-jar dep="jsch"/>
     <optional-jar dep="jdepend"/>
+    <optional-jar dep="apache-xalan2"/>
 
   </target>
 
@@ -939,6 +896,21 @@
   </target>
 
 
+  <macrodef name="checksums">
+    <element name="resources" implicit="true"/>
+    <sequential>
+      <checksum algorithm="md5">
+        <resources/>
+      </checksum>
+      <checksum algorithm="sha1">
+        <resources/>
+      </checksum>
+      <checksum fileext=".sha512" algorithm="sha-512">
+        <resources/>
+      </checksum>
+    </sequential>
+  </macrodef>
+
   <target name="internal_dist" depends="dist-lite,dist_javadocs">
     <mkdir dir="${dist.docs}"/>
     <mkdir dir="${dist.etc}"/>
@@ -968,16 +940,11 @@
             </tokenfilter>
         </filterchain>
     </copy>
-    <checksum algorithm="md5">
+    <checksums>
         <fileset dir="${dist.lib}">
             <include name="*.pom"/>
         </fileset>
-    </checksum>
-    <checksum algorithm="sha1">
-        <fileset dir="${dist.lib}">
-            <include name="*.pom"/>
-        </fileset>
-    </checksum>
+    </checksums>
 
     <copy todir="${dist.docs}">
       <fileset dir="${docs.dir}" includes="${expandproperty.files}">
@@ -1207,35 +1174,29 @@
       <fileset dir="${dist.name}/lib">
         <include name="*.pom"/>
         <include name="*.sha1"/>
+        <include name="*.sha512"/>
         <include name="*.md5"/>
       </fileset>
       <mapper>
         <mapper type="glob" from="*.pom" to="*.pom"/>
         <mapper type="glob" from="*.pom.sha1" to="*.pom.sha1"/>
+        <mapper type="glob" from="*.pom.sha512" to="*.pom.sha512"/>
         <mapper type="glob" from="*.pom.md5" to="*.pom.md5"/>
       </mapper>
     </copy>
-    <checksum fileext=".md5">
+    <checksums>
       <fileset dir="${java-repository.jars.dir}" includes="*${project.version}.jar"/>
-    </checksum>
-    <checksum fileext=".sha1" algorithm="SHA">
-      <fileset dir="${java-repository.jars.dir}" includes="*${project.version}.jar"/>
-    </checksum>
+    </checksums>
     <delete dir="${dist.name}"/>
-    <checksum fileext=".md5">
+    <checksums>
       <fileset dir="${dist.base.binaries}/">
         <include name="**/*"/>
         <exclude name="**/*.asc"/>
         <exclude name="**/*.md5"/>
+        <exclude name="**/*.sha1"/>
+        <exclude name="**/*.sha512"/>
       </fileset>
-    </checksum>
-    <checksum fileext=".sha1" algorithm="SHA">
-      <fileset dir="${dist.base.binaries}/">
-        <include name="**/*"/>
-        <exclude name="**/*.asc"/>
-        <exclude name="**/*.md5"/>
-      </fileset>
-    </checksum>
+    </checksums>
 
     <antcall inheritAll="false" target="src-dist">
       <param name="src.dist.dir" value="${dist.name}"/>
@@ -1272,20 +1233,15 @@
       src="${dist.base.source}/${dist.name}-src.tar"/>
     <delete file="${dist.base.source}/${dist.name}-src.tar"/>
     <delete dir="${dist.name}"/>
-    <checksum fileext=".md5">
+    <checksums>
       <fileset dir="${dist.base.source}/">
         <include name="**/*"/>
         <exclude name="**/*.asc"/>
         <exclude name="**/*.md5"/>
+        <exclude name="**/*.sha1"/>
+        <exclude name="**/*.sha512"/>
       </fileset>
-    </checksum>
-    <checksum fileext=".sha1" algorithm="SHA">
-      <fileset dir="${dist.base.source}/">
-        <include name="**/*"/>
-        <exclude name="**/*.asc"/>
-        <exclude name="**/*.md5"/>
-      </fileset>
-    </checksum>
+    </checksums>
   </target>
 
   <target name="distribution" depends="main_distribution"
@@ -1432,6 +1388,7 @@
       locale="en"
       windowtitle="${Name} API"
       doctitle="${Name}"
+      failonerror="true"
       verbose="${javadoc.verbose}">
 
       <packageset dir="${java.dir}"/>
@@ -1459,6 +1416,7 @@
     <mkdir dir="${build.tests.javadocs}"/>
     <javadoc useexternalfile="yes"
       destdir="${build.tests.javadocs}"
+      failonerror="true"
       author="true"
       version="true"
       locale="en"
@@ -1484,6 +1442,7 @@
     <mkdir dir="${build.tests}"/>
 
     <javac srcdir="${src.junit}"
+      includeantruntime="false"
       destdir="${build.tests}"
       debug="${debug}"
       target="${javac.target}"
@@ -1782,15 +1741,6 @@ see ${build.junit.reports} / ${antunit.reports}
           <!-- failing tests excluded unless run.failing.tests is set -->
           <patternset refid="teststhatfail"/>
 
-          <!-- runtime dependencies that are different from compile
-               time dependencies -->
-          <exclude name="${optional.package}/ReplaceRegExpTest.java"
-            unless="some.regexp.support"/>
-          <exclude name="${ant.package}/types/selectors/ContainsRegexpTest.java"
-            unless="some.regexp.support"/>
-          <exclude name="${ant.package}/types/mappers/RegexpPatternMapperTest.java"
-            unless="some.regexp.support"/>
-
           <!-- needs BSF to work -->
           <exclude name="${optional.package}/Rhino*.java"
             unless="bsf.present"/>
@@ -1843,12 +1793,6 @@ see ${build.junit.reports} / ${antunit.reports}
           <!-- needs jasperc -->
           <exclude name="${optional.package}/JspcTest.java"
             unless="jasper.present"/>
-
-          <!-- misc oneoff tests -->
-          <exclude name="${optional.package}/WsdlToDotnetTest.java"
-            unless="dotnetapps.found"/>
-          <exclude name="${optional.package}/DotnetTest.java"
-            unless="dotnetapps.found"/>
 
           <!--  These tests only passes if testcases and Ant classes have
           been loaded by the same classloader - will throw
@@ -1906,7 +1850,7 @@ see ${build.junit.reports} / ${antunit.reports}
 
   <target name="interactive-tests" description="--> runs interactive tests"
     depends="compile-tests"
-    if="jdk1.3+">
+    >
     <java classpathref="tests-classpath"
       classname="org.apache.tools.ant.taskdefs.TestProcess"
       fork="true"/>
@@ -1927,7 +1871,7 @@ see ${build.junit.reports} / ${antunit.reports}
                 failonerror="false" errorproperty="antunit.failed">
       <fileset dir="${src.antunit}" includes="${antunit.includes}"
                excludes="${antunit.excludes}" />
-      <au:plainlistener />
+      <au:plainlistener logLevel="${antunit.loglevel}"/>
       <au:xmllistener todir="${antunit.xml}" />
     </au:antunit>
   </target>
@@ -1947,6 +1891,33 @@ see ${build.junit.reports} / ${antunit.reports}
     <length>
       <fileset dir="${antunit.xml}" includes="TEST-*.xml" />
     </length>
+  </target>
+  
+  
+  <target name="printFailingTests">
+    <property name="failingtests.dir" value="${build.dir}/errors"/>
+    <mkdir dir=""/>
+    <xslt 
+      style="${etc.dir}/printFailingTests.xsl" 
+      destdir="${failingtests.dir}" extension=".txt"
+      basedir="${build.dir}" includes="testcases/**/TEST-*.xml,antunit/xml/TEST-*.xml"
+    />
+    <echo>+-------------------------------------------------------------------------------------</echo>
+    <echo>| FAILING TESTS:</echo>
+    <echo>+-------------------------------------------------------------------------------------</echo>
+    <concat>
+      <!-- generated message files if they arent empty -->
+      <fileset dir="${failingtests.dir}">
+        <size value="0" when="more"/>
+      </fileset>
+      <!-- 'skip' empty lines -->
+      <filterchain>
+        <linecontains>
+          <contains value="|"/>
+        </linecontains>
+      </filterchain>
+    </concat>
+    <echo>+-------------------------------------------------------------------------------------</echo>
   </target>
 
   <!--

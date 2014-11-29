@@ -18,7 +18,7 @@
 
 package org.apache.tools.zip;
 
-import java.util.Vector;
+import java.util.LinkedHashMap;
 import java.util.zip.ZipException;
 
 /**
@@ -36,7 +36,7 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
     private int internalAttributes = 0;
     private int platform = PLATFORM_FAT;
     private long externalAttributes = 0;
-    private Vector/*<ZipExtraField>*/ extraFields = null;
+    private LinkedHashMap/*<ZipShort, ZipExtraField>*/ extraFields = null;
     private String name = null;
 
     /**
@@ -93,7 +93,7 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
     public Object clone() {
         ZipEntry e = (ZipEntry) super.clone();
 
-        e.extraFields = extraFields != null ? (Vector) extraFields.clone() : null;
+        e.extraFields = extraFields != null ? (LinkedHashMap) extraFields.clone() : null;
         e.setInternalAttributes(getInternalAttributes());
         e.setExternalAttributes(getExternalAttributes());
         e.setExtraFields(getExtraFields());
@@ -192,9 +192,9 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
      * @since 1.1
      */
     public void setExtraFields(ZipExtraField[] fields) {
-        extraFields = new Vector();
+        extraFields = new LinkedHashMap();
         for (int i = 0; i < fields.length; i++) {
-            extraFields.addElement(fields[i]);
+            extraFields.put(fields[i].getHeaderId(), fields[i]);
         }
         setExtra();
     }
@@ -209,30 +209,41 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
             return new ZipExtraField[0];
         }
         ZipExtraField[] result = new ZipExtraField[extraFields.size()];
-        extraFields.copyInto(result);
-        return result;
+        return (ZipExtraField[]) extraFields.values().toArray(result);
     }
 
     /**
      * Adds an extra fields - replacing an already present extra field
      * of the same type.
+     *
+     * <p>If no extra field of the same type exists, the field will be
+     * added as last field.</p>
      * @param ze an extra field
      * @since 1.1
      */
     public void addExtraField(ZipExtraField ze) {
         if (extraFields == null) {
-            extraFields = new Vector();
+            extraFields = new LinkedHashMap();
         }
-        ZipShort type = ze.getHeaderId();
-        boolean done = false;
-        for (int i = 0, fieldsSize = extraFields.size(); !done && i < fieldsSize; i++) {
-            if (((ZipExtraField) extraFields.elementAt(i)).getHeaderId().equals(type)) {
-                extraFields.setElementAt(ze, i);
-                done = true;
-            }
-        }
-        if (!done) {
-            extraFields.addElement(ze);
+        extraFields.put(ze.getHeaderId(), ze);
+        setExtra();
+    }
+
+    /**
+     * Adds an extra fields - replacing an already present extra field
+     * of the same type.
+     *
+     * <p>The new extra field will be the first one.</p>
+     * @param ze an extra field
+     * @since 1.1
+     */
+    public void addAsFirstExtraField(ZipExtraField ze) {
+        LinkedHashMap copy = extraFields;
+        extraFields = new LinkedHashMap();
+        extraFields.put(ze.getHeaderId(), ze);
+        if (copy != null) {
+            copy.remove(ze.getHeaderId());
+            extraFields.putAll(copy);
         }
         setExtra();
     }
@@ -244,19 +255,24 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
      */
     public void removeExtraField(ZipShort type) {
         if (extraFields == null) {
-            extraFields = new Vector();
+            throw new java.util.NoSuchElementException();
         }
-        boolean done = false;
-        for (int i = 0, fieldsSize = extraFields.size(); !done && i < fieldsSize; i++) {
-            if (((ZipExtraField) extraFields.elementAt(i)).getHeaderId().equals(type)) {
-                extraFields.removeElementAt(i);
-                done = true;
-            }
-        }
-        if (!done) {
+        if (extraFields.remove(type) == null) {
             throw new java.util.NoSuchElementException();
         }
         setExtra();
+    }
+
+    /**
+     * Looks up an extra field by its header id.
+     *
+     * @return null if no such field exists.
+     */
+    public ZipExtraField getExtraField(ZipShort type) {
+        if (extraFields != null) {
+            return (ZipExtraField) extraFields.get(type);
+        }
+        return null;
     }
 
     /**
@@ -268,9 +284,10 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
      */
     public void setExtra(byte[] extra) throws RuntimeException {
         try {
-            setExtraFields(ExtraFieldUtils.parse(extra));
+            ZipExtraField[] local = ExtraFieldUtils.parse(extra, true);
+            mergeExtraFields(local, true);
         } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -284,6 +301,18 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
      */
     protected void setExtra() {
         super.setExtra(ExtraFieldUtils.mergeLocalFileDataData(getExtraFields()));
+    }
+
+    /**
+     * Sets the central directory part of extra fields.
+     */
+    public void setCentralDirectoryExtra(byte[] b) {
+        try {
+            ZipExtraField[] central = ExtraFieldUtils.parse(b, false);
+            mergeExtraFields(central, false);
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -370,4 +399,37 @@ public class ZipEntry extends java.util.zip.ZipEntry implements Cloneable {
         return (this == o);
     }
 
+    /**
+     * If there are no extra fields, use the given fields as new extra
+     * data - otherwise merge the fields assuming the existing fields
+     * and the new fields stem from different locations inside the
+     * archive.
+     * @param f the extra fields to merge
+     * @param local whether the new fields originate from local data
+     */
+    private void mergeExtraFields(ZipExtraField[] f, boolean local)
+        throws ZipException {
+        if (extraFields == null) {
+            setExtraFields(f);
+        } else {
+            for (int i = 0; i < f.length; i++) {
+                ZipExtraField existing = getExtraField(f[i].getHeaderId());
+                if (existing == null) {
+                    addExtraField(f[i]);
+                } else {
+                    if (local
+                        || !(existing
+                             instanceof CentralDirectoryParsingZipExtraField)) {
+                        byte[] b = f[i].getLocalFileDataData();
+                        existing.parseFromLocalFileData(b, 0, b.length);
+                    } else {
+                        byte[] b = f[i].getCentralDirectoryData();
+                        ((CentralDirectoryParsingZipExtraField) existing)
+                            .parseFromCentralDirectoryData(b, 0, b.length);
+                    }
+                }
+            }
+            setExtra();
+        }
+    }
 }

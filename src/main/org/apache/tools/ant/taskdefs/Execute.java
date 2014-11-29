@@ -19,15 +19,13 @@
 package org.apache.tools.ant.taskdefs;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.StringReader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Vector;
@@ -66,9 +64,6 @@ public class Execute {
     private File workingDirectory = null;
     private Project project = null;
     private boolean newEnvironment = false;
-    //TODO: nothing appears to read this but is set using a public setter.
-    private boolean spawn = false;
-
 
     /** Controls whether the VM is used to launch commands, where possible. */
     private boolean useVMLauncher = true;
@@ -140,11 +135,14 @@ public class Execute {
      *
      * @param spawn if true you do not want Ant
      *              to wait for the end of the process.
+     *              Has no influence in here, the calling task contains
+     *              and acts accordingly
      *
      * @since Ant 1.6
+     * @deprecated
      */
     public void setSpawn(boolean spawn) {
-        this.spawn = spawn;
+        // Method did not do anything to begin with
     }
 
     /**
@@ -528,6 +526,7 @@ public class Execute {
         }
         OutputStream dummyOut = new OutputStream() {
             public void write(int b) throws IOException {
+                // Method intended to swallow whatever comes at it
             }
         };
 
@@ -802,13 +801,9 @@ public class Execute {
      * Runtime.exec() command.
      */
     private static class Java13CommandLauncher extends CommandLauncher {
-        private Method myExecWithCWD;
 
         public Java13CommandLauncher() throws NoSuchMethodException {
-            // Locate method Runtime.exec(String[] cmdarray,
-            //                            String[] envp, File dir)
-            myExecWithCWD = Runtime.class.getMethod("exec",
-                new Class[] {String[].class, String[].class, File.class});
+            // Used to verify if Java13 is available, is prerequisite in ant 1.8
         }
 
         /**
@@ -829,18 +824,9 @@ public class Execute {
                     project.log("Execute:Java13CommandLauncher: "
                         + Commandline.describeCommand(cmd), Project.MSG_DEBUG);
                 }
-                return (Process) myExecWithCWD.invoke(Runtime.getRuntime(),
-                   /* the arguments: */ new Object[] {cmd, env, workingDir});
-            } catch (InvocationTargetException exc) {
-                Throwable realexc = exc.getTargetException();
-                if (realexc instanceof ThreadDeath) {
-                    throw (ThreadDeath) realexc;
-                } else if (realexc instanceof IOException) {
-                    throw (IOException) realexc;
-                } else {
-                    throw new BuildException("Unable to execute command",
-                                             realexc);
-                }
+                return Runtime.getRuntime().exec(cmd, env, workingDir);
+            } catch (IOException ioex) {
+                throw ioex;
             } catch (Exception exc) {
                 // IllegalAccess, IllegalArgument, ClassCast
                 throw new BuildException("Unable to execute command", exc);
@@ -1191,9 +1177,9 @@ public class Execute {
         private File createCommandFile(String[] cmd, String[] env)
             throws IOException {
             File script = FILE_UTILS.createTempFile("ANT", ".COM", null, true, true);
-            PrintWriter out = null;
+            BufferedWriter out = null;
             try {
-                out = new PrintWriter(new FileWriter(script));
+                out = new BufferedWriter(new FileWriter(script));
 
                 // add the environment as logicals to the DCL script
                 if (env != null) {
@@ -1201,18 +1187,20 @@ public class Execute {
                     for (int i = 0; i < env.length; i++) {
                         eqIndex = env[i].indexOf('=');
                         if (eqIndex != -1) {
-                            out.print("$ DEFINE/NOLOG ");
-                            out.print(env[i].substring(0, eqIndex));
-                            out.print(" \"");
-                            out.print(env[i].substring(eqIndex + 1));
-                            out.println('\"');
+                            out.write("$ DEFINE/NOLOG ");
+                            out.write(env[i].substring(0, eqIndex));
+                            out.write(" \"");
+                            out.write(env[i].substring(eqIndex + 1));
+                            out.write('\"');
+                            out.newLine();
                         }
                     }
                 }
-                out.print("$ " + cmd[0]);
+                out.write("$ " + cmd[0]);
                 for (int i = 1; i < cmd.length; i++) {
-                    out.println(" -");
-                    out.print(cmd[i]);
+                    out.write(" -");
+                    out.newLine();
+                    out.write(cmd[i]);
                 }
             } finally {
                 if (out != null) {

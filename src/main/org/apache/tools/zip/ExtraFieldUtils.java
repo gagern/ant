@@ -18,8 +18,10 @@
 
 package org.apache.tools.zip;
 
-import java.util.Hashtable;
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipException;
 
 /**
@@ -36,12 +38,14 @@ public class ExtraFieldUtils {
      *
      * @since 1.1
      */
-    private static Hashtable implementations;
+    private static final Map implementations;
 
     static {
-        implementations = new Hashtable();
+        implementations = new HashMap();
         register(AsiExtraField.class);
         register(JarMarker.class);
+        register(UnicodePathExtraField.class);
+        register(UnicodeCommentExtraField.class);
     }
 
     /**
@@ -88,14 +92,28 @@ public class ExtraFieldUtils {
 
     /**
      * Split the array into ExtraFields and populate them with the
-     * give data.
+     * given data as local file data.
+     * @param data an array of bytes as it appears in local file data
+     * @return an array of ExtraFields
+     * @throws ZipException on error
+     */
+    public static ZipExtraField[] parse(byte[] data) throws ZipException {
+        return parse(data, true);
+    }
+
+    /**
+     * Split the array into ExtraFields and populate them with the
+     * given data.
      * @param data an array of bytes
+     * @param local whether data originates from the local file data
+     * or the central directory
      * @return an array of ExtraFields
      * @since 1.1
      * @throws ZipException on error
      */
-    public static ZipExtraField[] parse(byte[] data) throws ZipException {
-        Vector v = new Vector();
+    public static ZipExtraField[] parse(byte[] data, boolean local)
+        throws ZipException {
+        List v = new ArrayList();
         int start = 0;
         while (start <= data.length - WORD) {
             ZipShort headerId = new ZipShort(data, start);
@@ -106,8 +124,15 @@ public class ExtraFieldUtils {
             }
             try {
                 ZipExtraField ze = createExtraField(headerId);
-                ze.parseFromLocalFileData(data, start + WORD, length);
-                v.addElement(ze);
+                if (local
+                    || !(ze instanceof CentralDirectoryParsingZipExtraField)) {
+                    ze.parseFromLocalFileData(data, start + WORD, length);
+                } else {
+                    ((CentralDirectoryParsingZipExtraField) ze)
+                        .parseFromCentralDirectoryData(data, start + WORD,
+                                                       length);
+                }
+                v.add(ze);
             } catch (InstantiationException ie) {
                 throw new ZipException(ie.getMessage());
             } catch (IllegalAccessException iae) {
@@ -115,14 +140,9 @@ public class ExtraFieldUtils {
             }
             start += (length + WORD);
         }
-        if (start != data.length) { // array not exhausted
-            throw new ZipException("data starting at " + start
-                + " is in unknown format");
-        }
 
         ZipExtraField[] result = new ZipExtraField[v.size()];
-        v.copyInto(result);
-        return result;
+        return (ZipExtraField[]) v.toArray(result);
     }
 
     /**

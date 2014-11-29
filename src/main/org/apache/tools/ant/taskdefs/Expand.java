@@ -68,6 +68,7 @@ public class Expand extends Task {
     private boolean resourcesSpecified = false;
     private boolean failOnEmptyArchive = false;
     private boolean stripAbsolutePathSpec = false;
+    private boolean scanForUnicodeExtraFields = true;
 
     private static final String NATIVE_ENCODING = "native-encoding";
 
@@ -139,8 +140,9 @@ public class Expand extends Task {
                 continue;
             }
 
-            if (r instanceof FileProvider) {
-                expandFile(FILE_UTILS, ((FileProvider) r).getFile(), dest);
+            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            if (fp != null) {
+                expandFile(FILE_UTILS, fp.getFile(), dest);
             } else {
                 expandResource(r, dest);
             }
@@ -165,7 +167,7 @@ public class Expand extends Task {
                     getLocation());
         }
         try {
-            zf = new ZipFile(srcF, encoding);
+            zf = new ZipFile(srcF, encoding, scanForUnicodeExtraFields);
             boolean empty = true;
             Enumeration e = zf.getEntries();
             while (e.hasMoreElements()) {
@@ -452,4 +454,12 @@ public class Expand extends Task {
         stripAbsolutePathSpec = b;
     }
 
+    /**
+     * Whether unicode extra fields will be used if present.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setScanForUnicodeExtraFields(boolean b) {
+        scanForUnicodeExtraFields = b;
+    }
 }

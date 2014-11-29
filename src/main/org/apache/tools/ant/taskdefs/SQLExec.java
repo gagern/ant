@@ -20,11 +20,13 @@ package org.apache.tools.ant.taskdefs;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.KeepAliveOutputStream;
 import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Appendable;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
@@ -565,17 +567,30 @@ public class SQLExec extends JDBCTask {
             }
 
             try {
-                PrintStream out = System.out;
+                PrintStream out = KeepAliveOutputStream.wrapSystemOut();
                 try {
                     if (output != null) {
                         log("Opening PrintStream to output Resource " + output, Project.MSG_VERBOSE);
-                        OutputStream os;
-                        if (output instanceof FileProvider) {
-                            os = new FileOutputStream(((FileProvider) output).getFile(), append);
+                        OutputStream os = null;
+                        FileProvider fp =
+                            (FileProvider) output.as(FileProvider.class);
+                        if (fp != null) {
+                            os = new FileOutputStream(fp.getFile(), append);
                         } else {
-                            os = output.getOutputStream();
                             if (append) {
-                                log("Ignoring append=true for non-file resource " + output, Project.MSG_WARN);
+                                Appendable a =
+                                    (Appendable) output.as(Appendable.class);
+                                if (a != null) {
+                                    os = a.getAppendOutputStream();
+                                }
+                            }
+                            if (os == null) {
+                                os = output.getOutputStream();
+                                if (append) {
+                                    log("Ignoring append=true for non-appendable"
+                                        + " resource " + output,
+                                        Project.MSG_WARN);
+                                }
                             }
                         }
                         out = new PrintStream(new BufferedOutputStream(os));

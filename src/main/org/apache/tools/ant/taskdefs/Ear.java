@@ -130,11 +130,12 @@ public class Ear extends Jar {
             if (deploymentDescriptor != null
                 || !FILE_UTILS.fileNameEquals(deploymentDescriptor, file)
                 || descriptorAdded) {
-                log("Warning: selected " + archiveType
-                    + " files include a " + XML_DESCRIPTOR_PATH + " which will"
-                    + " be ignored (please use appxml attribute to "
-                    + archiveType + " task)",
-                        Project.MSG_WARN);
+                logWhenWriting("Warning: selected " + archiveType
+                               + " files include a " + XML_DESCRIPTOR_PATH
+                               + " which will"
+                               + " be ignored (please use appxml attribute to "
+                               + archiveType + " task)",
+                               Project.MSG_WARN);
             } else {
                 super.zipFile(file, zOut, vPath, mode);
                 descriptorAdded = true;

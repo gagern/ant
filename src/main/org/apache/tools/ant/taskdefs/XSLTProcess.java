@@ -26,8 +26,11 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.DynamicConfigurator;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.CommandlineJava;
+import org.apache.tools.ant.types.Environment;
 import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
@@ -170,6 +173,50 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     public static final String PROCESSOR_TRAX = "trax";
 
     /**
+     * whether to suppress warnings.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean suppressWarnings = false;
+
+    /**
+     * whether to fail the build if an error occurs during transformation.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean failOnTransformationError = true;
+
+    /**
+     * whether to fail the build if an error occurs.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean failOnError = true;
+
+    /**
+     * Whether the build should fail if the nested resource collection
+     * is empty.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean failOnNoResources = true;
+
+    /**
+     * System properties to set during transformation.
+     *
+     * @since Ant 1.8.0
+     */
+    private CommandlineJava.SysProperties sysProperties =
+        new CommandlineJava.SysProperties();
+
+    /**
+     * Trace configuration for Xalan2.
+     *
+     * @since Ant 1.8.0
+     */
+    private TraceConfiguration traceConfiguration;
+
+    /**
      * Creates a new XSLTProcess Task.
      */
     public XSLTProcess() {
@@ -206,9 +253,10 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     public void addMapper(Mapper mapper) {
         if (mapperElement != null) {
-            throw new BuildException("Cannot define more than one mapper", getLocation());
+            handleError("Cannot define more than one mapper");
+        } else {
+            mapperElement = mapper;
         }
-        mapperElement = mapper;
     }
 
     /**
@@ -229,10 +277,11 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     public void addConfiguredStyle(Resources rc) {
         if (rc.size() != 1) {
-            throw new BuildException(
-                    "The style element must be specified with exactly one nested resource.");
+            handleError("The style element must be specified with exactly one"
+                        + " nested resource.");
+        } else {
+            setXslResource((Resource) rc.iterator().next());
         }
-        setXslResource((Resource) rc.iterator().next());
     }
 
     /**
@@ -278,15 +327,22 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             + "or as a nested resource";
 
         if (xslResource == null && xslFile == null) {
-            throw new BuildException(baseMessage, getLocation());
+            handleError(baseMessage);
+            return;
         }
         if (xslResource != null && xslFile != null) {
-            throw new BuildException(baseMessage + " but not as both", getLocation());
+            handleError(baseMessage + " but not as both");
+            return;
         }
         if (inFile != null && !inFile.exists()) {
-            throw new BuildException("input file " + inFile + " does not exist", getLocation());
+            handleError("input file " + inFile + " does not exist");
+            return;
         }
         try {
+            if (sysProperties.size() > 0) {
+                sysProperties.setSystem();
+            }
+
             Resource styleResource;
             if (baseDir == null) {
                 baseDir = getProject().getBaseDir();
@@ -322,6 +378,12 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             } else {
                 styleResource = xslResource;
             }
+
+            if (!styleResource.isExists()) {
+                handleError("stylesheet " + styleResource + " doesn't exist.");
+                return;
+            }
+
             // if we have an in file and out then process them
             if (inFile != null && outFile != null) {
                 process(inFile, outFile, styleResource);
@@ -357,7 +419,10 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 }
             } else { // only resource collections, there better be some
                 if (resources.size() == 0) {
-                    throw new BuildException("no resources specified");
+                    if (failOnNoResources) {
+                        handleError("no resources specified");
+                    }
+                    return;
                 }
             }
             processResources(styleResource);
@@ -366,6 +431,9 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 loader.resetThreadContextLoader();
                 loader.cleanup();
                 loader = null;
+            }
+            if (sysProperties.size() > 0) {
+                sysProperties.restoreSystem();
             }
             liaison = null;
             stylesheetLoaded = false;
@@ -508,6 +576,96 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     }
 
     /**
+     * Whether to suppress warning messages of the processor.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setSuppressWarnings(boolean b) {
+        suppressWarnings = b;
+    }
+
+    /**
+     * Whether to suppress warning messages of the processor.
+     *
+     * @since Ant 1.8.0
+     */
+    public boolean getSuppressWarnings() {
+        return suppressWarnings;
+    }    
+
+    /**
+     * Whether transformation errors should make the build fail.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFailOnTransformationError(boolean b) {
+        failOnTransformationError = b;
+    }
+
+    /**
+     * Whether any errors should make the build fail.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFailOnError(boolean b) {
+        failOnError = b;
+    }
+
+    /**
+     * Whether the build should fail if the nested resource collection is empty.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFailOnNoResources(boolean b) {
+        failOnNoResources = b;
+    }
+
+    /**
+     * A system property to set during transformation.
+     *
+     * @since Ant 1.8.0
+     */
+    public void addSysproperty(Environment.Variable sysp) {
+        sysProperties.addVariable(sysp);
+    }
+
+    /**
+     * A set of system properties to set during transformation.
+     *
+     * @since Ant 1.8.0
+     */
+    public void addSyspropertyset(PropertySet sysp) {
+        sysProperties.addSyspropertyset(sysp);
+    }
+
+    /**
+     * Enables Xalan2 traces and uses the given configuration.
+     *
+     * <p>Note that this element doesn't have any effect with a
+     * processor other than trax or if the Transformer is not Xalan2's
+     * transformer implementation.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public TraceConfiguration createTrace() {
+        if (traceConfiguration != null) {
+            throw new BuildException("can't have more than one trace"
+                                     + " configuration");
+        }
+        traceConfiguration = new TraceConfiguration();
+        return traceConfiguration;
+    }
+
+    /**
+     * Configuration for Xalan2 traces.
+     *
+     * @since Ant 1.8.0
+     */
+    public TraceConfiguration getTraceConfiguration() {
+        return traceConfiguration;
+    }
+
+    /**
      * Load processor here instead of in setProcessor - this will be
      * called from within execute, so we have access to the latest
      * classpath.
@@ -572,8 +730,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     private void checkDest() {
         if (destDir == null) {
-            String msg = "destdir attributes must be set!";
-            throw new BuildException(msg);
+            handleError("destdir attributes must be set!");
         }
     }
 
@@ -592,8 +749,9 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             }
             File base = baseDir;
             String name = r.getName();
-            if (r instanceof FileProvider) {
-                FileResource f = ResourceUtils.asFileResource((FileProvider) r);
+            FileProvider fp = (FileProvider) r.as(FileProvider.class);
+            if (fp != null) {
+                FileResource f = ResourceUtils.asFileResource(fp);
                 base = f.getBaseDir();
                 if (base == null) {
                     name = f.getFile().getAbsolutePath();
@@ -659,8 +817,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             if (outF != null) {
                 outF.delete();
             }
-
-            throw new BuildException(ex);
+            handleTransformationError(ex);
         }
 
     } //-- processXML
@@ -695,7 +852,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             if (outFile != null) {
                 outFile.delete();
             }
-            throw new BuildException(ex);
+            handleTransformationError(ex);
         }
     }
 
@@ -709,8 +866,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         File directory = targetFile.getParentFile();
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
-                throw new BuildException("Unable to create directory: "
-                        + directory.getAbsolutePath());
+                handleError("Unable to create directory: "
+                            + directory.getAbsolutePath());
             }
         }
     }
@@ -755,14 +912,14 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 try {
                     resolveProcessor(processor);
                 } catch (Exception e) {
-                    throw new BuildException(e);
+                    handleError(e);
                 }
             } else {
                 try {
                     resolveProcessor(PROCESSOR_TRAX);
                 } catch (Throwable e1) {
                     e1.printStackTrace();
-                    throw new BuildException(e1);
+                    handleError(e1);
                 }
             }
         }
@@ -989,11 +1146,14 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 // If we are here we cannot set the stylesheet as
                 // a resource, but we can set it as a file. So,
                 // we make an attempt to get it as a file
-                if (stylesheet instanceof FileProvider) {
-                    liaison.setStylesheet(((FileProvider) stylesheet).getFile());
+                FileProvider fp =
+                    (FileProvider) stylesheet.as(FileProvider.class);
+                if (fp != null) {
+                    liaison.setStylesheet(fp.getFile());
                 } else {
-                    throw new BuildException(liaison.getClass().toString()
-                            + " accepts the stylesheet only as a file", getLocation());
+                    handleError(liaison.getClass().toString()
+                                + " accepts the stylesheet only as a file");
+                    return;
                 }
             }
             for (Enumeration e = params.elements(); e.hasMoreElements();) {
@@ -1004,7 +1164,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             }
         } catch (Exception ex) {
             log("Failed to transform using stylesheet " + stylesheet, Project.MSG_INFO);
-            throw new BuildException(ex);
+            handleTransformationError(ex);
         }
     }
 
@@ -1040,10 +1200,56 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     public Factory createFactory() throws BuildException {
         if (factory != null) {
-            throw new BuildException("'factory' element must be unique");
+            handleError("'factory' element must be unique");
+        } else {
+            factory = new Factory();
         }
-        factory = new Factory();
         return factory;
+    }
+
+    /**
+     * Throws an exception with the given message if failOnError is
+     * true, otherwise logs the message using the WARN level.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void handleError(String msg) {
+        if (failOnError) {
+            throw new BuildException(msg, getLocation());
+        }
+        log(msg, Project.MSG_WARN);
+    }
+
+
+    /**
+     * Throws an exception with the given nested exception if
+     * failOnError is true, otherwise logs the message using the WARN
+     * level.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void handleError(Throwable ex) {
+        if (failOnError) {
+            throw new BuildException(ex);
+        } else {
+            log("Caught an exception: " + ex, Project.MSG_WARN);
+        }
+    }
+
+    /**
+     * Throws an exception with the given nested exception if
+     * failOnError and failOnTransformationError are true, otherwise
+     * logs the message using the WARN level.
+     *
+     * @since Ant 1.8.0
+     */
+    protected void handleTransformationError(Exception ex) {
+        if (failOnError && failOnTransformationError) {
+            throw new BuildException(ex);
+        } else {
+            log("Caught an error during transformation: " + ex,
+                Project.MSG_WARN);
+        }
     }
 
     /**
@@ -1183,6 +1389,102 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 xmlFile = xmlFile.substring(0, dotPos);
             }
             return new String[] {xmlFile + targetExtension};
+        }
+    }
+
+    /**
+     * Configuration for Xalan2 traces.
+     *
+     * @since Ant 1.8.0
+     */
+    public final class TraceConfiguration {
+        private boolean elements, extension, generation, selection, templates;
+
+        /**
+         * Set to true if the listener is to print events that occur
+         * as each node is 'executed' in the stylesheet.
+         */
+        public void setElements(boolean b) {
+            elements = b;
+        }
+
+        /**
+         * True if the listener is to print events that occur as each
+         * node is 'executed' in the stylesheet.
+         */
+        public boolean getElements() {
+            return elements;
+        }
+
+        /**
+         * Set to true if the listener is to print information after
+         * each extension event.
+         */
+        public void setExtension(boolean b) {
+            extension = b;
+        }
+
+        /**
+         * True if the listener is to print information after each
+         * extension event.
+         */
+        public boolean getExtension() {
+            return extension;
+        }
+
+        /**
+         * Set to true if the listener is to print information after
+         * each result-tree generation event.
+         */
+        public void setGeneration(boolean b) {
+            generation = b;
+        }
+
+        /**
+         * True if the listener is to print information after each
+         * result-tree generation event.
+         */
+        public boolean getGeneration() {
+            return generation;
+        }
+
+        /**
+         * Set to true if the listener is to print information after
+         * each selection event.
+         */
+        public void setSelection(boolean b) {
+            selection = b;
+        }
+
+        /**
+         * True if the listener is to print information after each
+         * selection event.
+         */
+        public boolean getSelection() {
+            return selection;
+        }
+
+        /**
+         * Set to true if the listener is to print an event whenever a
+         * template is invoked.
+         */
+        public void setTemplates(boolean b) {
+            templates = b;
+        }
+
+        /**
+         * True if the listener is to print an event whenever a
+         * template is invoked.
+         */
+        public boolean getTemplates() {
+            return templates;
+        }
+
+        /**
+         * The stream to write traces to.
+         */
+        public java.io.OutputStream getOutputStream() {
+            return new LogOutputStream(XSLTProcess.this);
         }
     }
 

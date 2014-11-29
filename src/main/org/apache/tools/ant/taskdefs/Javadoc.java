@@ -21,7 +21,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.BufferedWriter;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.net.MalformedURLException;
@@ -45,6 +45,7 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.util.FileUtils;
@@ -76,12 +77,8 @@ import org.apache.tools.ant.util.JavaEnvUtils;
 public class Javadoc extends Task {
     // Whether *this VM* is 1.4+ (but also check executable != null).
 
-    private static final boolean JAVADOC_4 =
-        !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2)
-        && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3);
-
-    private static final boolean JAVADOC_5 = JAVADOC_4
-        && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4);
+    private static final boolean JAVADOC_5 = 
+        !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4);
 
     /**
      * Inner class used to manage doclet parameters.
@@ -451,8 +448,9 @@ public class Javadoc extends Task {
     private boolean breakiterator = false;
     private String noqualifier;
     private boolean includeNoSourcePackages = false;
-    private boolean old = false;
     private String executable = null;
+    private boolean docFilesSubDirs = false;
+    private String excludeDocFilesSubDir = null;
 
     private ResourceCollectionContainer nestedSourceFiles
         = new ResourceCollectionContainer();
@@ -765,7 +763,8 @@ public class Javadoc extends Task {
      * @param b if true attempt to generate old style documentation.
      */
     public void setOld(boolean b) {
-        old = b;
+        log("Javadoc 1.4 doesn't support the -1.1 switch anymore",
+            Project.MSG_WARN);
     }
 
     /**
@@ -1636,6 +1635,25 @@ public class Javadoc extends Task {
     }
 
     /**
+     * Enables deep-copying of <code>doc-files</code> directories.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setDocFilesSubDirs(boolean b) {
+        docFilesSubDirs = b;
+    }
+
+    /**
+     * Colon-separated list of <code>doc-files</code> subdirectories
+     * to skip if {@link #setDocFilesSubDirs docFilesSubDirs is true}.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setExcludeDocFilesSubDir(String s) {
+        excludeDocFilesSubDir = s;
+    }
+
+    /**
      * Execute the task.
      * @throws BuildException on error
      */
@@ -1676,34 +1694,19 @@ public class Javadoc extends Task {
         doLinks(toExecute);    // links arguments
         doGroup(toExecute);    // group attribute
         doGroups(toExecute);  // groups attribute
+        doDocFilesSubDirs(toExecute); // docfilessubdir attribute
 
-        // Javadoc 1.4 parameters
-        if (JAVADOC_4 || executable != null) {
-            doJava14(toExecute);
-            if (breakiterator && (doclet == null || JAVADOC_5)) {
-                toExecute.createArgument().setValue("-breakiterator");
-            }
-        } else {
-            doNotJava14();
-        }
-        // Javadoc 1.2/1.3 parameters:
-        if (!JAVADOC_4 || executable != null) {
-            if (old) {
-                toExecute.createArgument().setValue("-1.1");
-            }
-        } else {
-            if (old) {
-                log("Javadoc 1.4 doesn't support the -1.1 switch anymore",
-                    Project.MSG_WARN);
-            }
+        doJava14(toExecute);
+        if (breakiterator && (doclet == null || JAVADOC_5)) {
+            toExecute.createArgument().setValue("-breakiterator");
         }
         // If using an external file, write the command line options to it
-        if (useExternalFile && JAVADOC_4) {
+        if (useExternalFile) {
             writeExternalArgs(toExecute);
         }
 
         File tmpList = null;
-        PrintWriter srcListWriter = null;
+        BufferedWriter srcListWriter = null;
 
         try {
             /**
@@ -1714,7 +1717,7 @@ public class Javadoc extends Task {
                 tmpList = FILE_UTILS.createTempFile("javadoc", "", null, true, true);
                 toExecute.createArgument()
                     .setValue("@" + tmpList.getAbsolutePath());
-                srcListWriter = new PrintWriter(
+                srcListWriter = new BufferedWriter(
                     new FileWriter(tmpList.getAbsolutePath(),
                                    true));
             }
@@ -1727,9 +1730,7 @@ public class Javadoc extends Task {
             throw new BuildException("Error creating temporary file",
                                      e, getLocation());
         } finally {
-            if (srcListWriter != null) {
-                srcListWriter.close();
-            }
+            FileUtils.close(srcListWriter);
         }
 
         if (packageList != null) {
@@ -1895,7 +1896,7 @@ public class Javadoc extends Task {
     private void writeExternalArgs(Commandline toExecute) {
         // If using an external file, write the command line options to it
         File optionsTmpFile = null;
-        PrintWriter optionsListWriter = null;
+        BufferedWriter optionsListWriter = null;
         try {
             optionsTmpFile = FILE_UTILS.createTempFile(
                 "javadocOptions", "", null, true, true);
@@ -1903,7 +1904,7 @@ public class Javadoc extends Task {
             toExecute.clearArgs();
             toExecute.createArgument().setValue(
                 "@" + optionsTmpFile.getAbsolutePath());
-            optionsListWriter = new PrintWriter(
+            optionsListWriter = new BufferedWriter(
                 new FileWriter(optionsTmpFile.getAbsolutePath(), true));
             for (int i = 0; i < listOpt.length; i++) {
                 String string = listOpt[i];
@@ -1911,10 +1912,11 @@ public class Javadoc extends Task {
                     toExecute.createArgument().setValue(string);
                 } else  {
                     if (string.startsWith("-")) {
-                        optionsListWriter.print(string);
-                        optionsListWriter.print(" ");
+                        optionsListWriter.write(string);
+                        optionsListWriter.write(" ");
                     } else {
-                        optionsListWriter.println(quoteString(string));
+                        optionsListWriter.write(quoteString(string));
+                        optionsListWriter.newLine();
                     }
                 }
             }
@@ -2150,27 +2152,14 @@ public class Javadoc extends Task {
         }
     }
 
-    private void doNotJava14() {
-        // Not 1.4+.
-        if (!tags.isEmpty()) {
-            log("-tag and -taglet options not supported on Javadoc < 1.4",
-                Project.MSG_VERBOSE);
-        }
-        if (source != null) {
-            log("-source option not supported on Javadoc < 1.4",
-                Project.MSG_VERBOSE);
-        }
-        if (linksource) {
-            log("-linksource option not supported on Javadoc < 1.4",
-                Project.MSG_VERBOSE);
-        }
-        if (breakiterator) {
-            log("-breakiterator option not supported on Javadoc < 1.4",
-                Project.MSG_VERBOSE);
-        }
-        if (noqualifier != null) {
-            log("-noqualifier option not supported on Javadoc < 1.4",
-                Project.MSG_VERBOSE);
+    private void doDocFilesSubDirs(Commandline toExecute) {
+        if (docFilesSubDirs) {
+            toExecute.createArgument().setValue("-docfilessubdirs");
+            if (excludeDocFilesSubDir != null
+                && excludeDocFilesSubDir.trim().length() > 0) {
+                toExecute.createArgument().setValue("-excludedocfilessubdir");
+                toExecute.createArgument().setValue(excludeDocFilesSubDir);
+            }
         }
     }
 
@@ -2180,13 +2169,14 @@ public class Javadoc extends Task {
         Vector sourceFilesToDoc,
         boolean useExternalFile,
         File    tmpList,
-        PrintWriter srcListWriter)
+        BufferedWriter srcListWriter)
         throws IOException {
         Enumeration e = packagesToDoc.elements();
         while (e.hasMoreElements()) {
             String packageName = (String) e.nextElement();
             if (useExternalFile) {
-                srcListWriter.println(packageName);
+                srcListWriter.write(packageName);
+                srcListWriter.newLine();
             } else {
                 toExecute.createArgument().setValue(packageName);
             }
@@ -2199,15 +2189,16 @@ public class Javadoc extends Task {
             if (useExternalFile) {
                 // XXX what is the following doing?
                 //     should it run if !javadoc4 && executable != null?
-                if (JAVADOC_4 && sourceFileName.indexOf(" ") > -1) {
+                if (sourceFileName.indexOf(" ") > -1) {
                     String name = sourceFileName;
                     if (File.separatorChar == '\\') {
                         name = sourceFileName.replace(File.separatorChar, '/');
                     }
-                    srcListWriter.println("\"" + name + "\"");
+                    srcListWriter.write("\"" + name + "\"");
                 } else {
-                    srcListWriter.println(sourceFileName);
+                    srcListWriter.write(sourceFileName);
                 }
+                srcListWriter.newLine();
             } else {
                 toExecute.createArgument().setValue(sourceFileName);
             }
@@ -2220,8 +2211,8 @@ public class Javadoc extends Task {
      * @return the quoted string, if there is no need to quote the string,
      *         return the original string.
      */
-    private String quoteString(String str) {
-        if (str.indexOf(' ') == -1
+    private String quoteString(final String str) {
+        if (!containsWhitespace(str)
             && str.indexOf('\'') == -1
             && str.indexOf('"') == -1) {
             return str;
@@ -2233,30 +2224,56 @@ public class Javadoc extends Task {
         }
     }
 
-    private String quoteString(String str, char delim) {
-        StringBuffer buf = new StringBuffer(str.length() * 2);
-        buf.append(delim);
-        if (str.indexOf('\\') != -1) {
-            str = replace(str, '\\', "\\\\");
-        }
-        if (str.indexOf(delim) != -1) {
-            str = replace(str, delim, "\\" + delim);
-        }
-        buf.append(str);
-        buf.append(delim);
-        return buf.toString();
-    }
-
-    private String replace(String str, char fromChar, String toString) {
-        StringBuffer buf = new StringBuffer(str.length() * 2);
-        for (int i = 0; i < str.length(); ++i) {
-            char ch = str.charAt(i);
-            if (ch == fromChar) {
-                buf.append(toString);
-            } else {
-                buf.append(ch);
+    private boolean containsWhitespace(final String s) {
+        final int len = s.length();
+        for (int i = 0; i < len; i++) {
+            if (Character.isWhitespace(s.charAt(i))) {
+                return true;
             }
         }
+        return false;
+    }
+
+    private String quoteString(final String str, final char delim) {
+        StringBuffer buf = new StringBuffer(str.length() * 2);
+        buf.append(delim);
+        final int len = str.length();
+        boolean lastCharWasCR = false;
+        for (int i = 0; i < len; i++) {
+            char c = str.charAt(i);
+            if (c == delim) { // can't put the non-constant delim into a case
+                buf.append('\\').append(c);
+                lastCharWasCR = false;
+            } else {
+                switch (c) {
+                case '\\':
+                    buf.append("\\\\");
+                    lastCharWasCR = false;
+                    break;
+                case '\r':
+                    // insert a line continuation marker
+                    buf.append("\\\r");
+                    lastCharWasCR = true;
+                    break;
+                case '\n':
+                    // insert a line continuation marker unless this
+                    // is a \r\n sequence in which case \r already has
+                    // created the marker
+                    if (!lastCharWasCR) {
+                        buf.append("\\\n");
+                    } else {
+                        buf.append("\n");
+                    }
+                    lastCharWasCR = false;
+                    break;
+                default:
+                    buf.append(c);
+                    lastCharWasCR = false;
+                    break;
+                }
+            }
+        }
+        buf.append(delim);
         return buf.toString();
     }
 
@@ -2287,7 +2304,8 @@ public class Javadoc extends Task {
             }
             Iterator iter = rc.iterator();
             while (iter.hasNext()) {
-                sf.addElement(new SourceFile(((FileProvider) iter.next())
+                Resource r = (Resource) iter.next();
+                sf.addElement(new SourceFile(((FileProvider) r.as(FileProvider.class))
                                              .getFile()));
             }
         }

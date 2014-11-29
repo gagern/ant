@@ -22,11 +22,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.zip.CRC32;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipException;
@@ -73,12 +75,12 @@ public class ZipFile {
      * Maps ZipEntrys to Longs, recording the offsets of the local
      * file headers.
      */
-    private Hashtable entries = new Hashtable(HASH_SIZE);
+    private final Map entries = new HashMap(HASH_SIZE);
 
     /**
      * Maps String to ZipEntrys, name -> actual entry.
      */
-    private Hashtable nameMap = new Hashtable(HASH_SIZE);
+    private final Map nameMap = new HashMap(HASH_SIZE);
 
     private static final class OffsetEntry {
         private long headerOffset = -1;
@@ -95,9 +97,19 @@ public class ZipFile {
     private String encoding = null;
 
     /**
+     * The zip encoding to use for filenames and the file comment.
+     */
+    private final ZipEncoding zipEncoding;
+
+    /**
      * The actual data source.
      */
     private RandomAccessFile archive;
+
+    /**
+     * Whether to look for and use Unicode extra fields.
+     */
+    private final boolean useUnicodeExtraFields;
 
     /**
      * Opens the given file for reading, assuming the platform's
@@ -125,7 +137,7 @@ public class ZipFile {
 
     /**
      * Opens the given file for reading, assuming the specified
-     * encoding for file names.
+     * encoding for file names, scanning unicode extra fields.
      *
      * @param name name of the archive.
      * @param encoding the encoding to use for file names
@@ -133,7 +145,21 @@ public class ZipFile {
      * @throws IOException if an error occurs while reading the file.
      */
     public ZipFile(String name, String encoding) throws IOException {
-        this(new File(name), encoding);
+        this(new File(name), encoding, true);
+    }
+
+    /**
+     * Opens the given file for reading, assuming the specified
+     * encoding for file names and scanning for unicode extra fields.
+     *
+     * @param f the archive.
+     * @param encoding the encoding to use for file names, use null
+     * for the platform's default encoding
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */
+    public ZipFile(File f, String encoding) throws IOException {
+        this(f, encoding, true);
     }
 
     /**
@@ -141,23 +167,32 @@ public class ZipFile {
      * encoding for file names.
      *
      * @param f the archive.
-     * @param encoding the encoding to use for file names
+     * @param encoding the encoding to use for file names, use null
+     * for the platform's default encoding
+     * @param useUnicodeExtraFields whether to use InfoZIP Unicode
+     * Extra Fields (if present) to set the file names.
      *
      * @throws IOException if an error occurs while reading the file.
      */
-    public ZipFile(File f, String encoding) throws IOException {
+    public ZipFile(File f, String encoding, boolean useUnicodeExtraFields)
+        throws IOException {
         this.encoding = encoding;
+        this.zipEncoding = ZipEncodingHelper.getZipEncoding(encoding);
+        this.useUnicodeExtraFields = useUnicodeExtraFields;
         archive = new RandomAccessFile(f, "r");
+        boolean success = false;
         try {
-            populateFromCentralDirectory();
-            resolveLocalFileHeaderData();
-        } catch (IOException e) {
-            try {
-                archive.close();
-            } catch (IOException e2) {
-                // swallow, throw the original exception instead
+            Map entriesWithoutEFS = populateFromCentralDirectory();
+            resolveLocalFileHeaderData(entriesWithoutEFS);
+            success = true;
+        } finally {
+            if (!success) {
+                try {
+                    archive.close();
+                } catch (IOException e2) {
+                    // swallow, throw the original exception instead
+                }
             }
-            throw e;
         }
     }
 
@@ -198,7 +233,7 @@ public class ZipFile {
      * @return all entries as {@link ZipEntry} instances
      */
     public Enumeration getEntries() {
-        return entries.keys();
+        return Collections.enumeration(entries.keySet());
     }
 
     /**
@@ -217,7 +252,8 @@ public class ZipFile {
      * @param ze the entry to get the stream for.
      * @return a stream to read the entry from.
      * @throws IOException if unable to create an input stream from the zipenty
-     * @throws ZipException if the zipentry has an unsupported compression method
+     * @throws ZipException if the zipentry has an unsupported
+     * compression method
      */
     public InputStream getInputStream(ZipEntry ze)
         throws IOException, ZipException {
@@ -265,9 +301,15 @@ public class ZipFile {
      * <p>The ZipEntrys will know all data that can be obtained from
      * the central directory alone, but not the data that requires the
      * local file header or additional data to be read.</p>
+     *
+     * @return a Map&lt;ZipEntry, NameAndComment>&gt; of
+     * zipentries that didn't have the language encoding flag set when
+     * read.
      */
-    private void populateFromCentralDirectory()
+    private Map populateFromCentralDirectory()
         throws IOException {
+        HashMap noEFS = new HashMap();
+
         positionAtCentralDirectory();
 
         byte[] cfh = new byte[CFH_LEN];
@@ -289,7 +331,15 @@ public class ZipFile {
             off += SHORT;
             ze.setPlatform((versionMadeBy >> BYTE_SHIFT) & NIBLET_MASK);
 
-            off += WORD; // skip version info and general purpose byte
+            off += SHORT; // skip version info
+
+            final int generalPurposeFlag = ZipShort.getValue(cfh, off);
+            final boolean hasEFS = 
+                (generalPurposeFlag & ZipOutputStream.EFS_FLAG) != 0;
+            final ZipEncoding entryEncoding =
+                hasEFS ? ZipEncodingHelper.UTF8_ZIP_ENCODING : zipEncoding;
+
+            off += SHORT;
 
             ze.setMethod(ZipShort.getValue(cfh, off));
             off += SHORT;
@@ -329,8 +379,7 @@ public class ZipFile {
 
             byte[] fileName = new byte[fileNameLen];
             archive.readFully(fileName);
-            ze.setName(getString(fileName));
-
+            ze.setName(entryEncoding.decode(fileName));
 
             // LFH offset,
             OffsetEntry offset = new OffsetEntry();
@@ -340,15 +389,22 @@ public class ZipFile {
 
             nameMap.put(ze.getName(), ze);
 
-            archive.skipBytes(extraLen);
+            byte[] cdExtraData = new byte[extraLen];
+            archive.readFully(cdExtraData);
+            ze.setCentralDirectoryExtra(cdExtraData);
 
             byte[] comment = new byte[commentLen];
             archive.readFully(comment);
-            ze.setComment(getString(comment));
+            ze.setComment(entryEncoding.decode(comment));
 
             archive.readFully(signatureBytes);
             sig = ZipLong.getValue(signatureBytes);
+
+            if (!hasEFS && useUnicodeExtraFields) {
+                noEFS.put(ze, new NameAndComment(fileName, comment));
+            }
         }
+        return noEFS;
     }
 
     private static final int MIN_EOCD_SIZE =
@@ -443,7 +499,7 @@ public class ZipFile {
      * <p>Also records the offsets for the data to read from the
      * entries.</p>
      */
-    private void resolveLocalFileHeaderData()
+    private void resolveLocalFileHeaderData(Map entriesWithoutEFS)
         throws IOException {
         Enumeration e = getEntries();
         while (e.hasMoreElements()) {
@@ -456,7 +512,15 @@ public class ZipFile {
             int fileNameLen = ZipShort.getValue(b);
             archive.readFully(b);
             int extraFieldLen = ZipShort.getValue(b);
-            archive.skipBytes(fileNameLen);
+            int lenToSkip = fileNameLen;
+            while (lenToSkip > 0) {
+                int skipped = archive.skipBytes(lenToSkip);
+                if (skipped <= 0) {
+                    throw new RuntimeException("failed to skip file name in"
+                                               + " local file header");
+                }
+                lenToSkip -= skipped;
+            }            
             byte[] localExtraData = new byte[extraFieldLen];
             archive.readFully(localExtraData);
             ze.setExtra(localExtraData);
@@ -465,7 +529,13 @@ public class ZipFile {
                                      + SHORT + SHORT + fileNameLen + extraFieldLen));
             */
             offsetEntry.dataOffset = offset + LFH_OFFSET_FOR_FILENAME_LENGTH
-                                     + SHORT + SHORT + fileNameLen + extraFieldLen;
+                + SHORT + SHORT + fileNameLen + extraFieldLen;
+
+            if (entriesWithoutEFS.containsKey(ze)) {
+                setNameAndCommentFromExtraFields(ze,
+                                                 (NameAndComment)
+                                                 entriesWithoutEFS.get(ze));
+            }
         }
     }
 
@@ -506,14 +576,10 @@ public class ZipFile {
      * @throws ZipException if the encoding cannot be recognized.
      */
     protected String getString(byte[] bytes) throws ZipException {
-        if (encoding == null) {
-            return new String(bytes);
-        } else {
-            try {
-                return new String(bytes, encoding);
-            } catch (UnsupportedEncodingException uee) {
-                throw new ZipException(uee.getMessage());
-            }
+        try {
+            return ZipEncodingHelper.getZipEncoding(encoding).decode(bytes);
+        } catch (IOException ex) {
+            throw new ZipException("Failed to decode name: " + ex.getMessage());
         }
     }
 
@@ -531,6 +597,64 @@ public class ZipFile {
             }
         }
         return true;
+    }
+
+    /**
+     * If the entry has Unicode*ExtraFields and the CRCs of the
+     * names/comments match those of the extra fields, transfer the
+     * known Unicode values from the extra field.
+     */
+    private void setNameAndCommentFromExtraFields(ZipEntry ze,
+                                                  NameAndComment nc) {
+        UnicodePathExtraField name = (UnicodePathExtraField)
+            ze.getExtraField(UnicodePathExtraField.UPATH_ID);
+        String originalName = ze.getName();
+        String newName = getUnicodeStringIfOriginalMatches(name, nc.name);
+        if (newName != null && !originalName.equals(newName)) {
+            ze.setName(newName);
+            nameMap.remove(originalName);
+            nameMap.put(newName, ze);
+        }
+
+        if (nc.comment != null && nc.comment.length > 0) {
+            UnicodeCommentExtraField cmt = (UnicodeCommentExtraField)
+                ze.getExtraField(UnicodeCommentExtraField.UCOM_ID);
+            String newComment =
+                getUnicodeStringIfOriginalMatches(cmt, nc.comment);
+            if (newComment != null) {
+                ze.setComment(newComment);
+            }
+        }
+    }
+
+    /**
+     * If the stored CRC matches the one of the given name, return the
+     * Unicode name of the given field.
+     *
+     * <p>If the field is null or the CRCs don't match, return null
+     * instead.</p>
+     */
+    private String getUnicodeStringIfOriginalMatches(AbstractUnicodeExtraField f,
+                                                     byte[] orig) {
+        if (f != null) {
+            CRC32 crc32 = new CRC32();
+            crc32.update(orig);
+            long origCRC32 = crc32.getValue();
+
+            if (origCRC32 == f.getNameCRC32()) {
+                try {
+                    return ZipEncodingHelper
+                        .UTF8_ZIP_ENCODING.decode(f.getUnicodeName());
+                } catch (IOException ex) {
+                    // UTF-8 unsupported?  should be impossible the
+                    // Unicode*ExtraField must contain some bad bytes
+
+                    // TODO log this anywhere?
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -600,4 +724,12 @@ public class ZipFile {
         }
     }
 
+    private static final class NameAndComment {
+        private final byte[] name;
+        private final byte[] comment;
+        private NameAndComment(byte[] name, byte[] comment) {
+            this.name = name;
+            this.comment = comment;
+        }
+    }
 }

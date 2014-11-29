@@ -20,13 +20,16 @@ package org.apache.tools.ant;
 
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.SymbolicLinkUtils;
 
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.Iterator;
 
 /**
  * JUnit 3 testcases for org.apache.tools.ant.DirectoryScanner
@@ -247,7 +250,7 @@ public class DirectoryScannerTest extends BuildFileTest {
 
                 File dir = new File(System.getProperty("root"), "src/main/org/apache/tools");
                 System.err.println("link exists after exec? " + linkFile.exists());
-                System.err.println("Ant knows it is a link? " + FileUtils.getFileUtils().isSymbolicLink(dir, "ThisIsALink"));
+                System.err.println("Ant knows it is a link? " + SymbolicLinkUtils.getSymbolicLinkUtils().isSymbolicLink(dir, "ThisIsALink"));
 
                 DirectoryScanner ds = new DirectoryScanner();
 
@@ -531,4 +534,25 @@ public class DirectoryScannerTest extends BuildFileTest {
         }
     }
 
+    public void testRecursiveExcludes() throws Exception {
+        DirectoryScanner ds = new DirectoryScanner();
+        ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
+        ds.setExcludes(new String[] {"**/beta/**"});
+        ds.scan();
+        List dirs = Arrays.asList(ds.getExcludedDirectories());
+        assertEquals(2, dirs.size());
+        assertTrue("beta is excluded",
+                   dirs.contains("alpha/beta".replace('/', File.separatorChar)));
+        assertTrue("gamma is excluded",
+                   dirs.contains("alpha/beta/gamma".replace('/',
+                                                            File.separatorChar)));
+        List files = Arrays.asList(ds.getExcludedFiles());
+        assertEquals(2, files.size());
+        assertTrue("beta.xml is excluded",
+                   files.contains("alpha/beta/beta.xml"
+                                  .replace('/', File.separatorChar)));
+        assertTrue("gamma.xml is excluded",
+                   files.contains("alpha/beta/gamma/gamma.xml"
+                                  .replace('/', File.separatorChar)));
+    }
 }

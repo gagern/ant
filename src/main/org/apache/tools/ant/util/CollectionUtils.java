@@ -17,12 +17,15 @@
  */
 package org.apache.tools.ant.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Vector;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Vector;
 
 // CheckStyle:HideUtilityClassConstructorCheck OFF - bc
 
@@ -32,6 +35,12 @@ import java.util.NoSuchElementException;
  * @since Ant 1.5
  */
 public class CollectionUtils {
+
+    /**
+     * Collections.emptyList() is Java5+.
+     */
+    public static final List EMPTY_LIST =
+        Collections.unmodifiableList(new ArrayList(0));
 
     /**
      * Please use Vector.equals() or List.equals().
@@ -197,6 +206,19 @@ public class CollectionUtils {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    /**
+     * Returns a collection containg all elements of the iterator.
+     *
+     * @since Ant 1.8.0
+     */
+    public static Collection asCollection(final Iterator iter) {
+        List l = new ArrayList();
+        while (iter.hasNext()) {
+            l.add(iter.next());
+        }
+        return l;
     }
 
     private static final class CompoundEnumeration implements Enumeration {

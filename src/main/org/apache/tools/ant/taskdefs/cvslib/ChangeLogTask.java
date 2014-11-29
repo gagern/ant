@@ -95,6 +95,15 @@ public class ChangeLogTask extends AbstractCvsTask {
     /** The latest date at which to stop processing entries.  */
     private Date endDate;
 
+    /** Determines whether log (false) or rlog (true) is used */
+    private boolean remote = false;
+
+    /** Start tag when doing tag ranges. */
+    private String startTag;
+
+    /** End tag when doing tag ranges. */
+    private String endTag;
+
     /**
      * Filesets containing list of files against which the cvs log will be
      * performed. If empty then all files in the working directory will
@@ -177,6 +186,34 @@ public class ChangeLogTask extends AbstractCvsTask {
         setStart(new Date(time));
     }
 
+    /**
+     * Whether to use rlog against a remote repository instead of log
+     * in a working copy's directory.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setRemote(final boolean remote) {
+        this.remote = remote;
+    }
+
+    /**
+     * Set the tag at which the changelog should start.
+     *
+     * @param start The date at which the changelog should start.
+     */
+    public void setStartTag(final String start) {
+        this.startTag = start;
+    }
+
+
+    /**
+     * Set the tag at which the changelog should stop.
+     *
+     * @param end The date at which the changelog should stop.
+     */
+    public void setEndTag(final String end) {
+        this.endTag = end;
+    }
 
     /**
      * Adds a set of files about which cvs logs will be generated.
@@ -210,22 +247,39 @@ public class ChangeLogTask extends AbstractCvsTask {
                 userList.put(user.getUserID(), user.getDisplayname());
             }
 
-            setCommand("log");
+            if (!remote) {
+                setCommand("log");
 
-            if (getTag() != null) {
-                CvsVersion myCvsVersion = new CvsVersion();
-                myCvsVersion.setProject(getProject());
-                myCvsVersion.setTaskName("cvsversion");
-                myCvsVersion.setCvsRoot(getCvsRoot());
-                myCvsVersion.setCvsRsh(getCvsRsh());
-                myCvsVersion.setPassfile(getPassFile());
-                myCvsVersion.setDest(inputDir);
-                myCvsVersion.execute();
-                if (myCvsVersion.supportsCvsLogWithSOption()) {
-                    addCommandArgument("-S");
+                if (getTag() != null) {
+                    CvsVersion myCvsVersion = new CvsVersion();
+                    myCvsVersion.setProject(getProject());
+                    myCvsVersion.setTaskName("cvsversion");
+                    myCvsVersion.setCvsRoot(getCvsRoot());
+                    myCvsVersion.setCvsRsh(getCvsRsh());
+                    myCvsVersion.setPassfile(getPassFile());
+                    myCvsVersion.setDest(inputDir);
+                    myCvsVersion.execute();
+                    if (myCvsVersion.supportsCvsLogWithSOption()) {
+                        addCommandArgument("-S");
+                    }
                 }
+            } else {
+                // supply 'rlog' as argument instead of command
+                setCommand("");
+                addCommandArgument("rlog");
+                // Do not print name/header if no revisions
+                // selected. This is quicker: less output to parse.
+                addCommandArgument("-S");
+                // Do not list tags. This is quicker: less output to
+                // parse.
+                addCommandArgument("-N");
             }
-            if (null != startDate) {
+            if (null != startTag || null != endTag) {
+                // man, do I get spoiled by C#'s ?? operator
+                String startValue = startTag == null ? "" : startTag;
+                String endValue = endTag == null ? "" : endTag;
+                addCommandArgument("-r" + startValue + "::" + endValue);
+            } else if (null != startDate) {
                 final SimpleDateFormat outputDate =
                     new SimpleDateFormat("yyyy-MM-dd");
 
@@ -253,7 +307,9 @@ public class ChangeLogTask extends AbstractCvsTask {
                 }
             }
 
-            final ChangeLogParser parser = new ChangeLogParser();
+            final ChangeLogParser parser = new ChangeLogParser(remote,
+                                                               getPackage(),
+                                                               getModules());
             final RedirectingStreamHandler handler =
                 new RedirectingStreamHandler(parser);
 
@@ -307,6 +363,12 @@ public class ChangeLogTask extends AbstractCvsTask {
             final String message = "Cannot find user lookup list "
                  + usersFile.getAbsolutePath();
 
+            throw new BuildException(message);
+        }
+        if ((null != startTag || null != endTag)
+            && (null != startDate || null != endDate)) {
+            final String message = "Specify either a tag or date range,"
+                + " not both";
             throw new BuildException(message);
         }
     }
@@ -409,6 +471,10 @@ public class ChangeLogTask extends AbstractCvsTask {
             final ChangeLogWriter serializer = new ChangeLogWriter();
 
             serializer.printChangeLog(writer, entrySet);
+
+            if (writer.checkError()) {
+                throw new IOException("Encountered an error writing changelog");
+            }
         } catch (final UnsupportedEncodingException uee) {
             getProject().log(uee.toString(), Project.MSG_ERR);
         } catch (final IOException ioe) {

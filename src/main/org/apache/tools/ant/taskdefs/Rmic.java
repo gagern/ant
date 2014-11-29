@@ -123,6 +123,8 @@ public class Rmic extends MatchingTask {
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
+    private String executable = null;
+
     /**
      * Constructor for Rmic.
      */
@@ -489,6 +491,35 @@ public class Rmic extends MatchingTask {
     }
 
     /**
+     * Name of the executable to use when forking.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setExecutable(String ex) {
+        executable = ex;
+    }
+
+    /**
+     * Explicitly specified name of the executable to use when forking
+     * - if any.
+     *
+     * @since Ant 1.8.0
+     */
+    public String getExecutable() {
+        return executable;
+    }
+
+    /**
+     * The classpath to use when loading the compiler implementation
+     * if it is not a built-in one.
+     *
+     * @since Ant 1.8.0
+     */
+    public Path createCompilerClasspath() {
+        return facade.getImplementationClasspath(getProject());
+    }
+
+    /**
      * execute by creating an instance of an implementation
      * class and getting to do the work
      * @throws org.apache.tools.ant.BuildException
@@ -507,7 +538,8 @@ public class Rmic extends MatchingTask {
         if (verify) {
             log("Verify has been turned on.", Project.MSG_VERBOSE);
         }
-        RmicAdapter adapter = RmicAdapterFactory.getRmic(getCompiler(), this);
+        RmicAdapter adapter = RmicAdapterFactory.getRmic(getCompiler(), this,
+                                                         createCompilerClasspath());
 
         // now we need to populate the compiler adapter
         adapter.setRmic(this);

@@ -47,7 +47,9 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Manifest.Section;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.ZipFileSet;
 import org.apache.tools.ant.types.spi.Service;
@@ -118,6 +120,9 @@ public class Jar extends Zip {
 
     /** jar index is JDK 1.3+ only */
     private boolean index = false;
+
+    /** Whether to index META-INF/ and its children */
+    private boolean indexMetaInf = false;
 
     /**
      * whether to really create the archive in createEmptyZip, will
@@ -221,6 +226,25 @@ public class Jar extends Zip {
      */
     public void setIndex(boolean flag) {
         index = flag;
+    }
+
+    /**
+     * Set whether or not to add META-INF and its children to the index.
+     *
+     * <p>Doesn't have any effect if index is false.</p>
+     *
+     * <p>Sun's jar implementation used to skip the META-INF directory
+     * and Ant followed that example.  The behavior has been changed
+     * with Java 5.  In order to avoid problems with Ant generated
+     * jars on Java 1.4 or earlier Ant will not include META-INF
+     * unless explicitly asked to.</p>
+     *
+     * @see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4408526
+     * @since Ant 1.8.0
+     * @param flag a <code>boolean</code> value, defaults to false
+     */
+    public void setIndexMetaInf(boolean flag) {
+        indexMetaInf = flag;
     }
 
     /**
@@ -431,11 +455,21 @@ public class Jar extends Zip {
         serviceIterator = serviceList.iterator();
         while (serviceIterator.hasNext()) {
            service = (Service) serviceIterator.next();
-           //stolen from writeManifest
-           super.zipFile(service.getAsStream(), zOut,
-                         "META-INF/services/" + service.getType(),
-                         System.currentTimeMillis(), null,
-                         ZipFileSet.DEFAULT_FILE_MODE);
+
+           InputStream is = null;
+           try {
+               is = service.getAsStream();
+               //stolen from writeManifest
+               super.zipFile(is, zOut,
+                             "META-INF/services/" + service.getType(),
+                             System.currentTimeMillis(), null,
+                             ZipFileSet.DEFAULT_FILE_MODE, null);
+           } finally {
+               // technically this is unnecessary since
+               // Service.getAsStream returns a ByteArrayInputStream
+               // and not closing it wouldn't do any harm.
+               FileUtils.close(is);
+           }
         }
     }
 
@@ -481,7 +515,7 @@ public class Jar extends Zip {
                 finalManifest.merge(originalManifest);
             }
             finalManifest.merge(filesetManifest);
-            finalManifest.merge(configuredManifest);
+            finalManifest.merge(configuredManifest, !mergeManifestsMain);
             finalManifest.merge(manifest, !mergeManifestsMain);
 
             return finalManifest;
@@ -500,20 +534,28 @@ public class Jar extends Zip {
                 Project.MSG_WARN);
         }
 
-        zipDir(null, zOut, "META-INF/", ZipFileSet.DEFAULT_DIR_MODE,
+        zipDir((Resource) null, zOut, "META-INF/", ZipFileSet.DEFAULT_DIR_MODE,
                JAR_MARKER);
         // time to write the manifest
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OutputStreamWriter osw = new OutputStreamWriter(baos, Manifest.JAR_ENCODING);
         PrintWriter writer = new PrintWriter(osw);
         manifest.write(writer);
+        if (writer.checkError()) {
+            throw new IOException("Encountered an error writing the manifest");
+        }
         writer.close();
 
         ByteArrayInputStream bais =
             new ByteArrayInputStream(baos.toByteArray());
-        super.zipFile(bais, zOut, MANIFEST_NAME,
-                      System.currentTimeMillis(), null,
-                      ZipFileSet.DEFAULT_FILE_MODE);
+        try {
+            super.zipFile(bais, zOut, MANIFEST_NAME,
+                          System.currentTimeMillis(), null,
+                          ZipFileSet.DEFAULT_FILE_MODE, null);
+        } finally {
+            // not really required
+            FileUtils.close(bais);
+        }
         super.initZipOutputStream(zOut);
     }
 
@@ -589,16 +631,25 @@ public class Jar extends Zip {
             }
         }
 
+        if (writer.checkError()) {
+            throw new IOException("Encountered an error writing jar index");
+        }
         writer.close();
         ByteArrayInputStream bais =
             new ByteArrayInputStream(baos.toByteArray());
-        super.zipFile(bais, zOut, INDEX_NAME, System.currentTimeMillis(), null,
-                      ZipFileSet.DEFAULT_FILE_MODE);
+        try {
+            super.zipFile(bais, zOut, INDEX_NAME, System.currentTimeMillis(),
+                          null, ZipFileSet.DEFAULT_FILE_MODE, null);
+        } finally {
+            // not really required
+            FileUtils.close(bais);
+        }
     }
 
     /**
      * Overridden from Zip class to deal with manifests and index lists.
-     * @param is the input stream
+     * @param in the stream to read data for the entry from.  The
+     * caller of the method is responsible for closing the stream.
      * @param zOut the zip output stream
      * @param vPath the name this entry shall have in the archive
      * @param lastModified last modification time for the entry.
@@ -608,21 +659,24 @@ public class Jar extends Zip {
      * @throws IOException on error
      */
     protected void zipFile(InputStream is, ZipOutputStream zOut, String vPath,
-                           long lastModified, File fromArchive, int mode)
+                           long lastModified, File fromArchive, int mode,
+                           ZipExtraField[] extra)
         throws IOException {
         if (MANIFEST_NAME.equalsIgnoreCase(vPath))  {
-            if (!doubleFilePass || skipWriting) {
+            if (isFirstPass()) {
                 filesetManifest(fromArchive, is);
             }
         } else if (INDEX_NAME.equalsIgnoreCase(vPath) && index) {
-            log("Warning: selected " + archiveType
-                + " files include a " + INDEX_NAME + " which will"
-                + " be replaced by a newly generated one.", Project.MSG_WARN);
+            logWhenWriting("Warning: selected " + archiveType
+                           + " files include a " + INDEX_NAME + " which will"
+                           + " be replaced by a newly generated one.",
+                           Project.MSG_WARN);
         } else {
             if (index && vPath.indexOf("/") == -1) {
                 rootEntries.addElement(vPath);
             }
-            super.zipFile(is, zOut, vPath, lastModified, fromArchive, mode);
+            super.zipFile(is, zOut, vPath, lastModified, fromArchive, mode,
+                          extra);
         }
     }
 
@@ -650,8 +704,8 @@ public class Jar extends Zip {
         } else if (filesetManifestConfig != null
                     && !filesetManifestConfig.getValue().equals("skip")) {
             // we add this to our group of fileset manifests
-            log("Found manifest to merge in file " + file,
-                Project.MSG_VERBOSE);
+            logWhenWriting("Found manifest to merge in file " + file,
+                           Project.MSG_VERBOSE);
 
             try {
                 Manifest newManifest = null;
@@ -725,6 +779,14 @@ public class Jar extends Zip {
                                              boolean needsUpdate)
         throws BuildException {
 
+        if (skipWriting) {
+            // this pass is only there to construct the merged
+            // manifest this means we claim an update was needed and
+            // only include the manifests, skipping any uptodate
+            // checks here defering them for the second run
+            return new ArchiveState(true, grabManifests(rcs));
+        }
+
         // need to handle manifest as a special check
         if (zipFile.exists()) {
             // if it doesn't exist, it will get created anyway, don't
@@ -733,14 +795,14 @@ public class Jar extends Zip {
             try {
                 originalManifest = getManifestFromJar(zipFile);
                 if (originalManifest == null) {
-                    log("Updating jar since the current jar has no manifest",
-                        Project.MSG_VERBOSE);
+                    log("Updating jar since the current jar has"
+                                   + " no manifest", Project.MSG_VERBOSE);
                     needsUpdate = true;
                 } else {
                     Manifest mf = createManifest();
                     if (!mf.equals(originalManifest)) {
-                        log("Updating jar since jar manifest has changed",
-                            Project.MSG_VERBOSE);
+                        log("Updating jar since jar manifest has"
+                                       + " changed", Project.MSG_VERBOSE);
                         needsUpdate = true;
                     }
                 }
@@ -780,10 +842,12 @@ public class Jar extends Zip {
         }
 
         if (emptyBehavior.equals("skip")) {
+            if (!skipWriting) {
                 log("Warning: skipping " + archiveType + " archive "
                     + zipFile + " because no files were included.",
                     Project.MSG_WARN);
-                return true;
+            }
+            return true;
         } else if (emptyBehavior.equals("fail")) {
             throw new BuildException("Cannot create " + archiveType
                                      + " archive " + zipFile
@@ -793,8 +857,10 @@ public class Jar extends Zip {
 
         ZipOutputStream zOut = null;
         try {
-            log("Building MANIFEST-only jar: "
-                + getDestFile().getAbsolutePath());
+            if (!skipWriting) {
+                log("Building MANIFEST-only jar: "
+                    + getDestFile().getAbsolutePath());
+            }
             zOut = new ZipOutputStream(new FileOutputStream(getDestFile()));
 
             zOut.setEncoding(getEncoding());
@@ -873,7 +939,7 @@ public class Jar extends Zip {
             if (strict.getValue().equalsIgnoreCase("fail")) {
                 throw new BuildException(message.toString(), getLocation());
             } else {
-                log(message.toString(), strict.getLogLevel());
+                logWhenWriting(message.toString(), strict.getLogLevel());
             }
         }
     }
@@ -946,7 +1012,9 @@ public class Jar extends Zip {
             // looks like nothing from META-INF should be added
             // and the check is not case insensitive.
             // see sun.misc.JarIndex
-            if (dir.startsWith("META-INF")) {
+            // see also 
+            // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4408526
+            if (!indexMetaInf && dir.startsWith("META-INF")) {
                 continue;
             }
             // name newline
@@ -1038,21 +1106,16 @@ public class Jar extends Zip {
                 org.apache.tools.zip.ZipEntry ze =
                     (org.apache.tools.zip.ZipEntry) entries.nextElement();
                 String name = ze.getName();
-                // META-INF would be skipped anyway, avoid index for
-                // manifest-only jars.
-                if (!name.startsWith("META-INF/")) {
-                    if (ze.isDirectory()) {
-                        dirSet.add(name);
-                    } else if (name.indexOf("/") == -1) {
-                        files.add(name);
-                    } else {
-                        // a file, not in the root
-                        // since the jar may be one without directory
-                        // entries, add the parent dir of this file as
-                        // well.
-                        dirSet.add(name.substring(0,
-                                                  name.lastIndexOf("/") + 1));
-                    }
+                if (ze.isDirectory()) {
+                    dirSet.add(name);
+                } else if (name.indexOf("/") == -1) {
+                    files.add(name);
+                } else {
+                    // a file, not in the root
+                    // since the jar may be one without directory
+                    // entries, add the parent dir of this file as
+                    // well.
+                    dirSet.add(name.substring(0, name.lastIndexOf("/") + 1));
                 }
             }
             dirs.addAll(dirSet);
@@ -1061,6 +1124,30 @@ public class Jar extends Zip {
                 zf.close();
             }
         }
+    }
+
+    private Resource[][] grabManifests(ResourceCollection[] rcs) {
+        Resource[][] manifests = new Resource[rcs.length][];
+        for (int i = 0; i < rcs.length; i++) {
+            Resource[][] resources = null;
+            if (rcs[i] instanceof FileSet) {
+                resources = grabResources(new FileSet[] {(FileSet) rcs[i]});
+            } else {
+                resources = grabNonFileSetResources(new ResourceCollection[] {
+                        rcs[i]
+                    });
+            }
+            for (int j = 0; j < resources[0].length; j++) {
+                if (resources[0][j].getName().equalsIgnoreCase(MANIFEST_NAME)) {
+                    manifests[i] = new Resource[] {resources[0][j]};
+                    break;
+                }
+            }
+            if (manifests[i] == null) {
+                manifests[i] = new Resource[0];
+            }
+        }
+        return manifests;
     }
 
     /** The strict enumerated type. */

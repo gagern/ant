@@ -34,9 +34,9 @@ import java.util.Vector;
  * into the same Project.
  * </p>
  * <p>
- * <b>Important</b>: we have not finalized how relative file references
- * will be resolved in deep/complex build hierarchies - such as what happens
- * when an imported file imports another file. Use absolute references for
+ * <b>Important</b>: Trying to understand how relative file references
+ * resolved in deep/complex build hierarchies - such as what happens
+ * when an imported file imports another file can be difficult. Use absolute references for
  * enhanced build file stability, especially in the imported files.
  * </p>
  * <p>Examples:</p>
@@ -55,6 +55,8 @@ import java.util.Vector;
 public class ImportTask extends Task {
     private String file;
     private boolean optional;
+    private String targetPrefix;
+    private String prefixSeparator = ".";
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
@@ -79,9 +81,24 @@ public class ImportTask extends Task {
     }
 
     /**
-     *  This relies on the task order model.
+     * The prefix to use when prefixing the imported target names.
      *
+     * @since Ant 1.8.0
      */
+    public void setAs(String prefix) {
+        targetPrefix = prefix;
+    }
+
+    /**
+     * The separator to use between prefix and target name, default is
+     * ".".
+     *
+     * @since Ant 1.8.0
+     */
+    public void setPrefixSeparator(String s) {
+        prefixSeparator = s;
+    }
+
     public void execute() {
         if (file == null) {
             throw new BuildException("import requires file attribute");
@@ -135,19 +152,64 @@ public class ImportTask extends Task {
             }
         }
 
-        if (importStack.contains(importedFile)) {
+        if (!isInIncludeMode() && importStack.contains(importedFile)) {
             getProject().log(
                 "Skipped already imported file:\n   "
                 + importedFile + "\n", Project.MSG_VERBOSE);
             return;
         }
 
+        // nested invokations are possible like an imported file
+        // importing another one
+        String oldPrefix = ProjectHelper.getCurrentTargetPrefix();
+        boolean oldIncludeMode = ProjectHelper.isInIncludeMode();
+        String oldSep = ProjectHelper.getCurrentPrefixSeparator();
         try {
+            String prefix = targetPrefix;
+            if (isInIncludeMode() && oldPrefix != null
+                && targetPrefix != null) {
+                prefix = oldPrefix + oldSep + targetPrefix;
+            }
+            setProjectHelperProps(prefix, prefixSeparator,
+                                  isInIncludeMode());
+
             helper.parse(getProject(), importedFile);
         } catch (BuildException ex) {
             throw ProjectHelper.addLocationToBuildException(
                 ex, getLocation());
+        } finally {
+            setProjectHelperProps(oldPrefix, oldSep, oldIncludeMode);
         }
     }
 
+    /**
+     * Whether the task is in include (as opposed to import) mode.
+     *
+     * <p>In include mode included targets are only known by their
+     * prefixed names and their depends lists get rewritten so that
+     * all dependencies get the prefix as well.</p>
+     *
+     * <p>In import mode imported targets are known by an adorned as
+     * well as a prefixed name and the unadorned target may be
+     * overwritten in the importing build file.  The depends list of
+     * the imported targets is not modified at all.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    protected final boolean isInIncludeMode() {
+        return "include".equals(getTaskType());
+    }
+
+    /**
+     * Sets a bunch of Thread-local ProjectHelper properties.
+     * 
+     * @since Ant 1.8.0
+     */
+    private static void setProjectHelperProps(String prefix,
+                                              String prefixSep,
+                                              boolean inIncludeMode) {
+        ProjectHelper.setCurrentTargetPrefix(prefix);
+        ProjectHelper.setCurrentPrefixSeparator(prefixSep);
+        ProjectHelper.setInIncludeMode(inIncludeMode);
+    }
 }

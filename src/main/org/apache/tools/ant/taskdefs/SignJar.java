@@ -26,6 +26,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.condition.IsSigned;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.FileUtils;
@@ -102,6 +103,11 @@ public class SignJar extends AbstractJarSignerTask {
      * alias for the TSA in the keystore
      */
     protected String tsacert;
+
+    /**
+     * force signing even if the jar is already signed.
+     */
+    private boolean force = false;
 
     /**
      * error string for unit test verification: {@value}
@@ -253,6 +259,23 @@ public class SignJar extends AbstractJarSignerTask {
     }
 
     /**
+     * Whether to force signing of a jar even it is already signed.
+     * @since Ant 1.8.0
+     */
+    public void setForce(boolean b) {
+        force = b;
+    }
+
+    /**
+     * Should the task force signing of a jar even it is already
+     * signed?
+     * @since Ant 1.8.0
+     */
+    public boolean isForce() {
+        return force;
+    }
+
+    /**
      * sign the jar(s)
      *
      * @throws BuildException on errors
@@ -322,7 +345,9 @@ public class SignJar extends AbstractJarSignerTask {
             // deal with the paths
             Iterator iter = sources.iterator();
             while (iter.hasNext()) {
-                FileResource fr = ResourceUtils.asFileResource((FileProvider) iter.next());
+                Resource r = (Resource) iter.next();
+                FileResource fr = ResourceUtils
+                    .asFileResource((FileProvider) r.as(FileProvider.class));
 
                 //calculate our destination directory; it is either the destDir
                 //attribute, or the base dir of the fileset (for in situ updates)
@@ -445,7 +470,7 @@ public class SignJar extends AbstractJarSignerTask {
      * @return true if the signedjarFile is considered up to date
      */
     protected boolean isUpToDate(File jarFile, File signedjarFile) {
-        if (null == jarFile || !jarFile.exists()) {
+        if (isForce() || null == jarFile || !jarFile.exists()) {
             //these are pathological cases, but retained in case somebody
             //subclassed us.
             return false;

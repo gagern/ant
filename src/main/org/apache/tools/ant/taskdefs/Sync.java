@@ -20,8 +20,10 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,6 +36,8 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.Restrict;
+import org.apache.tools.ant.types.resources.selectors.Exists;
 import org.apache.tools.ant.types.selectors.FileSelector;
 import org.apache.tools.ant.types.selectors.NoneSelector;
 
@@ -59,6 +63,8 @@ public class Sync extends Task {
 
     // Similar to a fileset, but doesn't allow dir attribute to be set
     private SyncTarget syncTarget;
+
+    private Restrict resources = null;
 
     // Override Task#init
     /**
@@ -113,17 +119,32 @@ public class Sync extends Task {
             return; // nope ;-)
         }
 
+        // will hold the directories matched by SyncTarget in reversed
+        // lexicographic order (order is important, that's why we use
+        // a LinkedHashSet
+        Set preservedDirectories = new LinkedHashSet();
+
         // Get rid of all files not listed in the source filesets.
         log("PASS#2: Removing orphan files from " + toDir, Project.MSG_DEBUG);
-        int[] removedFileCount = removeOrphanFiles(allFiles, toDir);
+        int[] removedFileCount = removeOrphanFiles(allFiles, toDir,
+                                                   preservedDirectories);
         logRemovedCount(removedFileCount[0], "dangling director", "y", "ies");
         logRemovedCount(removedFileCount[1], "dangling file", "", "s");
 
         // Get rid of empty directories on the destination side
-        if (!myCopy.getIncludeEmptyDirs()) {
+        if (!myCopy.getIncludeEmptyDirs()
+            || getExplicitPreserveEmptyDirs() == Boolean.FALSE) {
             log("PASS#3: Removing empty directories from " + toDir,
                 Project.MSG_DEBUG);
-            int removedDirCount = removeEmptyDirectories(toDir, false);
+
+            int removedDirCount = 0;
+            if (!myCopy.getIncludeEmptyDirs()) {
+                removedDirCount =
+                    removeEmptyDirectories(toDir, false, preservedDirectories);
+            } else { // must be syncTarget.preserveEmptydirs == FALSE
+                removedDirCount =
+                    removeEmptyDirectories(preservedDirectories);
+            }
             logRemovedCount(removedDirCount, "empty director", "y", "ies");
         }
     }
@@ -155,11 +176,16 @@ public class Sync extends Task {
      *
      * @param  nonOrphans the table of all non-orphan <code>File</code>s.
      * @param  file the initial file or directory to scan or test.
+     * @param  preservedDirectories will be filled with the directories
+     *         matched by preserveInTarget - if any.  Will not be
+     *         filled unless preserveEmptyDirs and includeEmptyDirs
+     *         conflict.
      * @return the number of orphaned files and directories actually removed.
      * Position 0 of the array is the number of orphaned directories.
      * Position 1 of the array is the number or orphaned files.
      */
-    private int[] removeOrphanFiles(Set nonOrphans, File toDir) {
+    private int[] removeOrphanFiles(Set nonOrphans, File toDir,
+                                    Set preservedDirectories) {
         int[] removedCount = new int[] {0, 0};
         String[] excls =
             (String[]) nonOrphans.toArray(new String[nonOrphans.size() + 1]);
@@ -168,10 +194,8 @@ public class Sync extends Task {
 
         DirectoryScanner ds = null;
         if (syncTarget != null) {
-            FileSet fs = new FileSet();
+            FileSet fs = syncTarget.toFileSet(false);
             fs.setDir(toDir);
-            fs.setCaseSensitive(syncTarget.isCaseSensitive());
-            fs.setFollowSymlinks(syncTarget.isFollowSymlinks());
 
             // preserveInTarget would find all files we want to keep,
             // but we need to find all that we want to delete - so the
@@ -215,12 +239,25 @@ public class Sync extends Task {
         // delete them.
         for (int i = dirs.length - 1; i >= 0; --i) {
             File f = new File(toDir, dirs[i]);
-            if (f.list().length < 1) {
-            log("Removing orphan directory: " + f, Project.MSG_DEBUG);
-            f.delete();
-            ++removedCount[0];
+            String[] children = f.list();
+            if (children == null || children.length < 1) {
+                log("Removing orphan directory: " + f, Project.MSG_DEBUG);
+                f.delete();
+                ++removedCount[0];
             }
         }
+
+        Boolean ped = getExplicitPreserveEmptyDirs();
+        if (ped != null && ped.booleanValue() != myCopy.getIncludeEmptyDirs()) {
+            FileSet fs = syncTarget.toFileSet(true);
+            fs.setDir(toDir);
+            String[] preservedDirs =
+                fs.getDirectoryScanner(getProject()).getIncludedDirectories();
+            for (int i = preservedDirs.length - 1; i >= 0; --i) {
+                preservedDirectories.add(new File(toDir, preservedDirs[i]));
+            }
+        }
+
         return removedCount;
     }
 
@@ -238,9 +275,12 @@ public class Sync extends Task {
      * @param  dir the root directory to scan for empty directories.
      * @param  removeIfEmpty whether to remove the root directory
      *         itself if it becomes empty.
+     * @param  preservedEmptyDirectories directories matched by
+     *         syncTarget
      * @return the number of empty directories actually removed.
      */
-    private int removeEmptyDirectories(File dir, boolean removeIfEmpty) {
+    private int removeEmptyDirectories(File dir, boolean removeIfEmpty,
+                                       Set preservedEmptyDirectories) {
         int removedCount = 0;
         if (dir.isDirectory()) {
             File[] children = dir.listFiles();
@@ -248,7 +288,9 @@ public class Sync extends Task {
                 File file = children[i];
                 // Test here again to avoid method call for non-directories!
                 if (file.isDirectory()) {
-                    removedCount += removeEmptyDirectories(file, true);
+                    removedCount +=
+                        removeEmptyDirectories(file, true,
+                                               preservedEmptyDirectories);
                 }
             }
             if (children.length > 0) {
@@ -256,7 +298,8 @@ public class Sync extends Task {
                 // We need to re-query its children list!
                 children = dir.listFiles();
             }
-            if (children.length < 1 && removeIfEmpty) {
+            if (children.length < 1 && removeIfEmpty
+                && !preservedEmptyDirectories.contains(dir)) {
                 log("Removing empty directory: " + dir, Project.MSG_DEBUG);
                 dir.delete();
                 ++removedCount;
@@ -265,6 +308,33 @@ public class Sync extends Task {
         return removedCount;
     }
 
+    /**
+     * Removes all empty directories preserved by preserveInTarget in
+     * the preserveEmptyDirs == FALSE case.
+     *
+     * <p>Relies on the set to be ordered in reversed lexicographic
+     * order so that directories will be removed depth-first.</p>
+     *
+     * @param  preservedEmptyDirectories directories matched by
+     *         syncTarget
+     * @return the number of empty directories actually removed.
+     *
+     * @since Ant 1.8.0
+     */
+    private int removeEmptyDirectories(Set preservedEmptyDirectories) {
+        int removedCount = 0;
+        for (Iterator iter = preservedEmptyDirectories.iterator();
+             iter.hasNext(); ) {
+            File f = (File) iter.next();
+            String[] s = f.list();
+            if (s == null || s.length == 0) {
+                log("Removing empty directory: " + f, Project.MSG_DEBUG);
+                f.delete();
+                ++removedCount;
+            }
+        }
+        return removedCount;
+    }
 
     //
     // Various copy attributes/subelements of <copy> passed thru to <mycopy>
@@ -324,7 +394,17 @@ public class Sync extends Task {
      * @since Ant 1.7
      */
     public void add(ResourceCollection rc) {
-        myCopy.add(rc);
+        if (rc instanceof FileSet && rc.isFilesystemOnly()) {
+            // receives special treatment in copy that this task relies on
+            myCopy.add(rc);
+        } else {
+            if (resources == null) {
+                resources = new Restrict();
+                resources.add(new Exists());
+                myCopy.add(resources);
+            }
+            resources.add(rc);
+        }
     }
 
     /**
@@ -354,6 +434,16 @@ public class Sync extends Task {
                                      + "preserveintarget elements.");
         }
         syncTarget = s;
+    }
+
+    /**
+     * The value of preserveTarget's preserveEmptyDirs attribute if
+     * specified and preserveTarget has been used in the first place.
+     *
+     * @since Ant 1.8.0.
+     */
+    private Boolean getExplicitPreserveEmptyDirs() {
+        return syncTarget == null ? null : syncTarget.getPreserveEmptyDirs();
     }
 
     /**
@@ -438,6 +528,8 @@ public class Sync extends Task {
      */
     public static class SyncTarget extends AbstractFileSet {
 
+        private Boolean preserveEmptyDirs;
+
         /**
          * Constructor for SyncTarget.
          * This just changes the default value of "defaultexcludes" from
@@ -458,6 +550,44 @@ public class Sync extends Task {
                                      + "attribute");
         }
 
+        /**
+         * Whether empty directories matched by this fileset should be
+         * preserved.
+         *
+         * @since Ant 1.8.0
+         */
+        public void setPreserveEmptyDirs(boolean b) {
+            preserveEmptyDirs = Boolean.valueOf(b);
+        }
+
+        /**
+         * Whether empty directories matched by this fileset should be
+         * preserved.
+         *
+         * @since Ant 1.8.0
+         */
+        public Boolean getPreserveEmptyDirs() {
+            return preserveEmptyDirs;
+        }
+
+        private FileSet toFileSet(boolean withPatterns) {
+            FileSet fs = new FileSet();
+            fs.setCaseSensitive(isCaseSensitive());
+            fs.setFollowSymlinks(isFollowSymlinks());
+            fs.setMaxLevelsOfSymlinks(getMaxLevelsOfSymlinks());
+            fs.setProject(getProject());
+
+            if (withPatterns) {
+                PatternSet ps = mergePatterns(getProject());
+                fs.appendIncludes(ps.getIncludePatterns(getProject()));
+                fs.appendExcludes(ps.getExcludePatterns(getProject()));
+                for (Enumeration e = selectorElements(); e.hasMoreElements(); ) {
+                    fs.appendSelector((FileSelector) e.nextElement());
+                }
+                fs.setDefaultexcludes(getDefaultexcludes());
+            }
+            return fs;
+        }
     }
 
     /**

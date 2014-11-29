@@ -28,9 +28,14 @@
 <h3>Description</h3>
 <p>Generates an XML-formatted report file of the change logs recorded in a
 <a href="http://www.nongnu.org/cvs/" target="_top">CVS</a> repository. </p>
-<p><b>Important:</b> This task needs "cvs" on the path. If it isn't, you will get
-an error (such as error 2 on windows). If <code>&lt;cvs&gt;</code> doesn't work, try to execute cvs.exe
+<p><b>Important:</b> This task needs &quot;<code>cvs</code>&quot; on the path. If it isn't, you will get
+an error (such as error <code>2</code> on windows). If <code>&lt;cvs&gt;</code> doesn't work, try to execute <code>cvs.exe</code>
 from the command line in the target directory in which you are working.
+Also note that this task assumes that the cvs exceutable is compatible
+with the Unix version from cvshome.org, this is not completely true
+for certain other cvs clients - like CVSNT for example - and some
+operation may fail when using such an incompatible client.
+</p>
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
   <tr>
@@ -54,7 +59,10 @@ from the command line in the target directory in which you are working.
   </tr>
   <tr>
     <td valign="top">package</td>
-    <td valign="top">the package/module to check out.</td>
+    <td valign="top">the package/module to check out.  <b>Note:</b>
+      multiple attributes can be split using spaces.  Use a nested
+      &lt;module&gt; element if you want to specify a module with
+      spaces in its name.</td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -117,6 +125,30 @@ from the command line in the target directory in which you are working.
      included in the report.</td>
     <td align="center" valign="top">No</td>
   </tr>
+  <tr>
+    <td valign="top">remote</td>
+    <td valign="top">If set to true, works against the repository
+      (using rlog) without a working copy.  Default is
+      false.  <em>Since Ant 1.8.0</em></td>
+    <td align="center" valign="top">No</td>
+  </tr>
+  <tr>
+    <td valign="top">startTag</td>
+    <td valign="top">The start of a tag range. If endTag is also
+      specified, they must both be on the same branch. If endTag is not
+      specified, the end of the range will be the latest on the same
+      branch on which startTag lives.  <em>Since Ant 1.8.0</em></td>
+    <td align="center" valign="top">No</td>
+  </tr>
+  <tr>
+    <td valign="top">endTag</td>
+    <td valign="top">The end of a tag range. If startTag is also
+     specified, they must both be on the same branch. If startTag is
+     not specified, the start of the range will be the top of the
+     branch on which endTag lives.</td>  included in the report.
+    <em>Since Ant 1.8.0</em></td>
+    <td align="center" valign="top">No</td>
+  </tr>
 </table>
 
 <h3>Parameters specified as nested elements</h3>
@@ -148,6 +180,24 @@ the name specified in <code>displayname</code> rather than the user ID.
   </tr>
 </table>
 
+<h4>module</h4>
+
+<p>Specifies a package/module to work on, unlike the package attribute
+  modules specified using this attribute can contain spaces in their
+  name.</p>
+
+<table border="1" cellpadding="2" cellspacing="0">
+  <tr>
+    <td valign="top"><b>Attribute</b></td>
+    <td valign="top"><b>Description</b></td>
+    <td align="center" valign="top"><b>Required</b></td>
+  </tr>
+  <tr>
+    <td valign="top">name</td>
+    <td valign="top">The module's/package's name.</td>
+    <td align="center" valign="top">Yes.</td>
+  </tr>
+</table>
 
 <h3>Examples</h3>
 <pre>  &lt;cvschangelog dir=&quot;dve/network&quot;

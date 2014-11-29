@@ -51,7 +51,7 @@
 
     <p>
       This task forms an implicit <a href="../CoreTypes/fileset.html">File Set</a>,
-      and supports all attributes of <code>&lt;fileset&gt;</code>
+      and supports most attributes of <code>&lt;fileset&gt;</code>
       (<code>dir</code> becomes <code>src</code>) as well as
       nested <code>&lt;include&gt;</code>, <code>&lt;exclude&gt;</code>,
       and <code>&lt;patternset&gt;</code> elements.
@@ -182,6 +182,13 @@ only if a given converter implementation will be used.</p>
     <td align="center">No</td>
   </tr>
 </table>
+
+<h4>implementationclasspath <em>since Ant 1.8.0</em></h4>
+
+<p>A <a href="../using.html#path">PATH like structure</a> holding the
+  classpath to use when loading the converter implementation if a
+  custom class has been specified.  Doesn't have any effect when
+  using one of the built-in converters.</p>
 
     <h3>Examples</h3>
 

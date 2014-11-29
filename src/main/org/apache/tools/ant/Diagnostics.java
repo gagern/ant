@@ -27,11 +27,14 @@ import org.xml.sax.XMLReader;
 
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.parsers.SAXParser;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.Transformer;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.PrintStream;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.Enumeration;
 import java.util.Properties;
@@ -171,7 +174,7 @@ public final class Diagnostics {
      * what parser are we using.
      * @return the classname of the parser
      */
-    private static String getXmlParserName() {
+    private static String getXMLParserName() {
         SAXParser saxParser = getSAXParser();
         if (saxParser == null) {
             return "Could not create an XML Parser";
@@ -179,6 +182,20 @@ public final class Diagnostics {
         // check to what is in the classname
         String saxParserName = saxParser.getClass().getName();
         return saxParserName;
+    }
+
+    /**
+     * what parser are we using.
+     * @return the classname of the parser
+     */
+    private static String getXSLTProcessorName() {
+        Transformer transformer = getXSLTProcessor();
+        if (transformer == null) {
+            return "Could not create an XSLT Processor";
+        }
+        // check to what is in the classname
+        String processorName = transformer.getClass().getName();
+        return processorName;
     }
 
     /**
@@ -201,10 +218,28 @@ public final class Diagnostics {
     }
 
     /**
+     * Create a JAXP XSLT Transformer
+     * @return parser or null for trouble
+     */
+    private static Transformer getXSLTProcessor() {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        if (transformerFactory == null) {
+            return null;
+        }
+        Transformer transformer = null;
+        try {
+            transformer = transformerFactory.newTransformer();
+        } catch (Exception e) {
+            // ignore
+            ignoreThrowable(e);
+        }
+        return transformer;
+    }
+
+    /**
      * get the location of the parser
      * @return path or null for trouble in tracking it down
      */
-
     private static String getXMLParserLocation() {
         SAXParser saxParser = getSAXParser();
         if (saxParser == null) {
@@ -234,6 +269,19 @@ public final class Diagnostics {
             ignoreThrowable(e);
             return null;
         }
+    }
+
+    /**
+     * get the location of the parser
+     * @return path or null for trouble in tracking it down
+     */
+    private static String getXSLTProcessorLocation() {
+        Transformer transformer = getXSLTProcessor();
+        if (transformer == null) {
+            return null;
+        }
+        String location = getClassLocation(transformer.getClass());
+        return location;
     }
 
     /**
@@ -303,6 +351,9 @@ public final class Diagnostics {
 
         header(out, "XML Parser information");
         doReportParserInfo(out);
+
+        header(out, "XSLT Processor information");
+        doReportXSLTProcessorInfo(out);
 
         header(out, "System properties");
         doReportSystemProperties(out);
@@ -493,11 +544,21 @@ public final class Diagnostics {
      * @param out
      */
     private static void doReportParserInfo(PrintStream out) {
-        String parserName = getXmlParserName();
+        String parserName = getXMLParserName();
         String parserLocation = getXMLParserLocation();
         printParserInfo(out, "XML Parser", parserName, parserLocation);
         printParserInfo(out, "Namespace-aware parser", getNamespaceParserName(),
                 getNamespaceParserLocation());
+    }
+
+    /**
+     * tell the user about the XSLT processor
+     * @param out
+     */
+    private static void doReportXSLTProcessorInfo(PrintStream out) {
+        String processorName = getXSLTProcessorName();
+        String processorLocation = getXSLTProcessorLocation();
+        printParserInfo(out, "XSLT Processor", processorName, processorLocation);
     }
 
     private static void printParserInfo(PrintStream out, String parserType, String parserName,
@@ -534,6 +595,7 @@ public final class Diagnostics {
         long now = System.currentTimeMillis();
         File tempFile = null;
         FileOutputStream fileout = null;
+        FileInputStream filein = null;
         try {
             tempFile = File.createTempFile("diag", "txt", tempDirectory);
             //do some writing to it
@@ -544,10 +606,31 @@ public final class Diagnostics {
             }
             fileout.close();
             fileout = null;
+
+            // read to make sure the file has been written completely
+            Thread.sleep(1000);
+            filein = new FileInputStream(tempFile);
+            int total = 0;
+            int read = 0;
+            while ((read = filein.read(buffer, 0, KILOBYTE)) > 0) {
+                total += read;
+            }
+            filein.close();
+            filein = null;
+
             long filetime = tempFile.lastModified();
-            tempFile.delete();
-            out.println("Temp dir is writeable");
             long drift = filetime - now;
+            tempFile.delete();
+
+            out.print("Temp dir is writeable");
+            if (total != TEST_FILE_SIZE * KILOBYTE) {
+                out.println(", but seems to be full.  Wrote "
+                            + (TEST_FILE_SIZE * KILOBYTE)
+                            + "but could only read " + total + " bytes.");
+            } else {
+                out.println();
+            }
+
             out.println("Temp dir alignment with system clock is " + drift + " ms");
             if (Math.abs(drift) > BIG_DRIFT_LIMIT) {
                 out.println("Warning: big clock drift -maybe a network filesystem");
@@ -556,8 +639,12 @@ public final class Diagnostics {
             ignoreThrowable(e);
             out.println("Failed to create a temporary file in the temp dir " + tempdir);
             out.println("File  " + tempFile + " could not be created/written to");
+        } catch (InterruptedException e) {
+            ignoreThrowable(e);
+            out.println("Failed to check whether tempdir is writable");
         } finally {
             FileUtils.close(fileout);
+            FileUtils.close(filein);
             if (tempFile != null && tempFile.exists()) {
                 tempFile.delete();
             }

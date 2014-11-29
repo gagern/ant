@@ -29,7 +29,6 @@ import org.apache.tools.ant.property.LocalProperties;
 
 /**
  * Class to implement a target object with required parameters.
- *
  */
 public class Target implements TaskContainer {
 
@@ -126,32 +125,49 @@ public class Target implements TaskContainer {
      *             depends on. Must not be <code>null</code>.
      */
     public void setDepends(String depS) {
-        if (depS.length() > 0) {
+        for (Iterator iter = parseDepends(depS, getName(), "depends").iterator();
+             iter.hasNext(); ) {
+            addDependency((String) iter.next());
+        }
+    }
+
+    public static List/*<String>*/ parseDepends(String depends,
+                                                String targetName,
+                                                String attributeName) {
+        ArrayList list = new ArrayList();
+        if (depends.length() > 0) {
             StringTokenizer tok =
-                new StringTokenizer(depS, ",", true);
+                new StringTokenizer(depends, ",", true);
             while (tok.hasMoreTokens()) {
                 String token = tok.nextToken().trim();
 
                 // Make sure the dependency is not empty string
                 if ("".equals(token) || ",".equals(token)) {
-                    throw new BuildException("Syntax Error: depends " + "attribute of target \""
-                            + getName() + "\" has an empty string as dependency.");
+                    throw new BuildException("Syntax Error: "
+                                             + attributeName
+                                             + " attribute of target \""
+                                             + targetName
+                                             + "\" contains an empty string.");
                 }
 
-                addDependency(token);
+                list.add(token);
 
                 // Make sure that depends attribute does not
                 // end in a ,
                 if (tok.hasMoreTokens()) {
                     token = tok.nextToken();
                     if (!tok.hasMoreTokens() || !",".equals(token)) {
-                        throw new BuildException("Syntax Error: Depend "
-                                + "attribute for target \"" + getName()
-                                + "\" ends with a , character");
+                        throw new BuildException("Syntax Error: "
+                                                 + attributeName
+                                                 + " attribute for target \""
+                                                 + targetName
+                                                 + "\" ends with a \",\" "
+                                                 + "character");
                     }
                 }
             }
         }
+        return list;
     }
 
     /**
@@ -348,30 +364,32 @@ public class Target implements TaskContainer {
      * @see #setUnless(String)
      */
     public void execute() throws BuildException {
-        if (testIfCondition() && testUnlessCondition()) {
-            LocalProperties localProperties
-                = LocalProperties.get(getProject());
-            localProperties.enterScope();
-            try {
-                for (int taskPosition = 0; taskPosition < children.size();
-                     ++taskPosition) {
-                    Object o = children.get(taskPosition);
-                    if (o instanceof Task) {
-                        Task task = (Task) o;
-                        task.perform();
-                    } else {
-                        ((RuntimeConfigurable) o).maybeConfigure(project);
-                    }
-                }
-            } finally {
-                localProperties.exitScope();
-            }
-        } else if (!testIfCondition()) {
+        if (!testIfAllows()) {
             project.log(this, "Skipped because property '" + project.replaceProperties(ifCondition)
                     + "' not set.", Project.MSG_VERBOSE);
-        } else {
+            return;
+        }
+        if (!testUnlessAllows()) {
             project.log(this, "Skipped because property '"
                     + project.replaceProperties(unlessCondition) + "' set.", Project.MSG_VERBOSE);
+            return;
+        }
+        LocalProperties localProperties = LocalProperties.get(getProject());
+        localProperties.enterScope();
+        try {
+            // use index-based approach to avoid ConcurrentModificationExceptions;
+            // also account for growing target children
+            for (int i = 0; i < children.size(); i++) {
+                Object o = children.get(i);
+                if (o instanceof Task) {
+                    Task task = (Task) o;
+                    task.perform();
+                } else {
+                    ((RuntimeConfigurable) o).maybeConfigure(project);
+                }
+            }
+        } finally {
+            localProperties.exitScope();
         }
     }
 
@@ -426,7 +444,7 @@ public class Target implements TaskContainer {
     }
 
     /**
-     * Tests whether or not the "if" condition is satisfied.
+     * Tests whether or not the "if" condition allows the execution of this target.
      *
      * @return whether or not the "if" condition is satisfied. If no
      *         condition (or an empty condition) has been set,
@@ -434,16 +452,20 @@ public class Target implements TaskContainer {
      *
      * @see #setIf(String)
      */
-    private boolean testIfCondition() {
+    private boolean testIfAllows() {
         if ("".equals(ifCondition)) {
             return true;
         }
-        String test = project.replaceProperties(ifCondition);
-        return project.getProperty(test) != null;
+        PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
+        Object o = propertyHelper.parseProperties(ifCondition);
+        if (o instanceof Boolean) {
+            return ((Boolean) o).booleanValue();
+        }
+        return propertyHelper.getProperty(String.valueOf(o)) != null;
     }
 
     /**
-     * Tests whether or not the "unless" condition is satisfied.
+     * Tests whether or not the "unless" condition allows the execution of this target.
      *
      * @return whether or not the "unless" condition is satisfied. If no
      *         condition (or an empty condition) has been set,
@@ -451,11 +473,15 @@ public class Target implements TaskContainer {
      *
      * @see #setUnless(String)
      */
-    private boolean testUnlessCondition() {
+    private boolean testUnlessAllows() {
         if ("".equals(unlessCondition)) {
             return true;
         }
-        String test = project.replaceProperties(unlessCondition);
-        return project.getProperty(test) == null;
+        PropertyHelper propertyHelper = PropertyHelper.getPropertyHelper(getProject());
+        Object o = propertyHelper.parseProperties(unlessCondition);
+        if (o instanceof Boolean) {
+            return !((Boolean) o).booleanValue();
+        }
+        return propertyHelper.getProperty(String.valueOf(o)) == null;
     }
 }

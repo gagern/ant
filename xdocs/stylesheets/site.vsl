@@ -45,8 +45,6 @@
     #set ($blue1 = "#CFDCED")
     #set ($sourceborder = "#023264")
     #set ($pound = "#" )
-    #set ($ssi = "include virtual=")
-    #set ($adsurl = "/ads/buttonbar.html")
 ## start the processing
 #document()
 ## end the processing
@@ -104,6 +102,83 @@
       #end
 #end
 
+#macro ( teamcity $teamcity)
+    <table class="ContinuousBuild">
+    <tr>
+      <th>Title</th>
+      <th>Description</th>
+      <th>Build command</th>
+      <th>When</th>
+      <th>last build</th>
+      <th>last success</th>
+    </tr>
+    #set ($viewLink = $teamcity.getAttributeValue("viewlog") )
+    #foreach ($project in $teamcity.getChildren() )
+    <tr><td colspan="6" class="title"><b>$project.getAttributeValue("name")</b></td></tr>
+        #foreach ($configuration in $project.getChildren() )
+            #configuration ($configuration $viewLink)
+        #end
+    #end
+    </table>
+#end
+
+#macro ( configuration $conf $viewLink)
+    #set ($id = $conf.getAttributeValue("id")                         )
+    <tr>
+      <td class="title">$conf.getAttributeValue("title")</td>
+      <td class="description">$conf.getChild("description").getContent()</td>
+      <td class="command">$conf.getAttributeValue("command")</td>
+      #if ($conf.getChild("when"))
+        <td class="when">$conf.getChild("when").getContent()</td>
+      #else
+        <td class="when">continuously</td>
+      #end
+      <td class="link"><a href="$viewLink?&buildTypeId=$id&buildId=lastFinished">last build</a></td>
+      <td class="link"><a href="$viewLink?&buildTypeId=$id&buildId=lastSuccessful">last success</a></td>
+    </tr>
+#end
+
+## The hudson macro is based on the teamcity macro, but slightly different.
+## Mainly in the need of another nested element (job instead of configuration).
+## Maybe refactoring would ease that code ...
+#macro ( hudson $hudson)
+    <table class="ContinuousBuild">
+    <tr>
+      <th>Title</th>
+      <th>Description</th>
+      <th>Build command</th>
+      <th>When</th>
+      <th>last build</th>
+      <th>last success</th>
+    </tr>
+    #set ($base = $hudson.getAttributeValue("base") )
+    #foreach ($project in $hudson.getChildren() )
+    <tr><td colspan="6" class="title"><b>$project.getAttributeValue("name")</b></td></tr>
+        #foreach ($job in $project.getChildren() )
+            #job ($job $base)
+        #end
+    #end
+    </table>
+#end
+
+## The hudson::job macro is based on the teamcity::configuration macro, but slightly different.
+## Mainly the links to the build results are different.
+#macro ( job $job $base)
+    #set ($jobId = $job.getAttributeValue("id")                         )
+    <tr>
+      <td class="title">$job.getAttributeValue("title")</td>
+      <td class="description">$job.getChild("description").getContent()</td>
+      <td class="command">$job.getAttributeValue("command")</td>
+      #if ($job.getChild("when"))
+        <td class="when">$job.getChild("when").getContent()</td>
+      #else
+        <td class="when">continuously</td>
+      #end
+      <td class="link"><a href="$base/$jobId/lastBuild/">last build</a></td>
+      <td class="link"><a href="$base/$jobId/lastSuccessfulBuild/">last success</a></td>
+    </tr>
+#end
+
 #macro ( section $section)
     <h3 class="section">
       <a name="$escape.getText($section.getAttributeValue("name"))"></a>
@@ -118,6 +193,10 @@
           #table ($items)
         #elseif ($items.getName().equals("subsection"))
           #subsection ($items)
+        #elseif ($items.getName().equals("teamcity"))
+          #teamcity ($items)
+        #elseif ($items.getName().equals("hudson"))
+          #hudson ($items)
         #else
           $xmlout.outputString($items)
         #end
