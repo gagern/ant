@@ -637,7 +637,7 @@ public class FileUtils {
         int len = filename.length();
         return (c == sep && (len == 1 || filename.charAt(1) != sep))
                 || (Character.isLetter(c) && len > 1
-                && filename.indexOf(':') == 1
+                && filename.charAt(1) == ':'
                 && (len == 2 || filename.charAt(2) != sep));
     }
 
@@ -1308,7 +1308,8 @@ public class FileUtils {
             throw new IOException("Failed to delete " + to + " while trying to rename " + from);
         }
         File parent = to.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+        if (parent != null && !parent.isDirectory()
+            && !(parent.mkdirs() || parent.isDirectory())) {
             throw new IOException("Failed to create directory " + parent
                                   + " while trying to rename " + from);
         }

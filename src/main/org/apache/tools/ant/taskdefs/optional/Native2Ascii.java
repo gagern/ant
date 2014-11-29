@@ -19,6 +19,7 @@
 package org.apache.tools.ant.taskdefs.optional;
 
 import java.io.File;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -279,7 +280,8 @@ public class Native2Ascii extends MatchingTask {
         if (parentName != null) {
             File parentFile = new File(parentName);
 
-            if ((!parentFile.exists()) && (!parentFile.mkdirs())) {
+            if (!parentFile.exists()
+                && !(parentFile.mkdirs() || parentFile.isDirectory())) {
                 throw new BuildException("cannot create parent directory "
                                          + parentName);
             }

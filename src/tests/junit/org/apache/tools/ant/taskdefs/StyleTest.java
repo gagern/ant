@@ -18,159 +18,178 @@
 package org.apache.tools.ant.taskdefs;
 
 
-import java.io.FileReader;
+import java.io.File;
 import java.io.IOException;
-import java.io.Reader;
 
-import org.apache.tools.ant.BuildFileTest;
-import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.BuildFileRule;
+import org.apache.tools.ant.FileUtilities;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 
 /**
  * TestCases for {@link XSLTProcess} task.
- * TODO merge with {@link XsltTest}?
+ * TODO merge with {@link org.apache.tools.ant.taskdefs.optional.XsltTest}?
  * @version 2003-08-05
  */
-public class StyleTest extends BuildFileTest {
+public class StyleTest {
 
-    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+    @Rule
+    public final BuildFileRule buildRule = new BuildFileRule();
 
-    public StyleTest(String s) {
-        super(s);
+    @Before
+    public void setUp() throws Exception {
+        buildRule.configureProject("src/etc/testcases/taskdefs/style/build.xml");
     }
 
-    protected void setUp() throws Exception {
-        configureProject("src/etc/testcases/taskdefs/style/build.xml");
-        //executeTarget("setup");
-        //commented out for performance while target is empty
-    }
-
-    protected void tearDown() throws Exception {
-        executeTarget("teardown");
-    }
-
+    @Test
     public void testStyleIsSet() throws Exception {
-        expectSpecificBuildException("testStyleIsSet",
-                "no stylesheet specified", "specify the " +
-                "stylesheet either as a filename in style " +
-                "attribute or as a nested resource");
+
+        try {
+            buildRule.executeTarget("testStyleIsSet");
+            fail("Must throws a BuildException: no stylesheet specified");
+        } catch (BuildException ex) {
+            assertEquals("specify the stylesheet either as a filename in style attribute or as a nested resource",
+                    ex.getMessage());
+        }
     }
 
+    @Test
     public void testTransferParameterSet() throws Exception {
         expectFileContains("testTransferParameterSet",  // target
-                           "out/out.xml",               // file
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",               // file
                            "set='myvalue'");            // exptected string
     }
 
+    @Test
     public void testTransferParameterEmpty() throws Exception {
         expectFileContains("testTransferParameterEmpty",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "empty=''");
     }
 
+    @Test
     public void testTransferParameterUnset() throws Exception {
         expectFileContains("testTransferParameterUnset",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "undefined='${value}'");
     }
 
+    @Test
     public void testTransferParameterUnsetWithIf() throws Exception {
         expectFileContains("testTransferParameterUnsetWithIf",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "undefined='undefined default value'");
     }
 
+    @Test
     public void testNewerStylesheet() throws Exception {
         expectFileContains("testNewerStylesheet",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "new-value");
     }
 
+    @Test
     public void testDefaultMapper() throws Exception {
         testDefaultMapper("testDefaultMapper");
     }
 
+    @Test
     public void testExplicitFileset() throws Exception {
         testDefaultMapper("testExplicitFileset");
     }
 
     public void testDefaultMapper(String target) throws Exception {
-        assertTrue(!(FileUtils.getFileUtils().resolveFile(
-                getProject().getBaseDir(),"out/data.html")).exists());
+        assertTrue(!(
+                new File(buildRule.getOutputDir().getAbsoluteFile(), "data.html").exists()));
         expectFileContains(target,
-                           "out/data.html",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/data.html",
                            "set='myvalue'");
     }
 
+    @Test
     public void testCustomMapper() throws Exception {
-        assertTrue(!FILE_UTILS.resolveFile(
-                getProject().getBaseDir(), "out/out.xml").exists());
+        assertTrue(!new File(buildRule.getOutputDir().getAbsoluteFile(),  "out.xml").exists());
         expectFileContains("testCustomMapper",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "set='myvalue'");
     }
 
+    @Test
     public void testTypedMapper() throws Exception {
-        assertTrue(!FILE_UTILS.resolveFile(
-                getProject().getBaseDir(), "out/out.xml").exists());
+        assertTrue(!new File(buildRule.getOutputDir().getAbsoluteFile(),  "out.xml").exists());
         expectFileContains("testTypedMapper",
-                           "out/out.xml",
+                           buildRule.getOutputDir().getAbsoluteFile() + "/out.xml",
                            "set='myvalue'");
     }
 
+    @Test
     public void testDirectoryHierarchyWithDirMatching() throws Exception {
-        executeTarget("testDirectoryHierarchyWithDirMatching");
-        assertTrue(FILE_UTILS.resolveFile(
-                getProject().getBaseDir(), "out/dest/level1/data.html")
+        buildRule.executeTarget("testDirectoryHierarchyWithDirMatching");
+        assertTrue(new File(buildRule.getOutputDir().getAbsoluteFile(),  "dest/level1/data.html")
                    .exists());
     }
 
+    @Test
     public void testDirsWithSpaces() throws Exception {
-        executeTarget("testDirsWithSpaces");
-        assertTrue(FILE_UTILS.resolveFile(
-                getProject().getBaseDir(), "out/d est/data.html")
+        buildRule.executeTarget("testDirsWithSpaces");
+        assertTrue(new File(buildRule.getOutputDir().getAbsoluteFile(),  "d est/data.html")
                    .exists());
     }
 
-    public void testWithStyleAttrAndResource() throws Exception {
-        expectSpecificBuildException("testWithStyleAttrAndResource",
-                "Must throws a BuildException", "specify the " +
-                "stylesheet either as a filename in style " +
-                "attribute or as a nested resource but not " +
-                "as both");
+    @Test
+    public void testWithStyleAttrAndResource() {
+        try {
+            buildRule.executeTarget("testWithStyleAttrAndResource");
+            fail("Must throws a BuildException");
+        } catch (BuildException ex) {
+            assertEquals("specify the stylesheet either as a filename in style attribute or as a "
+                    + "nested resource but not as both", ex.getMessage());
+        }
     }
 
+    @Test
     public void testWithFileResource() throws Exception {
-        expectFileContains("testWithFileResource", "out/out.xml", "set='value'");
+        expectFileContains("testWithFileResource", buildRule.getOutputDir().getAbsoluteFile() + "/out.xml", "set='value'");
     }
 
+    @Test
     public void testWithUrlResource() throws Exception {
-        expectFileContains("testWithUrlResource", "out/out.xml", "set='value'");
+        expectFileContains("testWithUrlResource", buildRule.getOutputDir().getAbsoluteFile() + "/out.xml", "set='value'");
     }
 
+    @Test
     public void testFilenameAsParam() throws Exception {
-        executeTarget("testFilenameAsParam");
-        assertFileContains("out/out/one.txt",      "filename='one.xml'");
-        assertFileContains("out/out/two.txt",      "filename='two.xml'");
-        assertFileContains("out/out/three.txt",    "filename='three.xml'");
-        assertFileContains("out/out/dir/four.txt", "filename='four.xml'");
-        assertFileContains("out/out/dir/four.txt", "filedir ='-not-set-'");
+        buildRule.executeTarget("testFilenameAsParam");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/one.txt",      "filename='one.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/two.txt",      "filename='two.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/three.txt",    "filename='three.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/dir/four.txt", "filename='four.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/dir/four.txt", "filedir ='-not-set-'");
     }
 
+    @Test
     public void testFilenameAsParamNoSetting() throws Exception {
-        executeTarget("testFilenameAsParamNoSetting");
-        assertFileContains("out/out/one.txt",      "filename='-not-set-'");
-        assertFileContains("out/out/two.txt",      "filename='-not-set-'");
-        assertFileContains("out/out/three.txt",    "filename='-not-set-'");
-        assertFileContains("out/out/dir/four.txt", "filename='-not-set-'");
+        buildRule.executeTarget("testFilenameAsParamNoSetting");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/one.txt",      "filename='-not-set-'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/two.txt",      "filename='-not-set-'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/three.txt",    "filename='-not-set-'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/dir/four.txt", "filename='-not-set-'");
     }
 
+    @Test
     public void testFilenameAndFiledirAsParam() throws Exception {
-        executeTarget("testFilenameAndFiledirAsParam");
-        assertFileContains("out/out/one.txt",      "filename='one.xml'");
-        assertFileContains("out/out/one.txt",      "filedir ='.'");
-        assertFileContains("out/out/dir/four.txt", "filename='four.xml'");
-        assertFileContains("out/out/dir/four.txt", "filedir ='dir'");
+        buildRule.executeTarget("testFilenameAndFiledirAsParam");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/one.txt",      "filename='one.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/one.txt",      "filedir ='.'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/dir/four.txt", "filename='four.xml'");
+        assertFileContains(buildRule.getOutputDir().getAbsoluteFile() + "/dir/four.txt", "filedir ='dir'");
     }
 
 
@@ -183,21 +202,14 @@ public class StyleTest extends BuildFileTest {
     private String getFileString(String filename)
         throws IOException
     {
-        Reader r = null;
-        try {
-            r = new FileReader(getProject().resolveFile(filename));
-            return  FileUtils.readFully(r);
-        }
-        finally {
-            FileUtils.close(r);
-        }
+        return FileUtilities.getFileContents(new File(filename));
     }
 
     private void expectFileContains(
         String target, String filename, String contains)
         throws IOException
     {
-        executeTarget(target);
+        buildRule.executeTarget(target);
         assertFileContains(filename, contains);
     }
 

@@ -22,9 +22,9 @@ import java.util.Stack;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.Reference;
 
 /**
  * A Resource representation of an entry inside an archive.
@@ -216,7 +216,7 @@ public abstract class ArchiveResource extends Resource {
         if (isReference()) {
             return getCheckedRef().equals(another);
         }
-        if (!(another.getClass().equals(getClass()))) {
+        if (another == null || !(another.getClass().equals(getClass()))) {
             return false;
         }
         ArchiveResource r = (ArchiveResource) another;

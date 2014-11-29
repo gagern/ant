@@ -18,7 +18,6 @@
 package org.apache.tools.ant.taskdefs.email;
 
 import java.io.File;
-import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
@@ -78,6 +77,7 @@ public class EmailTask extends Task {
     private boolean failOnError = true;
     private boolean includeFileNames = false;
     private String messageMimeType = null;
+    private String messageFileInputEncoding;
     /* special headers */
     /** sender  */
     private EmailAddress from = null;
@@ -527,6 +527,7 @@ public class EmailTask extends Task {
                 }
                 message.setCharset(charset);
             }
+            message.setInputEncoding(messageFileInputEncoding);
 
             // identify which files should be attached
             Vector<File> files = new Vector<File>();
@@ -601,7 +602,7 @@ public class EmailTask extends Task {
     /**
      * Sets the character set of mail message.
      * Will be ignored if mimeType contains ....; Charset=... substring or
-     * encoding is not a <code>mime</code>.
+     * encoding is not <code>mime</code>.
      * @param charset the character encoding to use.
      * @since Ant 1.6
      */
@@ -617,6 +618,16 @@ public class EmailTask extends Task {
      */
     public String getCharset() {
         return charset;
+    }
+
+    /**
+     * Sets the encoding to expect when reading the message from a file.
+     * <p>Will be ignored if the message has been specified inline.</p>
+     * @param encoding the name of the charset used
+     * @since Ant 1.9.4
+     */
+    public void setMessageFileInputEncoding(String encoding) {
+        messageFileInputEncoding = encoding;
     }
 
 }

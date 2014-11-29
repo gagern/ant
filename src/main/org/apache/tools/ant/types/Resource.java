@@ -17,8 +17,8 @@
  */
 package org.apache.tools.ant.types;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.Iterator;
@@ -287,7 +287,8 @@ public class Resource extends DataType implements Comparable<Resource>, Resource
         if (isReference()) {
             return getCheckedRef().equals(other);
         }
-        return other.getClass().equals(getClass()) && compareTo((Resource) other) == 0;
+        return other != null && other.getClass().equals(getClass())
+            && compareTo((Resource) other) == 0;
     }
 
     /**

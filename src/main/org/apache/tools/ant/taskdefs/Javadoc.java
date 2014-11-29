@@ -29,7 +29,6 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -40,6 +39,7 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.StringTokenizer;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.MagicNames;
@@ -57,8 +57,8 @@ import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * Generates Javadoc documentation for a collection
@@ -434,6 +434,11 @@ public class Javadoc extends Task {
      * Javadoc error.
      */
     private boolean failOnError = false;
+    /**
+     * Flag which indicates if the task should fail if there is a
+     * Javadoc warning.
+     */
+    private boolean failOnWarning = false;
     private Path sourcePath = null;
     private File destDir = null;
     private Vector<SourceFile> sourceFiles = new Vector<SourceFile>();
@@ -913,7 +918,7 @@ public class Javadoc extends Task {
     }
 
     /**
-     * Generate the &quot;use&quot page for each package.
+     * Generate the &quot;use&quot; page for each package.
      *
      * @param b true if the use page should be generated.
      */
@@ -1554,6 +1559,18 @@ public class Javadoc extends Task {
     }
 
     /**
+     * Should the build process fail if Javadoc warns (as indicated by
+     * the word "warning" on stdout)?
+     *
+     * <p>Default is false.</p>
+     * @param b a <code>boolean</code> value
+     * @since Ant 1.9.4
+     */
+    public void setFailonwarning(boolean b) {
+        failOnWarning = b;
+    }
+
+    /**
      * Enables the -source switch, will be ignored if Javadoc is not
      * the 1.4 version.
      * @param source a <code>String</code> value
@@ -1785,6 +1802,10 @@ public class Javadoc extends Task {
             int ret = exe.execute();
             if (ret != 0 && failOnError) {
                 throw new BuildException("Javadoc returned " + ret,
+                                         getLocation());
+            }
+            if (out.sawWarnings() && failOnWarning) {
+                throw new BuildException("Javadoc issued warnings.",
                                          getLocation());
             }
             postProcessGeneratedJavadocs();
@@ -2447,8 +2468,13 @@ public class Javadoc extends Task {
         if (!postProcessGeneratedJavadocs) {
             return;
         }
+        if (destDir != null && !destDir.isDirectory()) {
+            log("No javadoc created, no need to post-process anything",
+                Project.MSG_VERBOSE);
+            return;
+        }
         final String fixData;
-        final InputStream in = getClass()
+        final InputStream in = Javadoc.class
             .getResourceAsStream("javadoc-frame-injections-fix.txt");
         if (in == null) {
             throw new FileNotFoundException("Missing resource "
@@ -2543,7 +2569,11 @@ public class Javadoc extends Task {
         // unless they appear after what could be an informational message.
         //
         private String queuedLine = null;
+        private boolean sawWarnings = false;
         protected void processLine(String line, int messageLevel) {
+            if (line.contains("warning")) {
+                sawWarnings = true;
+            }
             if (messageLevel == Project.MSG_INFO
                 && line.startsWith("Generating ")) {
                 if (queuedLine != null) {
@@ -2569,6 +2599,10 @@ public class Javadoc extends Task {
                 super.processLine(queuedLine, Project.MSG_VERBOSE);
                 queuedLine = null;
             }
+        }
+        
+        public boolean sawWarnings() {
+            return sawWarnings;
         }
     }
 

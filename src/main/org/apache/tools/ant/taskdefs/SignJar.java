@@ -20,7 +20,6 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -29,9 +28,9 @@ import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.IdentityMapper;
-import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.ResourceUtils;
 
 /**
@@ -511,13 +510,13 @@ public class SignJar extends AbstractJarSignerTask {
     }
 
     /**
-     * Compare a jar file with its corresponding signed jar. The logic for this
+     * <p>Compare a jar file with its corresponding signed jar. The logic for this
      * is complex, and best explained in the source itself. Essentially if
      * either file doesnt exist, or the destfile has an out of date timestamp,
-     * then the return value is false.
-     * <p/>
-     * If we are signing ourself, the check {@link #isSigned(File)} is used to
-     * trigger the process.
+     * then the return value is false.</p>
+     * 
+     * <p>If we are signing ourself, the check {@link #isSigned(File)} is used to
+     * trigger the process.</p>
      *
      * @param jarFile       the unsigned jar file
      * @param signedjarFile the result signed jar file

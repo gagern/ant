@@ -18,23 +18,24 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.ProjectHelperRepository;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.URLProvider;
 import org.apache.tools.ant.types.resources.URLResource;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.util.FileUtils;
-
-import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Vector;
 
 /**
  * Task to import another build file into the current project.
@@ -182,17 +183,8 @@ public class ImportTask extends Task {
             }
         }
 
-        File importedFile = null;
-        FileProvider fp = importedResource.as(FileProvider.class);
-        if (fp != null) {
-            importedFile = fp.getFile();
-        }
-
         if (!isInIncludeMode() &&
-            (importStack.contains(importedResource)
-             || (importedFile != null && importStack.contains(importedFile))
-             )
-            ) {
+            hasAlreadyBeenImported(importedResource, importStack)) {
             getProject().log(
                 "Skipped already imported file:\n   "
                 + importedResource + "\n", Project.MSG_VERBOSE);
@@ -248,6 +240,10 @@ public class ImportTask extends Task {
         // *not* the current directory (same as entity includes).
 
         if (file != null) {
+            if (isExistingAbsoluteFile(file)) {
+                return new FileResource(new File(file));
+            }
+
             File buildFile =
                 new File(getLocation().getFileName()).getAbsoluteFile();
             if (buildFile.exists()) {
@@ -269,6 +265,54 @@ public class ImportTask extends Task {
                                      + getLocation().getFileName());
         }
         return null;
+    }
+
+    private boolean isExistingAbsoluteFile(String name) {
+        File f = new File(name);
+        return f.isAbsolute() && f.exists();
+    }
+
+    private boolean hasAlreadyBeenImported(Resource importedResource,
+                                           Vector<Object> importStack) {
+        File importedFile = null;
+        FileProvider fp = importedResource.as(FileProvider.class);
+        if (fp != null) {
+            importedFile = fp.getFile();
+        }
+        URL importedURL = null;
+        URLProvider up = importedResource.as(URLProvider.class);
+        if (up != null) {
+            importedURL = up.getURL();
+        }
+        for (Object o : importStack) {
+            if (isOneOf(o, importedResource, importedFile, importedURL)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isOneOf(Object o, Resource importedResource,
+                            File importedFile, URL importedURL) {
+        if (o.equals(importedResource) || o.equals(importedFile)
+            || o.equals(importedURL)) {
+            return true;
+        }
+        if (o instanceof Resource) {
+            if (importedFile != null) {
+                FileProvider fp = ((Resource) o).as(FileProvider.class);
+                if (fp != null && fp.getFile().equals(importedFile)) {
+                    return true;
+                }
+            }
+            if (importedURL != null) {
+                URLProvider up = ((Resource) o).as(URLProvider.class);
+                if (up != null && up.getURL().equals(importedURL)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

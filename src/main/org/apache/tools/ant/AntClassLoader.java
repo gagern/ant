@@ -41,6 +41,8 @@ import java.util.jar.Attributes.Name;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+
+import org.apache.tools.ant.launch.Locator;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
@@ -48,7 +50,7 @@ import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.LoaderUtils;
 import org.apache.tools.ant.util.ReflectUtil;
 import org.apache.tools.ant.util.VectorSet;
-import org.apache.tools.ant.launch.Locator;
+import org.apache.tools.zip.ZipLong;
 
 /**
  * Used to load classes within ant with a different classpath from
@@ -1003,6 +1005,13 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
             } else {
                 if (jarFile == null) {
                     if (file.exists()) {
+                        if (!isZip(file)) {
+                            String msg = "CLASSPATH element " + file
+                                + " is not a JAR.";
+                            log(msg, Project.MSG_WARN);
+                            System.err.println(msg);
+                            return null;
+                        }
                         jarFile = new JarFile(file);
                         jarFiles.put(file, jarFile);
                     } else {
@@ -1559,6 +1568,40 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
                                         });
         }
         return new AntClassLoader(parent, project, path, parentFirst);
+    }
+
+    private static final ZipLong EOCD_SIG = new ZipLong(0X06054B50L);
+    private static final ZipLong SINGLE_SEGMENT_SPLIT_MARKER =
+        new ZipLong(0X30304B50L);
+
+    private static boolean isZip(File file) throws IOException {
+        byte[] sig = new byte[4];
+        if (readFully(file, sig)) {
+            ZipLong start = new ZipLong(sig);
+            return ZipLong.LFH_SIG.equals(start) // normal file
+                || EOCD_SIG.equals(start) // empty zip
+                || ZipLong.DD_SIG.equals(start) // split zip
+                || SINGLE_SEGMENT_SPLIT_MARKER.equals(start);
+        }
+        return false;
+    }
+
+    private static boolean readFully(File f, byte[] b) throws IOException {
+        FileInputStream fis = new FileInputStream(f);
+        try {
+            final int len = b.length;
+            int count = 0, x = 0;
+            while (count != len) {
+                x = fis.read(b, count, len - count);
+                if (x == -1) {
+                    break;
+                }
+                count += x;
+            }
+            return count == len;
+        } finally {
+            fis.close();
+        }
     }
 
 }

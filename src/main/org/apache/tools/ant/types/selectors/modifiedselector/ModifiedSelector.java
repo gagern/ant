@@ -25,12 +25,12 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Vector;
 
-// Ant
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.IntrospectionHelper;
+import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.BuildListener;
-import org.apache.tools.ant.BuildEvent;
+import org.apache.tools.ant.IntrospectionHelper;
+// Ant
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.Parameter;
 import org.apache.tools.ant.types.Path;
@@ -407,12 +407,12 @@ public class ModifiedSelector extends BaseExtendSelector
                 clazz = Class.forName(classname);
             }
 
-            T rv = clazz.asSubclass(type).newInstance();
+            Object rv = clazz.newInstance();
 
             if (!type.isInstance(rv)) {
                 throw new BuildException("Specified class (" + classname + ") " + msg);
             }
-            return rv;
+            return (T) rv;
         } catch (ClassNotFoundException e) {
             throw new BuildException("Specified class (" + classname + ") not found.");
         } catch (Exception e) {
@@ -817,7 +817,7 @@ public class ModifiedSelector extends BaseExtendSelector
 
     /**
      * Signals that a target has finished.
-     * @param event recieved BuildEvent
+     * @param event received BuildEvent
     */
     public void targetFinished(BuildEvent event) {
         if (getDelayUpdate()) {
@@ -828,7 +828,7 @@ public class ModifiedSelector extends BaseExtendSelector
 
     /**
      * Signals that a task has finished.
-     * @param event recieved BuildEvent
+     * @param event received BuildEvent
     */
     public void taskFinished(BuildEvent event) {
         if (getDelayUpdate()) {
@@ -839,7 +839,7 @@ public class ModifiedSelector extends BaseExtendSelector
 
     /**
      * Signals that a build has started.
-     * @param event recieved BuildEvent
+     * @param event received BuildEvent
     */
     public void buildStarted(BuildEvent event) {
         // no-op
@@ -858,7 +858,7 @@ public class ModifiedSelector extends BaseExtendSelector
 
     /**
      * Signals that a task is starting.
-     * @param event recieved BuildEvent
+     * @param event received BuildEvent
     */
     public void taskStarted(BuildEvent event) {
         // no-op
@@ -867,7 +867,7 @@ public class ModifiedSelector extends BaseExtendSelector
 
     /**
      * Signals a message logging event.
-     * @param event recieved BuildEvent
+     * @param event received BuildEvent
     */
     public void messageLogged(BuildEvent event) {
         // no-op

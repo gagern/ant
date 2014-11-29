@@ -17,25 +17,27 @@
  */
 package org.apache.tools.ant.filters;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.io.File;
-import java.io.BufferedReader;
-import java.io.FileReader;
+
 import org.apache.tools.ant.types.Parameter;
 
 /**
  * Concats a file before and/or after the file.
  *
- * <p>Example:<pre>
- * <copy todir="build">
- *     <fileset dir="src" includes="*.java"/>
- *     <filterchain>
- *         <concatfilter prepend="apache-license-java.txt"/>
- *     </filterchain>
- * </copy>
+ * <p>Example:</p><pre>
+ * &lt;copy todir="build"&gt;
+ *     &lt;fileset dir="src" includes="*.java"/&gt;
+ *     &lt;filterchain&gt;
+ *         &lt;concatfilter prepend="apache-license-java.txt"/&gt;
+ *     &lt;/filterchain&gt;
+ * &lt;/copy&gt;
  * </pre>
- * Copies all java sources from <i>src</i> to <i>build</i> and adds the
+ * 
+ * <p>Copies all java sources from <i>src</i> to <i>build</i> and adds the
  * content of <i>apache-license-java.txt</i> add the beginning of each
  * file.</p>
  *

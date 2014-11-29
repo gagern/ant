@@ -1,17 +1,247 @@
-Changes from Ant 1.9.2 TO current
+Changes from Ant 1.9.4 TO Ant 1.9.5
 ===================================
 
 Changes that could break older environments:
 -------------------------------------------
 
+ * The ReplaceTokens filter can now use token-separators longer than
+   one character.  This means it can be used to replace mustache-style
+   {{patterns}} and similar templates.  This is going to break code
+   that invokes the setters on ReplaceTokens via the Java API as their
+   parameters have been changed from char to String.  It may also
+   break build files that specified multi character tokens and relied
+   on Ant silently ignoring all but the first character.
+   Bugzilla Report 56584
 
 Fixed bugs:
 -----------
+
+ * TarArchiveInputStream failed to read archives with empty gid/uid
+   fields.
+   Bugzilla Report 56641
+
+ * TarArchiveInputStream could throw IOException when reading PAX
+   headers from a "slow" InputStream.
+
+ * XMLJunitResultFormatter could throw NullPointerException if Java
+   cannot determine the local hostname.
+   Bugzilla Report 56593
+
+Other changes:
+--------------
+
+Changes from Ant 1.9.3 TO Ant 1.9.4
+===================================
+
+Changes that could break older environments:
+-------------------------------------------
+
+ * the prefixValues attribute of <property> didn't work as expected
+   when set to false (the default).
+   It is quite likely existing build files relied on the wrong
+   behavior and expect Ant to resolve the value side against the
+   properties defined in the property file itself - these build files
+   must now explicitly set the prefixValues attribute to true.
+   Bugzilla Report 54769
+
+ * when matching an entry of a zip/tarfileset against a pattern a
+   leading slash will be stripped from the entry name.  Most archives
+   don't contain paths with leading slashes anyway.
+   This may cause include/exclude patterns that start with a / to stop
+   matching anything.  Such patterns only used to work by accident and
+   only on platforms with multiple file system roots.
+   Bugzilla Report 53949
+
+ * DirectoryScanner and thus fileset/dirset will now silently drop all
+   filesystem objects that are neither files nor directories according
+   to java.io.File.  This prevents Ant from reading named pipes which
+   might lead to blocking or other undefined behavior.
+   Bugzilla Report 56149
+
+ * BuildFileTest and BaseSelectorTest have both been deprecated in
+   favour of BuildFileRule and BaseSelectorRule respectively, and the
+   tests that previously extended these base tests have been converted to
+   JUnit 4 tests using the new "rule"s. Any external test that sub-classed
+   a test in the Ant workspace, rather than BuildFileTest, will need
+   changed to either use JUnit4's annotations, or be modified to
+   extend BuildFileTest directly. This will not affect any tests that are
+   being executed by Ant's junit or batchtest tasks that are not specifically
+   testing Ant's code.
+
+Fixed bugs:
+-----------
+
+ * <import>/<include> failed when the importing file was loaded from an
+   URI or a jar and it imported a file from the local file system via
+   an absolute path.
+   Bugzilla Report 50953
+
+ * <import> could import the same resource twice when imported via
+   different resource types.
+   Bugzilla Report 55097
+
+ * several calls to File#mkdirs could fall victim to a race condition
+   where another thread already created the same directory.
+   Bugzilla Report 55290
+
+ * <manifestclasspath> created '/' rather than './' for the parent
+   directory of the given jarfile.
+   Bugzilla Report 55049
+
+ * <concat>'s fixlastline="true" didn't work when using certain filter
+   readers.
+   Bugzilla Report 54672
+
+ * several places where resources are read from jars will now
+   explicitly disable caching to avoid problems with reloading jars.
+   Bugzilla Report 54473
+
+ * AntClassloader will now ignore files that are part of the classpath
+   but not zip files when scanning for resources.  It used to throw an
+   exception.
+   Bugzilla Report 53964
+
+ * <javadoc> caused a NullPointerException when no destdir was set.
+   Bugzilla Report 55949
+
+ * <jar filesetmanifest="mergewithoutmain"> would still include the
+   Main section of the fileset manifests if there was no nested
+   manifest or manifest attribute.
+   Bugzilla Report 54171
+
+ * reading of compiler args has become more defensive
+   Bugzilla Report 53754
+
+ * <copy> without force="true" would not only fail to overwrite a
+   read-only file as expected but also remove the existing file.
+   Bugzilla Report 53095
+
+ * <delete removeNotFollowedSymlinks="true"> would remove symbolic
+   links to not-included files.  It will still delete symlinks to
+   directories that would have been followed even if they are not
+   explicitly included.  exclude-Patterns can still be used to
+   preserve symbolic links.
+   Bugzilla Report 53959
+
+ * Sometimes copy-operations using NIO FileChannels fail.  Ant will
+   now try to use a Stream based copy operation as fallback when the
+   Channel based copy fails.
+   Bugzilla Reports 53102 and 54397
+
+ * Javadoc.postProcessGeneratedJavadocs() fails for Classes that
+   extend Javadoc
+   Bugzilla Report 56047
+
+ * TarInputStream will now read archives created by tar
+   implementations that encode big numbers by not adding a trailing
+   NUL.
+
+ * the isExists() method of URLResource returned false positives for
+   HTTP and FTP URLs.
+
+Other changes:
+--------------
+
+ * initial support for Java 1.9
+
+ * <sshexec> can optionally pass System.in to the remote process
+   Bugzilla Report 55393
+
+ * <sshexec> now supports capturing error output of the executed
+   process and setting a property from the return code.
+   Bugzilla Report 48478
+
+ * <javadoc> now has an option to fail if javadoc issues warnings.
+   Bugzilla Report 55015
+
+ * <sql> has a new outputencoding attribute.
+   Bugzilla Report 39541
+
+ * changes to JUnitTestRunner and PlainJUnitResultFormatter to make
+   OutOfMemoryErrors less likely.
+   Bugzilla Report 45536
+
+ * changes to DOMElementWriter to make OutOfMemoryErrors less likely.
+   Bugzilla Report 54147
+
+ * <redirector> has a new attribute binaryOutput that prevents Ant
+   from splitting the output into lines.  This prevents binary output
+   from being corrupted but may lead to error and normal output being
+   mixed up.
+   Bugzilla Report 55667
+   Bugzilla Report 56156
+
+ * the nested <message> elements of <mail> now have an optional
+   inputEncoding attribute that can be used to specify the encoding of
+   files read that don't use the platform's default encoding.
+   Bugzilla Report 56258
+
+ * The <get> task now explicitly accepts and supports the gzip content encoding.
+   Bugzilla Report 49453
+
+ * A new resourcecollection type <multirootfileset> acts like a union
+   of <fileset>s and <dirset>s that share the same configuration but
+   have different base directories.
+   Bugzilla Report 48621
+
+ * <get> has a quiet attribute that makes the task log errors only
+   when enabled.
+   GitHub Pull Request #1
+
+* <junit> has now a threads attribute allowing to run the tests in several threads.
+  Bugzilla Report 55925
+
+* addition of a new ProcessUtil class providing the process id of the current process
+
+* changes to allow to run the JUnit testcases of Ant in parallel,
+  by making them use unique temporary directories
+
+Changes from Ant 1.9.2 TO Ant 1.9.3
+===================================
+
+Fixed bugs:
+-----------
+
+ * <parallel> swallowed the status code of nested <fail> tasks.
+   Bugzilla Report 55539.
+
+ * a race condition could make <fixcrlf> tasks of parallel builds to
+   interfere with each other.
+   Bugzilla Report 54393.
+
+ * <mail>'s mailport still didn't work properly when using smtps.
+   Bugzilla Report 49267.
+
+ * using attributes belonging to the if and unless namespaces
+   made macrodef fail.
+   Bugzilla Report 55885.
+
+ * Ant 1.8 exec task changes have slowed exec to a crawl
+   Bugzilla Report 54128.
+
+ * Apt is not available under JDK 1.8
+   Bugzilla Report 55922.
 
 
 Other changes:
 --------------
 
+ * Documentation fix for if/unless attributes.  PR 55359.
+
+ * tar entries with long link names are now handled the same way as
+   entries with long names.
+
+ * Addition of 'skipNonTests' attribute to <junit> and <batchtest>
+   tasks to allow the tasks to skip classes that don't contain tests.
+
+ * <filterset> now supports a nested <propertyset> to specify filters.
+   Bugzilla Report 55794.
+
+ * <xslt>'s params can now be typed.
+   Bugzilla Report 21525.
+
+ * build of Mac OS X pkg installer
+   Bugzilla Report 55899.
 
 Changes from Ant 1.9.1 TO Ant 1.9.2
 ===================================
@@ -1075,7 +1305,7 @@ Changes that could break older environments:
    Bugzilla Report 46506.
 
  * <copy> silently ignored missing resources even with
-   failOnError="true".  If your build tries to copy non-existant
+   failOnError="true".  If your build tries to copy non-existent
    resources and you relied on this behavior you must now explicitly
    set failOnError to false.
    Bugzilla Report 47362.
@@ -1228,7 +1458,7 @@ Fixed bugs:
    Bugzilla Report 45607.
 
  * only <formatter>s that logged to a file were notified if forked VM
-   crashed or a timeout occured in <junit>.
+   crashed or a timeout occurred in <junit>.
    Bugzilla Report 37312.
 
  * ant -v -version would print the version information twice.
@@ -1326,7 +1556,7 @@ Fixed bugs:
    of the file system).
    Bugzilla Report 43665.
 
- * <sshexec> didn't store the ouput in outputproperty if the remote
+ * <sshexec> didn't store the output in outputproperty if the remote
    command failed.
    Bugzilla Report 46340.
 
@@ -1599,7 +1829,7 @@ Other changes:
 
  * A new listener for <junit> has been added that tries to invoke the
    tearDown method of a TestCase if that TestCase was run in a forked
-   VM and the VM crashed or a timeout occured.  See the <junit> task's
+   VM and the VM crashed or a timeout occurred.  See the <junit> task's
    manual page for details.
    Bugzilla Report 37241.
 
@@ -1730,7 +1960,7 @@ Other changes:
  * <xslt> now fails early if a specified stylesheet doesn't exist.
    Bugzilla Report 34525.
 
- * <xslt> now has an option to supress transformer warnings.  This
+ * <xslt> now has an option to suppress transformer warnings.  This
    option only has an effect for processors that support this feature;
    the "trax" processor included with Ant does support it.
    Bugzilla Report 18897.
@@ -2641,7 +2871,7 @@ Other changes:
 * Upgraded XML API and parser to Xerces 2.8.1
 
 * A code review of some threaded logic has tightened up the synchronization
-  of Watchdog, ExecuteWatchdog and ExecuteJava, which could reduce the occurence
+  of Watchdog, ExecuteWatchdog and ExecuteJava, which could reduce the occurrence
   of race conditions here, especially on Java1.5+.
 
 * Allow broken reference build files. The defer reference processing would
@@ -3219,7 +3449,7 @@ Fixed bugs:
 
 * FTP task, getTimeDiff method was returning wrong value. Bugzilla 30595.
 
-* make sure that Zip and its derivates call the createEmptyZip method when
+* make sure that Zip and its derivatives call the createEmptyZip method when
  there are no resources to zip/jar/...
 
 * Zip task was not zipping when only empty directories were found.
@@ -3797,7 +4027,7 @@ Fixed bugs:
   than seven characters.  Bugzilla Report 18105.
 
 * <copy> and <move>'s failonerror didn't apply to filesets pointing to
-  non-existant directories.  Bugzilla Report 18414.
+  non-existent directories.  Bugzilla Report 18414.
 
 * The <stripjavacomments> filter sometimes removed parts of string
   constants.  Bugzilla Report 17441.
@@ -3912,7 +4142,7 @@ Fixed bugs:
 * ftp put with chmod failed when the remote system was UNIX and local system
   Windows. Bugzilla Report 23143.
 
-* ftp did not set the ascii mode explicity, causing problems with ftp servers
+* ftp did not set the ascii mode explicitly, causing problems with ftp servers
   having binary as default
 
 * ftp was not able to download files when they were pointed to by symbolic
@@ -5055,7 +5285,7 @@ Other changes:
   or a file.
 
 * New tasks <bzip2> and <bunzip2> to pack and unpack files using the
-  BZip2 alogrithm.
+  BZip2 algorithm.
 
 * New tasks <replaceregexp>, <checksum>, <translate>, <waitfor>,
   <manifest>, <vsscp>, <vssadd>, <vsscreate>, <splash>, <basename>, <dirname>,
@@ -5355,7 +5585,7 @@ Changes that could break older environments:
   other tasks. This can break customer listeners which do not expect messages
   from a task before the previous task has finished.
 
-* Ant now installs its own ouput stream into System.out to route output to the
+* Ant now installs its own output stream into System.out to route output to the
   task currently executing on the current thread. This also means that all
   output is now routed as Ant message events. Customer listeners and loggers
   should not call System.out at any time. This has always been true but such
@@ -5473,7 +5703,7 @@ Other changes:
 
 * added vmlauncher attribute to exec tasks. This defaults to true. If
   it is set to false, the VM's ability to launch commands in bypassed
-  and the OS shell, either directly or through the auxillary antRun
+  and the OS shell, either directly or through the auxiliary antRun
   scripts is used.
 
 * regexp mapper now supports the java.util.regex package of JDK 1.4.

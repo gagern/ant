@@ -35,12 +35,12 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.KeepAliveInputStream;
 import org.apache.tools.ant.util.KeepAliveOutputStream;
 import org.apache.tools.ant.util.TeeOutputStream;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
 
 /**
  * Executes a command on a remote machine via ssh.
@@ -61,12 +61,17 @@ public class SSHExec extends SSHBase {
     private Thread thread = null;
 
     private String outputProperty = null;   // like <exec>
+    private String errorProperty = null;
+    private String resultProperty = null;
     private File outputFile = null;   // like <exec>
+    private File errorFile = null;
     private String inputProperty = null;
     private String inputString = null;   // like <exec>
     private File inputFile = null;   // like <exec>
     private boolean append = false;   // like <exec>
+    private boolean appenderr = false;
     private boolean usePty = false;
+    private boolean useSystemIn = false;
 
     private Resource commandResource = null;
 
@@ -74,10 +79,15 @@ public class SSHExec extends SSHBase {
         "Timeout period exceeded, connection dropped.";
 
     /**
-     * To supress writing logs to System.out
+     * To suppress writing logs to System.out
      */
     private boolean suppressSystemOut = false;
-    
+
+    /**
+     * To suppress writing logs to System.err
+     */
+    private boolean suppressSystemErr = false;
+
     /**
      * Constructor for SSHExecTask.
      */
@@ -124,6 +134,16 @@ public class SSHExec extends SSHBase {
     }
 
     /**
+     * If used, stores the erroutput of the command to the given file.
+     *
+     * @param output  The file to write to.
+     * @since Apache Ant 1.9.4
+     */
+    public void setErrorOutput(File output) {
+        errorFile = output;
+    }
+
+    /**
      * If used, the content of the file is piped to the remote command
      *
      * @param input  The file which provides the input data for the remote command
@@ -143,7 +163,7 @@ public class SSHExec extends SSHBase {
      * @since Ant 1.8.0
      */
     public void setInputProperty(String inputProperty) {
-    	this.inputProperty = inputProperty;
+        this.inputProperty = inputProperty;
     }
 
     /**
@@ -154,7 +174,7 @@ public class SSHExec extends SSHBase {
      * @since Ant 1.8.3
      */
     public void setInputString(String inputString) {
-    	this.inputString = inputString;
+        this.inputString = inputString;
     }
 
     /**
@@ -169,6 +189,18 @@ public class SSHExec extends SSHBase {
     }
 
     /**
+     * Determines if the output is appended to the file given in
+     * <code>setErrorOutput</code>. Default is false, that is, overwrite
+     * the file.
+     *
+     * @param append  True to append to an existing file, false to overwrite.
+     * @since Apache Ant 1.9.4
+     */
+    public void setErrAppend(boolean appenderr) {
+        this.appenderr = appenderr;
+    }
+
+    /**
      * If set, the output of the command will be stored in the given property.
      *
      * @param property  The name of the property in which the command output
@@ -176,6 +208,28 @@ public class SSHExec extends SSHBase {
      */
     public void setOutputproperty(String property) {
         outputProperty = property;
+    }
+
+    /**
+     * If set, the erroroutput of the command will be stored in the given property.
+     *
+     * @param property  The name of the property in which the command erroroutput
+     *      will be stored.
+     * @since Apache Ant 1.9.4
+     */
+    public void setErrorproperty (String property) {
+        errorProperty = property;
+    }
+
+    /**
+     * If set, the exitcode of the command will be stored in the given property.
+     *
+     * @param property  The name of the property in which the exitcode
+     *      will be stored.
+     * @since Apache Ant 1.9.4
+     */
+    public void setResultproperty(String property) {
+        resultProperty = property;
     }
 
     /**
@@ -187,21 +241,40 @@ public class SSHExec extends SSHBase {
     }
 
     /**
+     * If set, input will be taken from System.in
+     * 
+     * @param useSystemIn True to use System.in as InputStream, false otherwise
+     * @since Apache Ant 1.9.4
+     */
+    public void setUseSystemIn(boolean useSystemIn) {
+        this.useSystemIn = useSystemIn;
+    }
+
+    /**
      * If suppressSystemOut is <code>true</code>, output will not be sent to System.out<br/>
      * If suppressSystemOut is <code>false</code>, normal behavior
      * @since Ant 1.9.0
      */
-    public void setSuppressSystemOut(boolean suppressSystemOut)
-    {
+    public void setSuppressSystemOut(boolean suppressSystemOut) {
         this.suppressSystemOut = suppressSystemOut;
     }
+
+    /**
+     * If suppressSystemErr is <code>true</code>, output will not be sent to System.err<br/>
+     * If suppressSystemErr is <code>false</code>, normal behavior
+     * @since Ant 1.9.4
+     */
+    public void setSuppressSystemErr(boolean suppressSystemErr) {
+        this.suppressSystemErr = suppressSystemErr;
+    }
+
     /**
      * Execute the command on the remote host.
      *
      * @exception BuildException  Most likely a network error or bad parameter.
      */
     public void execute() throws BuildException {
-        
+
         if (getHost() == null) {
             throw new BuildException("Host is required.");
         }
@@ -278,6 +351,8 @@ public class SSHExec extends SSHBase {
     private void executeCommand(Session session, String cmd, StringBuffer sb)
         throws BuildException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream errout = new ByteArrayOutputStream();
+        OutputStream teeErr = suppressSystemErr ? errout : new TeeOutputStream(errout, KeepAliveOutputStream.wrapSystemErr());
         OutputStream tee = suppressSystemOut ? out : new TeeOutputStream(out, KeepAliveOutputStream.wrapSystemOut());
 
         InputStream istream = null ;
@@ -296,10 +371,14 @@ public class SSHExec extends SSHBase {
             String inputData = getProject().getProperty(inputProperty) ;
             if (inputData != null) {
                 istream = new ByteArrayInputStream(inputData.getBytes()) ;
-            }        	
+            }
         }
         if (inputString != null) {
             istream = new ByteArrayInputStream(inputString.getBytes());
+        }
+
+        if (useSystemIn) {
+            istream = KeepAliveInputStream.wrapSystemIn();
         }
 
         try {
@@ -310,6 +389,7 @@ public class SSHExec extends SSHBase {
             channel.setCommand(cmd);
             channel.setOutputStream(tee);
             channel.setExtOutputStream(tee);
+            channel.setErrStream(teeErr);
             if (istream != null) {
                 channel.setInputStream(istream);
             }
@@ -344,14 +424,25 @@ public class SSHExec extends SSHBase {
                     log(TIMEOUT_MESSAGE, Project.MSG_ERR);
                 }
             } else {
-                //success
+                // stdout to outputFile
                 if (outputFile != null) {
                     writeToFile(out.toString(), append, outputFile);
                 }
-
+                // set errorProperty
+                if (errorProperty != null) {
+                    getProject().setNewProperty(errorProperty, errout.toString());
+                }
+                // stderr to errorFile
+                if (errorFile != null) {
+                    writeToFile(errout.toString(), appenderr, errorFile);
+                }
                 // this is the wrong test if the remote OS is OpenVMS,
                 // but there doesn't seem to be a way to detect it.
                 int ec = channel.getExitStatus();
+                // set resultproperty
+                if (resultProperty != null) {
+                    getProject().setNewProperty(resultProperty, Integer.toString(ec));
+                }
                 if (ec != 0) {
                     String msg = "Remote command failed with exit status " + ec;
                     if (getFailonerror()) {

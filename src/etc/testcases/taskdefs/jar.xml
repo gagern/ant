@@ -18,11 +18,17 @@
 
 <project name="jar-test" basedir="." default="test1">
 
-  <property name="tmp.jar" location="tmp.jar"/>
-  <property name="tmp.dir" location="jartmp"/>
-  <property name="tmp.zip" location="tmp.zip"/>
-  <property name="tmp1.dir" location="jartmp1"/>
-  <property name="tmp2.dir" location="jartmp2"/>
+  <import file="../buildfiletest-base.xml"/>
+
+  <target name="setUp">
+    <mkdir dir="${output}" />
+  </target>
+
+  <property name="tmp.jar" location="${output}/tmp.jar"/>
+  <property name="tmp.dir" location="${output}/jartmp"/>
+  <property name="tmp.zip" location="${output}/tmp.zip"/>
+  <property name="tmp1.dir" location="${output}/jartmp1"/>
+  <property name="tmp2.dir" location="${output}/jartmp2"/>
 
   <target name="test1">
     <jar/>
@@ -60,7 +66,6 @@
   </target>
 
   <target name="testRecreateNewerFileSetup" depends="test4">
-    <sleep seconds="2"/>
     <touch file="jar.xml"/>
   </target>
 
@@ -105,7 +110,6 @@
     </manifest>
     <jar destfile="${tmp.jar}" basedir="." includes="jar.xml"
          manifest="${tmp.dir}/manifest"/>
-    <sleep seconds="3"/>
     <touch file="jar.xml"/>
     <jar destfile="${tmp.jar}" basedir="." includes="jar.xml"
          update="true"/>
@@ -179,15 +183,6 @@
          update="true">
       <zipfileset src="${tmp.zip}" includes="jar.xml"/>
     </jar>
-  </target>
-
-  <target name="cleanup">
-    <delete file="${tmp.jar}" />
-    <delete file="${tmp.jar}2" />
-    <delete dir="${tmp.dir}"/>
-    <delete file="${tmp.zip}" />
-    <delete dir="${tmp1.dir}"/>
-    <delete dir="${tmp2.dir}"/>
   </target>
 
   <target name="testCreateWithEmptyFilesetSetUp">

@@ -18,14 +18,14 @@
 
 package org.apache.tools.ant.taskdefs.optional.net;
 
-import org.apache.commons.net.bsd.RExecClient;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.Vector;
+
+import org.apache.commons.net.bsd.RExecClient;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -387,7 +387,7 @@ public class RExecTask extends Task {
     }
     /**
      *  Process a 'typical' login.  If it differs, use the read
-     *  and write tasks explicitely
+     *  and write tasks explicitly
      */
     private void login(AntRExecClient rexec) {
         if (addCarriageReturn) {

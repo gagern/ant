@@ -135,20 +135,28 @@ to them, sorry :-)</p>
 we can call that from our testcase:
 
 <pre class="code">
-import org.apache.tools.ant.BuildFileTest;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.Before;
+import org.junit.Assert;
+import org.apache.tools.ant.BuildFileRule;
 
-public class FindTest extends BuildFileTest {
 
-    public FindTest(String name) {
-        super(name);
-    }
+public class FindTest {
 
+    @Rule
+    public final BuildFileRule buildRule = new BuildFileRule();
+
+
+    @Before
     public void setUp() {
         configureProject("build.xml");
     }
 
+    @Test
     public void testSimple() {
-        <b>expectLog("use.simple", "test-value");</b>
+        buildRule.executeTarget("useSimgle");
+        <b>Assert.assertEquals("test-value", buildRule.getLog());</b>
     }
 }
 </pre>
@@ -211,10 +219,14 @@ Maybe you find some more testcases. But this is enough for now.<br>
 For each of these points we create a <tt>testXX</tt> method.</p>
 
 <pre class="code">
-public class FindTest extends BuildFileTest {
+public class FindTest {
+
+    @Rule
+    public final BuildFileRule buildRule = new BuildFileRule();
 
     ... // constructor, setUp as above
 
+    @Test
     public void testMissingFile() {
         <b>Find find = new Find();</b>
         try {
@@ -227,6 +239,7 @@ public class FindTest extends BuildFileTest {
         }
     }
 
+    @Test
     public void testMissingLocation() {
         Find find = new Find();
         <b>find.setFile("ant.jar");</b>
@@ -238,6 +251,7 @@ public class FindTest extends BuildFileTest {
         }
     }
 
+    @Test
     public void testMissingFileset() {
         Find find = new Find();
         find.setFile("ant.jar");
@@ -250,15 +264,17 @@ public class FindTest extends BuildFileTest {
         }
     }
 
+    @Test
     public void testFileNotPresent() {
-        executeTarget("testFileNotPresent");
-        String result = getProject().getProperty("location.ant-jar");
+        buildRule.executeTarget("testFileNotPresent");
+        String result = buildRule.getProject().getProperty("location.ant-jar");
         assertNull("Property set to wrong value.", result);
     }
 
+    @Test
     public void testFilePresent() {
-        executeTarget("testFilePresent");
-        String result = getProject().getProperty("location.ant-jar");
+        buildRule.executeTarget("testFilePresent");
+        String result = buildRule.getProject().getProperty("location.ant-jar");
         assertNotNull("Property not set.", result);
         assertTrue("Wrong file found.", result.endsWith("ant.jar"));
     }
@@ -301,9 +317,9 @@ can implement our task, so that these test cases will pass.</p>
 is a common way, because we separate the prerequisites from the real work. On <b>//2</b> we iterate
 over all nested filesets. If we don't want to handle multiple filesets, the <tt>addFileset()</tt>
 method has to reject the further calls. We can get the result of a fileset via its DirectoryScanner
-like done in <b>//3</b>. After that we create a platform independend String representation of
+like done in <b>//3</b>. After that we create a platform independent String representation of
 the file path (<b>//4</b>, can be done in other ways of course). We have to do the <tt>replace()</tt>,
-because we work with a simple string comparison. Ant itself is platform independant and can
+because we work with a simple string comparison. Ant itself is platform independent and can
 therefore run on filesystems with slash (/, e.g. Linux) or backslash (\, e.g. Windows) as
 path separator. Therefore we have to unify that. If we found our file we create an absolute
 path representation on <b>//5</b>, so that we can use that information without knowing the basedir.
@@ -906,7 +922,7 @@ entry. For both we need some information:</p>
 </tr>
 <tr>
   <th>attachments</th>
-  <td><i>all files needed to apply the path</td>
+  <td><i>all files needed to apply the path</i></td>
   <td>Archive containing a patch with the new and modified resources</td>
 </tr>
 </table>

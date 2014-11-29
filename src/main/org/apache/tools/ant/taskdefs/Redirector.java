@@ -17,36 +17,36 @@
  */
 package org.apache.tools.ant.taskdefs;
 
-import java.io.File;
-import java.io.Reader;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.OutputStream;
-import java.io.StringReader;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PipedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PipedOutputStream;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.Arrays;
 import java.util.Vector;
 
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.filters.util.ChainReaderHelper;
 import org.apache.tools.ant.types.FilterChain;
-import org.apache.tools.ant.util.LineOrientedOutputStreamRedirector;
-import org.apache.tools.ant.util.StringUtils;
-import org.apache.tools.ant.util.TeeOutputStream;
-import org.apache.tools.ant.util.ReaderInputStream;
-import org.apache.tools.ant.util.LeadPipeInputStream;
-import org.apache.tools.ant.util.LazyFileOutputStream;
-import org.apache.tools.ant.util.OutputStreamFunneler;
 import org.apache.tools.ant.util.ConcatFileInputStream;
 import org.apache.tools.ant.util.KeepAliveOutputStream;
+import org.apache.tools.ant.util.LazyFileOutputStream;
+import org.apache.tools.ant.util.LeadPipeInputStream;
+import org.apache.tools.ant.util.LineOrientedOutputStreamRedirector;
+import org.apache.tools.ant.util.OutputStreamFunneler;
+import org.apache.tools.ant.util.ReaderInputStream;
+import org.apache.tools.ant.util.StringUtils;
+import org.apache.tools.ant.util.TeeOutputStream;
 
 /**
  * The Redirector class manages the setup and connection of input and output
@@ -191,6 +191,9 @@ public class Redirector {
 
     /** Mutex for err */
     private Object errMutex = new Object();
+
+    /** Is the output binary or can we safely split it into lines? */
+    private boolean outputIsBinary = false;
 
     /**
      * Create a redirector instance for the given task
@@ -367,7 +370,7 @@ public class Redirector {
     /**
      * This <code>Redirector</code>'s subordinate
      * <code>PropertyOutputStream</code>s will not set their respective
-     * properties <code>while (appendProperties && append)</code>.
+     * properties <code>while (appendProperties &amp;&amp; append)</code>.
      *
      * @param appendProperties
      *            whether to append properties.
@@ -521,6 +524,18 @@ public class Redirector {
         synchronized (errMutex) {
             this.errorFilterChains = errorFilterChains;
         }
+    }
+
+    /**
+     * Whether to consider the output created by the process binary.
+     *
+     * <p>Binary output will not be split into lines which may make
+     * error and normal output look mixed up when they get written to
+     * the same stream.</p>
+     * @since 1.9.4
+     */
+    public void setBinaryOutput(boolean b) {
+        outputIsBinary = b;
     }
 
     /**
@@ -722,8 +737,12 @@ public class Redirector {
             OutputStreamFunneler funneler = new OutputStreamFunneler(
                     outputStream, funnelTimeout);
             try {
-                outputStream = new LineOrientedOutputStreamRedirector(funneler.getFunnelInstance());
-                errorStream = new LineOrientedOutputStreamRedirector(funneler.getFunnelInstance());
+                outputStream = funneler.getFunnelInstance();
+                errorStream = funneler.getFunnelInstance();
+                if (!outputIsBinary) {
+                    outputStream = new LineOrientedOutputStreamRedirector(outputStream);
+                    errorStream = new LineOrientedOutputStreamRedirector(errorStream);
+                }
             } catch (IOException eyeOhEx) {
                 throw new BuildException(
                         "error splitting output/error streams", eyeOhEx);

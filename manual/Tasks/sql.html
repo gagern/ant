@@ -91,6 +91,12 @@ and <b>abort</b> execution and transaction and fail task.</p>
   <td align="center">No - defaults to default JVM encoding</td>
 </tr>
 <tr>
+  <td valign="top">outputencoding</td>
+  <td valign="top">The encoding of the files holding
+    results.  <em>since 1.9.4</em</td>
+  <td align="center">No - defaults to default JVM encoding</td>
+</tr>
+<tr>
   <td width="12%" valign="top">delimiter</td>
   <td width="78%" valign="top">String that separates SQL statements</td>
   <td width="10%" valign="top">No, default &quot;;&quot;</td>
@@ -180,7 +186,7 @@ and <b>abort</b> execution and transaction and fail task.</p>
   <td width="78%" valign="top">Control whether the Java statement
     object will perform escape substitution.<br>
     See <a
-    href="http://download.oracle.com/javase/6/docs/api/java/sql/Statement.html#setEscapeProcessing%28boolean%29">Statement's
+    href="http://docs.oracle.com/javase/7/docs/api/java/sql/Statement.html#setEscapeProcessing%28boolean%29">Statement's
     API docs</a> for details.  <em>Since Ant 1.6</em>.
   <td width="10%" valign="top">No (default=true)</td>
 </tr>

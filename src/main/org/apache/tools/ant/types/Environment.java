@@ -19,6 +19,7 @@
 package org.apache.tools.ant.types;
 
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 
 /**
@@ -106,7 +107,7 @@ public class Environment {
         }
 
         /**
-         * get the assigment string
+         * get the assignment string
          * This is not ready for insertion into a property file without following
          * the escaping rules of the properties class.
          * @return a string of the form key=value.

@@ -28,10 +28,9 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.tools.ant.attribute.EnableAttribute;
-
-import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.taskdefs.MacroDef.Attribute;
 import org.apache.tools.ant.taskdefs.MacroInstance;
+import org.apache.tools.ant.util.CollectionUtils;
 import org.xml.sax.AttributeList;
 import org.xml.sax.helpers.AttributeListImpl;
 
@@ -125,6 +124,48 @@ public class RuntimeConfigurable implements Serializable {
     }
 
     /**
+     * contains the attribute component name and boolean restricted set to true when
+     * the attribute is in one of the name spaces managed by ant (if and unless currently)
+     * @since Ant 1.9.3
+     */
+    private static class AttributeComponentInformation {
+        String componentName;
+        boolean restricted;
+
+        private AttributeComponentInformation(String componentName, boolean restricted) {
+            this.componentName = componentName;
+            this.restricted = restricted;
+        }
+
+        public String getComponentName() {
+            return componentName;
+        }
+
+        public boolean isRestricted() {
+            return restricted;
+        }
+    }
+
+    /**
+     *
+     * @param name    the name of the attribute.
+     * @param componentHelper current component helper
+     * @return AttributeComponentInformation instance
+     */
+    private AttributeComponentInformation isRestrictedAttribute(String name, ComponentHelper componentHelper) {
+        if (name.indexOf(':') == -1) {
+            return new AttributeComponentInformation(null, false);
+        }
+        String componentName = attrToComponent(name);
+        String ns = ProjectHelper.extractUriFromComponentName(componentName);
+        if (componentHelper.getRestrictedDefinitions(
+                ProjectHelper.nsToComponentName(ns)) == null) {
+            return new AttributeComponentInformation(null, false);
+        }
+        return new AttributeComponentInformation(componentName, true);
+    }
+
+    /**
      * Check if an UE is enabled.
      * This looks tru the attributes and checks if there
      * are any Ant attributes, and if so, the method calls the
@@ -146,27 +187,20 @@ public class RuntimeConfigurable implements Serializable {
                 owner.getProject(), EnableAttributeConsumer.class);
         for (int i = 0; i < attributeMap.keySet().size(); ++i) {
             String name = (String) attributeMap.keySet().toArray()[i];
-            if (name.indexOf(':') == -1) {
+            AttributeComponentInformation attributeComponentInformation = isRestrictedAttribute(name, componentHelper);
+            if (!attributeComponentInformation.isRestricted())  {
                 continue;
             }
-            String componentName = attrToComponent(name);
-            String ns = ProjectHelper.extractUriFromComponentName(componentName);
-            if (componentHelper.getRestrictedDefinitions(
-                    ProjectHelper.nsToComponentName(ns)) == null) {
-                continue;
-            }
-
             String value = (String) attributeMap.get(name);
-
             EnableAttribute enable = null;
             try {
                 enable = (EnableAttribute)
                     ih.createElement(
                         owner.getProject(), new EnableAttributeConsumer(),
-                        componentName);
+                        attributeComponentInformation.getComponentName());
             } catch (BuildException ex) {
                 throw new BuildException(
-                    "Unsupported attribute " + componentName);
+                    "Unsupported attribute " + attributeComponentInformation.getComponentName());
             }
             if (enable == null) {
                 continue;
@@ -460,12 +494,16 @@ public class RuntimeConfigurable implements Serializable {
 
         IntrospectionHelper ih =
             IntrospectionHelper.getHelper(p, target.getClass());
-
+         ComponentHelper componentHelper = ComponentHelper.getComponentHelper(p);
         if (attributeMap != null) {
             for (Entry<String, Object> entry : attributeMap.entrySet()) {
                 String name = entry.getKey();
+                // skip restricted attributes such as if:set
+                AttributeComponentInformation attributeComponentInformation = isRestrictedAttribute(name, componentHelper);
+                if (attributeComponentInformation.isRestricted())  {
+                    continue;
+                }
                 Object value = entry.getValue();
-
                 // reflect these into the target, defer for
                 // MacroInstance where properties are expanded for the
                 // nested sequential

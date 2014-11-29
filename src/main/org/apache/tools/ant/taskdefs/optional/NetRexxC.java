@@ -28,7 +28,9 @@ import java.util.Hashtable;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import java.util.Vector;
+
 import netrexx.lang.Rexx;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -742,9 +744,8 @@ public class NetRexxC extends MatchingTask {
                 if (!compile && srcFile.lastModified() > javaFile.lastModified()) {
                     filecopyList.put(srcFile.getAbsolutePath(), destFile.getAbsolutePath());
                     compileList.addElement(destFile.getAbsolutePath());
-                }
-                // compile case tests against .class file
-                else if (compile && srcFile.lastModified() > classFile.lastModified()) {
+                } else if (compile && srcFile.lastModified() > classFile.lastModified()) {
+                	// compile case tests against .class file
                     filecopyList.put(srcFile.getAbsolutePath(), destFile.getAbsolutePath());
                     compileList.addElement(destFile.getAbsolutePath());
                 }
@@ -991,7 +992,7 @@ public class NetRexxC extends MatchingTask {
      * Takes a classpath-like string, and adds each element of this string to
      * a new classpath, if the components exist. Components that don't exist,
      * aren't added. We do this, because jikes issues warnings for
-     * non-existant files/dirs in his classpath, and these warnings are pretty
+     * non-existent files/dirs in his classpath, and these warnings are pretty
      * annoying.
      *
      * @param target - target classpath

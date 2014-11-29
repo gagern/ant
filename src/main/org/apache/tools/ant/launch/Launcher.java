@@ -17,13 +17,13 @@
  */
 package org.apache.tools.ant.launch;
 
+import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.MalformedURLException;
-import java.io.File;
-import java.util.StringTokenizer;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.StringTokenizer;
 
 
 
@@ -34,6 +34,9 @@ import java.util.ArrayList;
  * @since Ant 1.6
  */
 public class Launcher {
+
+	private Launcher() {
+	}
 
     /**
      * The Ant Home (installation) Directory property.

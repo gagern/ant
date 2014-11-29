@@ -18,7 +18,6 @@
 
 package org.apache.tools.ant.taskdefs.optional.vss;
 
-import org.apache.tools.ant.types.EnumeratedAttribute;
 import java.io.File;
 import java.io.IOException;
 import java.text.DateFormat;
@@ -33,6 +32,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Execute;
 import org.apache.tools.ant.taskdefs.LogStreamHandler;
 import org.apache.tools.ant.types.Commandline;
+import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -757,7 +757,7 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
     }
 
     /**
-     * Extention of EnumeratedAttribute to hold the values for file time stamp.
+     * Extension of EnumeratedAttribute to hold the values for file time stamp.
      */
     public static class CurrentModUpdated extends EnumeratedAttribute {
         /**
@@ -770,7 +770,7 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
     }
 
     /**
-     * Extention of EnumeratedAttribute to hold the values for writable filess.
+     * Extension of EnumeratedAttribute to hold the values for writable filess.
      */
     public static class WritableFiles extends EnumeratedAttribute {
         /**

@@ -22,14 +22,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.MalformedURLException;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -227,6 +228,19 @@ public class URLResource extends Resource implements URLProvider {
         }
         try {
             connect(Project.MSG_VERBOSE);
+            if (conn instanceof HttpURLConnection) {
+                int sc = ((HttpURLConnection) conn).getResponseCode();
+                // treating inaccessible resources as non-existent
+                return sc < 400;
+            } else if (url.getProtocol().startsWith("ftp")) {
+                closeConnection = true;
+                InputStream in = null;
+                try {
+                    in = conn.getInputStream();
+                } finally {
+                    FileUtils.close(in);
+                }
+            }
             return true;
         } catch (IOException e) {
             return false;
@@ -298,7 +312,7 @@ public class URLResource extends Resource implements URLProvider {
         if (isReference()) {
             return getCheckedRef().equals(another);
         }
-        if (!(another.getClass().equals(getClass()))) {
+        if (another == null || !(another.getClass().equals(getClass()))) {
             return false;
         }
         URLResource otheru = (URLResource) another;

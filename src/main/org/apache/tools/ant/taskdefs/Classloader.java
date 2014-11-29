@@ -26,15 +26,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.tools.ant.AntTypeDefinition;
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.Location;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.types.AntLoaderParameters;
-import org.apache.tools.ant.types.LoaderParameters;
 import org.apache.tools.ant.types.LoaderHandler;
 import org.apache.tools.ant.types.LoaderHandlerSet;
+import org.apache.tools.ant.types.LoaderParameters;
 import org.apache.tools.ant.types.LoaderRef;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.URLPath;

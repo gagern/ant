@@ -20,10 +20,10 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Task;
 import org.apache.tools.ant.launch.Locator;
+import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -54,13 +54,13 @@ public class ManifestClassPath extends Task {
      */
     public void execute() {
         if (name == null) {
-          throw new BuildException("Missing 'property' attribute!");
+            throw new BuildException("Missing 'property' attribute!");
         }
         if (dir == null) {
-          throw new BuildException("Missing 'jarfile' attribute!");
+            throw new BuildException("Missing 'jarfile' attribute!");
         }
         if (getProject().getProperty(name) != null) {
-          throw new BuildException("Property '" + name + "' already set!");
+            throw new BuildException("Property '" + name + "' already set!");
         }
         if (path == null) {
             throw new BuildException("Missing nested <classpath>!");
@@ -87,7 +87,11 @@ public class ManifestClassPath extends Task {
             String relPath = null;
             String canonicalPath = null;
             try {
-                relPath = FileUtils.getRelativePath(dir, pathEntry);
+                if (dir.equals(pathEntry)) {
+                    relPath = ".";
+                } else {
+                    relPath = FileUtils.getRelativePath(dir, pathEntry);
+                }
 
                 canonicalPath = pathEntry.getCanonicalPath();
                 // getRelativePath always uses '/' as separator, adapt
@@ -104,9 +108,8 @@ public class ManifestClassPath extends Task {
             // No match, so bail out!
             if (relPath.equals(canonicalPath)
                 || relPath.startsWith(tooLongPrefix)) {
-                throw new BuildException(
-                    "No suitable relative path from "
-                    + dir + " to " + fullPath);
+                throw new BuildException("No suitable relative path from "
+                                         + dir + " to " + fullPath);
             }
 
             if (pathEntry.isDirectory() && !relPath.endsWith("/")) {

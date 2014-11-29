@@ -18,25 +18,25 @@
 package org.apache.tools.ant.taskdefs;
 
 
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.DirectoryScanner;
-import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.types.Path;
-
 import java.io.File;
-import java.util.List;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.FileUtils;
+
 /**
- * This task takes file and turns them into a URL, which it then assigns
- * to a property. Use when for setting up RMI codebases.
- * <p/>
- * nested filesets are supported; if present, these are turned into the
- * url with the given separator between them (default = " ").
+ * <p>This task takes file and turns them into a URL, which it then assigns
+ * to a property. Use when for setting up RMI codebases.</p>
+ * 
+ * <p>nested filesets are supported; if present, these are turned into the
+ * url with the given separator between them (default = " ").</p>
  *
  * @ant.task category="core" name="makeurl"
  */

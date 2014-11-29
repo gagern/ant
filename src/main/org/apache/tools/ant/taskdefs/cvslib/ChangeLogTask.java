@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.Properties;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -133,7 +134,7 @@ public class ChangeLogTask extends AbstractCvsTask {
 
 
     /**
-     * Set a lookup list of user names & addresses
+     * Set a lookup list of user names &amp; addresses
      *
      * @param usersFile The file containing the users info.
      */

@@ -19,6 +19,7 @@
 package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -245,7 +246,7 @@ public class Available extends Task implements Condition {
                         Project.MSG_WARN);
                 }
                 // NB: this makes use of Project#setProperty rather than Project#setNewProperty
-                //     due to backwards compatiblity reasons
+                //     due to backwards compatibility reasons
                 ph.setProperty(property, value, true);
             }
         } finally {

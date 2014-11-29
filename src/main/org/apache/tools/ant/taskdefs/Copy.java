@@ -27,30 +27,31 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.Project;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
-import org.apache.tools.ant.types.Mapper;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.types.FilterSet;
 import org.apache.tools.ant.types.FilterChain;
+import org.apache.tools.ant.types.FilterSet;
 import org.apache.tools.ant.types.FilterSetCollection;
+import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.FlatFileNameMapper;
 import org.apache.tools.ant.util.IdentityMapper;
 import org.apache.tools.ant.util.LinkedHashtable;
 import org.apache.tools.ant.util.ResourceUtils;
 import org.apache.tools.ant.util.SourceFileScanner;
-import org.apache.tools.ant.util.FlatFileNameMapper;
 
 /**
- * Copies a file or directory to a new file
+ * <p>Copies a file or directory to a new file
  * or directory.  Files are only copied if the source file is newer
  * than the destination file, or when the destination file does not
  * exist.  It is possible to explicitly overwrite existing files.</p>
@@ -898,7 +899,9 @@ public class Copy extends Task {
                         String msg = "Failed to copy " + fromFile + " to " + toFile
                             + " due to " + getDueTo(ioe);
                         File targetFile = new File(toFile);
-                        if (targetFile.exists() && !targetFile.delete()) {
+                        if (!(ioe instanceof
+                              ResourceUtils.ReadOnlyTargetFileException)
+                            && targetFile.exists() && !targetFile.delete()) {
                             msg += " and I couldn't delete the corrupt " + toFile;
                         }
                         if (failonerror) {
@@ -915,7 +918,7 @@ public class Copy extends Task {
                 for (int i = 0; i < dirs.length; i++) {
                     File d = new File(dirs[i]);
                     if (!d.exists()) {
-                        if (!d.mkdirs()) {
+                        if (!(d.mkdirs() || d.isDirectory())) {
                             log("Unable to create directory "
                                 + d.getAbsolutePath(), Project.MSG_ERR);
                         } else {
@@ -980,7 +983,9 @@ public class Copy extends Task {
                             + " to " + toFile
                             + " due to " + getDueTo(ioe);
                         File targetFile = new File(toFile);
-                        if (targetFile.exists() && !targetFile.delete()) {
+                        if (!(ioe instanceof
+                              ResourceUtils.ReadOnlyTargetFileException)
+                            && targetFile.exists() && !targetFile.delete()) {
                             msg += " and I couldn't delete the corrupt " + toFile;
                         }
                         if (failonerror) {

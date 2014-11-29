@@ -21,35 +21,42 @@ package org.apache.tools.ant.types;
 import java.util.Arrays;
 import java.util.List;
 
-import junit.framework.TestCase;
-
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.BuildFileRule;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.util.ChainedMapper;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FlatFileNameMapper;
 import org.apache.tools.ant.util.GlobPatternMapper;
 import org.apache.tools.ant.util.MergingMapper;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
- * JUnit 3 testcases for org.apache.tools.ant.types.Mapper.
+ * JUnit testcases for org.apache.tools.ant.types.Mapper.
  *
  */
 
-public class MapperTest extends TestCase {
+public class MapperTest {
+
+    @Rule
+    public BuildFileRule buildRule = new BuildFileRule();
 
     private Project project;
 
-    public MapperTest(String name) {
-        super(name);
-    }
-
+    @Before
     public void setUp() {
         project = new Project();
         project.setBasedir(".");
     }
 
+    @Test
     public void testEmptyElementIfIsReference() {
         Mapper m = new Mapper(project);
         m.setFrom("*.java");
@@ -58,7 +65,7 @@ public class MapperTest extends TestCase {
             fail("Can add reference to Mapper with from attribute set");
         } catch (BuildException be) {
             assertEquals("You must not specify more than one attribute when using refid",
-                         be.getMessage());
+                    be.getMessage());
         }
 
         m = new Mapper(project);
@@ -68,7 +75,7 @@ public class MapperTest extends TestCase {
             fail("Can set from in Mapper that is a reference.");
         } catch (BuildException be) {
             assertEquals("You must not specify more than one attribute when using refid",
-                         be.getMessage());
+                    be.getMessage());
         }
 
         m = new Mapper(project);
@@ -78,7 +85,7 @@ public class MapperTest extends TestCase {
             fail("Can set to in Mapper that is a reference.");
         } catch (BuildException be) {
             assertEquals("You must not specify more than one attribute when using refid",
-                         be.getMessage());
+                    be.getMessage());
         }
         try {
             Mapper.MapperType mt = new Mapper.MapperType();
@@ -87,10 +94,11 @@ public class MapperTest extends TestCase {
             fail("Can set type in Mapper that is a reference.");
         } catch (BuildException be) {
             assertEquals("You must not specify more than one attribute when using refid",
-                         be.getMessage());
+                    be.getMessage());
         }
     }
 
+    @Test
     public void testCircularReferenceCheck() {
         Mapper m = new Mapper(project);
         project.addReference("dummy", m);
@@ -100,7 +108,7 @@ public class MapperTest extends TestCase {
             fail("Can make Mapper a Reference to itself.");
         } catch (BuildException be) {
             assertEquals("This data type contains a circular reference.",
-                         be.getMessage());
+                    be.getMessage());
         }
 
         // dummy1 --> dummy2 --> dummy3 --> dummy1
@@ -118,7 +126,7 @@ public class MapperTest extends TestCase {
             fail("Can make circular reference.");
         } catch (BuildException be) {
             assertEquals("This data type contains a circular reference.",
-                         be.getMessage());
+                    be.getMessage());
         }
 
         // dummy1 --> dummy2 --> dummy3
@@ -143,6 +151,7 @@ public class MapperTest extends TestCase {
         assertEquals("a.class", result[0]);
     }
 
+    @Test
     public void testNested() {
         Mapper mapper1 = new Mapper(project);
         Mapper.MapperType mt = new Mapper.MapperType();
@@ -167,13 +176,14 @@ public class MapperTest extends TestCase {
         assertEquals("wrong number of filenames mapped", 3, targets.length);
         List list = Arrays.asList(targets);
         assertTrue("cannot find expected target \"tofilename\"",
-            list.contains("tofilename"));
+                list.contains("tofilename"));
         assertTrue("cannot find expected target \"fromfilename\"",
-            list.contains("fromfilename"));
+                list.contains("fromfilename"));
         assertTrue("cannot find expected target \"mergefile\"",
-            list.contains("mergefile"));
+                list.contains("mergefile"));
     }
 
+    @Test
     public void testChained() {
 
         // a --> b --> c --- def
@@ -216,31 +226,10 @@ public class MapperTest extends TestCase {
         assertTrue("cannot find expected target \"ghi\"", list.contains("ghi"));
     }
 
+    @Test
     public void testCopyTaskWithTwoFilesets() {
-        TaskdefForCopyTest t = new TaskdefForCopyTest("test1");
-        try {
-            t.setUp();
-            t.test1();
-        } finally {
-            t.tearDown();
-        }
+        buildRule.configureProject("src/etc/testcases/types/mapper.xml");
+        buildRule.executeTarget("test1");
     }
 
-    private class TaskdefForCopyTest extends BuildFileTest {
-        TaskdefForCopyTest(String name) {
-            super(name);
-        }
-
-        public void setUp() {
-            configureProject("src/etc/testcases/types/mapper.xml");
-        }
-
-        public void tearDown() {
-            executeTarget("cleanup");
-        }
-
-        public void test1() {
-            executeTarget("test1");
-        }
-    }
 }

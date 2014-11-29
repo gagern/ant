@@ -35,7 +35,6 @@ import org.apache.tools.ant.types.XMLCatalog;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JAXPUtils;
 import org.apache.tools.ant.util.XmlConstants;
-
 import org.xml.sax.EntityResolver;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
@@ -99,7 +98,7 @@ public class XMLValidateTask extends Task {
     private final Vector propertyList = new Vector();
 
     private XMLCatalog xmlCatalog = new XMLCatalog();
-    /** Message for sucessfull validation */
+    /** Message for successfull validation */
     public static final String MESSAGE_FILES_VALIDATED
         = " file(s) have been successfully validated.";
 
@@ -120,7 +119,7 @@ public class XMLValidateTask extends Task {
     /**
      * Specify how parser error are to be handled.
      * <p>
-     * If set to <code>true</true> (default), log a warn message for each SAX warn event.
+     * If set to <code>true</code> (default), log a warn message for each SAX warn event.
      * @param bool if set to <code>false</code> do not send warnings
      */
     public void setWarn(boolean bool) {

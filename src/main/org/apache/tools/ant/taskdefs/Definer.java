@@ -30,14 +30,14 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.tools.ant.AntTypeDefinition;
-import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.Location;
+import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
-import org.apache.tools.ant.MagicNames;
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Base class for Taskdef and Typedef - handles all
@@ -155,11 +155,11 @@ public abstract class Definer extends DefBase {
 
     /**
      * What to do if there is an error in loading the class.
-     * <dl>
+     * <ul>
      *   <li>error - throw build exception</li>
      *   <li>report - output at warning level</li>
      *   <li>ignore - output at debug level</li>
-     * </dl>
+     * </ul>
      *
      * @param onError an <code>OnError</code> value
      */

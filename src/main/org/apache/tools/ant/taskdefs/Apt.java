@@ -17,15 +17,15 @@
  */
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.Project;
+import java.io.File;
+import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.compilers.AptExternalCompilerAdapter;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.util.JavaEnvUtils;
-
-import java.util.Vector;
-import java.io.File;
 
 /**
  * Apt Task for running the Annotation processing tool for JDK 1.5.  It derives
@@ -48,7 +48,7 @@ public class Apt
     /** An warning message when ignoring compiler attribute. */
     public static final String ERROR_IGNORING_COMPILER_OPTION
         = "Ignoring compiler attribute for the APT task, as it is fixed";
-    /** A warning message if used with java < 1.5. */
+    /** A warning message if used with java &lt; 1.5. */
     public static final String ERROR_WRONG_JAVA_VERSION
         = "Apt task requires Java 1.5+";
 
@@ -262,6 +262,9 @@ public class Apt
      */
     public void execute()
             throws BuildException {
+        if (JavaEnvUtils.getJavaVersionNumber() >= 18) {
+           throw new BuildException("apt does not exist under Java 1.8 and higher");
+        }
         super.execute();
     }
 }

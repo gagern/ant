@@ -18,11 +18,11 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.ExitStatusException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.PropertyHelper;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.ExitStatusException;
 import org.apache.tools.ant.taskdefs.condition.Condition;
 import org.apache.tools.ant.taskdefs.condition.ConditionBase;
 
@@ -37,7 +37,7 @@ import org.apache.tools.ant.taskdefs.condition.ConditionBase;
  *
  * If both attributes are set, then the test fails only if both tests
  * are true. i.e.
- * <pre>fail := defined(ifProperty) && !defined(unlessProperty)</pre>
+ * <pre>fail := defined(ifProperty) &amp;&amp; !defined(unlessProperty)</pre>
  *
  * A single nested<code>&lt;condition&gt;</code> element can be specified
  * instead of using <code>if</code>/<code>unless</code> (a combined

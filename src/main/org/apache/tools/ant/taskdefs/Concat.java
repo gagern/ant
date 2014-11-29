@@ -17,40 +17,40 @@
  */
 package org.apache.tools.ant.taskdefs;
 
-import java.io.File;
-import java.io.Reader;
-import java.io.Writer;
-import java.io.FileReader;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.StringReader;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.Writer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Vector;
 
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.Task;
 import org.apache.tools.ant.filters.util.ChainReaderHelper;
-import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FileList;
+import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FilterChain;
+import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Intersect;
 import org.apache.tools.ant.types.resources.LogOutputResource;
-import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.Resources;
+import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.StringResource;
-import org.apache.tools.ant.types.resources.selectors.Not;
 import org.apache.tools.ant.types.resources.selectors.Exists;
+import org.apache.tools.ant.types.resources.selectors.Not;
 import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.ConcatResourceInputStream;
@@ -255,12 +255,12 @@ public class Concat extends Task implements ResourceCollection {
          */
         public int read() throws IOException {
             if (needAddSeparator) {
-                int ret = eolString.charAt(lastPos++);
                 if (lastPos >= eolString.length()) {
                     lastPos = 0;
                     needAddSeparator = false;
+                } else {
+                    return eolString.charAt(lastPos++);
                 }
-                return ret;
             }
             while (getReader() != null) {
                 int ch = getReader().read();
@@ -268,7 +268,8 @@ public class Concat extends Task implements ResourceCollection {
                     nextReader();
                     if (isFixLastLine() && isMissingEndOfLine()) {
                         needAddSeparator = true;
-                        lastPos = 0;
+                        lastPos = 1;
+                        return eolString.charAt(0);
                     }
                 } else {
                     addLastChar((char) ch);
@@ -474,9 +475,9 @@ public class Concat extends Task implements ResourceCollection {
     private boolean forceOverwrite = true;
     /** overwrite read-only files */
     private boolean force = false;
-    /** String to place at the start of the concatented stream */
+    /** String to place at the start of the concatenated stream */
     private TextElement footer;
-    /** String to place at the end of the concatented stream */
+    /** String to place at the end of the concatenated stream */
     private TextElement header;
     /** add missing line.separator to files **/
     private boolean fixLastLine = false;
@@ -812,7 +813,7 @@ public class Concat extends Task implements ResourceCollection {
 
     /**
      * Implement ResourceCollection.
-     * @return Iterator<Resource>.
+     * @return Iterator&lt;Resource&gt;.
      */
     public Iterator<Resource> iterator() {
         validate();

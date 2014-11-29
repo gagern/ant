@@ -29,8 +29,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Date;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.MagicNames;
+import org.apache.tools.ant.Main;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Mapper;
@@ -65,9 +68,13 @@ public class Get extends Task {
     private static final String HTTP = "http";
     private static final String HTTPS = "https";
 
+    private static final String DEFAULT_AGENT_PREFIX = "Apache Ant";
+    private static final String GZIP_CONTENT_ENCODING = "gzip";
+
     private Resources sources = new Resources();
     private File destination; // required
     private boolean verbose = false;
+    private boolean quiet = false;
     private boolean useTimestamp = false; //off by default
     private boolean ignoreErrors = false;
     private String uname = null;
@@ -77,6 +84,10 @@ public class Get extends Task {
     private boolean skipExisting = false;
     private boolean httpUseCaches = true; // on by default
     private Mapper mapperElement = null;
+    private String userAgent = 
+        System.getProperty(MagicNames.HTTP_AGENT_PROPERTY,
+                           DEFAULT_AGENT_PREFIX + "/"
+                           + Main.getShortAntVersion());
 
     /**
      * Does the work.
@@ -216,7 +227,7 @@ public class Get extends Task {
 
         GetThread getThread = new GetThread(source, dest,
                                             hasTimestamp, timestamp, progress,
-                                            logLevel);
+                                            logLevel, userAgent);
         getThread.setDaemon(true);
         getProject().registerThreadTask(getThread, this);
         getThread.start();
@@ -243,10 +254,22 @@ public class Get extends Task {
         return getThread.wasSuccessful();
     }
 
+    @Override
+    public void log(String msg, int msgLevel) {
+        if (!quiet || msgLevel >= Project.MSG_ERR) {
+            super.log(msg, msgLevel);
+        }
+    }
+
     /**
      * Check the attributes.
      */
     private void checkAttributes() {
+
+        if (userAgent == null || userAgent.trim().length() == 0) {
+            throw new BuildException("userAgent may not be null or empty");
+        }
+
         if (sources.size() == 0) {
             throw new BuildException("at least one source is required",
                                      getLocation());
@@ -314,6 +337,16 @@ public class Get extends Task {
      */
     public void setVerbose(boolean v) {
         verbose = v;
+    }
+
+    /**
+     * If true, set default log level to Project.MSG_ERR.
+     *
+     * @param v if "true" then be quiet
+     * @since Ant 1.9.4
+     */
+    public void setQuiet(boolean v){
+        this.quiet = v;
     }
 
     /**
@@ -397,6 +430,18 @@ public class Get extends Task {
     public void setSkipExisting(boolean s) {
         this.skipExisting = s;
     }
+    
+    /**
+     * HTTP connections only - set the user-agent to be used
+     * when communicating with remote server. if null, then
+     * the value is considered unset and the behaviour falls
+     * back to the default of the http API.
+     *
+     * @since Ant 1.9.3
+     */
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
 
     /**
      * HTTP connections only - control caching on the
@@ -411,7 +456,7 @@ public class Get extends Task {
     public void setHttpUseCaches(boolean httpUseCache) {
         this.httpUseCaches = httpUseCache;
     }
-
+    
     /**
      * Define the mapper to map source to destination files.
      * @return a mapper to be configured.
@@ -553,15 +598,17 @@ public class Get extends Task {
         private OutputStream os = null;
         private URLConnection connection;
         private int redirections = 0;
-
+        private String userAgent = null;
+        
         GetThread(URL source, File dest,
-                  boolean h, long t, DownloadProgress p, int l) {
+                  boolean h, long t, DownloadProgress p, int l, String userAgent) {
             this.source = source;
             this.dest = dest;
             hasTimestamp = h;
             timestamp = t;
             progress = p;
             logLevel = l;
+            this.userAgent = userAgent;
         }
 
         public void run() {
@@ -578,8 +625,7 @@ public class Get extends Task {
 
             connection = openConnection(source);
 
-            if (connection == null)
-            {
+            if (connection == null) {
                 return false;
             }
 
@@ -636,6 +682,9 @@ public class Get extends Task {
             if (hasTimestamp) {
                 connection.setIfModifiedSince(timestamp);
             }
+            // Set the user agent
+            connection.addRequestProperty("User-Agent", this.userAgent);
+            
             // prepare Java 1.1 style credentials
             if (uname != null || pword != null) {
                 String up = uname + ":" + pword;
@@ -648,6 +697,8 @@ public class Get extends Task {
                 connection.setRequestProperty("Authorization", "Basic "
                         + encoding);
             }
+
+            connection.setRequestProperty("Accept-Encoding", GZIP_CONTENT_ENCODING);
 
             if (connection instanceof HttpURLConnection) {
                 ((HttpURLConnection) connection)
@@ -667,19 +718,14 @@ public class Get extends Task {
             if (connection instanceof HttpURLConnection) {
                 HttpURLConnection httpConnection = (HttpURLConnection) connection;
                 int responseCode = httpConnection.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || 
-                        responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                        responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
-                        responseCode == HTTP_MOVED_TEMP)
-                {
+                if (isMoved(responseCode)) {
                     String newLocation = httpConnection.getHeaderField("Location");
                     String message = aSource
                             + (responseCode == HttpURLConnection.HTTP_MOVED_PERM ? " permanently"
                                     : "") + " moved to " + newLocation;
                     log(message, logLevel);
                     URL newURL = new URL(aSource, newLocation);
-                    if (!redirectionAllowed(aSource, newURL))
-                    {
+                    if (!redirectionAllowed(aSource, newURL)) {
                         return null;
                     }
                     return openConnection(newURL);
@@ -715,6 +761,13 @@ public class Get extends Task {
             return connection;
         }
 
+		private boolean isMoved(int responseCode) {
+			return responseCode == HttpURLConnection.HTTP_MOVED_PERM || 
+			       responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+			       responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+			       responseCode == HTTP_MOVED_TEMP;
+		}
+
         private boolean downloadFile()
                 throws FileNotFoundException, IOException {
             for (int i = 0; i < numberRetries; i++) {
@@ -735,6 +788,10 @@ public class Get extends Task {
                 }
                 throw new BuildException("Can't get " + source + " to " + dest,
                         getLocation());
+            }
+
+            if (GZIP_CONTENT_ENCODING.equals(connection.getContentEncoding())) {
+            	is = new GZIPInputStream(is);
             }
 
             os = new FileOutputStream(dest);

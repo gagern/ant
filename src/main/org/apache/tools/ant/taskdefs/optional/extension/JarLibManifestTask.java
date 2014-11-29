@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.Project;
@@ -253,7 +254,7 @@ public final class JarLibManifestTask extends Task {
      * Append an attribute such as "Extension-List: lib0 lib1 lib2"
      * using specified prefix and counting up to specified size.
      * Also use specified extensionKey so that can generate list of
-     * optional dependencies aswell.
+     * optional dependencies as well.
      *
      * @param size the number of librarys to list
      * @param listPrefix the prefix for all librarys

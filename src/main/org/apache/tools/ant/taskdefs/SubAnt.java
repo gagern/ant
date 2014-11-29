@@ -19,24 +19,21 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
-
-import java.util.Vector;
 import java.util.Enumeration;
+import java.util.Vector;
 
-import org.apache.tools.ant.Main;
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
-
-import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.Main;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.taskdefs.Ant.TargetElement;
 import org.apache.tools.ant.types.DirSet;
-import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FileList;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.ResourceCollection;
-
-import org.apache.tools.ant.taskdefs.Ant.TargetElement;
 
 
 /**
@@ -300,6 +297,9 @@ public class SubAnt extends Task {
         }
 
         try {
+            if (verbose) {
+                log("Executing: " + antfilename, Project.MSG_INFO);
+            }
             ant.execute();
         } catch (BuildException e) {
             if (failOnError || isHardError(e)) {
@@ -320,6 +320,7 @@ public class SubAnt extends Task {
             ant = null;
         }
     }
+
     /** whether we should even try to continue after this error */
     private boolean isHardError(Throwable t) {
         if (t instanceof BuildException) {

@@ -21,9 +21,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FilterSet;
@@ -178,7 +178,7 @@ public class Move extends Copy {
                     }
                     File d = new File(toDirNames[i]);
                     if (!d.exists()) {
-                        if (!d.mkdirs()) {
+                        if (!(d.mkdirs() || d.exists())) {
                             log("Unable to create directory "
                                     + d.getAbsolutePath(), Project.MSG_ERR);
                         } else {

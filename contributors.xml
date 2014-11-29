@@ -43,6 +43,10 @@
     <last>Sotona</last>
   </name>
   <name>
+    <first>Adrian</first>
+    <last>Nistor</last>
+  </name>
+  <name>
     <first>Aleksandr</first>
     <last>Ishutin</last>
   </name>
@@ -89,6 +93,10 @@
   <name>
     <first>Andrey</first>
     <last>Urazov</last>
+  </name>
+  <name>
+    <first>André-John</first>
+    <last>Mas</last>
   </name>
   <name>
     <first>Andy</first>
@@ -163,6 +171,10 @@
   <name>
     <first>Ben</first>
     <last>Galbraith</last>
+  </name>
+  <name>
+    <first>Ben</first>
+    <last>Gertzfield</last>
   </name>
   <name>
     <first>Benoit</first>
@@ -448,6 +460,10 @@
     <last>Sudell</last>
   </name>
   <name>
+    <first>Edison</first>
+    <last>Guo</last>
+  </name>
+  <name>
     <first>Eduard</first>
     <last>Wirch</last>
   </name>
@@ -470,6 +486,10 @@
   <name>
     <first>Eric</first>
     <last>Pugh</last>
+  </name>
+  <name>
+    <first>Erik</first>
+    <last>Costlow</last>
   </name>
   <name>
     <first>Erik</first>
@@ -498,6 +518,10 @@
   <name>
     <first>Frank</first>
     <last>Zeyda</last>
+  </name>
+  <name>
+    <first>František</first>
+    <last>Kučera</last>
   </name>
   <name>
     <first>Frédéric</first>
@@ -559,6 +583,10 @@
   <name>
     <first>Greg</first>
     <last>Schueler</last>
+  </name>
+  <name>
+    <first>Grégoire</first>
+    <last>Vatry</last>
   </name>
   <name>
     <first>Günther</first>
@@ -624,15 +652,19 @@
   </name>
   <name>
     <first>Jan</first>
+    <last>Cumps</last>
+  </name>
+  <name>
+    <first>Jan</first>
     <last>Mat&#232;rne</last>
   </name>
-    <name>
-      <first>Jan</first>
-      <last>Cumps</last>
-    </name>
   <name>
     <first>Jan</first>
     <last>Mynarik</last>
+  </name>
+  <name>
+    <first>Jan</first>
+    <last>Stolze</last>
   </name>
   <name>
     <first>Jason</first>
@@ -720,12 +752,20 @@
     <last>Wassmer</last>
   </name>
   <name>
+    <first>Joel</first>
+    <last>Tucci</last>
+  </name>
+  <name>
     <first>Joey</first>
     <last>Richey</last>
   </name>
   <name>
     <first>Johann</first>
     <last>Herunter</last>
+  </name>
+  <name>
+    <first>John</first>
+    <last>Elion</last>
   </name>
   <name>
     <first>John</first>
@@ -810,6 +850,10 @@
   <name>
     <first>Kyle</first>
     <last>Adams</last>
+  </name>
+  <name>
+    <first>Lajos</first>
+    <last>Veres</last>
   </name>
   <name>
     <first>Larry</first>
@@ -905,14 +949,6 @@
     <last>von Gagern</last>
   </name>
   <name>
-    <first>Mathieu</first>
-    <last>Champlon</last>
-  </name>
-  <name>
-    <first>Mathieu</first>
-    <last>Peltier</last>
-  </name>
-  <name>
     <first>Matt</first>
     <last>Albrecht</last>
   </name>
@@ -939,6 +975,22 @@
   <name>
     <first>Matt</first>
     <last>Small</last>
+  </name>
+  <name>
+    <first>Matt</first>
+    <last>Wildig</last>
+  </name>
+  <name>
+    <first>Mathieu</first>
+    <last>Champlon</last>
+  </name>
+  <name>
+    <first>Mathieu</first>
+    <last>Peltier</last>
+  </name>
+  <name>
+    <first>Matthias</first>
+    <last>Bhend</last>
   </name>
   <name>
     <first>Matthew</first>
@@ -1000,6 +1052,10 @@
   <name>
     <first>Mike</first>
     <last>Roberts</last>
+  </name>
+  <name>
+    <first>Miroslav</first>
+    <last>Zaťko</last>
   </name>
   <name>
     <last>mnowostawski</last>
@@ -1158,6 +1214,10 @@
     <last>Handerson</last>
   </name>
   <name>
+    <first>Ralf</first>
+    <last>Hergert</last>
+  </name>
+  <name>
     <first>Rami</first>
     <last>Ojares</last>
   </name>
@@ -1178,8 +1238,16 @@
     <last>Bolte</last>
   </name>
   <name>
+    <first>René</first>
+    <last>Krell</last>
+  </name>
+  <name>
     <first>Richard</first>
     <last>Evans</last>
+  </name>
+  <name>
+    <first>Richard</first>
+    <last>Steele</last>
   </name>
   <name>
     <first>Rick</first>
@@ -1409,11 +1477,19 @@
   </name>
   <name>
     <first>Tim</first>
+    <last>Boemker</last>
+  </name>
+  <name>
+    <first>Tim</first>
     <last>Drury</last>
   </name>
   <name>
     <first>Tim</first>
     <last>Fennell</last>
+  </name>
+  <name>
+    <first>Tim</first>
+    <last>Whittington</last>
   </name>
   <name>
     <first>Timoteo</first>

@@ -23,6 +23,7 @@ import java.io.PrintStream;
 import java.net.URL;
 
 import junit.framework.TestCase;
+import org.apache.tools.ant.util.ProcessUtil;
 
 /**
  * A BuildFileTest is a TestCase which executes targets from an Ant buildfile
@@ -31,7 +32,10 @@ import junit.framework.TestCase;
  * This class provides a number of utility methods for particular build file
  * tests which extend this class.
  *
+ * @deprecated as of 1.9.4. Use BuildFileRule, Assert, AntAssert and JUnit4 annotations to drive tests instead
+ * @see org.apache.tools.ant.BuildFileRule
  */
+@Deprecated
 public abstract class BuildFileTest extends TestCase {
 
     protected Project project;
@@ -296,6 +300,9 @@ public abstract class BuildFileTest extends TestCase {
         project.init();
         File antFile = new File(System.getProperty("root"), filename);
         project.setUserProperty("ant.file" , antFile.getAbsolutePath());
+        // set two new properties to allow to build unique names when running multithreaded tests
+        project.setProperty("ant.processid", ProcessUtil.getProcessId("<Process>"));
+        project.setProperty("ant.threadname", Thread.currentThread().getName());
         project.addBuildListener(new AntTestListener(logLevel));
         ProjectHelper.configureProject(project, antFile);
     }
@@ -345,6 +352,15 @@ public abstract class BuildFileTest extends TestCase {
      */
     public File getProjectDir() {
         return project.getBaseDir();
+    }
+
+    /**
+     * get location of temporary directory pointed to by property "output"
+     * @return location of temporary directory pointed to by property "output"
+     * @since Ant 1.9.4
+     */
+    public File getOutputDir() {
+        return new File(project.getProperty("output"));
     }
 
     /**

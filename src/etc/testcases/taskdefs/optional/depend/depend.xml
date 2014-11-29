@@ -17,48 +17,52 @@
 -->
 
 <project name="depend" basedir="." default="help">
+  <import file="../../../buildfiletest-base.xml"/>
+
+    <property name="tempsrc.dir" value="${output}/tempsrc.dir"/>
+    <property name="cache.dir" value="${output}/tempsrc.dir"/>
+    <property name="classes.dir" value="${output}/classes"/>
+
+  <target name="setUp">
+    <mkdir dir="${output}" />
+
+  </target>
+
   <property name="src1.dir" value="src1"/>
   <property name="src2.dir" value="src2"/>
   <property name="src3.dir" value="src3"/>
   <property name="src4.dir" value="src4"/>
   <property name="src5.dir" value="src5"/>
 
-  <property name="tempsrc.dir" value="working"/>
-  <property name="cache.dir" value="working"/>
-  <property name="classes.dir" value="classes"/>
   <target name="help">
     <echo>This buildfile is used as part of Ant's test suite.</echo>
   </target>
 
-  <target name="basesetup" depends="clean">
-    <mkdir dir="${tempsrc.dir}"/>
-  </target>
-
-  <target name="src1setup" depends="basesetup">
+  <target name="src1setup" depends="setUp">
     <copy todir="${tempsrc.dir}">
       <fileset dir="${src1.dir}"/>
     </copy>
   </target>
 
-  <target name="src2setup" depends="basesetup">
+  <target name="src2setup" depends="setUp">
     <copy todir="${tempsrc.dir}">
       <fileset dir="${src2.dir}"/>
     </copy>
   </target>
 
-  <target name="src3setup" depends="basesetup">
+  <target name="src3setup" depends="setUp">
     <copy todir="${tempsrc.dir}">
       <fileset dir="${src3.dir}"/>
     </copy>
   </target>
 
-  <target name="src4setup" depends="basesetup">
+  <target name="src4setup" depends="setUp">
     <copy todir="${tempsrc.dir}">
       <fileset dir="${src4.dir}"/>
     </copy>
   </target>
 
-  <target name="src5setup" depends="basesetup">
+  <target name="src5setup" depends="setUp">
     <copy todir="${tempsrc.dir}">
       <fileset dir="${src5.dir}"/>
     </copy>
@@ -69,21 +73,14 @@
     <javac srcdir="${tempsrc.dir}" destdir="${classes.dir}"/>
   </target>
 
-  <target name="clean">
-    <delete dir="${classes.dir}"/>
-    <delete dir="${tempsrc.dir}"/>
-  </target>
-
-  <target name="testdirect" depends="src1setup, compile">
-    <sleep seconds="3"/>
+  <target name="testdirect">
     <delete file="${tempsrc.dir}/C.java"/>
     <copy file="${src1.dir}/C.java" tofile="${tempsrc.dir}/C.java"/>
     <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}"/>
     <fileset id="result" dir="${classes.dir}"/>
   </target>
 
-  <target name="testclosure" depends="src1setup, compile">
-    <sleep seconds="3"/>
+  <target name="testclosure">
     <delete file="${tempsrc.dir}/C.java"/>
     <copy file="${src1.dir}/C.java" tofile="${tempsrc.dir}/C.java"/>
     <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}" closure="yes"/>
@@ -141,16 +138,14 @@
     <classfileset id="result" dir="${classes.dir}" rootclass="E"/>
   </target>
 
-  <target name="testinner" depends="src2setup, compile">
-    <sleep seconds="3"/>
+  <target name="testinner">
     <delete file="${tempsrc.dir}/B.java"/>
     <copy file="${src2.dir}/B.java" tofile="${tempsrc.dir}/B.java"/>
     <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}" closure="yes"/>
     <fileset id="result" dir="${classes.dir}"/>
   </target>
 
-  <target name="testinnerinner" depends="src3setup, compile">
-    <sleep seconds="3"/>
+  <target name="testinnerinner">
     <delete file="${tempsrc.dir}/B.java"/>
     <copy file="${src3.dir}/B.java" tofile="${tempsrc.dir}/B.java"/>
     <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}" closure="yes"/>
@@ -176,10 +171,9 @@
     </path>
 
     <javac srcdir="${tempsrc.dir}" destdir="${classes.dir}"
-           classpathref="path.compile"/>
+           classpathref="path.compile" fork="false" />
 
-    <sleep seconds="3"/>
-    <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}" 
+   <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}"
             closure="yes" dump="yes"
             classpathref="path.compile"/>
 
@@ -193,8 +187,7 @@
             destdir="${classes.dir}" closure="yes"/>
   </target>
 
-  <target name="testnonpublic" depends="src5setup, compile">
-    <sleep seconds="3"/>
+  <target name="testnonpublic">
     <delete file="${tempsrc.dir}/B.java"/>
     <copy file="${src2.dir}/B.java" tofile="${tempsrc.dir}/B.java"/>
     <depend srcdir="${tempsrc.dir}" destdir="${classes.dir}" closure="yes"/>

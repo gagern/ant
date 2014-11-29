@@ -18,22 +18,24 @@
 
 package org.apache.tools.ant.types;
 
-import java.lang.reflect.Method;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.Stack;
 import java.util.Vector;
+
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.Source;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.URIResolver;
 import javax.xml.transform.sax.SAXSource;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -763,7 +765,12 @@ public class XMLCatalog extends DataType
 
         if (url != null) {
             try {
-                InputStream is = url.openStream();
+                InputStream is = null;
+                URLConnection conn = url.openConnection();
+                if (conn != null) {
+                    conn.setUseCaches(false);
+                    is = conn.getInputStream();
+                }
                 if (is != null) {
                     source = new InputSource(is);
                     String sysid = url.toExternalForm();

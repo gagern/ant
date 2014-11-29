@@ -119,12 +119,12 @@ import org.apache.tools.ant.util.VectorSet;
  *
  *   System.out.println("FILES:");
  *   String[] files = ds.getIncludedFiles();
- *   for (int i = 0; i < files.length; i++) {
+ *   for (int i = 0; i &lt; files.length; i++) {
  *     System.out.println(files[i]);
  *   }
  * </pre>
  * This will scan a directory called test for .class files, but excludes all
- * files in all proper subdirectories of a directory called "modules"
+ * files in all proper subdirectories of a directory called "modules".
  *
  */
 public class DirectoryScanner
@@ -1012,9 +1012,7 @@ public class DirectoryScanner
 
                 if (myfile != null && myfile.exists()) {
                     if (!followSymlinks && currentPath.isSymlink(basedir)) {
-                        if (!isExcluded(currentPath)) {
-                            notFollowedSymlinks.add(myfile.getAbsolutePath());
-                        }
+                        accountForNotFollowedSymlink(currentPath, myfile);
                         continue;
                     }
                     if (myfile.isDirectory()) {
@@ -1024,7 +1022,7 @@ public class DirectoryScanner
                         }  else {
                             scandir(myfile, currentPath, true);
                         }
-                    } else {
+                    } else if (myfile.isFile()) {
                         String originalpattern = (String) entry.getValue();
                         boolean included = isCaseSensitive()
                             ? originalpattern.equals(currentelement)
@@ -1224,11 +1222,12 @@ public class DirectoryScanner
                     if (SYMLINK_UTILS.isSymbolicLink(dir, newfiles[i])) {
                         String name = vpath + newfiles[i];
                         File file = new File(dir, newfiles[i]);
-                        (file.isDirectory()
-                            ? dirsExcluded : filesExcluded).addElement(name);
-                        if (!isExcluded(name)) {
-                            notFollowedSymlinks.add(file.getAbsolutePath());
+                        if (file.isDirectory()) {
+                            dirsExcluded.addElement(name);
+                        } else if (file.isFile()) {
+                            filesExcluded.addElement(name);
                         }
+                        accountForNotFollowedSymlink(name, file);
                     } else {
                         noLinks.add(newfiles[i]);
                     }
@@ -1257,7 +1256,7 @@ public class DirectoryScanner
                     everythingIncluded = false;
                     filesNotIncluded.addElement(name);
                 }
-            } else { // dir
+            } else if (file.isDirectory()) { // dir
 
                 if (followSymlinks
                     && causesIllegalSymlinkLoop(newfiles[i], dir,
@@ -1326,6 +1325,19 @@ public class DirectoryScanner
         processIncluded(name, file, dirsIncluded, dirsExcluded, dirsDeselected);
         if (fast && couldHoldIncluded(name) && !contentsExcluded(name)) {
             scandir(file, name, fast, children, directoryNamesFollowed);
+        }
+    }
+
+    private void accountForNotFollowedSymlink(String name, File file) {
+        accountForNotFollowedSymlink(new TokenizedPath(name), file);
+    }
+
+    private void accountForNotFollowedSymlink(TokenizedPath name, File file) {
+        if (!isExcluded(name) &&
+            (isIncluded(name)
+             || (file.isDirectory() && couldHoldIncluded(name)
+                 && !contentsExcluded(name)))) {
+            notFollowedSymlinks.add(file.getAbsolutePath());
         }
     }
 
@@ -1724,7 +1736,9 @@ public class DirectoryScanner
      * but would have been followed had followsymlinks been true or
      * maxLevelsOfSymlinks been bigger.
      *
+     * @return sorted array of not followed symlinks
      * @since Ant 1.8.0
+     * @see #notFollowedSymlinks
      */
     public synchronized String[] getNotFollowedSymlinks() {
         String[] links;
@@ -1842,7 +1856,7 @@ public class DirectoryScanner
      *
      * <p>Can only happen if the given directory has been seen at
      * least more often than allowed during the current scan and it is
-     * a symbolic link and enough other occurences of the same name
+     * a symbolic link and enough other occurrences of the same name
      * higher up are symbolic links that point to the same place.</p>
      *
      * @since Ant 1.8.0

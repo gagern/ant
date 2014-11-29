@@ -39,6 +39,7 @@
   <property name="checkstyle.reportdir" location="${build.dir}/reports/checkstyle"/>
   <property name="checkstyle.raw" location="${checkstyle.reportdir}/raw.xml"/>
   <property name="stylesheet.html" location="${config.dir}/checkstyle-frames.xsl"/>
+  <property name="stylesheet.html.sorted" location="${config.dir}/checkstyle-frames-sortby-check.xsl"/>
   <property name="stylesheet.text" location="${config.dir}/checkstyle-text.xsl"/>
   <property name="stylesheet.xdoc" location="${config.dir}/checkstyle-xdoc.xsl"/>
 
@@ -91,7 +92,7 @@
   </target>
 
   <target name="checkstyle" description="--> checks Ant codebase according to ${config.dir}/checkstyle-config" depends="init-ivy">
-    <ivy:cachepath organisation="checkstyle" module="checkstyle" revision="4.4"
+    <ivy:cachepath organisation="com.puppycrawl.tools" module="checkstyle" revision="5.7"
                    inline="true" conf="default" pathid="checkstyle.classpath" transitive="true"/>
     <taskdef resource="checkstyletask.properties" classpathref="checkstyle.classpath" />
     <mkdir dir="${checkstyle.reportdir}"/>
@@ -105,10 +106,14 @@
     </checkstyle>
   </target>
 
-  <target name="htmlreport" description="--> generates a html checkstyle report" depends="init-ivy">
-    <mkdir dir="${checkstyle.reportdir}"/>
+  <target name="htmlreport" description="--> generates a html checkstyle report">
     <xslt in="${checkstyle.raw}" style="${stylesheet.html}"
           out="${checkstyle.reportdir}/html/output.txt">
+      <param name="basedir" expression="${checkstyle.basedir}"/>
+      <param name="output.dir" expression="${checkstyle.reportdir}"/>
+    </xslt>
+    <xslt in="${checkstyle.raw}" style="${stylesheet.html.sorted}"
+          out="${checkstyle.reportdir}/html/output-sorted.txt">
       <param name="basedir" expression="${checkstyle.basedir}"/>
       <param name="output.dir" expression="${checkstyle.reportdir}"/>
     </xslt>
@@ -116,7 +121,7 @@
 
   <target name="textreport" description="--> generates a text checkstyle report">
     <xslt in="${checkstyle.raw}" style="${stylesheet.text}"
-           out="${checkstyle.reportdir}/report.txt">
+          out="${checkstyle.reportdir}/report.txt">
     </xslt>
   </target>
 
@@ -161,7 +166,7 @@
   	<fixcrlf srcdir="src/main" includes="${path}" javafiles="yes" tab="remove" tablength="4"/>
   </target>
 
-  <target name="findbugs" description="--> checks Ant codebase with Findbugs" depends="init-ivy" xmlns:fb="http://findbugs.sourceforge.net/">
+  <target name="findbugs" description="--> checks Ant codebase with Findbugs" depends="init-ivy,build" xmlns:fb="http://findbugs.sourceforge.net/">
     <ivy:cachepath organisation="com.google.code.findbugs" module="findbugs-ant" revision="1.3.9"
                    inline="true" conf="default" pathid="findbugs.real.classpath" transitive="true"/>
     <!-- Load the Findbugs AntTasks -->               

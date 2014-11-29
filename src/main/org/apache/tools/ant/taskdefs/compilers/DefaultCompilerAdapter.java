@@ -25,18 +25,19 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Location;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Execute;
 import org.apache.tools.ant.taskdefs.Javac;
 import org.apache.tools.ant.taskdefs.LogStreamHandler;
+import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
-import org.apache.tools.ant.taskdefs.condition.Os;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * This is the default implementation for the CompilerAdapter interface.
@@ -603,6 +604,15 @@ public abstract class DefaultCompilerAdapter
      */
     protected boolean assumeJava18() {
         return assumeJavaXY("javac1.8", JavaEnvUtils.JAVA_1_8);
+    }
+
+    /**
+     * Shall we assume JDK 1.9 command line switches?
+     * @return true if JDK 1.9
+     * @since Ant 1.9.4
+     */
+    protected boolean assumeJava19() {
+        return assumeJavaXY("javac1.9", JavaEnvUtils.JAVA_1_8);
     }
 
     /**

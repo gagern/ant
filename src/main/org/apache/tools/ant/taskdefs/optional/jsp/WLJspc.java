@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.Date;
 import java.util.StringTokenizer;
 import java.util.Vector;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
@@ -311,7 +312,7 @@ public class WLJspc extends MatchingTask {
 
 
     /**
-     * Replace occurances of a string with a replacement string.
+     * Replace occurrences of a string with a replacement string.
      * @param inpString the string to convert.
      * @param escapeChars the string to replace.
      * @param replaceChars the string to place.
