@@ -25,6 +25,8 @@ import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
 
+// CheckStyle:HideUtilityClassConstructorCheck OFF - bc
+
 /**
  * Offers some helper methods on the Path structure in ant.
  *
@@ -240,8 +242,6 @@ public class ClasspathUtils {
         return newInstance(className, userDefinedLoader, Object.class);
     }
 
-        
-        
     /**
      * Creates a fresh object instance of the specified classname.
      *
@@ -253,7 +253,7 @@ public class ClasspathUtils {
      * @param userDefinedLoader the classloader to use.
      * @param expectedType the Class that the result should be assignment
      * compatible with. (No ClassCastException will be thrown in case
-     * the result of this method is casted to the expectedType) 
+     * the result of this method is casted to the expectedType)
      * @return The fresh object instance
      * @throws BuildException when loading or instantiation failed.
      * @since Ant 1.7
@@ -263,14 +263,13 @@ public class ClasspathUtils {
         ClassLoader userDefinedLoader,
         Class expectedType) {
         try {
-            Class clazz = Class.forName(className, true, userDefinedLoader); 
+            Class clazz = Class.forName(className, true, userDefinedLoader);
             Object o = clazz.newInstance();
-            if (!expectedType.isInstance(o))
-            {
+            if (!expectedType.isInstance(o)) {
                 throw new BuildException(
-                    "Class of unexpected Type: " 
+                    "Class of unexpected Type: "
                         + className
-                        + " expected :" 
+                        + " expected :"
                         + expectedType);
             }
             return o;
@@ -297,11 +296,11 @@ public class ClasspathUtils {
             throw new BuildException(
                 "Class "
                     + className
-                    + " could not be loaded because of an invalid dependency.", 
+                    + " could not be loaded because of an invalid dependency.",
                 e);
         }
     }
-    
+
     /**
      * Obtains a delegate that helps out with classic classpath configuration.
      *

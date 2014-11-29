@@ -51,6 +51,7 @@ public class PropertyResource extends Resource {
 
     /**
      * Construct a new PropertyResource with the specified name.
+     * @param p the project to use.
      * @param n the String name of this PropertyResource (Ant property name/key).
      */
     public PropertyResource(Project p, String n) {
@@ -110,7 +111,7 @@ public class PropertyResource extends Resource {
         }
         return String.valueOf(getValue());
     }
-    
+
     /**
      * Get an InputStream for the Resource.
      * @return an InputStream containing this Resource's content.

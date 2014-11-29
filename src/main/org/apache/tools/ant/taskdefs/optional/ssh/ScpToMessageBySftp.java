@@ -34,6 +34,9 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Iterator;
 
+/**
+ * Utility class to carry out an upload by sftp.
+ */
 public class ScpToMessageBySftp extends ScpToMessage/*AbstractSshMessage*/ {
 
     private File localFile;
@@ -185,7 +188,7 @@ public class ScpToMessageBySftp extends ScpToMessage/*AbstractSshMessage*/ {
         try{
             channel.stat(dir);
         }
-        catch(SftpException e){ 
+        catch (SftpException e) {
             // dir does not exist.
             if (e.id==ChannelSftp.SSH_FX_NO_SUCH_FILE) {
                 channel.mkdir(dir);

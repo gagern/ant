@@ -51,9 +51,13 @@ public class TimestampedLogger extends DefaultLogger {
      * @return The classic "BUILD SUCCESSFUL"
      */
     protected String getBuildSuccessfulMessage() {
-        return super.getBuildSuccessfulMessage()+SPACER +getTimestamp();
+        return super.getBuildSuccessfulMessage() + SPACER + getTimestamp();
     }
 
+    /**
+     * Get the current time.
+     * @return the current time as a formatted string.
+     */
     protected String getTimestamp() {
         Date date = new Date(System.currentTimeMillis());
         DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);

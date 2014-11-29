@@ -20,9 +20,7 @@ package org.apache.tools.ant.taskdefs.rmic;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.taskdefs.Rmic;
 import org.apache.tools.ant.util.ClasspathUtils;
-import org.apache.tools.ant.util.JavaEnvUtils;
 
 import java.util.Locale;
 
@@ -68,7 +66,7 @@ public final class RmicAdapterFactory {
      */
     public static RmicAdapter getRmic(String rmicType, Task task)
         throws BuildException {
-        //convert to lower case in the English locale, 
+        //convert to lower case in the English locale,
         String compiler = rmicType.toLowerCase(Locale.ENGLISH);
 
         //handle default specially by choosing the sun or kaffe compiler

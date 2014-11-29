@@ -66,6 +66,7 @@ public class XMLValidateTask extends Task {
 
     // ant task properties
     // defaults
+    // CheckStyle:VisibilityModifier OFF - bc
     protected boolean failOnError = true;
     protected boolean warn = true;
     protected boolean lenient = false;
@@ -87,6 +88,7 @@ public class XMLValidateTask extends Task {
     // XMLReader used to validation process
     protected ValidatorErrorHandler errorHandler = new ValidatorErrorHandler();
     // to report sax parsing errors
+    // CheckStyle:VisibilityModifier ON
 
     /** The vector to store all attributes (features) to be set on the parser. **/
     private Vector attributeList = new Vector();
@@ -97,7 +99,9 @@ public class XMLValidateTask extends Task {
     private final Vector propertyList = new Vector();
 
     private XMLCatalog xmlCatalog = new XMLCatalog();
-    public static final String MESSAGE_FILES_VALIDATED = " file(s) have been successfully validated.";
+    /** Message for sucessfull validation */
+    public static final String MESSAGE_FILES_VALIDATED
+        = " file(s) have been successfully validated.";
 
     /**
      * Specify how parser error are to be handled.
@@ -211,7 +215,9 @@ public class XMLValidateTask extends Task {
      * Add an attribute nested element. This is used for setting arbitrary
      * features of the SAX parser.
      * Valid attributes
-     * <a href="http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html#package_description">include</a>
+     * <a href=
+     * "http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html#package_description"
+     * >include</a>
      * @return attribute created
      * @since ant1.6
      */
@@ -517,6 +523,8 @@ public class XMLValidateTask extends Task {
 
     /**
      * parse the file
+     * @param afile the file to validate.
+     * @return true if the file validates.
      */
     protected boolean doValidate(File afile) {
         //for every file, we have a new instance of the validator
@@ -562,9 +570,11 @@ public class XMLValidateTask extends Task {
      */
     protected class ValidatorErrorHandler implements ErrorHandler {
 
+        // CheckStyle:VisibilityModifier OFF - bc
         protected File currentFile = null;
         protected String lastErrorMessage = null;
         protected boolean failed = false;
+        // CheckStyle:VisibilityModifier ON
         /**
          * initialises the class
          * @param file file used
@@ -645,7 +655,9 @@ public class XMLValidateTask extends Task {
     public static class Attribute {
         /** The name of the attribute to set.
          *
-         * Valid attributes <a href="http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html#package_description">include.</a>
+         * Valid attributes <a href=
+         * "http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html#package_description"
+         * >include.</a>
          */
         private String attributeName = null;
 

@@ -1,3 +1,19 @@
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 <html>
 
 <head>
@@ -29,8 +45,22 @@ apparently calls <a href="http://msdn.microsoft.com/library/default.asp?url=/lib
 the exact semantics of the call. In particular, if you do not put a file extension
 on the executable, only ".EXE" files are looked for, not ".COM", ".CMD" or other file
 types listed in the environment variable PATHEXT. That is only used by the shell.
-
 </p>
+  <p>
+    Note that <em>.bat</em> files cannot in general by executed directly.
+    One normally needs to execute the command shell executable <code>cmd</code>
+    using the <code>/c</code> switch.
+  </p>
+  <blockquote>
+<pre>
+&lt;target name="help"&gt;
+  &lt;exec executable="cmd"&gt;
+    &lt;arg value="/c"/&gt;
+    &lt;arg value="ant.bat"/&gt;
+    &lt;arg value="-p"/&gt;
+  &lt;/exec&gt;
+&lt;/target&gt;
+</pre></blockquote>
 
 <h4>Cygwin Users</h4>
 <p>In general the <code>&lt;exec&gt;</code> task will not understand paths such as /bin/sh for
@@ -274,7 +304,12 @@ system command via nested <code>&lt;env&gt;</code> elements.</p>
   </tr>
   <tr>
     <td valign="top">key</td>
-    <td valign="top">The name of the environment variable.</td>
+    <td valign="top">
+      The name of the environment variable.
+      <br/>
+      <em>Note: (Since Ant 1.7)</em>
+      For windows, the name is case-insensitive.
+    </td>
     <td align="center" valign="top">Yes</td>
   </tr>
   <tr>
@@ -385,9 +420,7 @@ sub process is killed and a message printed to the log. The return
 value of the execution will be "-1", which will halt the build if
 <tt>failonerror=true</tt>, but be ignored otherwise.
 
-<hr>
-<p align="center">Copyright &copy; 2000-2005 The Apache Software Foundation. All rights
-Reserved.</p>
+
 
 </body>
 </html>

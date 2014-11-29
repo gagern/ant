@@ -130,6 +130,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param srcFile The archive from which to extract entries.
      */
     public void setSrc(File srcFile) {
+        checkAttributesAllowed();
         setSrcResource(new FileResource(srcFile));
     }
 
@@ -177,6 +178,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param prefix The prefix to prepend to entries in the archive file.
      */
     public void setPrefix(String prefix) {
+        checkAttributesAllowed();
         if (!prefix.equals("") && !fullpath.equals("")) {
             throw new BuildException("Cannot set both fullpath and prefix attributes");
         }
@@ -202,6 +204,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param fullpath the full pathname of the single entry in this fileset.
      */
     public void setFullpath(String fullpath) {
+        checkAttributesAllowed();
         if (!prefix.equals("") && !fullpath.equals("")) {
             throw new BuildException("Cannot set both fullpath and prefix attributes");
         }
@@ -222,6 +225,7 @@ public abstract class ArchiveFileSet extends FileSet {
 
     /**
      * Creates a scanner for this type of archive.
+     * @return the scanner.
      */
     protected abstract ArchiveScanner newArchiveScanner();
 
@@ -304,6 +308,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param octalString a <code>String</code> value
      */
     public void setFileMode(String octalString) {
+        checkAttributesAllowed();
         integerSetFileMode(Integer.parseInt(octalString, BASE_OCTAL));
     }
 
@@ -352,6 +357,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param octalString a <code>String</code> value
      */
     public void setDirMode(String octalString) {
+        checkAttributesAllowed();
         integerSetDirMode(Integer.parseInt(octalString, BASE_OCTAL));
     }
 
@@ -439,6 +445,7 @@ public abstract class ArchiveFileSet extends FileSet {
 
     /**
      * Return the prefix prepended to entries in the archive file.
+     * @return the prefix.
      * @deprecated since 1.7.
      */
     public String getPrefix() {
@@ -447,6 +454,7 @@ public abstract class ArchiveFileSet extends FileSet {
 
     /**
      * Return the full pathname of the single entryZ in this fileset.
+     * @return the full pathname.
      * @deprecated since 1.7.
      */
     public String getFullpath() {
@@ -454,6 +462,7 @@ public abstract class ArchiveFileSet extends FileSet {
     }
 
     /**
+     * @return the file mode.
      * @deprecated since 1.7.
      */
     public int getFileMode() {
@@ -461,6 +470,7 @@ public abstract class ArchiveFileSet extends FileSet {
     }
 
     /**
+     * @return the dir mode.
      * @deprecated since 1.7.
      */
     public int getDirMode() {

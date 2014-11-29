@@ -282,14 +282,14 @@ public class XmlProperty extends org.apache.tools.ant.Task {
             if (sxe.getException() != null) {
                 x = sxe.getException();
             }
-            throw new BuildException("Failed to load "+src,x);
+            throw new BuildException("Failed to load " + src, x);
 
         } catch (ParserConfigurationException pce) {
             // Parser with specified options can't be built
             throw new BuildException(pce);
         } catch (IOException ioe) {
             // I/O error
-            throw new BuildException("Failed to load " + src,ioe);
+            throw new BuildException("Failed to load " + src, ioe);
         }
     }
 
@@ -422,6 +422,18 @@ public class XmlProperty extends org.apache.tools.ant.Task {
         }
 
         String nodeText = null;
+        boolean emptyNode = false;
+        boolean semanticEmptyOverride = false;
+        if (node.getNodeType() == Node.ELEMENT_NODE
+            && semanticAttributes
+            && node.hasAttributes()
+            && (node.getAttributes().getNamedItem(VALUE) != null
+                || node.getAttributes().getNamedItem(LOCATION) != null
+                || node.getAttributes().getNamedItem(REF_ID) != null
+                || node.getAttributes().getNamedItem(PATH) != null
+                || node.getAttributes().getNamedItem(PATHID) != null)) {
+            semanticEmptyOverride = true;
+        }
         if (node.getNodeType() == Node.TEXT_NODE) {
             // For the text node, add a property.
             nodeText = getAttributeValue(node);
@@ -430,6 +442,21 @@ public class XmlProperty extends org.apache.tools.ant.Task {
             && (node.getFirstChild().getNodeType() == Node.CDATA_SECTION_NODE)) {
 
             nodeText = node.getFirstChild().getNodeValue();
+            if ("".equals(nodeText) && !semanticEmptyOverride) {
+                emptyNode = true;
+            }
+        } else if ((node.getNodeType() == Node.ELEMENT_NODE)
+                   && (node.getChildNodes().getLength() == 0)
+                   && !semanticEmptyOverride) {
+            nodeText = "";
+            emptyNode = true;
+        } else if ((node.getNodeType() == Node.ELEMENT_NODE)
+                   && (node.getChildNodes().getLength() == 1)
+                   && (node.getFirstChild().getNodeType() == Node.TEXT_NODE)
+                   && ("".equals(node.getFirstChild().getNodeValue()))
+                   && !semanticEmptyOverride) {
+            nodeText = "";
+            emptyNode = true;
         }
 
         if (nodeText != null) {
@@ -438,8 +465,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
                 && container instanceof String) {
                 id = (String) container;
             }
-
-            if (nodeText.trim().length() != 0) {
+            if (nodeText.trim().length() != 0 || emptyNode) {
                 addProperty(prefix, nodeText, id);
             }
         }
@@ -740,7 +766,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
      */
     private File resolveFile(String fileName) {
         if (rootDirectory == null) {
-            return FILE_UTILS.resolveFile(getProject().getBaseDir(),fileName);
+            return FILE_UTILS.resolveFile(getProject().getBaseDir(), fileName);
         }
         return FILE_UTILS.resolveFile(rootDirectory, fileName);
     }
@@ -753,7 +779,7 @@ public class XmlProperty extends org.apache.tools.ant.Task {
      * support non-file resources needs to override this method.  We
      * need to do so for backwards compatibility reasons since we
      * can't expect subclasses to support resources.</p>
-     *
+     * @return true for this task.
      * @since Ant 1.7
      */
     protected boolean supportsNonFileResources() {

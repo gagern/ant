@@ -1,13 +1,14 @@
 @echo off
 
-REM  Copyright 2001,2004-2006 The Apache Software Foundation
-REM
-REM  Licensed under the Apache License, Version 2.0 (the "License");
-REM  you may not use this file except in compliance with the License.
-REM  You may obtain a copy of the License at
-REM
+REM  Licensed to the Apache Software Foundation (ASF) under one or more
+REM  contributor license agreements.  See the NOTICE file distributed with
+REM  this work for additional information regarding copyright ownership.
+REM  The ASF licenses this file to You under the Apache License, Version 2.0
+REM  (the "License"); you may not use this file except in compliance with
+REM  the License.  You may obtain a copy of the License at
+REM 
 REM      http://www.apache.org/licenses/LICENSE-2.0
-REM
+REM 
 REM  Unless required by applicable law or agreed to in writing, software
 REM  distributed under the License is distributed on an "AS IS" BASIS,
 REM  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +21,21 @@ REM support, things would be much easier, but sadly, it is not yet time.
 REM Be cautious about editing this, and only add WinNT specific stuff in code that
 REM only runs on WinNT.
 
+if "%HOME%"=="" goto homeDrivePathPre
 if exist "%HOME%\antrc_pre.bat" call "%HOME%\antrc_pre.bat"
+
+:homeDrivePathPre
+if "%HOMEDRIVE%%HOMEPATH%"=="" goto userProfilePre
+if "%HOMEDRIVE%%HOMEPATH%"=="%HOME%" goto userProfilePre
+if exist "%HOMEDRIVE%%HOMEPATH%\antrc_pre.bat" call "%HOMEDRIVE%%HOMEPATH%\antrc_pre.bat"
+
+:userProfilePre
+if "%USERPROFILE%"=="" goto alpha
+if "%USERPROFILE%"=="%HOME%" goto alpha
+if "%USERPROFILE%"=="%HOMEDRIVE%%HOMEPATH%" goto alpha
+if exist "%USERPROFILE%\antrc_pre.bat" call "%USERPROFILE%\antrc_pre.bat"
+
+:alpha
 
 if "%OS%"=="Windows_NT" @setlocal
 if "%OS%"=="WINNT" @setlocal
@@ -173,27 +188,39 @@ for %%i in (1 10 100) do set err%%i=
 
 :end
 rem bug ID 32069: resetting an undefined env variable changes the errorlevel.
-set _JAVACMD=DUMMY_VAL
-set _JAVACMD=
-set ANT_CMD_LINE_ARGS=DUMMY_VAL
-set ANT_CMD_LINE_ARGS=
+if not "%_JAVACMD%"=="" set _JAVACMD=
+if not "%_ANT_CMD_LINE_ARGS%"=="" set ANT_CMD_LINE_ARGS=
+
+if "%ANT_ERROR%"=="0" goto mainEnd
 
 rem Set the return code if we are not in NT.  We can only set
 rem a value of 1, but it's better than nothing.
-if not "%OS%"=="Windows_NT" if "%ANT_ERROR%"=="" set ANT_ERROR=255
-if not "%OS%"=="Windows_NT" if "%ANT_ERROR%"=="0" goto quit
 if not "%OS%"=="Windows_NT" echo 1 > nul | choice /n /c:1
+
 rem Set the ERRORLEVEL if we are running NT.
-if "%OS%"=="Windows_NT" if "%ANT_ERROR%"=="" set ANT_ERROR=255
-if "%OS%"=="Windows_NT" if not %ANT_ERROR%==0 color 00
-goto quit
+if "%OS%"=="Windows_NT" color 00
+
+goto omega
+
+:mainEnd
 
 rem If there were no errors, we run the post script.
 if "%OS%"=="Windows_NT" @endlocal
 if "%OS%"=="WINNT" @endlocal
 
-:mainEnd
+if "%HOME%"=="" goto homeDrivePathPost
 if exist "%HOME%\antrc_post.bat" call "%HOME%\antrc_post.bat"
 
-:quit
+:homeDrivePathPost
+if "%HOMEDRIVE%%HOMEPATH%"=="" goto userProfilePost
+if "%HOMEDRIVE%%HOMEPATH%"=="%HOME%" goto userProfilePost
+if exist "%HOMEDRIVE%%HOMEPATH%\antrc_post.bat" call "%HOMEDRIVE%%HOMEPATH%\antrc_post.bat"
+
+:userProfilePost
+if "%USERPROFILE%"=="" goto omega
+if "%USERPROFILE%"=="%HOME%" goto omega
+if "%USERPROFILE%"=="%HOMEDRIVE%%HOMEPATH%" goto omega
+if exist "%USERPROFILE%\antrc_post.bat" call "%USERPROFILE%\antrc_post.bat"
+
+:omega
 

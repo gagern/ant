@@ -19,8 +19,10 @@
 package org.apache.tools.ant;
 
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.io.IOException;
 import org.apache.tools.ant.taskdefs.PreSetDef;
 
@@ -152,10 +154,9 @@ public class UnknownElement extends Task {
      * @exception BuildException if the configuration fails
      */
     public void maybeConfigure() throws BuildException {
-        //ProjectComponentHelper helper=ProjectComponentHelper.getProjectComponentHelper();
-        //realThing = helper.createProjectComponent( this, getProject(), null,
-        //                                           this.getTag());
-
+        if (realThing != null) {
+            return;
+        }
         configure(makeObject(this, getWrapper()));
     }
 
@@ -175,12 +176,14 @@ public class UnknownElement extends Task {
 
             task.setRuntimeConfigurableWrapper(getWrapper());
 
-            // For Script to work. Ugly
+            // For Script example that modifies id'ed tasks in other
+            // targets to work. *very* Ugly
             // The reference is replaced by RuntimeConfigurable
-            this.getOwningTarget().replaceChild(this, (Task) realThing);
-        }
+            if (getWrapper().getId() != null) {
+                this.getOwningTarget().replaceChild(this, (Task) realThing);
+            }
+       }
 
-        handleChildren(realThing, getWrapper());
 
         // configure attributes of the object and it's children. If it is
         // a task container, defer the configuration till the task container
@@ -191,6 +194,8 @@ public class UnknownElement extends Task {
         } else {
             getWrapper().maybeConfigure(getProject());
         }
+
+        handleChildren(realThing, getWrapper());
     }
 
     /**
@@ -207,8 +212,15 @@ public class UnknownElement extends Task {
     }
 
     /**
+     * Delegate to realThing if present and if it as task.
      * @see Task#handleInput(byte[], int, int)
+     * @param buffer the buffer into which data is to be read.
+     * @param offset the offset into the buffer at which data is stored.
+     * @param length the amount of data to read.
      *
+     * @return the number of bytes read.
+     *
+     * @exception IOException if the data cannot be read.
      * @since Ant 1.6
      */
     protected int handleInput(byte[] buffer, int offset, int length)
@@ -276,13 +288,11 @@ public class UnknownElement extends Task {
             ((Task) realThing).execute();
         }
 
-        // the task will not be reused ( a new init() will be called )
-        // Let GC do its job
+        // Finished executing the task, null it to allow
+        // GC do its job
+        // If this UE is used again, a new "realthing" will be made
         realThing = null;
-        // FIXME: the following should be done as well, but is
-        //        commented out for the moment as the unit tests fail
-        //        if it is done
-        //getWrapper().setProxy(null);
+        getWrapper().setProxy(null);
 
     }
 
@@ -424,6 +434,9 @@ public class UnknownElement extends Task {
         if (o instanceof Task) {
             ((Task) o).setOwningTarget(getOwningTarget());
         }
+        if (o instanceof ProjectComponent) {
+            ((ProjectComponent) o).setLocation(getLocation());
+        }
         return o;
     }
 
@@ -545,9 +558,13 @@ public class UnknownElement extends Task {
                 childTask.setRuntimeConfigurableWrapper(childWrapper);
                 childTask.setTaskName(childName);
                 childTask.setTaskType(childName);
-                childTask.setLocation(child.getLocation());
             }
+            if (realChild instanceof ProjectComponent) {
+                ((ProjectComponent) realChild).setLocation(child.getLocation());
+            }
+            childWrapper.maybeConfigure(getProject());
             child.handleChildren(realChild, childWrapper);
+            creator.store();
             return true;
         }
         return false;
@@ -610,5 +627,46 @@ public class UnknownElement extends Task {
 
     private static boolean equalsString(String a, String b) {
         return (a == null) ? (b == null) : a.equals(b);
+    }
+
+    /**
+     * Make a copy of the unknown element and set it in the new project.
+     * @param newProject the project to create the UE in.
+     * @return the copied UE.
+     */
+    public UnknownElement copy(Project newProject) {
+        UnknownElement ret = new UnknownElement(getTag());
+        ret.setNamespace(getNamespace());
+        ret.setProject(newProject);
+        ret.setQName(getQName());
+        ret.setTaskType(getTaskType());
+        ret.setTaskName(getTaskName());
+        ret.setLocation(getLocation());
+        if (getOwningTarget() == null) {
+            Target t = new Target();
+            t.setProject(getProject());
+            ret.setOwningTarget(t);
+        } else {
+            ret.setOwningTarget(getOwningTarget());
+        }
+        RuntimeConfigurable copyRC = new RuntimeConfigurable(
+            ret, getTaskName());
+        copyRC.setPolyType(getWrapper().getPolyType());
+        Map m = getWrapper().getAttributeMap();
+        for (Iterator i = m.entrySet().iterator(); i.hasNext();) {
+            Map.Entry entry = (Map.Entry) i.next();
+            copyRC.setAttribute(
+                (String) entry.getKey(), (String) entry.getValue());
+        }
+        copyRC.addText(getWrapper().getText().toString());
+
+        for (Enumeration e = getWrapper().getChildren(); e.hasMoreElements();) {
+            RuntimeConfigurable r = (RuntimeConfigurable) e.nextElement();
+            UnknownElement ueChild = (UnknownElement) r.getProxy();
+            UnknownElement copyChild = ueChild.copy(newProject);
+            copyRC.addChild(copyChild.getWrapper());
+            ret.addChild(copyChild);
+        }
+        return ret;
     }
 }

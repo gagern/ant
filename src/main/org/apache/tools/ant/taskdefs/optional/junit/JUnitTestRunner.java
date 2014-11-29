@@ -87,6 +87,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      */
     private boolean showOutput = false;
 
+    private boolean outputToFormatters = true;
+
     /**
      * The permissions set for the test to run.
      */
@@ -162,6 +164,10 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     /**
      * Constructor for fork=true or when the user hasn't specified a
      * classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure) {
@@ -171,6 +177,11 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     /**
      * Constructor for fork=true or when the user hasn't specified a
      * classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
+     * @param showOutput    whether to send output to System.out/.err as well as formatters.
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
@@ -181,17 +192,28 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     /**
      * Constructor for fork=true or when the user hasn't specified a
      * classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
+     * @param showOutput    whether to send output to System.out/.err as well as formatters.
+     * @param logTestListenerEvents whether to print TestListener events.
      * @since Ant 1.7
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
                            boolean showOutput, boolean logTestListenerEvents) {
-        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, 
+        this(test, haltOnError, filtertrace, haltOnFailure, showOutput,
              logTestListenerEvents, null);
     }
 
     /**
      * Constructor to use when the user has specified a classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
+     * @param loader the classloader to use running the test.
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
@@ -201,16 +223,29 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
 
     /**
      * Constructor to use when the user has specified a classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
+     * @param showOutput    whether to send output to System.out/.err as well as formatters.
+     * @param loader the classloader to use running the test.
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
                            boolean showOutput, ClassLoader loader) {
-        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, 
+        this(test, haltOnError, filtertrace, haltOnFailure, showOutput,
              false, loader);
     }
 
     /**
      * Constructor to use when the user has specified a classpath.
+     * @param test the test to run.
+     * @param haltOnError whether to stop the run if an error is found.
+     * @param filtertrace whether to filter junit.*.* stack frames out of exceptions
+     * @param haltOnFailure whether to stop the run if failure is found.
+     * @param showOutput    whether to send output to System.out/.err as well as formatters.
+     * @param logTestListenerEvents whether to print TestListener events.
+     * @param loader the classloader to use running the test.
      * @since Ant 1.7
      */
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
@@ -228,6 +263,9 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
 
     private PrintStream savedOut = null;
 
+    /**
+     * Run the test.
+     */
     public void run() {
         res = new TestResult();
         res.addListener(wrapListener(this));
@@ -244,23 +282,42 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         PrintStream savedErr = null;
 
         if (forked) {
-            savedOut = System.out;
-            savedErr = System.err;
-            if (!showOutput) {
-                System.setOut(systemOut);
-                System.setErr(systemError);
+            if (!outputToFormatters) {
+                if (!showOutput) {
+                    savedOut = System.out;
+                    savedErr = System.err;
+                    System.setOut(
+                        new PrintStream(
+                            new OutputStream() {
+                                public void write(int b) {
+                                }
+                            }));
+                    System.setErr(
+                        new PrintStream(
+                            new OutputStream() {
+                                public void write(int b) {
+                                }
+                            }));
+                }
             } else {
-                System.setOut(new PrintStream(
-                                       new TeeOutputStream(savedOut, systemOut)
-                                       )
-                              );
-                System.setErr(new PrintStream(
-                                       new TeeOutputStream(savedErr,
-                                                           systemError)
-                                       )
-                              );
+                savedOut = System.out;
+                savedErr = System.err;
+                if (!showOutput) {
+                    System.setOut(systemOut);
+                    System.setErr(systemError);
+                } else {
+                    System.setOut(new PrintStream(
+                                      new TeeOutputStream(savedOut, systemOut)
+                                      )
+                                  );
+                    System.setErr(new PrintStream(
+                                      new TeeOutputStream(savedErr,
+                                                          systemError)
+                                      )
+                                  );
+                }
+                perm = null;
             }
-            perm = null;
         } else {
             if (perm != null) {
                 perm.setSecurityManager();
@@ -269,6 +326,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
 
         Test suite = null;
         Throwable exception = null;
+        boolean startTestSuiteSuccess = false;
 
         try {
 
@@ -349,6 +407,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
             long start = System.currentTimeMillis();
 
             fireStartTestSuite();
+            startTestSuiteSuccess = true;
             if (exception != null) { // had an exception constructing suite
                 for (int i = 0; i < formatters.size(); i++) {
                     ((TestListener) formatters.elementAt(i))
@@ -386,8 +445,10 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
             systemError = null;
             systemOut.close();
             systemOut = null;
-            sendOutAndErr(new String(outStrm.toByteArray()),
-                          new String(errStrm.toByteArray()));
+            if (startTestSuiteSuccess) {
+                sendOutAndErr(new String(outStrm.toByteArray()),
+                              new String(errStrm.toByteArray()));
+            }
         }
         fireEndTestSuite();
 
@@ -411,6 +472,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * Interface TestListener.
      *
      * <p>A new Test is started.
+     * @param t the test.
      */
     public void startTest(Test t) {
         String testName = JUnitVersionHelper.getTestCaseName(t);
@@ -421,6 +483,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * Interface TestListener.
      *
      * <p>A Test is finished.
+     * @param test the test.
      */
     public void endTest(Test test) {
         String testName = JUnitVersionHelper.getTestCaseName(test);
@@ -428,7 +491,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     }
 
     private void logTestListenerEvent(String msg) {
-        PrintStream out = forked ? savedOut : System.out;
+        PrintStream out = savedOut != null ? savedOut : System.out;
         if (logTestListenerEvents) {
             out.flush();
             out.println(JUnitTask.TESTLISTENER_PREFIX + msg);
@@ -440,6 +503,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * Interface TestListener for JUnit &lt;= 3.4.
      *
      * <p>A Test failed.
+     * @param test the test.
+     * @param t    the exception thrown by the test.
      */
     public void addFailure(Test test, Throwable t) {
         String testName = JUnitVersionHelper.getTestCaseName(test);
@@ -453,6 +518,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * Interface TestListener for JUnit &gt; 3.4.
      *
      * <p>A Test failed.
+     * @param test the test.
+     * @param t    the assertion thrown by the test.
      */
     public void addFailure(Test test, AssertionFailedError t) {
         addFailure(test, (Throwable) t);
@@ -462,6 +529,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * Interface TestListener.
      *
      * <p>An error occurred while running the test.
+     * @param test the test.
+     * @param t    the error thrown by the test.
      */
     public void addError(Test test, Throwable t) {
         String testName = JUnitVersionHelper.getTestCaseName(test);
@@ -474,12 +543,16 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     /**
      * Permissions for the test run.
      * @since Ant 1.6
-     * @param permissions
+     * @param permissions the permissions to use.
      */
     public void setPermissions(Permissions permissions) {
         perm = permissions;
     }
 
+    /**
+     * Handle a string destined for standard output.
+     * @param output the string to output
+     */
     public void handleOutput(String output) {
         if (!logTestListenerEvents && output.startsWith(JUnitTask.TESTLISTENER_PREFIX)) {
             // ignore
@@ -489,6 +562,12 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     }
 
     /**
+     * Handle input.
+     * @param buffer not used.
+     * @param offset not used.
+     * @param length not used.
+     * @return -1 always.
+     * @throws IOException never.
      * @see org.apache.tools.ant.Task#handleInput(byte[], int, int)
      *
      * @since Ant 1.6
@@ -498,18 +577,21 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         return -1;
     }
 
+    /** {@inheritDoc}. */
     public void handleErrorOutput(String output) {
         if (systemError != null) {
             systemError.print(output);
         }
     }
 
+    /** {@inheritDoc}. */
     public void handleFlush(String output) {
         if (systemOut != null) {
             systemOut.print(output);
         }
     }
 
+    /** {@inheritDoc}. */
     public void handleErrorFlush(String output) {
         if (systemError != null) {
             systemError.print(output);
@@ -540,10 +622,15 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         }
     }
 
+    /**
+     * Add a formatter.
+     * @param f the formatter to add.
+     */
     public void addFormatter(JUnitResultFormatter f) {
         formatters.addElement(f);
     }
 
+    /** {@inheritDoc}. */
     public void addFormatter(JUnitTaskMirror.JUnitResultFormatterMirror f) {
         formatters.addElement((JUnitResultFormatter) f);
     }
@@ -574,6 +661,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      * System.out.</td><td>false</td></tr>
      *
      * </table>
+     * @param args the command line arguments.
+     * @throws IOException on error.
      */
     public static void main(String[] args) throws IOException {
         boolean haltError = false;
@@ -581,6 +670,7 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         boolean stackfilter = true;
         Properties props = new Properties();
         boolean showOut = false;
+        boolean outputToFormat = true;
         boolean logTestListenerEvents = false;
 
 
@@ -619,7 +709,11 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
             } else if (args[i].startsWith(Constants.SHOWOUTPUT)) {
                 showOut = Project.toBoolean(args[i].substring(Constants.SHOWOUTPUT.length()));
             } else if (args[i].startsWith(Constants.LOGTESTLISTENEREVENTS)) {
-                logTestListenerEvents = Project.toBoolean(args[i].substring(Constants.LOGTESTLISTENEREVENTS.length()));
+                logTestListenerEvents = Project.toBoolean(
+                    args[i].substring(Constants.LOGTESTLISTENEREVENTS.length()));
+            } else if (args[i].startsWith(Constants.OUTPUT_TO_FORMATTERS)) {
+                outputToFormat = Project.toBoolean(
+                    args[i].substring(Constants.OUTPUT_TO_FORMATTERS.length()));
             }
         }
 
@@ -647,7 +741,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
                     t.setTodir(new File(st.nextToken()));
                     t.setOutfile(st.nextToken());
                     code = launch(t, haltError, stackfilter, haltFail,
-                                  showOut, logTestListenerEvents, props);
+                                  showOut, outputToFormat,
+                                  logTestListenerEvents, props);
                     errorOccurred = (code == ERRORS);
                     failureOccurred = (code != SUCCESS);
                     if (errorOccurred || failureOccurred) {
@@ -669,7 +764,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
             }
         } else {
             returnCode = launch(new JUnitTest(args[0]), haltError,
-                                stackfilter, haltFail, showOut,
+                                stackfilter, haltFail,
+                                showOut, outputToFormat,
                                 logTestListenerEvents, props);
         }
 
@@ -753,6 +849,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
     /**
      * Returns a filtered stack trace.
      * This is ripped out of junit.runner.BaseTestRunner.
+     * @param t the exception to filter.
+     * @return the filtered stack trace.
      */
     public static String getFilteredTrace(Throwable t) {
         String trace = StringUtils.getStackTrace(t);
@@ -761,6 +859,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
 
     /**
      * Filters stack frames from internal JUnit and Ant classes
+     * @param stack the stack trace to filter.
+     * @return the filtered stack.
      */
     public static String filterStack(String stack) {
         if (!filtertrace) {
@@ -798,13 +898,15 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
      */
     private static int launch(JUnitTest t, boolean haltError,
                               boolean stackfilter, boolean haltFail,
-                              boolean showOut, boolean logTestListenerEvents,
+                              boolean showOut, boolean outputToFormat,
+                              boolean logTestListenerEvents,
                               Properties props) {
         t.setProperties(props);
         JUnitTestRunner runner =
             new JUnitTestRunner(t, haltError, stackfilter, haltFail, showOut,
-                                logTestListenerEvents);
+                                logTestListenerEvents, null);
         runner.forked = true;
+        runner.outputToFormatters = outputToFormat;
         transferFormatters(runner, t);
 
         runner.run();
@@ -859,7 +961,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         return new TestListener() {
             public void addError(Test test, Throwable t) {
                 if (junit4 && t instanceof AssertionFailedError) {
-                    // JUnit 4 does not distinguish between errors and failures even in the JUnit 3 adapter.
+                    // JUnit 4 does not distinguish between errors and failures
+                    // even in the JUnit 3 adapter.
                     // So we need to help it a bit to retain compatibility for JUnit 3 tests.
                     testListener.addFailure(test, (AssertionFailedError) t);
                 } else if (junit4 && t.getClass().getName().equals("java.lang.AssertionError")) {
@@ -869,10 +972,11 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
                     // We would prefer to show "failure" for things that logically are.
                     try {
                         String msg = t.getMessage();
-                        AssertionFailedError failure = msg != null 
+                        AssertionFailedError failure = msg != null
                             ? new AssertionFailedError(msg) : new AssertionFailedError();
                         // To compile on pre-JDK 4 (even though this should always succeed):
-                        Method initCause = Throwable.class.getMethod("initCause", new Class[] {Throwable.class});
+                        Method initCause = Throwable.class.getMethod(
+                            "initCause", new Class[] {Throwable.class});
                         initCause.invoke(failure, new Object[] {t});
                         testListener.addFailure(test, failure);
                     } catch (Exception e) {
@@ -919,7 +1023,8 @@ public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestR
         e = res.errors();
         while (e.hasMoreElements()) {
             Throwable t = ((TestFailure) e.nextElement()).thrownException();
-            if (t instanceof AssertionFailedError || t.getClass().getName().equals("java.lang.AssertionError")) {
+            if (t instanceof AssertionFailedError
+                || t.getClass().getName().equals("java.lang.AssertionError")) {
                 failures++;
             } else {
                 errors++;

@@ -24,12 +24,12 @@ import org.apache.bcel.classfile.ConstantValue;
 import org.apache.bcel.classfile.Field;
 import org.apache.bcel.classfile.JavaClass;
 
+// CheckStyle:HideUtilityClassConstructorCheck OFF - bc
 /**
  * Helper class that filters constants from a Java Class
  *
  */
 public final class JavaClassHelper {
-
     /** System specific line separator. */
     private static final String LS = System.getProperty("line.separator");
 
@@ -40,7 +40,7 @@ public final class JavaClassHelper {
      * @return a StringBuffer contains the name=value pairs
      * @exception IOException if an error occurs
      */
-    public static final StringBuffer getConstants(byte[] bytes)
+    public static StringBuffer getConstants(byte[] bytes)
         throws IOException {
         final StringBuffer sb = new StringBuffer();
         final ByteArrayInputStream bis = new ByteArrayInputStream(bytes);

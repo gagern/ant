@@ -252,7 +252,7 @@ public class Concat extends Task {
      * @since Ant 1.7
      */
     public void add(ResourceCollection c) {
-        rc = (rc == null) ? new Resources() : rc;
+        rc = rc == null ? new Resources() : rc;
         rc.add(c);
     }
 
@@ -432,8 +432,9 @@ public class Concat extends Task {
             if (!outofdate) {
                 for (Iterator i = existRc.iterator(); !outofdate && i.hasNext();) {
                     Resource r = (Resource) i.next();
-                    outofdate = (r.getLastModified() == 0L || 
-                        r.getLastModified() > destinationFile.lastModified());
+                    outofdate =
+                        (r.getLastModified() == 0L
+                         || r.getLastModified() > destinationFile.lastModified());
                 }
             }
             if (!outofdate) {
@@ -483,12 +484,8 @@ public class Concat extends Task {
                 throw new BuildException("Unable to open "
                     + destinationFile + " for writing", t);
             }
-            try {
-                in = new ConcatResourceInputStream(c);
-                ((ConcatResourceInputStream) in).setManagingComponent(this);
-            } catch (IOException e) {
-                throw new BuildException(e);
-            }
+            in = new ConcatResourceInputStream(c);
+            ((ConcatResourceInputStream) in).setManagingComponent(this);
             Thread t = new Thread(new StreamPumper(in, out));
             t.start();
             try {
@@ -497,6 +494,7 @@ public class Concat extends Task {
                 try {
                     t.join();
                 } catch (InterruptedException ee) {
+                    // Empty
                 }
             }
         } finally {

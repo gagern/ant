@@ -36,8 +36,10 @@ import org.apache.tools.ant.types.resources.FileResource;
 
 public abstract class Pack extends Task {
 
+    // CheckStyle:VisibilityModifier OFF - bc
     protected File zipFile;
     protected File source;
+    // CheckStyle:VisibilityModifier ON
     private Resource src;
 
     /**
@@ -183,7 +185,7 @@ public abstract class Pack extends Task {
 
     /**
      * The source resource.
-     *
+     * @return the source.
      * @since Ant 1.7
      */
     public Resource getSrcResource() {
@@ -194,7 +196,7 @@ public abstract class Pack extends Task {
      * Whether this task can deal with non-file resources.
      *
      * <p>This implementation returns false.</p>
-     *
+     * @return false.
      * @since Ant 1.7
      */
     protected boolean supportsNonFileResources() {

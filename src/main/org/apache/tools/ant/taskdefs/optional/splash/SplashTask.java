@@ -28,6 +28,7 @@ import javax.swing.ImageIcon;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.util.Base64Converter;
 
 /**
  * Creates a splash screen. The splash screen is displayed
@@ -61,7 +62,7 @@ public class SplashTask extends Task {
      * flag to enable proxy settings; optional, deprecated : consider
      * using &lt;setproxy&gt; instead
      * @param useProxy if ture, enable proxy settings
-     * @deprecated since 1.5.x. 
+     * @deprecated since 1.5.x.
      *             Use org.apache.tools.ant.taskdefs.optional.SetProxy
      */
     public void setUseproxy(boolean useProxy) {
@@ -141,9 +142,11 @@ public class SplashTask extends Task {
 
                     conn = url.openConnection();
                     if (user != null && user.length() > 0) {
+                        // converted from sun internal classes to
+                        // new Base64Converter
+                        // utility class extracted from Get task
                         String encodedcreds =
-                            new sun.misc.BASE64Encoder().encode(
-                                (new String(user + ":" + password)).getBytes());
+                            new Base64Converter().encode(user + ":" + password);
                         conn.setRequestProperty("Proxy-Authorization",
                                                 encodedcreds);
                     }

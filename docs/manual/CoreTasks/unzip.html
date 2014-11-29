@@ -1,3 +1,19 @@
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 <html>
 
 <head>
@@ -145,15 +161,18 @@ is identical to
 
 <p>The same is also true for <code>&lt;untar&gt;</code> and
 <code>&lt;tarfileset&gt;</code>.  <code>&lt;copy&gt;</code> offers
-additional features like <a
-href="../CoreTypes/filterchain.html">filtering files</a> on the fly,
+additional features like <a href="../CoreTypes/filterchain.html">filtering files</a> on the fly,
 allowing a file to be mapped to multiple destinations or a
 configurable file system timestamp granularity.</p>
 
-<hr>
-<p align="center">Copyright &copy; 2000-2006 The Apache Software Foundation. All rights
-Reserved.</p>
+<pre>&lt;zip destfile=&quot;new.jar&quot;&gt;
+  &lt;zipfileset src=&quot;old.jar&quot;&gt;
+    &lt;exclude name=&quot;do/not/include/this/class&quot;/&gt;
+  &lt;/zipfileset&gt;
+&lt;/zip&gt;
+</pre>
+<p>&quot;Deletes&quot; files from a zipfile.</p>
+
 
 </body>
 </html>
-

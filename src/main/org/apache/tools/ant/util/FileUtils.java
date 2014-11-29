@@ -21,6 +21,7 @@ package org.apache.tools.ant.util;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
@@ -84,6 +85,16 @@ public class FileUtils {
      */
     public static final long NTFS_FILE_TIMESTAMP_GRANULARITY = 1;
 
+
+    /**
+     * A one item cache for fromUri.
+     * fromUri is called for each element when parseing ant build
+     * files. It is a costly operation. This just caches the result
+     * of the last call.
+     */
+    private Object cacheFromUriLock = new Object();
+    private String cacheFromUriRequest = null;
+    private String cacheFromUriResponse = null;
 
     /**
      * Factory method.
@@ -239,6 +250,7 @@ public class FileUtils {
                  overwrite, preserveLastModified, encoding);
     }
 
+    // CheckStyle:ParameterNumberCheck OFF - bc
     /**
      * Convenience method to copy a file from a source to a
      * destination specifying if token filtering must be used, if
@@ -499,6 +511,8 @@ public class FileUtils {
             inputEncoding, outputEncoding, project);
     }
 
+    // CheckStyle:ParameterNumberCheck ON
+
     /**
      * Calls File.setLastModified(long time). Originally written to
      * to dynamically bind to that call on Java1.2+.
@@ -715,7 +729,7 @@ public class FileUtils {
         if (colon > 0 && (onDos || onNetWare)) {
 
             int next = colon + 1;
-            root = path.substring(0, next).toUpperCase();
+            root = path.substring(0, next);
             char[] ca = path.toCharArray();
             root += sep;
             //remove the initial separator; the root has it.
@@ -1094,7 +1108,8 @@ public class FileUtils {
                 File f = new File(path).getAbsoluteFile();
                 java.lang.reflect.Method toURIMethod = File.class.getMethod("toURI", new Class[0]);
                 Object uriObj = toURIMethod.invoke(f, new Object[] {});
-                java.lang.reflect.Method toASCIIStringMethod = uriClazz.getMethod("toASCIIString", new Class[0]);
+                java.lang.reflect.Method toASCIIStringMethod
+                    = uriClazz.getMethod("toASCIIString", new Class[0]);
                 return (String) toASCIIStringMethod.invoke(uriObj, new Object[] {});
             } catch (Exception e) {
                 // Reflection problems? Should not happen, debug.
@@ -1136,8 +1151,17 @@ public class FileUtils {
      * @since Ant 1.6
      */
     public String fromURI(String uri) {
-        String path = Locator.fromURI(uri);
-        return isAbsolutePath(path) ? normalize(path).getAbsolutePath() : path;
+        synchronized (cacheFromUriLock) {
+            if (uri.equals(cacheFromUriRequest)) {
+                return cacheFromUriResponse;
+            }
+            String path = Locator.fromURI(uri);
+            String ret = isAbsolutePath(path)
+                ? normalize(path).getAbsolutePath() : path;
+            cacheFromUriRequest = uri;
+            cacheFromUriResponse = ret;
+            return ret;
+        }
     }
 
     /**
@@ -1435,7 +1459,7 @@ public class FileUtils {
         Object[] tokens = StringUtils.split(normalizedPath, '/').toArray();
         String[] rv = new String[tokens.length];
         System.arraycopy(tokens, 0, rv, 0, tokens.length);
-        
+
         return rv;
     }
 
@@ -1483,4 +1507,25 @@ public class FileUtils {
         return buffer.toString();
     }
 
+    /**
+     * Get the default encoding.
+     * This is done by opening an InputStreamReader on
+     * a dummy InputStream and getting the encoding.
+     * Could use System.getProperty("file.encoding"), but cannot
+     * see where this is documented.
+     * @return the default file encoding.
+     */
+    public String getDefaultEncoding() {
+        InputStreamReader is = new InputStreamReader(
+            new InputStream() {
+                public int read() {
+                    return -1;
+                }
+            });
+        try {
+            return is.getEncoding();
+        } finally {
+            close(is);
+        }
+    }
 }

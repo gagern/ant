@@ -33,6 +33,7 @@ import java.util.Stack;
 import java.util.Vector;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import org.apache.tools.ant.input.DefaultInputHandler;
@@ -61,6 +62,8 @@ import org.apache.tools.ant.util.StringUtils;
  *
  */
 public class Project implements ResourceFactory {
+    private static final String LINE_SEP = System.getProperty("line.separator");
+
     /** Message priority of &quot;error&quot;. */
     public static final int MSG_ERR = 0;
     /** Message priority of &quot;warning&quot;. */
@@ -136,6 +139,12 @@ public class Project implements ResourceFactory {
     /** Map of references within the project (paths etc) (String to Object). */
     private Hashtable references = new AntRefTable();
 
+    /** Map of id references - used for indicating broken build files */
+    private HashMap idReferences = new HashMap();
+
+    /** the parent project for old id resolution (if inheritreferences is set) */
+    private Project parentIdProject = null;
+
     /** Name of the project's default target. */
     private String defaultTarget;
 
@@ -172,7 +181,8 @@ public class Project implements ResourceFactory {
     private Map/*<Thread,Task>*/ threadTasks = Collections.synchronizedMap(new WeakHashMap());
 
     /** Records the latest task to be executed on a thread group. */
-    private Map/*<ThreadGroup,Task>*/ threadGroupTasks = Collections.synchronizedMap(new WeakHashMap());
+    private Map/*<ThreadGroup,Task>*/ threadGroupTasks
+        = Collections.synchronizedMap(new WeakHashMap());
 
     /**
      * Called to handle any input requests.
@@ -300,7 +310,8 @@ public class Project implements ResourceFactory {
     }
 
     private void setAntLib() {
-        File antlib = org.apache.tools.ant.launch.Locator.getClassSource(Project.class);
+        File antlib = org.apache.tools.ant.launch.Locator.getClassSource(
+            Project.class);
         if (antlib != null) {
             setPropertyInternal(MagicNames.ANT_LIB, antlib.getAbsolutePath());
         }
@@ -314,10 +325,22 @@ public class Project implements ResourceFactory {
      * @return an appropriate classloader.
      */
     public AntClassLoader createClassLoader(Path path) {
-        AntClassLoader loader = new AntClassLoader();
-        loader.setProject(this);
-        loader.setClassPath(path);
-        return loader;
+        return new AntClassLoader(
+            getClass().getClassLoader(), this, path);
+    }
+
+    /**
+     * Factory method to create a class loader for loading classes from
+     * a given path.
+     *
+     * @param parent the parent classloader for the new loader.
+     * @param path the path from which classes are to be loaded.
+     *
+     * @return an appropriate classloader.
+     */
+    public AntClassLoader createClassLoader(
+        ClassLoader parent, Path path) {
+        return new AntClassLoader(parent, this, path);
     }
 
     /**
@@ -402,7 +425,18 @@ public class Project implements ResourceFactory {
      * @param msgLevel The log priority level to use.
      */
     public void log(String message, int msgLevel) {
-        fireMessageLogged(this, message, msgLevel);
+        log(message, null, msgLevel);
+    }
+
+    /**
+     * Write a project level message to the log with the given log level.
+     * @param message The text to log. Should not be <code>null</code>.
+     * @param throwable The exception causing this log, may be <code>null</code>.
+     * @param msgLevel The log priority level to use.
+     * @since 1.7
+     */
+    public void log(String message, Throwable throwable, int msgLevel) {
+        fireMessageLogged(this, message, throwable, msgLevel);
     }
 
     /**
@@ -412,7 +446,19 @@ public class Project implements ResourceFactory {
      * @param msgLevel The log priority level to use.
      */
     public void log(Task task, String message, int msgLevel) {
-        fireMessageLogged(task, message, msgLevel);
+        fireMessageLogged(task, message, null, msgLevel);
+    }
+
+    /**
+     * Write a task level message to the log with the given log level.
+     * @param task The task to use in the log. Must not be <code>null</code>.
+     * @param message The text to log. Should not be <code>null</code>.
+     * @param throwable The exception causing this log, may be <code>null</code>.
+     * @param msgLevel The log priority level to use.
+     * @since 1.7
+     */
+    public void log(Task task, String message, Throwable throwable, int msgLevel) {
+        fireMessageLogged(task, message, throwable, msgLevel);
     }
 
     /**
@@ -423,7 +469,21 @@ public class Project implements ResourceFactory {
      * @param msgLevel The log priority level to use.
      */
     public void log(Target target, String message, int msgLevel) {
-        fireMessageLogged(target, message, msgLevel);
+        log(target, message, null, msgLevel);
+    }
+
+    /**
+     * Write a target level message to the log with the given log level.
+     * @param target The target to use in the log.
+     *               Must not be <code>null</code>.
+     * @param message The text to log. Should not be <code>null</code>.
+     * @param throwable The exception causing this log, may be <code>null</code>.
+     * @param msgLevel The log priority level to use.
+     * @since 1.7
+     */
+    public void log(Target target, String message, Throwable throwable,
+            int msgLevel) {
+        fireMessageLogged(target, message, throwable, msgLevel);
     }
 
     /**
@@ -714,7 +774,7 @@ public class Project implements ResourceFactory {
      * @return a hashtable of global filters, mapping tokens to values
      *         (String to String).
      *
-     * @deprecated since 1.4.x 
+     * @deprecated since 1.4.x
      *             Use getGlobalFilterSet().getFilterHash().
      *
      * @see #getGlobalFilterSet()
@@ -1358,7 +1418,7 @@ public class Project implements ResourceFactory {
      *
      * @return the native version of the specified path or
      *         an empty string if the path is <code>null</code> or empty.
-     *         
+     *
      * @deprecated since 1.7
      *             Use FileUtils.translatePath instead.
      *
@@ -1802,6 +1862,46 @@ public class Project implements ResourceFactory {
     }
 
     /**
+     * Inherit the id references.
+     * @param parent the parent project of this project.
+     */
+    public void inheritIDReferences(Project parent) {
+        parentIdProject = parent;
+    }
+
+    /**
+     * Attempt to resolve an Unknown Reference using the
+     * parsed id's - for BC.
+     */
+    private Object resolveIdReference(String key, Project callerProject) {
+        UnknownElement origUE = (UnknownElement) idReferences.get(key);
+        if (origUE == null) {
+            return parentIdProject == null
+                ? null
+                : parentIdProject.resolveIdReference(key, callerProject);
+        }
+        callerProject.log(
+            "Warning: Reference " + key + " has not been set at runtime,"
+            + " but was found during" + LINE_SEP
+            + "build file parsing, attempting to resolve."
+            + " Future versions of Ant may support" + LINE_SEP
+            + " referencing ids defined in non-executed targets.", MSG_WARN);
+        UnknownElement copyUE = origUE.copy(callerProject);
+        copyUE.maybeConfigure();
+        return copyUE.getRealThing();
+    }
+
+    /**
+     * Add an id reference.
+     * Used for broken build files.
+     * @param id the id to set.
+     * @param value the value to set it to (Unknown element in this case.
+     */
+    public void addIdReference(String id, Object value) {
+        idReferences.put(id, value);
+    }
+
+    /**
      * Add a reference to the project.
      *
      * @param referenceName The name of the reference. Must not be <code>null</code>.
@@ -1816,7 +1916,7 @@ public class Project implements ResourceFactory {
             }
             if (old != null && !(old instanceof UnknownElement)) {
                 log("Overriding previous definition of reference to " + referenceName,
-                    MSG_WARN);
+                    MSG_VERBOSE);
             }
             log("Adding reference: " + referenceName, MSG_DEBUG);
             references.put(referenceName, value);
@@ -1843,7 +1943,23 @@ public class Project implements ResourceFactory {
      *         there is no such reference in the project.
      */
     public Object getReference(String key) {
-        return references.get(key);
+        Object ret = references.get(key);
+        if (ret != null) {
+            return ret;
+        }
+        // Check for old id behaviour
+        ret = resolveIdReference(key, this);
+        if (ret == null && !key.equals(MagicNames.REFID_PROPERTY_HELPER)) {
+            Vector p = new Vector();
+            PropertyHelper.getPropertyHelper(this).parsePropertyString(
+                key, new Vector(), p);
+            if (p.size() == 1) {
+                log("Unresolvable reference " + key
+                    + " might be a misuse of property expansion syntax.",
+                    MSG_WARN);
+            }
+        }
+        return ret;
     }
 
     /**
@@ -1891,6 +2007,8 @@ public class Project implements ResourceFactory {
             BuildListener listener = (BuildListener) iter.next();
             listener.buildFinished(event);
         }
+        // Inform IH to clear the cache
+        IntrospectionHelper.clearCache();
     }
 
     /**
@@ -2069,7 +2187,24 @@ public class Project implements ResourceFactory {
      */
     protected void fireMessageLogged(Project project, String message,
                                      int priority) {
+        fireMessageLogged(project, message, priority);
+    }
+
+    /**
+     * Send a &quot;message logged&quot; project level event
+     * to the build listeners for this project.
+     *
+     * @param project  The project generating the event.
+     *                 Should not be <code>null</code>.
+     * @param message  The message to send. Should not be <code>null</code>.
+     * @param throwable The exception that caused this message. May be <code>null</code>.
+     * @param priority The priority of the message.
+     * @since 1.7
+     */
+    protected void fireMessageLogged(Project project, String message,
+            Throwable throwable, int priority) {
         BuildEvent event = new BuildEvent(project);
+        event.setException(throwable);
         fireMessageLoggedEvent(event, message, priority);
     }
 
@@ -2084,7 +2219,24 @@ public class Project implements ResourceFactory {
      */
     protected void fireMessageLogged(Target target, String message,
                                      int priority) {
+        fireMessageLogged(target, message, null, priority);
+    }
+
+    /**
+     * Send a &quot;message logged&quot; target level event
+     * to the build listeners for this project.
+     *
+     * @param target   The target generating the event.
+     *                 Must not be <code>null</code>.
+     * @param message  The message to send. Should not be <code>null</code>.
+     * @param throwable The exception that caused this message. May be <code>null</code>.
+     * @param priority The priority of the message.
+     * @since 1.7
+     */
+    protected void fireMessageLogged(Target target, String message,
+            Throwable throwable, int priority) {
         BuildEvent event = new BuildEvent(target);
+        event.setException(throwable);
         fireMessageLoggedEvent(event, message, priority);
     }
 
@@ -2098,7 +2250,24 @@ public class Project implements ResourceFactory {
      * @param priority The priority of the message.
      */
     protected void fireMessageLogged(Task task, String message, int priority) {
+        fireMessageLogged(task, message, null, priority);
+    }
+
+    /**
+     * Send a &quot;message logged&quot; task level event
+     * to the build listeners for this project.
+     *
+     * @param task     The task generating the event.
+     *                 Must not be <code>null</code>.
+     * @param message  The message to send. Should not be <code>null</code>.
+     * @param throwable The exception that caused this message. May be <code>null</code>.
+     * @param priority The priority of the message.
+     * @since 1.7
+     */
+    protected void fireMessageLogged(Task task, String message,
+            Throwable throwable, int priority) {
         BuildEvent event = new BuildEvent(task);
+        event.setException(throwable);
         fireMessageLoggedEvent(event, message, priority);
     }
 
@@ -2211,6 +2380,8 @@ public class Project implements ResourceFactory {
     /**
      * Resolve the file relative to the project's basedir and return it as a
      * FileResource.
+     * @param name the name of the file to resolve.
+     * @return the file resource.
      * @since Ant 1.7
      */
     public Resource getResource(String name) {

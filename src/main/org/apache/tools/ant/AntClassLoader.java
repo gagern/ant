@@ -55,6 +55,15 @@ import org.apache.tools.ant.launch.Locator;
  * using the forceLoadClass method. Any subsequent classes loaded by that
  * class will then use this loader rather than the system class loader.
  *
+ * <p>
+ * Note that this classloader has a feature to allow loading
+ * in reverse order and for "isolation".
+ * Due to the fact that a number of
+ * methods in java.lang.ClassLoader are final (at least
+ * in java 1.4 getResources) this means that the
+ * class has to fake the given parent.
+ * </p>
+ *
  */
 public class AntClassLoader extends ClassLoader implements SubBuildListener {
 
@@ -215,6 +224,22 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
      * Whether or not the context loader is currently saved.
      */
     private boolean isContextLoaderSaved = false;
+
+    /**
+     * Create an Ant ClassLoader for a given project, with
+     * a parent classloader and an initial classpath.
+     * @since Ant 1.7.
+     * @param parent the parent for this classloader.
+     * @param project The project to which this classloader is to
+     *                belong.
+     * @param classpath The classpath to use to load classes.
+     */
+    public AntClassLoader(
+        ClassLoader parent, Project project, Path classpath) {
+        setParent(parent);
+        setClassPath(classpath);
+        setProject(project);
+    }
 
     /**
      * Create an Ant Class Loader
@@ -847,6 +872,18 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
     }
 
     /**
+     * Used for isolated resource seaching.
+     * @return the root classloader of AntClassLoader.
+     */
+    private ClassLoader getRootLoader() {
+        ClassLoader ret = getClass().getClassLoader();
+        while (ret != null && ret.getParent() != null) {
+            ret = ret.getParent();
+        }
+        return ret;
+    }
+
+    /**
      * Finds the resource with the given name. A resource is
      * some data (images, audio, text, etc) that can be accessed by class
      * code in a way that is independent of the location of the code.
@@ -888,9 +925,13 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
 
         if (url == null && !isParentFirst(name)) {
             // this loader was first but it didn't find it - try the parent
-
-            url = (parent == null) ? super.getResource(name)
-                : parent.getResource(name);
+            if (ignoreBase) {
+                url = (getRootLoader() == null) ? null
+                    : getRootLoader().getResource(name);
+            } else {
+                url = (parent == null) ? super.getResource(name)
+                    : parent.getResource(name);
+            }
             if (url != null) {
                 log("Resource " + name + " loaded from parent loader",
                     Project.MSG_DEBUG);
@@ -928,6 +969,11 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
         if (isParentFirst(name)) {
             // Normal case.
             return CollectionUtils.append(base, mine);
+        } else if (ignoreBase) {
+            return getRootLoader() == null
+                ? mine
+                : CollectionUtils.append(
+                    mine, getRootLoader().getResources(name));
         } else {
             // Inverted.
             return CollectionUtils.append(mine, base);
@@ -1492,6 +1538,10 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
         }
     }
 
+    /**
+     * Returns a <code>String</code> representing this loader.
+     * @return the path that this classloader has.
+     */
     public String toString() {
         return "AntClassLoader[" + getClasspath() + "]";
     }

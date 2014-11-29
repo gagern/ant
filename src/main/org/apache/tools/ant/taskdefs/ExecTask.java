@@ -43,6 +43,7 @@ import org.apache.tools.ant.util.FileUtils;
  */
 public class ExecTask extends Task {
 
+    // CheckStyle:VisibilityModifier OFF - bc
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     private String os;
@@ -70,6 +71,7 @@ public class ExecTask extends Task {
 
     protected Redirector redirector = new Redirector(this);
     protected RedirectorElement redirectorElement;
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Controls whether the VM (1.3 and above) is used to execute the
@@ -388,7 +390,7 @@ public class ExecTask extends Task {
 
     /**
      * Restrict this execution to a single OS Family
-     * @param osFamily
+     * @param osFamily the family to restrict to.
      */
     public void setOsFamily(String osFamily) {
         this.osFamily = osFamily.toLowerCase(Locale.US);
@@ -543,7 +545,7 @@ public class ExecTask extends Task {
      */
     protected boolean isValidOs() {
         //hand osfamily off to Os class, if set
-        if(osFamily!=null && !Os.isOs(osFamily,null,null,null)) {
+        if (osFamily != null && !Os.isOs(osFamily, null, null, null)) {
             return false;
         }
         //the Exec OS check is different from Os.isOs(), which

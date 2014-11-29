@@ -91,6 +91,7 @@ public class Untar extends Expand {
     /**
      * @see Expand#expandFile(FileUtils, File, File)
      */
+    /** {@inheritDoc} */
     protected void expandFile(FileUtils fileUtils, File srcF, File dir) {
         FileInputStream fis = null;
         try {
@@ -131,7 +132,7 @@ public class Untar extends Expand {
         throws IOException {
         TarInputStream tis = null;
         try {
-            tis = 
+            tis =
                 new TarInputStream(compression.decompress(name,
                                                           new BufferedInputStream(stream)));
             log("Expanding: " + name + " into " + dir, Project.MSG_INFO);

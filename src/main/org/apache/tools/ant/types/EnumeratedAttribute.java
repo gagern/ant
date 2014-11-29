@@ -29,11 +29,13 @@ import org.apache.tools.ant.BuildException;
  *
  */
 public abstract class EnumeratedAttribute {
-
+    // CheckStyle:VisibilityModifier OFF - bc
     /**
      * The selected value in this enumeration.
      */
     protected String value;
+
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * the index of the selected value in the array.
@@ -51,6 +53,34 @@ public abstract class EnumeratedAttribute {
 
     /** bean constructor */
     protected EnumeratedAttribute() {
+    }
+
+    /**
+     * Factory method for instantiating EAs via API in a more
+     * developer friendly way.
+     * @param clazz             Class, extending EA, which to instantiate
+     * @param value             The value to set on that EA
+     * @return                  Configured EA
+     * @throws BuildException   If the class could not be found or the value
+     *                          is not valid for the given EA-class.
+     * @see <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=14831">
+     * http://issues.apache.org/bugzilla/show_bug.cgi?id=14831</a>
+     */
+    public static EnumeratedAttribute getInstance(
+        Class/*<? extends EnumeratedAttribute>*/ clazz,
+        String value) throws BuildException {
+        if (!EnumeratedAttribute.class.isAssignableFrom(clazz)) {
+            throw new BuildException(
+                "You have to provide a subclass from EnumeratedAttribut as clazz-parameter.");
+        }
+        EnumeratedAttribute ea = null;
+        try {
+            ea = (EnumeratedAttribute) clazz.newInstance();
+        } catch (Exception e) {
+            throw new BuildException(e);
+        }
+        ea.setValue(value);
+        return ea;
     }
 
     /**
@@ -110,7 +140,6 @@ public abstract class EnumeratedAttribute {
     public final int getIndex() {
         return index;
     }
-
 
     /**
      * Convert the value to its string form.

@@ -20,23 +20,22 @@ package org.apache.tools.ant;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Vector;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
 
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceFactory;
-import org.apache.tools.ant.types.selectors.FileSelector;
-import org.apache.tools.ant.types.selectors.SelectorUtils;
-import org.apache.tools.ant.types.selectors.SelectorScanner;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.selectors.FileSelector;
+import org.apache.tools.ant.types.selectors.SelectorScanner;
+import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
@@ -137,7 +136,7 @@ public class DirectoryScanner
      * reasons.</p>
      *
      * @deprecated since 1.6.x.
-     *             Use the {@link #getDefaultExcludes getDefaultExcludes} 
+     *             Use the {@link #getDefaultExcludes getDefaultExcludes}
      *             method instead.
      */
     protected static final String[] DEFAULTEXCLUDES = {
@@ -186,6 +185,8 @@ public class DirectoryScanner
     static {
         resetDefaultExcludes();
     }
+
+    // CheckStyle:VisibilityModifier OFF - bc
 
     /** The base directory to be scanned. */
     protected File basedir;
@@ -259,6 +260,8 @@ public class DirectoryScanner
 
     /** Whether or not everything tested so far has been included. */
     protected boolean everythingIncluded = true;
+
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Temporary table to speed up the various scanning methods.
@@ -830,8 +833,8 @@ public class DirectoryScanner
      * @since Ant 1.6
      */
     private void checkIncludePatterns() {
-        Hashtable newroots = new Hashtable();
-        // put in the newroots vector the include patterns without
+        Map newroots = new HashMap();
+        // put in the newroots map the include patterns without
         // wildcard tokens
         for (int i = 0; i < includes.length; i++) {
             if (FileUtils.isAbsolutePath(includes[i])) {
@@ -854,7 +857,7 @@ public class DirectoryScanner
         } else {
             // only scan directories that can include matched files or
             // directories
-            Enumeration enum2 = newroots.keys();
+            Iterator it = newroots.entrySet().iterator();
 
             File canonBase = null;
             if (basedir != null) {
@@ -864,12 +867,13 @@ public class DirectoryScanner
                     throw new BuildException(ex);
                 }
             }
-            while (enum2.hasMoreElements()) {
-                String currentelement = (String) enum2.nextElement();
+            while (it.hasNext()) {
+                Map.Entry entry = (Map.Entry) it.next();
+                String currentelement = (String) entry.getKey();
                 if (basedir == null && !FileUtils.isAbsolutePath(currentelement)) {
                     continue;
                 }
-                String originalpattern = (String) newroots.get(currentelement);
+                String originalpattern = (String) entry.getValue();
                 File myfile = new File(basedir, currentelement);
 
                 if (myfile.exists()) {
@@ -970,6 +974,7 @@ public class DirectoryScanner
                     try {
                         slowScanLock.wait();
                     } catch (InterruptedException e) {
+                        // Empty
                     }
                 }
                 return;
@@ -1014,7 +1019,7 @@ public class DirectoryScanner
             }
         }
     }
-    
+
     /**
      * Scan the given directory for files and directories. Found files and
      * directories are placed in their respective collections, based on the
@@ -1115,7 +1120,7 @@ public class DirectoryScanner
      * @param file  included File.
      */
     private void accountForIncludedFile(String name, File file) {
-    	processIncluded(name, file, filesIncluded, filesExcluded, filesDeselected);
+        processIncluded(name, file, filesIncluded, filesExcluded, filesDeselected);
     }
 
     /**
@@ -1126,20 +1131,20 @@ public class DirectoryScanner
      * @param fast whether to perform fast scans.
      */
     private void accountForIncludedDir(String name, File file, boolean fast) {
-    	processIncluded(name, file, dirsIncluded, dirsExcluded, dirsDeselected);
+        processIncluded(name, file, dirsIncluded, dirsExcluded, dirsDeselected);
         if (fast && couldHoldIncluded(name) && !contentsExcluded(name)) {
             scandir(file, name + File.separator, fast);
         }
     }
-    
+
     private void processIncluded(String name, File file, Vector inc, Vector exc, Vector des) {
-        
+
         if (inc.contains(name) || exc.contains(name) || des.contains(name)) { return; }
-        
+
         boolean included = false;
         if (isExcluded(name)) {
             exc.add(name);
-        } else if(isSelected(name, file)) {
+        } else if (isSelected(name, file)) {
             included = true;
             inc.add(name);
         } else {

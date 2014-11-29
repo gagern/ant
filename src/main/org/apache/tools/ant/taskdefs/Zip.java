@@ -66,6 +66,7 @@ import org.apache.tools.zip.ZipOutputStream;
  * @ant.task category="packaging"
  */
 public class Zip extends MatchingTask {
+    // CheckStyle:VisibilityModifier OFF - bc
 
     protected File zipFile;
     // use to scan own archive
@@ -93,6 +94,8 @@ public class Zip extends MatchingTask {
     protected boolean skipWriting = false;
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * true when we are adding new files into the Zip file, as opposed
@@ -979,7 +982,7 @@ public class Zip extends MatchingTask {
              */
             as = getNonFileSetResourcesToAdd(rc, zipFile, true);
         }
-        
+
         Resource[][] toAdd = new Resource[rcs.length][];
         int fsIndex = 0;
         int restIndex = 0;
@@ -1655,6 +1658,7 @@ public class Zip extends MatchingTask {
         /**
          * @see EnumeratedAttribute#getValues()
          */
+        /** {@inheritDoc} */
         public String[] getValues() {
             return new String[] {"add", "preserve", "fail"};
         }

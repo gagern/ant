@@ -83,8 +83,8 @@ public class Delete extends MatchingTask {
                 return ((Comparable) foo).compareTo(bar) * -1;
             }
         };
-        File basedir;
-        String[] dirs;
+        private File basedir;
+        private String[] dirs;
         ReverseDirs(File basedir, String[] dirs) {
             this.basedir = basedir;
             this.dirs = dirs;
@@ -97,6 +97,7 @@ public class Delete extends MatchingTask {
         public int size() { return dirs.length; }
     }
 
+    // CheckStyle:VisibilityModifier OFF - bc
     protected File file = null;
     protected File dir = null;
     protected Vector filesets = new Vector();
@@ -109,6 +110,7 @@ public class Delete extends MatchingTask {
     private boolean failonerror = true;
     private boolean deleteOnExit = false;
     private Resources rcs = null;
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Set the name of a single file to be removed.
@@ -544,6 +546,13 @@ public class Delete extends MatchingTask {
         resourcesToDelete.setProject(getProject());
         Resources filesetDirs = new Resources();
         filesetDirs.setProject(getProject());
+        FileSet implicit = null;
+        if (usedMatchingTask && dir != null && dir.isDirectory()) {
+            //add the files from the default fileset:
+            implicit = getImplicitFileSet();
+            implicit.setProject(getProject());
+            filesets.add(implicit);
+        }
 
         for (int i = 0, size = filesets.size(); i < size; i++) {
             FileSet fs = (FileSet) filesets.get(i);
@@ -557,15 +566,6 @@ public class Delete extends MatchingTask {
             if (includeEmpty && fs.getDir().isDirectory()) {
               filesetDirs.add(new ReverseDirs(fs.getDir(),
                   fs.getDirectoryScanner().getIncludedDirectories()));
-            }
-        }
-        if (usedMatchingTask && dir != null && dir.isDirectory()) {
-            //add the files from the default fileset:
-            FileSet implicit = getImplicitFileSet();
-            resourcesToDelete.add(implicit);
-            if (includeEmpty) {
-              filesetDirs.add(new ReverseDirs(dir,
-                  implicit.getDirectoryScanner().getIncludedDirectories()));
             }
         }
         resourcesToDelete.add(filesetDirs);
@@ -601,6 +601,10 @@ public class Delete extends MatchingTask {
             }
         } catch (Exception e) {
             handle(e);
+        } finally {
+            if (implicit != null) {
+                filesets.remove(implicit);
+            }
         }
     }
 
@@ -617,7 +621,7 @@ public class Delete extends MatchingTask {
             throw (e instanceof BuildException)
                 ? (BuildException) e : new BuildException(e);
         }
-        log(e.getMessage(), quiet ? Project.MSG_VERBOSE : verbosity);
+        log(e, quiet ? Project.MSG_VERBOSE : verbosity);
     }
 
     /**
@@ -691,7 +695,7 @@ public class Delete extends MatchingTask {
                 + d.getAbsolutePath(), quiet ? Project.MSG_VERBOSE : verbosity);
             for (int j = 0; j < files.length; j++) {
                 File f = new File(d, files[j]);
-                log("Deleting " + f.getAbsolutePath(), 
+                log("Deleting " + f.getAbsolutePath(),
                         quiet ? Project.MSG_VERBOSE : verbosity);
                 if (!delete(f)) {
                     handle("Unable to delete file " + f.getAbsolutePath());
@@ -705,7 +709,7 @@ public class Delete extends MatchingTask {
                 File currDir = new File(d, dirs[j]);
                 String[] dirFiles = currDir.list();
                 if (dirFiles == null || dirFiles.length == 0) {
-                    log("Deleting " + currDir.getAbsolutePath(), 
+                    log("Deleting " + currDir.getAbsolutePath(),
                             quiet ? Project.MSG_VERBOSE : verbosity);
                     if (!delete(currDir)) {
                         handle("Unable to delete directory "
@@ -720,7 +724,7 @@ public class Delete extends MatchingTask {
                 log("Deleted "
                      + dirCount
                      + " director" + (dirCount == 1 ? "y" : "ies")
-                     + " form " + d.getAbsolutePath(), 
+                     + " form " + d.getAbsolutePath(),
                      quiet ? Project.MSG_VERBOSE : verbosity);
             }
         }

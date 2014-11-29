@@ -49,7 +49,16 @@ import java.lang.reflect.InvocationTargetException;
  */
 public final class Diagnostics {
 
+    /**
+     * value for which a difference between clock and temp file time triggers
+     * a warning.
+     * {@value}
+     */
     private static final int BIG_DRIFT_LIMIT = 10000;
+    /**
+     * How big a test file to write.
+     * {@value}
+     */
     private static final int TEST_FILE_SIZE = 32;
     private static final int KILOBYTE = 1024;
     private static final int SECONDS_PER_MILLISECOND = 1000;
@@ -57,6 +66,13 @@ public final class Diagnostics {
     private static final int MINUTES_PER_HOUR = 60;
     private static final String TEST_CLASS
         = "org.apache.tools.ant.taskdefs.optional.Test";
+
+    /**
+     * The error text when a security manager blocks access to a property.
+     * {@value}
+     */
+    protected static final String ERROR_PROPERTY_ACCESS_BLOCKED
+        = "Access to this property blocked by a security manager";
 
     /** utility class */
     private Diagnostics() {
@@ -224,14 +240,13 @@ public final class Diagnostics {
     }
 
     /**
-     * ignore exceptions. This is to allow future 
+     * ignore exceptions. This is to allow future
      * implementations to log at a verbose level
      * @param thrown
      */
     private static void ignoreThrowable(Throwable thrown) {
-        
     }
-    
+
     /**
      * get the location of a class. Stolen from axis/webapps/happyaxis.jsp
      * @param clazz
@@ -264,7 +279,7 @@ public final class Diagnostics {
             ignoreThrowable(e);
             out.println("optional tasks : not available");
         }
-        
+
         header(out, "ANT PROPERTIES");
         doReportAntProperties(out);
 
@@ -291,10 +306,10 @@ public final class Diagnostics {
 
         header(out, "Locale information");
         doReportLocale(out);
-        
+
         header(out, "Proxy information");
         doReportProxy(out);
-        
+
         out.println();
     }
 
@@ -322,14 +337,26 @@ public final class Diagnostics {
         for (Enumeration keys = sysprops.propertyNames();
             keys.hasMoreElements();) {
             String key = (String) keys.nextElement();
-            String value;
-            try {
-                value = System.getProperty(key);
-            } catch (SecurityException e) {
-                value = "Access to this property blocked by a security manager";
-            }
+            String value = getProperty(key);
             out.println(key + " : " + value);
         }
+    }
+
+    /**
+     * Get the value of a system property. If a security manager
+     * blocks access to a property it fills the result in with an error
+     * @param key
+     * @return the system property's value or error text
+     * @see #ERROR_PROPERTY_ACCESS_BLOCKED
+     */
+    private static String getProperty(String key) {
+        String value;
+        try {
+            value = System.getProperty(key);
+        } catch (SecurityException e) {
+            value = ERROR_PROPERTY_ACCESS_BLOCKED;
+        }
+        return value;
     }
 
     /**
@@ -340,7 +367,8 @@ public final class Diagnostics {
         Project p = new Project();
         p.initProperties();
         out.println(MagicNames.ANT_VERSION + ": " + p.getProperty(MagicNames.ANT_VERSION));
-        out.println(MagicNames.ANT_JAVA_VERSION + ": " + p.getProperty(MagicNames.ANT_JAVA_VERSION));
+        out.println(MagicNames.ANT_JAVA_VERSION + ": "
+                    + p.getProperty(MagicNames.ANT_JAVA_VERSION));
         out.println(MagicNames.ANT_LIB + ": " + p.getProperty(MagicNames.ANT_LIB));
         out.println(MagicNames.ANT_HOME + ": " + p.getProperty(MagicNames.ANT_HOME));
     }
@@ -435,7 +463,7 @@ public final class Diagnostics {
                         Class.forName(classname);
                         props.remove(key);
                     } catch (ClassNotFoundException e) {
-                        out.println(key + " : Not Available " 
+                        out.println(key + " : Not Available "
                                 + "(the implementation class is not present)");
                     } catch (NoClassDefFoundError e) {
                         String pkg = e.getMessage().replace('/', '.');
@@ -447,8 +475,8 @@ public final class Diagnostics {
                 if (props.size() == 0) {
                     out.println("All defined tasks are available");
                 } else {
-                    out.println("A task being missing/unavailable should only " 
-                            +"matter if you are trying to use it");
+                    out.println("A task being missing/unavailable should only "
+                            + "matter if you are trying to use it");
                 }
             } catch (IOException e) {
                 out.println(e.getMessage());
@@ -464,8 +492,8 @@ public final class Diagnostics {
         String parserName = getXmlParserName();
         String parserLocation = getXMLParserLocation();
         printParserInfo(out, "XML Parser", parserName, parserLocation);
-        printParserInfo(out, "Namespace-aware parser", 
-                getNamespaceParserName(), 
+        printParserInfo(out, "Namespace-aware parser",
+                getNamespaceParserName(),
                 getNamespaceParserLocation());
     }
 
@@ -479,8 +507,8 @@ public final class Diagnostics {
         if (parserLocation == null) {
             parserLocation = "unknown";
         }
-        out.println(parserType +" : " + parserName);
-        out.println(parserType +" Location: " + parserLocation);
+        out.println(parserType + " : " + parserName);
+        out.println(parserType + " Location: " + parserLocation);
     }
 
     /**
@@ -539,7 +567,7 @@ public final class Diagnostics {
 
     /**
      * Report locale information
-     * @param out stream to print to 
+     * @param out stream to print to
      */
     private static void doReportLocale(PrintStream out) {
         //calendar stuff.
@@ -558,34 +586,30 @@ public final class Diagnostics {
     }
 
     /**
-     * print a property name="value" pair, or name=[undefined] if there is none
-     * @param out
-     * @param name
+     * print a property name="value" pair if the property is set;
+     * print nothing if it is null
+     * @param out stream to print on
+     * @param key property name
      */
-    private static void printProperty(PrintStream out,String name) {
-        out.print(name);
-        out.print(" = ");
-        String value=System.getProperty(name);
-        if(value!=null) {
+    private static void printProperty(PrintStream out, String key) {
+        String value = getProperty(key);
+        if (value != null) {
+            out.print(key);
+            out.print(" = ");
             out.print('"');
             out.print(value);
             out.println('"');
-        } else {
-            out.println("[undefined]");
         }
-        
     }
 
     /**
      * Report proxy information
      *
      * @param out stream to print to
+     * @since Ant1.7
      */
     private static void doReportProxy(PrintStream out) {
-        if(JavaEnvUtils.getJavaVersionNumber()>=15) {
-            printProperty(out, ProxySetup.USE_SYSTEM_PROXIES);
-        }
-        printProperty(out,ProxySetup.HTTP_PROXY_HOST);
+        printProperty(out, ProxySetup.HTTP_PROXY_HOST);
         printProperty(out, ProxySetup.HTTP_PROXY_PORT);
         printProperty(out, ProxySetup.HTTP_PROXY_USERNAME);
         printProperty(out, ProxySetup.HTTP_PROXY_PASSWORD);
@@ -600,23 +624,27 @@ public final class Diagnostics {
         printProperty(out, ProxySetup.SOCKS_PROXY_PORT);
         printProperty(out, ProxySetup.SOCKS_PROXY_USERNAME);
         printProperty(out, ProxySetup.SOCKS_PROXY_PASSWORD);
-        
-        final String proxyDiagClassname="org.apache.tools.ant.util.java15.ProxyDiagnostics";
+
+        if (JavaEnvUtils.getJavaVersionNumber() < 15) {
+            return;
+        }
+        printProperty(out, ProxySetup.USE_SYSTEM_PROXIES);
+        final String proxyDiagClassname
+            = "org.apache.tools.ant.util.java15.ProxyDiagnostics";
         try {
             Class proxyDiagClass = Class.forName(proxyDiagClassname);
-            Object instance =proxyDiagClass.newInstance();
-            out.println("Java1.5+ proxy settings");
+            Object instance = proxyDiagClass.newInstance();
+            out.println("Java1.5+ proxy settings:");
             out.println(instance.toString());
         } catch (ClassNotFoundException e) {
             //not included, do nothing
         } catch (IllegalAccessException e) {
             //not included, do nothing
-
         } catch (InstantiationException e) {
             //not included, do nothing
-
+        } catch (NoClassDefFoundError e) {
+            // not included, to nothing
         }
-
     }
 
 }

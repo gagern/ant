@@ -129,6 +129,13 @@ public class EchoProperties extends Task {
 
     private String format = "text";
 
+    private String prefix;
+
+    /**
+     * @since Ant 1.7
+     */
+    private String regex;
+
     /**
      * Sets the input file.
      *
@@ -163,22 +170,48 @@ public class EchoProperties extends Task {
 
     /**
      *  If the prefix is set, then only properties which start with this
-     *  prefix string will be recorded.  If this is never set, or it is set
-     *  to an empty string or <tt>null</tt>, then all properties will be
-     *  recorded. <P>
+     *  prefix string will be recorded. If regex is not set and  if this
+     *  is never set, or it is set to an empty string or <tt>null</tt>,
+     *  then all properties will be recorded. <P>
      *
-     *  For example, if the property is set as:
+     *  For example, if the attribute is set as:
      *    <PRE>&lt;echoproperties  prefix="ant." /&gt;</PRE>
      *  then the property "ant.home" will be recorded, but "ant-example"
      *  will not.
      *
-     *@param  prefix  The new prefix value
+     * @param  prefix  The new prefix value
      */
     public void setPrefix(String prefix) {
         if (prefix != null && prefix.length() != 0) {
+            this.prefix = prefix;
             PropertySet ps = new PropertySet();
             ps.setProject(getProject());
             ps.appendPrefix(prefix);
+            addPropertyset(ps);
+        }
+    }
+
+    /**
+     *  If the regex is set, then only properties whose names match it
+     *  will be recorded.  If prefix is not set and if this is never set,
+     *  or it is set to an empty string or <tt>null</tt>, then all
+     *  properties will be recorded.<P>
+     *
+     *  For example, if the attribute is set as:
+     *    <PRE>&lt;echoproperties  prefix=".*ant.*" /&gt;</PRE>
+     *  then the properties "ant.home" and "user.variant" will be recorded,
+     *  but "ant-example" will not.
+     *
+     * @param  regex  The new regex value
+     *
+     * @since Ant 1.7
+     */
+    public void setRegex(String regex) {
+        if (regex != null && regex.length() != 0) {
+            this.regex = regex;
+            PropertySet ps = new PropertySet();
+            ps.setProject(getProject());
+            ps.appendRegex(regex);
             addPropertyset(ps);
         }
     }
@@ -209,6 +242,7 @@ public class EchoProperties extends Task {
 
         /**
          * @see EnumeratedAttribute#getValues()
+         * @return accepted values
          */
         public String[] getValues() {
             return formats;
@@ -221,6 +255,10 @@ public class EchoProperties extends Task {
      *@exception  BuildException  trouble, probably file IO
      */
     public void execute() throws BuildException {
+        if (prefix != null && regex != null) {
+            throw new BuildException("Please specify either prefix"
+                    + " or regex, but not both", getLocation());
+        }
         //copy the properties file
         Hashtable allProps = new Hashtable();
 
@@ -356,9 +394,6 @@ public class EchoProperties extends Task {
                 Set result = super.entrySet();
                 if (JavaEnvUtils.isKaffe()) {
                     TreeSet t = new TreeSet(new Comparator() {
-                        public boolean equals(Object o) {
-                            return false;
-                        }
                         public int compare(Object o1, Object o2) {
                             String key1 = (String) ((Map.Entry) o1).getKey();
                             String key2 = (String) ((Map.Entry) o2).getKey();
@@ -387,8 +422,8 @@ public class EchoProperties extends Task {
      * a tuple for the sort list.
      */
     private static class Tuple implements Comparable {
-        public String key;
-        public String value;
+        private String key;
+        private String value;
 
         private Tuple(String key, String value) {
             this.key = key;

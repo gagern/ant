@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <!--
-   Copyright 2001-2006 The Apache Software Foundation
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+     Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
 
        http://www.apache.org/licenses/LICENSE-2.0
 
@@ -49,9 +50,9 @@ directory</a> or, preferably, its <a href="[preferred]/ant/">mirror</a>.</p>
 
 </section>
 
-<section name="Downloading Ant 1.7.0Beta1">
+<section name="Downloading Ant 1.7.0RC1">
 
-<p>Beta releases are not mirrored, you can find our latest beta
+<p>Betas and release candidates are not mirrored, you can find our latest
 release at <a
 href="http://cvs.apache.org/dist/ant/">http://cvs.apache.org/dist/ant/</a>.</p>
 

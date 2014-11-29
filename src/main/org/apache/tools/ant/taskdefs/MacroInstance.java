@@ -133,7 +133,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             if (presentElements.get(name) != null) {
                 throw new BuildException("Element " + name + " already present");
             }
-            presentElements.put(name, ue.getChildren());
+            presentElements.put(name, ue);
         }
     }
 
@@ -249,7 +249,8 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         ret.setQName(ue.getQName());
         ret.setTaskType(ue.getTaskType());
         ret.setTaskName(ue.getTaskName());
-        ret.setLocation(ue.getLocation());
+        ret.setLocation(
+            macroDef.getBackTrace() ? ue.getLocation() : getLocation());
         if (getOwningTarget() == null) {
             Target t = new Target();
             t.setProject(getProject());
@@ -297,8 +298,9 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                     ret.addChild(child);
                 }
             } else {
-                List list = (List) presentElements.get(tag);
-                if (list == null) {
+                UnknownElement presentElement =
+                    (UnknownElement) presentElements.get(tag);
+                if (presentElement == null) {
                     if (!templateElement.isOptional()) {
                         throw new BuildException(
                             "Required nested element "
@@ -306,11 +308,19 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                     }
                     continue;
                 }
-                for (Iterator i = list.iterator();
-                     i.hasNext();) {
-                    UnknownElement child = copy((UnknownElement) i.next());
-                    rc.addChild(child.getWrapper());
-                    ret.addChild(child);
+                String presentText =
+                    presentElement.getWrapper().getText().toString();
+                if (!"".equals(presentText)) {
+                    rc.addText(macroSubs(presentText, localAttributes));
+                }
+                List list = presentElement.getChildren();
+                if (list != null) {
+                    for (Iterator i = list.iterator();
+                         i.hasNext();) {
+                        UnknownElement child = copy((UnknownElement) i.next());
+                        rc.addChild(child.getWrapper());
+                        ret.addChild(child);
+                    }
                 }
             }
         }

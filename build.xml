@@ -1,18 +1,25 @@
 <?xml version="1.0"?>
 
 <!--
-  =======================================================================
-    Apache Ant own build file
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
 
-   Copyright (c) 2000-2006 The Apache Software Foundation.  All rights
-   reserved.
+       http://www.apache.org/licenses/LICENSE-2.0
 
-  =======================================================================
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
 -->
 <project name="apache-ant" default="main" basedir=".">
 
   <!-- Give user a chance to override without editing this file
-       (and without typing -D each time it compiles it) -->
+       (and without typing -D on each invocation) -->
   <property file=".ant.properties"/>
   <property file="${user.home}/.ant.properties"/>
   <property environment="env"/>
@@ -25,7 +32,11 @@
   -->
   <property name="Name" value="Apache Ant"/>
   <property name="name" value="ant"/>
-  <property name="version" value="1.7.0Beta1"/>
+  <!-- this is the groupId of ant in the Maven repository -->
+  <property name="groupid" value="org.apache.ant"/>
+  <property name="project.version" value="1.7.0RC1"/>
+  <!-- pom.version is used when doing a distribution and must match with what is checked in under src/etc/poms -->
+  <property name="pom.version" value="1.7.0-SNAPSHOT"/>
   <property name="manifest-version" value="1.7.0"/>
   <property name="bootstrap.jar" value="ant-bootstrap.jar"/>
 
@@ -72,10 +83,11 @@
   <property name="script.dir" value="${src.dir}/script"/>
   <property name="lib.dir" value="lib"/>
   <property name="docs.dir" value="docs"/>
-  <property name="etc.dir" value="src/etc"/>
-  <property name="tests.dir" value="src/testcases"/>
-  <property name="tests.etc.dir" value="src/etc/testcases"/>
-  <property name="manifest" value="src/etc/manifest"/>
+  <property name="etc.dir" value="${src.dir}/etc"/>
+  <property name="src.junit" value="${src.dir}/tests/junit"/>
+  <property name="src.antunit" value="${src.dir}/tests/antunit"/>
+  <property name="tests.etc.dir" value="${src.dir}/etc/testcases"/>
+  <property name="manifest" value="${src.dir}/etc/manifest"/>
   <property name="resource.dir" value="${src.dir}/resources"/>
 
   <!--
@@ -90,8 +102,10 @@
   <property name="build.javadocs" value="${build.dir}/javadocs"/>
   <property name="build.tests" value="${build.dir}/testcases"/>
   <property name="build.tests.javadocs" value="${build.dir}/javadocs.test/"/>
-  <property name="build.tests.xml" location="${build.tests}/xml"/>
-  <property name="build.tests.reports" location="${build.tests}/reports"/>
+  <property name="build.junit.xml" location="${build.tests}/xml"/>
+  <property name="antunit.xml" location="${build.dir}/antunit/xml"/>
+  <property name="antunit.reports" location="${build.dir}/antunit/reports"/>
+  <property name="build.junit.reports" location="${build.tests}/reports"/>
   <property name="manifest.tmp" value="${build.dir}/optional.manifest"/>
   <!-- the absolute path -->
   <property name="build.tests.value" location="${build.tests}"/>
@@ -111,7 +125,7 @@
         include the test source and test data dirs
         so that we can pick resources via getResource(AsStream)
      -->
-    <pathelement location="${tests.dir}"/>
+    <pathelement location="${src.junit}"/>
     <pathelement location="${tests.etc.dir}"/>
     <path refid="classpath"/>
   </path>
@@ -125,7 +139,7 @@
           Set up properties for the distribution area
         ===================================================================
    -->
-  <property name="dist.name" value="apache-${name}-${version}"/>
+  <property name="dist.name" value="apache-${name}-${project.version}"/>
   <property name="dist.base" value="distribution"/>
   <property name="dist.base.source" value="${dist.base}/source"/>
   <property name="dist.base.binaries" value="${dist.base}/binaries"/>
@@ -141,7 +155,9 @@
   <property name="src.dist.docs" value="${src.dist.dir}/docs"/>
   <property name="src.dist.lib" value="${src.dist.dir}/lib"/>
 
-  <property name="java-repository.dir" value="java-repository/ant/jars"/>
+  <property name="java-repository.dir" value="java-repository/${groupid}"/>
+  <property name="java-repository.jars.dir" value="${java-repository.dir}/jars"/>
+  <property name="java-repository.poms.dir" value="${java-repository.dir}/poms"/>
 
   <!--
        ===================================================================
@@ -179,21 +195,9 @@
     </or>
   </selector>
 
-  <selector id="needs.sun.uue">
-    <filename name="${ant.package}/taskdefs/email/UUMailer*"/>
-  </selector>
-
-  <selector id="needs.sun.b64">
-    <or>
-      <filename name="${optional.package}/splash/SplashTask*"/>
-      <filename name="${optional.package}/splash/SplashScreenTest.java"/>
-    </or>
-  </selector>
-
   <!-- depends on external libraries -->
   <selector id="needs.trax">
     <or>
-      <filename name="${optional.package}/junit/Xalan2Executor*"/>
       <filename name="${optional.package}/TraXLiaison*"/>
       <filename name="${optional.package}/XsltTest*"/>
       <filename name="${type.package}/XMLCatalogBuildFileTest*"/>
@@ -241,6 +245,7 @@
       <filename name="${optional.package}/script/**/*"/>
       <filename name="${optional.type.package}/*Script*"/>
       <filename name="${util.package}/Script*"/>
+      <filename name="${util.package}/optional/Script*"/>
     </or>
   </selector>
 
@@ -415,6 +420,9 @@
     <available property="junit.present"
       classname="junit.framework.TestCase"
       classpathref="classpath"/>
+    <available property="antunit.present"
+      classname="org.apache.ant.antunit.AntUnit"
+      classpathref="classpath"/>
     <available property="commons.net.present"
       classname="org.apache.commons.net.ftp.FTPClient"
       classpathref="classpath"/>
@@ -461,9 +469,6 @@
     <available property="bcel.present"
       classname="org.apache.bcel.Constants"
       classpathref="classpath"/>
-    <available property="sunuue.present"
-      classname="sun.misc.UUEncoder"
-      classpathref="classpath"/>
 
     <condition property="javamail.complete">
       <and>
@@ -496,20 +501,19 @@
       </and>
     </condition>
 
-    <available property="base64.present" classname="sun.misc.BASE64Encoder"/>
-
-    <property name="build.tests.resolved" location="${build.tests}"/>
     <condition property="tests.are.on.system.classpath">
       <or>
-        <!-- relative paths in CLASSPATH -->
-        <contains string="${java.class.path}"
-          substring="${build.tests}"/>
-        <!-- absolute paths in CLASSPATH -->
-        <contains string="${java.class.path}"
-          substring="${build.tests.resolved}"/>
+        <resourcecount count="1">
+          <intersect>
+            <path path="${java.class.path}" />
+            <file file="${build.tests}" />
+          </intersect>
+        </resourcecount>
         <istrue value="${junit.fork}"/>
       </or>
     </condition>
+
+    <echo level="verbose"> tests.are.on.system.classpath=${tests.are.on.system.classpath}</echo>
 
     <condition property="jasper.present">
       <and>
@@ -593,7 +597,6 @@
       </or>
     </condition>
 
-
   </target>
 
 
@@ -607,11 +610,7 @@
       <format property="year" pattern="yyyy"/>
     </tstamp>
     <filterchain id="ant.filters">
-      <replacetokens>
-        <token key="VERSION" value="${version}"/>
-        <token key="DATE" value="${TODAY}"/>
-        <token key="TIME" value="${TSTAMP}"/>
-      </replacetokens>
+       <expandproperties/>
     </filterchain>
   </target>
 
@@ -643,8 +642,6 @@
             <selector refid="needs.jdk1.4+" unless="jdk1.4+"/>
             <selector refid="needs.jdk1.5+" unless="jdk1.5+"/>
             <selector refid="not.in.kaffe" if="kaffe"/>
-            <selector refid="needs.sun.uue" unless="sunuue.present"/>
-            <selector refid="needs.sun.b64" unless="base64.present"/>
 
             <selector refid="needs.trax" unless="trax.present"/>
             <selector refid="needs.apache-resolver" unless="apache.resolver.present"/>
@@ -714,7 +711,7 @@
     description="--> creates the Apache Ant jars">
 
     <copy todir="${build.dir}">
-      <fileset dir=".">
+      <fileset dir="${basedir}">
         <include name="LICENSE"/>
         <include name="LICENSE.xerces"/>
         <include name="LICENSE.dom"/>
@@ -766,9 +763,13 @@
             <filename name="${util.package}/optional/**"/>
             <selector refid="needs.apache-log4j"/>
             <selector refid="needs.commons-logging"/>
+            <selector refid="needs.apache-bcel"/>
+            <selector refid="needs.apache-bsf"/>
             <selector refid="needs.apache-regexp"/>
+            <selector refid="needs.apache-resolver"/>
             <selector refid="needs.apache-oro"/>
             <selector refid="needs.jdk1.4+"/>
+            <selector refid="needs.jdk1.5+"/>
             <selector refid="needs.javamail"/>
             <selector refid="ant.launcher"/>
           </or>
@@ -826,6 +827,7 @@
         <selector refid="non-core"/>
         <not>
           <or>
+            <selector refid="ant.launcher"/>
             <selector refid="needs.trax"/>
             <selector refid="needs.apache-resolver"/>
             <selector refid="needs.junit"/>
@@ -946,7 +948,7 @@
     </copy>
 
     <copy todir="${dist.bin}">
-      <fileset dir="${script.dir}/"/>
+      <fileset dir="${script.dir}"/>
     </copy>
 
     <fixcrlf srcdir="${dist.bin}" eol="dos" includes="*.bat,*.cmd"/>
@@ -997,6 +999,39 @@
     <copy todir="${dist.lib}" file="${lib.dir}/README"/>
     <copy todir="${dist.lib}" file="${lib.dir}/libraries.properties"/>
 
+    <copy todir="${dist.lib}">
+        <fileset dir="${src.dir}/etc/poms">
+            <include name="*/pom.xml"/>
+        </fileset>
+        <mapper type="regexp" from="^(.*)[/\\]pom.xml" to="\1-${project.version}.pom"/>
+        <filterchain>
+            <tokenfilter>
+                <replaceregex pattern="${pom.version}" replace="${project.version}"/>
+            </tokenfilter>
+        </filterchain>
+    </copy>
+    <copy todir="${dist.lib}">
+        <fileset dir="${src.dir}/etc/poms">
+            <include name="pom.xml"/>
+        </fileset>
+        <mapper type="glob" from="pom.xml" to="ant-parent-${project.version}.pom"/>
+        <filterchain>
+            <tokenfilter>
+                <replaceregex pattern="${pom.version}" replace="${project.version}"/>
+            </tokenfilter>
+        </filterchain>
+    </copy>
+    <checksum algorithm="md5">
+        <fileset dir="${dist.lib}">
+            <include name="*.pom"/>
+        </fileset>
+    </checksum>
+    <checksum algorithm="sha1">
+        <fileset dir="${dist.lib}">
+            <include name="*.pom"/>
+        </fileset>
+    </checksum>
+
     <copy todir="${dist.docs}">
       <fileset dir="${docs.dir}" excludes="${unfiltered.files}">
         <patternset refid="site.excludes"/>
@@ -1011,7 +1046,7 @@
     </copy>
 
     <copy todir="${dist.dir}">
-      <fileset dir=".">
+      <fileset dir="${basedir}">
         <include name="README"/>
         <include name="INSTALL"/>
         <include name="LICENSE"/>
@@ -1022,7 +1057,6 @@
         <include name="TODO"/>
         <include name="WHATSNEW"/>
         <include name="KEYS"/>
-        <include name="welcome.html"/>
         <include name="fetch.xml"/>
 	<include name="get-m2.xml"/>
       </fileset>
@@ -1108,7 +1142,7 @@
     </copy>
 
     <copy todir="${src.dist.dir}">
-      <fileset dir=".">
+      <fileset dir="${basedir}">
         <include name="README"/>
         <include name="INSTALL"/>
         <include name="LICENSE"/>
@@ -1125,7 +1159,6 @@
         <include name="bootstrap.sh"/>
         <include name="build.xml"/>
         <include name="fetch.xml"/>
-        <include name="welcome.html"/>
 	<include name="get-m2.xml"/>
       </fileset>
     </copy>
@@ -1139,8 +1172,8 @@
     </fixcrlf>
     <fixcrlf srcdir="${src.dist.dir}">
       <include name="**/*.java"/>
-      <exclude name="src/etc/testcases/taskdefs/fixcrlf/expected/Junk?.java"/>
-      <exclude name="src/etc/testcases/taskdefs/fixcrlf/input/Junk?.java"/>
+      <exclude name="${tests.etc.dir}/taskdefs/fixcrlf/expected/Junk?.java"/>
+      <exclude name="${tests.etc.dir}/taskdefs/fixcrlf/input/Junk?.java"/>
     </fixcrlf>
 
     <chmod perm="ugo+x" dir="${src.dist.dir}" type="dir"
@@ -1165,13 +1198,14 @@
   -->
   <target name="main_distribution"
     description="--> creates the zip and tar distributions">
+    <delete dir="${dist.base}"/>
     <delete dir="${dist.name}"/>
     <delete dir="${java-repository.dir}"/>
     <mkdir dir="${dist.base}"/>
     <mkdir dir="${dist.base.source}"/>
     <mkdir dir="${dist.base.binaries}"/>
-    <mkdir dir="${java-repository.dir}"/>
-
+    <mkdir dir="${java-repository.jars.dir}"/>
+    <mkdir dir="${java-repository.poms.dir}"/>
     <antcall inheritAll="false" target="internal_dist">
       <param name="dist.dir" value="${dist.name}"/>
     </antcall>
@@ -1216,19 +1250,30 @@
       src="${dist.base.binaries}/${dist.name}-bin.tar"/>
     <delete file="${dist.base.binaries}/${dist.name}-bin.tar"/>
 
-    <copy todir="${java-repository.dir}">
+    <copy todir="${java-repository.jars.dir}">
       <fileset dir="${dist.name}/lib">
         <include name="ant*.jar"/>
       </fileset>
-      <mapper type="glob" from="*.jar" to="*-${version}.jar"/>
+      <mapper type="glob" from="*.jar" to="*-${project.version}.jar"/>
+    </copy>
+    <copy todir="${java-repository.poms.dir}">
+      <fileset dir="${dist.name}/lib">
+        <include name="*.pom"/>
+        <include name="*.sha1"/>
+        <include name="*.md5"/>
+      </fileset>
+      <mapper>
+        <mapper type="glob" from="*.pom" to="*.pom"/>
+        <mapper type="glob" from="*.pom.sha1" to="*.pom.sha1"/>
+        <mapper type="glob" from="*.pom.md5" to="*.pom.md5"/>
+      </mapper>
     </copy>
     <checksum fileext=".md5">
-      <fileset dir="${java-repository.dir}" includes="*${version}.jar"/>
+      <fileset dir="${java-repository.jars.dir}" includes="*${project.version}.jar"/>
     </checksum>
     <checksum fileext=".sha1" algorithm="SHA">
-      <fileset dir="${java-repository.dir}" includes="*${version}.jar"/>
+      <fileset dir="${java-repository.jars.dir}" includes="*${project.version}.jar"/>
     </checksum>
-
     <delete dir="${dist.name}"/>
     <checksum fileext=".md5">
       <fileset dir="${dist.base.binaries}/">
@@ -1315,12 +1360,13 @@
     <property name="ssh.verbose" value="false"/>
     <property name="ssh.base.directory" value="/www/www.apache.org/dist"/>
     <property name="ssh.dist.directory" value="${ssh.base.directory}/ant"/>
-    <property name="ssh.jars.directory" value="${ssh.base.directory}/java-repository/ant/jars"/>
+    <property name="ssh.java-repository.directory" value="/www/people.apache.org/repo/m1-ibiblio-rsync-repository/ant"/>
     <echo >
-      Uploading Ant version ${version}
+      Uploading Ant version ${project.version}
       to host ${ssh.host} as ${apache.user}
       distribution to ${ssh.dist.directory}
-      JAR files to ${ssh.jars.directory}
+      JAR files to ${ssh.java-repository.directory}/jars
+      POM files to ${ssh.java-repository.directory}/poms
       Known hosts = ${ssh.knownhosts}
     </echo>
   </target>
@@ -1335,7 +1381,11 @@
     <sshexec username="${apache.user}" host="${ssh.host}"
       keyfile="${ssh.keyfile}" passphrase="${ssh.passphrase}"
       knownhosts="${ssh.knownhosts}"
-      command="mkdir -p ${ssh.jars.directory}"/>
+      command="mkdir -p ${ssh.java-repository.directory}/jars"/>
+    <sshexec username="${apache.user}" host="${ssh.host}"
+      keyfile="${ssh.keyfile}" passphrase="${ssh.passphrase}"
+      knownhosts="${ssh.knownhosts}"
+      command="mkdir -p ${ssh.java-repository.directory}/poms"/>
   </target>
 
   <target name="upload" description="--> uploads the distribution"
@@ -1345,15 +1395,15 @@
       knownhosts="${ssh.knownhosts}"
       verbose="${ssh.verbose}" >
       <fileset dir="${dist.base}">
-        <include name="**/*${version}*"/>
+        <include name="**/*${project.version}*"/>
       </fileset>
      </scp>
-    <scp todir="${apache.user}@${ssh.host}:${ssh.jars.directory}"
+    <scp todir="${apache.user}@${ssh.host}:${ssh.java-repository.directory}"
       keyfile="${ssh.keyfile}" passphrase="${ssh.passphrase}"
       knownhosts="${ssh.knownhosts}"
       verbose="${ssh.verbose}">
-      <fileset dir="java-repository/ant/jars">
-        <include name="*${version}*"/>
+      <fileset dir="java-repository/ant">
+        <include name="*/*${project.version}*"/>
       </fileset>
      </scp>
   </target>
@@ -1416,7 +1466,7 @@
     </uptodate>
     <uptodate property="tests.javadoc.notrequired"
       targetfile="${build.tests.javadocs}/packages.html">
-      <srcfiles dir="${tests.dir}">
+      <srcfiles dir="${src.junit}">
         <patternset refid="useful.tests"/>
       </srcfiles>
     </uptodate>
@@ -1437,6 +1487,7 @@
 
       <packageset dir="${java.dir}"/>
 
+      <!-- hide some meta information for javadoc -->
       <tag name="todo" description="To do:" scope="all"/>
       <tag name="ant.task" enabled="false" description="Task:" scope="types"/>
       <tag name="ant.datatype" enabled="false" description="Data type:" scope="types"/>
@@ -1450,7 +1501,6 @@
       <group title="Optional Types" packages="org.apache.tools.ant.types.optional*"/>
       <group title="Ant Utilities" packages="org.apache.tools.ant.util*"/>
 
-      <bottom>Copyright &#169; 2000-${year} Apache Software Foundation. All Rights Reserved.</bottom>
     </javadoc>
   </target>
 
@@ -1466,11 +1516,13 @@
       windowtitle="${Name} Test Utilities"
       doctitle="${Name}">
 
-      <fileset dir="${tests.dir}">
+      <!-- hide some meta information for javadoc -->
+      <tag name="pre" description="Precondition:" scope="all"/>
+
+      <fileset dir="${src.junit}">
         <patternset refid="useful.tests"/>
       </fileset>
 
-      <bottom>Copyright &#169; 2000-${year} Apache Software Foundation. All Rights Reserved.</bottom>
     </javadoc>
   </target>
 
@@ -1482,7 +1534,7 @@
   <target name="compile-tests" depends="build" if="junit.present">
     <mkdir dir="${build.tests}"/>
 
-    <javac srcdir="${tests.dir}"
+    <javac srcdir="${src.junit}"
       destdir="${build.tests}"
       debug="${debug}"
       target="${javac.target}"
@@ -1514,6 +1566,7 @@
     <echo message="os.version=${os.version}"/>
     <echo message="file.encoding=${file.encoding}"/>
     <echo message="user.language=${user.language}"/>
+  	<echo message="ant.version=${ant.version}"/>
   </target>
 
   <!-- helper class from Xalan2 to check for jar versioning of xml/xsl processors -->
@@ -1546,69 +1599,164 @@
          Run testcase
        ===================================================================
   -->
-  <target name="test" depends="test-halt" description="--> run JUnit tests"/>
 
-
-  <target name="test-init" depends="probe-offline">
-    <mkdir dir="${build.tests.xml}"/>
-    <mkdir dir="${build.tests.reports}" />
-
-    <presetdef name="test-junit">
-      <junit printsummary="${junit.summary}"
-          haltonfailure="${test.haltonfailure}"
-          fork="${junit.fork}"
-          forkmode="${junit.forkmode}"
-          failureproperty="tests.failed"
-          errorproperty="tests.failed"
-          filtertrace="${junit.filtertrace}"
-          >
-        <sysproperty key="ant.home" value="${ant.home}"/>
-        <sysproperty key="build.tests" file="${build.tests}"/>
-        <sysproperty key="build.tests.value" value="${build.tests.value}"/>
-        <sysproperty key="offline" value="${offline}"/>
-        <sysproperty key="tests-classpath.value"
-            value="${tests-classpath.value}"/>
-        <sysproperty key="root" file="${basedir}"/>
-        <sysproperty key="build.compiler" value="${build.compiler}"/>
-        <sysproperty key="tests.and.ant.share.classloader"
-            value="${tests.and.ant.share.classloader}"/>
-        <classpath refid="tests-classpath"/>
-        <formatter type="xml"/>
-      </junit>
-    </presetdef>
-
+  <target name="check-failed">
+    <condition property="tests.failed">
+      <or>
+        <isset property="junit.failed" />
+        <isset property="antunit.failed" />
+      </or>
+    </condition>
   </target>
 
-<!--if="run.junitreport"-->
-  <target name="test-report" depends="test-init,run-tests,run-single-test"
-      if="trax.impl.present">
-    <junitreport todir="${build.tests.reports}">
-      <fileset dir="${build.tests.xml}">
+  <target name="test" description="--> run unit tests and reports"
+          depends="dump-info,junit-report,antunit-report,check-failed">
+    <fail if="tests.failed">Unit tests failed;
+see ${build.junit.reports} / ${antunit.reports}
+    </fail>
+  </target>
+
+  <target name="run-tests" depends="dump-info,junit-tests,antunit-tests,check-failed"
+          description="--> run unit tests without reports">
+    <fail if="tests.failed" message="Unit tests failed" />
+  </target>
+
+  <target name="test-init" depends="probe-offline,check_for_optional_packages">
+    <macrodef name="test-junit">
+      <element name="junit-nested" implicit="true" />
+      <sequential>
+        <mkdir dir="${build.junit.xml}" />
+        <property name="test.junit.vmargs" value=""/>
+        <junit printsummary="${junit.summary}"
+               haltonfailure="${test.haltonfailure}"
+               fork="${junit.fork}"
+               forkmode="${junit.forkmode}"
+               failureproperty="junit.failed"
+               errorproperty="junit.failed"
+               filtertrace="${junit.filtertrace}">
+          <sysproperty key="ant.home" value="${ant.home}"/>
+          <sysproperty key="build.tests" file="${build.tests}"/>
+          <sysproperty key="build.tests.value" value="${build.tests.value}"/>
+          <sysproperty key="offline" value="${offline}"/>
+          <sysproperty key="tests-classpath.value"
+                       value="${tests-classpath.value}"/>
+          <sysproperty key="root" file="${basedir}"/>
+          <sysproperty key="build.compiler" value="${build.compiler}"/>
+          <sysproperty key="tests.and.ant.share.classloader"
+                       value="${tests.and.ant.share.classloader}"/>
+          <classpath refid="tests-classpath"/>
+          <formatter type="xml"/>
+          <jvmarg line="${test.junit.vmargs}"/>
+          <junit-nested />
+        </junit>
+      </sequential>
+    </macrodef>
+
+    <fail>"testcase" cannot be specified with "junit.testcase" or "antunit.testcase".
+      <condition>
+        <and>
+          <isset property="testcase" />
+          <or>
+            <isset property="antunit.testcase" />
+            <isset property="junit.testcase" />
+          </or>
+        </and>
+      </condition>
+    </fail>
+
+    <condition property="antunit.testcase" value="${testcase}">
+      <available file="${src.antunit}/${testcase}" />
+    </condition>
+
+    <condition property="junit.testcase" value="${testcase}">
+      <available classname="${testcase}" classpathref="tests-classpath" />
+    </condition>
+
+    <fail>Cannot locate test ${testcase}
+      <condition>
+        <and>
+          <isset property="testcase" />
+          <not>
+            <or>
+              <isset property="antunit.testcase" />
+              <isset property="junit.testcase" />
+            </or>
+          </not>
+        </and>
+      </condition>
+    </fail>
+
+    <condition property="run.junit">
+      <and>
+        <not><equals arg1="${testcase}" arg2="${antunit.testcase}" /></not>
+        <isset property="junit.present" />
+        <available file="${src.junit}" />
+      </and>
+    </condition>
+
+    <condition property="junit.single">
+      <and>
+        <isset property="junit.testcase" />
+        <isset property="run.junit" />
+      </and>
+    </condition>
+
+    <condition property="junit.batch">
+      <and>
+        <not><isset property="junit.testcase" /></not>
+        <isset property="run.junit" />
+      </and>
+    </condition>
+
+    <condition property="run.antunit">
+      <and>
+        <not><equals arg1="${testcase}" arg2="${junit.testcase}" /></not>
+        <isset property="antunit.present" />
+        <available file="${src.antunit}" />
+      </and>
+    </condition>
+
+    <condition property="run.antunit.report">
+      <and>
+        <isset property="run.antunit" />
+        <isset property="trax.impl.present" />
+      </and>
+    </condition>
+
+    <condition property="run.junit.report">
+      <and>
+        <isset property="run.junit" />
+        <isset property="trax.impl.present" />
+      </and>
+    </condition>
+  </target>
+
+  <target name="junit-report" depends="junit-tests,junit-report-only" />
+
+  <target name="junit-report-only" depends="test-init" if="run.junit.report">
+    <mkdir dir="${build.junit.reports}" />
+    <junitreport todir="${build.junit.reports}">
+      <fileset dir="${build.junit.xml}">
         <include name="TEST-*.xml"/>
       </fileset>
-      <report format="frames" todir="${build.tests.reports}"/>
+      <report format="frames" todir="${build.junit.reports}"/>
     </junitreport>
   </target>
 
-  <target name="test-halt" depends="test-report" >
-    <fail if="tests.failed">Unit tests failed see ${build.tests.reports}</fail>
-  </target>
+  <target name="junit-tests" depends="junit-batch,junit-single-test" />
 
+  <target name="junit-batch" depends="compile-tests,test-init"
+      if="junit.batch">
 
-  <target name="run-tests" depends="dump-info,compile-tests,probe-offline,test-init"
-      if="junit.present" unless="testcase">
+    <property name="junit.includes" value="**/*Test*" />
+    <property name="junit.excludes" value="" />
 
-
-
-    <property name="includetests" value="**/*Test*" />
-    <property name="excludetests" value="" />
-
-    <test-junit >
+    <test-junit>
       <formatter type="brief" usefile="false"/>
 
-      <batchtest todir="${build.tests.xml}">
-        <fileset dir="${tests.dir}"
-                 includes="${includetests}" excludes="${excludetests}">
+      <batchtest todir="${build.junit.xml}">
+        <fileset dir="${src.junit}"
+                 includes="${junit.includes}" excludes="${junit.excludes}">
 
           <!-- abstract classes, not testcases -->
           <exclude name="${taskdefs.package}/TaskdefsTest.java"/>
@@ -1709,8 +1857,6 @@
           <!--  These tests only passes if testcases and Ant classes have
           been loaded by the same classloader - will throw
           IllegalAccessExceptions otherwise.  -->
-          <exclude name="${ant.package}/DirectoryScannerTest.java"
-            unless="tests.and.ant.share.classloader"/>
           <exclude name="${taskdefs.package}/SQLExecTest.java"
             unless="tests.and.ant.share.classloader"/>
           <exclude name="${taskdefs.package}/cvslib/ChangeLogWriterTest.java"
@@ -1749,15 +1895,14 @@
     </test-junit>
   </target>
 
-  <target name="run-single-test" if="testcase" depends="compile-tests,run-single-test-only"
-    description="--> runs the single unit test defined in the testcase property"/>
+  <target name="junit-single-test" depends="compile-tests,junit-single-test-only"
+    description="--> runs the single unit test at $${junit.testcase}" />
 
-  <target name="run-single-test-only" if="testcase"
-    description="--> runs the single unit test defined in the testcase property"
-     depends="test-init">
-    <test-junit >
+  <target name="junit-single-test-only" depends="test-init" if="junit.single"
+    description="--> runs the single unit test at $${junit.testcase} (no compile)">
+    <test-junit>
       <formatter type="plain" usefile="false"/>
-      <test name="${testcase}" todir="${build.tests.xml}"/>
+      <test name="${junit.testcase}" todir="${build.junit.xml}"/>
     </test-junit>
   </target>
 
@@ -1767,6 +1912,43 @@
     <java classpathref="tests-classpath"
       classname="org.apache.tools.ant.taskdefs.TestProcess"
       fork="true"/>
+  </target>
+
+  <target name="antunit-tests" depends="dump-info,build,test-init"
+          if="run.antunit" description="--> run the antunit tests">
+
+    <condition property="antunit.includes" value="${antunit.testcase}"
+               else="**/test.xml,**/*-test.xml">
+      <isset property="antunit.testcase" />
+    </condition>
+
+    <property name="antunit.excludes" value="" />
+
+    <mkdir dir="${antunit.xml}" />
+    <au:antunit xmlns:au="antlib:org.apache.ant.antunit"
+                failonerror="false" errorproperty="antunit.failed">
+      <fileset dir="${src.antunit}" includes="${antunit.includes}"
+               excludes="${antunit.excludes}" />
+      <au:plainlistener />
+      <au:xmllistener todir="${antunit.xml}" />
+    </au:antunit>
+  </target>
+
+  <target name="antunit-report" depends="antunit-tests,antunit-report-only" />
+
+  <target name="antunit-report-only" depends="test-init" if="run.antunit.report">
+    <length>
+      <fileset dir="${antunit.xml}" includes="TEST-*.xml" />
+    </length>
+    <mkdir dir="${antunit.reports}" />
+    <junitreport todir="${antunit.reports}">
+      <fileset dir="${antunit.xml}" includes="TEST-*.xml" />
+      <report styledir="${src.antunit}" format="frames"
+              todir="${antunit.reports}"/>
+    </junitreport>
+    <length>
+      <fileset dir="${antunit.xml}" includes="TEST-*.xml" />
+    </length>
   </target>
 
   <!--
@@ -1791,7 +1973,7 @@
     xmlns:dn="antlib:org.apache.ant.dotnet">
 
     <property name="msi.dir" value="${build.dir}"/>
-    <property name="msi.name" value="${name}-${version}.msi"/>
+    <property name="msi.name" value="${name}-${project.version}.msi"/>
     <property name="msi.file" value="${msi.dir}/${msi.name}"/>
     <property name="wix.home" value="${user.home}/wix"/>
     <property name="wixobj.dir" value="${build.dir}/wix"/>
@@ -1802,7 +1984,7 @@
 
     <dn:wix target="${msi.file}"
       mode="both" wixHome="${wix.home}" wixobjDestDir="${wixobj.dir}">
-      <sources dir="src/etc" includes="*.wxs"/>
+      <sources dir="${etc.dir}" includes="*.wxs"/>
       <moresources dir="${dist.dir}"/>
 
       <candleParameter name="dist.dir" value="${dist.dir.resolved}"/>

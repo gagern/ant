@@ -30,14 +30,18 @@ import org.apache.tools.ant.taskdefs.Java;
  * and options are available. Do not set any apart from the <tt>classpath</tt>
  * as they are not guaranteed to be there in future.
  * @todo stop extending from Java.
- * @deprecated since 1.7. 
+ * @deprecated since 1.7.
  *             This task is considered unsupported by the Ant developers
  */
 public class StyleBook extends Java {
+    // CheckStyle:VisibilityModifier OFF - bc
+    // CheckStyle:MemberNameCheck OFF - bc
     protected File m_targetDirectory;
     protected File m_skinDirectory;
     protected String m_loaderConfig;
     protected File m_book;
+    // CheckStyle:MemberNameCheck ON
+    // CheckStyle:VisibilityModifier ON
 
 
     /**
@@ -63,7 +67,7 @@ public class StyleBook extends Java {
     /**
      * Set the directory that contains the stylebook skin;
      * required.
-     * @param skinDirectory the location of the stylebook skin 
+     * @param skinDirectory the location of the stylebook skin
      */
     public void setSkinDirectory(final File skinDirectory) {
         m_skinDirectory = skinDirectory;
@@ -81,7 +85,7 @@ public class StyleBook extends Java {
 
     /**
      * A loader configuration to send to stylebook; optional.
-     * @param loaderConfig
+     * @param loaderConfig the configuration to use.
      */
     public void setLoaderConfig(final String loaderConfig) {
         m_loaderConfig = loaderConfig;
@@ -90,6 +94,7 @@ public class StyleBook extends Java {
 
     /**
      * call the program
+     * @throws BuildException if there is a problem.
      */
     public void execute()
          throws BuildException {

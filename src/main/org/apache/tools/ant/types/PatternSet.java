@@ -117,11 +117,12 @@ public class PatternSet extends DataType implements Cloneable {
          * @return a printable form of this object.
          */
         public String toString() {
+            StringBuffer buf = new StringBuffer();
             if (name == null) {
-                throw new BuildException(
-                    "Missing attribute \"name\" for a pattern");
+                buf.append("noname");
+            } else {
+                buf.append(name);
             }
-            StringBuffer buf = new StringBuffer(name);
             if ((ifCond != null) || (unlessCond != null)) {
                 buf.append(":");
                 String connector = "";
@@ -398,9 +399,12 @@ public class PatternSet extends DataType implements Cloneable {
     }
 
     /**
-     * helper for FileSet.
+     * Helper for FileSet classes.
+     * Check if there are patterns defined.
+     * @param p the current project.
+     * @return true if there are patterns.
      */
-    boolean hasPatterns(Project p) {
+    public boolean hasPatterns(Project p) {
         if (isReference()) {
             return getRef(p).hasPatterns(p);
         } else {
@@ -493,19 +497,15 @@ public class PatternSet extends DataType implements Cloneable {
      * @return a clone of this patternset.
      */
     public Object clone() {
-        if (isReference()) {
-            return getRef(getProject()).clone();
-        } else {
-            try {
-                PatternSet ps = (PatternSet) super.clone();
-                ps.includeList = (Vector) includeList.clone();
-                ps.excludeList = (Vector) excludeList.clone();
-                ps.includesFileList = (Vector) includesFileList.clone();
-                ps.excludesFileList = (Vector) excludesFileList.clone();
-                return ps;
-            } catch (CloneNotSupportedException e) {
-                throw new BuildException(e);
-            }
+        try {
+            PatternSet ps = (PatternSet) super.clone();
+            ps.includeList = (Vector) includeList.clone();
+            ps.excludeList = (Vector) excludeList.clone();
+            ps.includesFileList = (Vector) includesFileList.clone();
+            ps.excludesFileList = (Vector) excludesFileList.clone();
+            return ps;
+        } catch (CloneNotSupportedException e) {
+            throw new BuildException(e);
         }
     }
 

@@ -59,6 +59,9 @@ public class WaitFor extends ConditionBase {
     private long checkEveryMultiplier = 1L;
     private String timeoutProperty;
 
+    /**
+     * Constructor, names this task "waitfor".
+     */
     public WaitFor() {
         super("waitfor");
     }
@@ -152,7 +155,7 @@ public class WaitFor extends ConditionBase {
      * @since Ant1.7
      */
     protected void processSuccess() {
-        log(getTaskName()+": condition was met", Project.MSG_VERBOSE);
+        log(getTaskName() + ": condition was met", Project.MSG_VERBOSE);
     }
 
     /**
@@ -163,7 +166,7 @@ public class WaitFor extends ConditionBase {
      * @since Ant1.7
      */
     protected void processTimeout() {
-        log(getTaskName() +": timeout", Project.MSG_VERBOSE);
+        log(getTaskName() + ": timeout", Project.MSG_VERBOSE);
         if (timeoutProperty != null) {
             getProject().setNewProperty(timeoutProperty, "true");
         }
@@ -176,11 +179,17 @@ public class WaitFor extends ConditionBase {
      */
     public static class Unit extends EnumeratedAttribute {
 
+        /** millisecond string */
         public static final String MILLISECOND = "millisecond";
+        /** second string */
         public static final String SECOND = "second";
+        /** minute string */
         public static final String MINUTE = "minute";
+        /** hour string */
         public static final String HOUR = "hour";
+        /** day string */
         public static final String DAY = "day";
+        /** week string */
         public static final String WEEK = "week";
 
         private static final String[] UNITS = {
@@ -212,6 +221,7 @@ public class WaitFor extends ConditionBase {
         /**
          * @see EnumeratedAttribute#getValues()
          */
+        /** {@inheritDoc} */
         public String[] getValues() {
             return UNITS;
         }

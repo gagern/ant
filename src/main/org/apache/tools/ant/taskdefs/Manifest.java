@@ -86,7 +86,7 @@ public class Manifest {
 
     /** Encoding to be used for JAR files. */
     public static final String JAR_ENCODING = "UTF-8";
-    
+
     /**
      * An attribute for the manifest.
      * Those attributes that are not nested into a section will be added to the "Main" section.
@@ -105,7 +105,7 @@ public class Manifest {
          * In this case the first line will have 74 bytes total line length
          * (including CRLF). This conflicts with the 72 bytes total line length
          * max, but is the only possible conclusion from the manifest specification, if
-         * names with 70 bytes length are allowed, have to be on the first line, and 
+         * names with 70 bytes length are allowed, have to be on the first line, and
          * have to be followed by ": ".
          */
         private static final int MAX_NAME_LENGTH = 70;
@@ -151,12 +151,13 @@ public class Manifest {
 
         /**
          * @see java.lang.Object#hashCode
+         * @return a hashcode based on the key and values.
          */
         public int hashCode() {
             int hashCode = 0;
 
             if (name != null) {
-                hashCode += name.hashCode();
+                hashCode += getKey().hashCode();
             }
 
             hashCode += values.hashCode();
@@ -164,7 +165,9 @@ public class Manifest {
         }
 
         /**
+         * @param rhs the object to check for equality.
          * @see java.lang.Object#equals
+         * @return true if the key and values are the same.
          */
         public boolean equals(Object rhs) {
             if (rhs == null || rhs.getClass() != getClass()) {
@@ -326,25 +329,20 @@ public class Manifest {
              throws IOException {
             String line = null;
             int nameLength = name.getBytes(JAR_ENCODING).length;
-            if (nameLength > MAX_NAME_VALUE_LENGTH)
-            {
-                if (nameLength > MAX_NAME_LENGTH)
-                {
+            if (nameLength > MAX_NAME_VALUE_LENGTH) {
+                if (nameLength > MAX_NAME_LENGTH) {
                     throw new IOException("Unable to write manifest line "
                             + name + ": " + value);
                 }
                 writer.print(name + ": " + EOL);
                 line = " " + value;
-            }
-            else
-            {
+            } else {
                 line = name + ": " + value;
             }
             while (line.getBytes(JAR_ENCODING).length > MAX_SECTION_LENGTH) {
                 // try to find a MAX_LINE_LENGTH byte section
                 int breakIndex = MAX_SECTION_LENGTH;
-                if (breakIndex >= line.length())
-                {
+                if (breakIndex >= line.length()) {
                     breakIndex = line.length() - 1;
                 }
                 String section = line.substring(0, breakIndex);
@@ -689,20 +687,16 @@ public class Manifest {
 
         /**
          * @see java.lang.Object#hashCode
+         * @return a hash value based on the attributes.
          */
         public int hashCode() {
-            int hashCode = 0;
-
-            if (name != null) {
-                hashCode += name.hashCode();
-            }
-
-            hashCode += attributes.hashCode();
-            return hashCode;
+            return attributes.hashCode();
         }
 
         /**
          * @see java.lang.Object#equals
+         * @param rhs the object to check for equality.
+         * @return true if the attributes are the same.
          */
         public boolean equals(Object rhs) {
             if (rhs == null || rhs.getClass() != getClass()) {
@@ -997,6 +991,7 @@ public class Manifest {
 
     /**
      * @see java.lang.Object#hashCode
+     * @return a hashcode based on the version, main and sections.
      */
     public int hashCode() {
         int hashCode = 0;
@@ -1012,6 +1007,8 @@ public class Manifest {
 
     /**
      * @see java.lang.Object#equals
+     * @param rhs the object to check for equality.
+     * @return true if the version, main and sections are the same.
      */
     public boolean equals(Object rhs) {
         if (rhs == null || rhs.getClass() != getClass()) {

@@ -70,6 +70,12 @@ public class RuntimeConfigurable implements Serializable {
      *  We could also just use SAX2 Attributes and convert to SAX1 ( DOM
      *  attribute Nodes can also be stored in SAX2 Attributes )
      *  XXX under JDK 1.4 you can just use a LinkedHashMap for this purpose -jglick
+     * The only exception to this order is the treatment of
+     * refid. A number of datatypes check if refid is set
+     * when other attributes are set. This check will not
+     * work if the build script has the other attribute before
+     * the "refid" attribute, so now (ANT 1.7) the refid
+     * attribute will be processed first.
      */
     private List/*<String>*/ attributeNames = null;
 
@@ -84,6 +90,9 @@ public class RuntimeConfigurable implements Serializable {
 
     /** the polymorphic type */
     private String polyType = null;
+
+    /** the "id" of this Element if it has one */
+    private String id = null;
 
     /**
      * Sole constructor creating a wrapper for the specified object.
@@ -131,6 +140,14 @@ public class RuntimeConfigurable implements Serializable {
     }
 
     /**
+     * Returns the id for this element.
+     * @return the id.
+     */
+    public synchronized String getId() {
+        return id;
+    }
+
+    /**
      * Get the polymorphic type for this element.
      * @return the ant component type name, null if not set.
      */
@@ -174,8 +191,15 @@ public class RuntimeConfigurable implements Serializable {
                 attributeNames = new ArrayList();
                 attributeMap = new HashMap();
             }
-            attributeNames.add(name);
+            if (name.toLowerCase(Locale.US).equals("refid")) {
+                attributeNames.add(0, name);
+            } else {
+                attributeNames.add(name);
+            }
             attributeMap.put(name, value);
+            if (name.equals("id")) {
+                this.id = value;
+            }
         }
     }
 
@@ -336,21 +360,20 @@ public class RuntimeConfigurable implements Serializable {
      * @param p The project containing the wrapped element.
      *          Must not be <code>null</code>.
      *
-     * @param configureChildren Whether to configure child elements as
-     * well.  if true, child elements will be configured after the
-     * wrapped element.
+     * @param configureChildren ignored.
+
      *
      * @exception BuildException if the configuration fails, for instance due
-     *            to invalid attributes or children, or text being added to
+     *            to invalid attributes , or text being added to
      *            an element which doesn't accept it.
      */
     public synchronized void maybeConfigure(Project p, boolean configureChildren)
         throws BuildException {
-        String id = null;
 
         if (proxyConfigured) {
             return;
         }
+
         // Configure the object
         Object target = (wrappedObject instanceof TypeAdapter)
             ? ((TypeAdapter) wrappedObject).getProxy() : wrappedObject;
@@ -388,39 +411,10 @@ public class RuntimeConfigurable implements Serializable {
                     }
                 }
             }
-            id = (String) attributeMap.get("id");
         }
 
         if (characters != null) {
             ProjectHelper.addText(p, wrappedObject, characters.substring(0));
-        }
-
-        Enumeration e = getChildren();
-        while (e.hasMoreElements()) {
-            RuntimeConfigurable child = (RuntimeConfigurable) e.nextElement();
-            synchronized (child) {
-                if (child.wrappedObject instanceof Task) {
-                    Task childTask = (Task) child.wrappedObject;
-                    childTask.setRuntimeConfigurableWrapper(child);
-                }
-                if ((child.creator != null) && configureChildren) {
-                    child.maybeConfigure(p);
-                    child.creator.store();
-                    continue;
-                }
-                /*
-                 * backwards compatibility - element names of nested
-                 * elements have been all lower-case in Ant, except for
-                 * tasks in TaskContainers.
-                 *
-                 * For TaskContainers, we simply skip configuration here.
-                 */
-                String tag = child.getElementTag().toLowerCase(Locale.US);
-                if (configureChildren && ih.supportsNestedElement(tag)) {
-                    child.maybeConfigure(p);
-                    ProjectHelper.storeChild(p, target, child.wrappedObject, tag);
-                }
-            }
         }
 
         if (id != null) {

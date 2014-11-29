@@ -29,7 +29,7 @@ import org.apache.tools.ant.types.Reference;
  * The Extension set lists a set of "Optional Packages" /
  * "Extensions".
  *
- * @ant.data-type name="extension-set"
+ * @ant.datatype name="extension-set"
  */
 public class ExtensionSet
     extends DataType {
@@ -117,6 +117,7 @@ public class ExtensionSet
 
     /**
      * @see java.lang.Object#toString()
+     * @return the extensions in a string.
      */
     public String toString() {
         return "ExtensionSet" + Arrays.asList(toExtensions(getProject()));

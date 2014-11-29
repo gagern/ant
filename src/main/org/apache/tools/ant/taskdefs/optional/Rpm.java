@@ -183,7 +183,7 @@ public class Rpm extends Task {
             log("Building the RPM based on the " + specFile + " file");
             int returncode = exe.execute();
             if (Execute.isFailure(returncode)) {
-                String msg = "'" + toExecute.getExecutable() 
+                String msg = "'" + toExecute.getExecutable()
                     + "' failed with exit code " + returncode;
                 if (failOnError) {
                     throw new BuildException(msg);
@@ -214,6 +214,7 @@ public class Rpm extends Task {
     /**
      * What command to issue to the rpm build tool; optional.
      * The default is "-bb"
+     * @param c the command to use.
      */
     public void setCommand(String c) {
         this.command = c;
@@ -221,6 +222,7 @@ public class Rpm extends Task {
 
     /**
      * The name of the spec File to use; required.
+     * @param sf the spec file name to use.
      */
     public void setSpecFile(String sf) {
         if ((sf == null) || (sf.trim().equals(""))) {
@@ -232,6 +234,7 @@ public class Rpm extends Task {
     /**
      * Flag (optional, default=false) to remove
      * the generated files in the BUILD directory
+     * @param cbd a <code>boolean</code> value.
      */
     public void setCleanBuildDir(boolean cbd) {
         cleanBuildDir = cbd;
@@ -239,6 +242,7 @@ public class Rpm extends Task {
 
     /**
      * Flag (optional, default=false) to remove the spec file from SPECS
+     * @param rs a <code>boolean</code> value.
      */
     public void setRemoveSpec(boolean rs) {
         removeSpec = rs;
@@ -248,6 +252,7 @@ public class Rpm extends Task {
      * Flag (optional, default=false)
      * to remove the sources after the build.
      * See the <tt>--rmsource</tt>  option of rpmbuild.
+     * @param rs a <code>boolean</code> value.
      */
     public void setRemoveSource(boolean rs) {
         removeSource = rs;
@@ -255,6 +260,7 @@ public class Rpm extends Task {
 
     /**
      * Optional file to save stdout to.
+     * @param output the file to save stdout to.
      */
     public void setOutput(File output) {
         this.output = output;
@@ -262,6 +268,7 @@ public class Rpm extends Task {
 
     /**
      * Optional file to save stderr to
+     * @param error the file to save error output to.
      */
     public void setError(File error) {
         this.error = error;
@@ -279,8 +286,8 @@ public class Rpm extends Task {
     }
 
     /**
-     * If <code>true</code>, stop the build process when the rpmbuild command 
-     * exits with an error status. 
+     * If <code>true</code>, stop the build process when the rpmbuild command
+     * exits with an error status.
      * @param value <code>true</code> if it should halt, otherwise
      * <code>false</code>. The default is <code>false</code>.
      *
@@ -291,7 +298,7 @@ public class Rpm extends Task {
     }
 
     /**
-     * If true, output from the RPM build command will only be logged to DEBUG. 
+     * If true, output from the RPM build command will only be logged to DEBUG.
      * @param value <code>false</code> if output should be logged, otherwise
      * <code>true</code>. The default is <code>false</code>.
      *
@@ -338,6 +345,10 @@ public class Rpm extends Task {
     }
 
     /**
+     * Get the execute object.
+     * @param toExecute the command line to use.
+     * @param streamhandler the stream handler to use.
+     * @return the execute object.
      * @since Ant 1.6.3
      */
     protected Execute getExecute(Commandline toExecute,

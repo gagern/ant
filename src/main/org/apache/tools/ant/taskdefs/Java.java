@@ -65,8 +65,10 @@ public class Java extends Task {
     private File output;
     private File error;
 
+    // CheckStyle:VisibilityModifier OFF - bc
     protected Redirector redirector = new Redirector(this);
     protected RedirectorElement redirectorElement;
+    // CheckStyle:VisibilityModifier ON
 
     private String resultProperty;
     private Permissions perm = null;
@@ -138,7 +140,8 @@ public class Java extends Task {
             throw new BuildException("Cannot spawn a java process in non-forked mode."
                                      + " Please set fork='true'. ");
         }
-        if (getCommandLine().getClasspath()!=null && getCommandLine().getJar()!=null) {
+        if (getCommandLine().getClasspath() != null
+            && getCommandLine().getJar() != null) {
             log("When using 'jar' attribute classpath-settings are ignored. "
                 + "See the manual for more information.", Project.MSG_VERBOSE);
         }

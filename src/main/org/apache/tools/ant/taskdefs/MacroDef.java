@@ -345,7 +345,7 @@ public class MacroDef extends AntlibDefinition  {
             getProject());
 
         helper.addDataTypeDefinition(def);
-        log("creating macro  " + name,Project.MSG_VERBOSE);
+        log("creating macro  " + name, Project.MSG_VERBOSE);
     }
 
     /**
@@ -426,7 +426,7 @@ public class MacroDef extends AntlibDefinition  {
          * @return a <code>boolean</code> value
          */
         protected boolean equals(Member m) {
-            return (name == null)? m.name == null: name.equals(m.name);
+            return (name == null) ? m.name == null : name.equals(m.name);
         }
 
         /**
@@ -437,14 +437,36 @@ public class MacroDef extends AntlibDefinition  {
             return objectHashCode(name);
         }
 
-    } // END static class Member
+    }
 
     /**
      * An attribute for the MacroDef task.
+     *
      */
-    public static class Attribute extends Member {
-
+    public static class Attribute {
+        private String name;
         private String defaultValue;
+        private String description;
+
+        /**
+         * The name of the attribute.
+         *
+         * @param name the name of the attribute
+         */
+        public void setName(String name) {
+            if (!isValidName(name)) {
+                throw new BuildException(
+                    "Illegal name [" + name + "] for attribute");
+            }
+            this.name = name.toLowerCase(Locale.US);
+        }
+
+        /**
+         * @return the name of the attribute
+         */
+        public String getName() {
+            return name;
+        }
 
         /**
          * The default value to use if the parameter is not
@@ -463,20 +485,61 @@ public class MacroDef extends AntlibDefinition  {
             return defaultValue;
         }
 
-        /** {@inheritDoc}. */
-        protected boolean equals(Member m) {
-            Attribute a = (Attribute) m;
-            return super.equals(m) &&
-                   (defaultValue == null)? a.defaultValue == null:
-                                           defaultValue.equals(a.defaultValue);
+        /**
+         * @param desc Description of the element.
+         * @since ant 1.6.1
+         */
+        public void setDescription(String desc) {
+            description = desc;
         }
 
-        /** {@inheritDoc}. */
+        /**
+         * @return the description of the element, or <code>null</code> if
+         *         no description is available.
+         * @since ant 1.6.1
+         */
+        public String getDescription() {
+            return description;
+        }
+
+        /**
+         * equality method
+         *
+         * @param obj an <code>Object</code> value
+         * @return a <code>boolean</code> value
+         */
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (obj.getClass() != getClass()) {
+                return false;
+            }
+            Attribute other = (Attribute) obj;
+            if (name == null) {
+                if (other.name != null) {
+                    return false;
+                }
+            } else if (!name.equals(other.name)) {
+                return false;
+            }
+            if (defaultValue == null) {
+                if (other.defaultValue != null) {
+                    return false;
+                }
+            } else if (!defaultValue.equals(other.defaultValue)) {
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * @return a hash code value for this object.
+         */
         public int hashCode() {
-            return super.hashCode() + objectHashCode(defaultValue);
+            return objectHashCode(defaultValue) + objectHashCode(name);
         }
-
-    }  // END static class Attribute
+    }
 
     /**
      * A nested define element for the MacroDef task.
@@ -513,7 +576,7 @@ public class MacroDef extends AntlibDefinition  {
          * This is not allowed for the define nested element.
          *
          * @param defaultValue not used
-         * @throws BuildException, always
+         * @throws BuildException always
          */
         public void setDefault(String defaultValue) {
             throw new BuildException(
@@ -522,7 +585,7 @@ public class MacroDef extends AntlibDefinition  {
 
         /**
          * Gets the default value for this attibute.
-         * 
+         *
          * @return the generated <em>unique</em> name, of the form
          *         "prefix#this classname#&lt;aCounter&gt;".
          */
@@ -533,17 +596,37 @@ public class MacroDef extends AntlibDefinition  {
             }
         }
 
-    } // END static class DefineAttribute
+    }
 
     /**
      * A nested text element for the MacroDef task.
-     *
      * @since ant 1.6.1
      */
-    public static class Text extends Member {
-
+    public static class Text {
+        private String  name;
         private boolean optional;
         private boolean trim;
+        private String  description;
+
+        /**
+         * The name of the attribute.
+         *
+         * @param name the name of the attribute
+         */
+        public void setName(String name) {
+            if (!isValidName(name)) {
+                throw new BuildException(
+                    "Illegal name [" + name + "] for attribute");
+            }
+            this.name = name.toLowerCase(Locale.US);
+        }
+
+        /**
+         * @return the name of the attribute
+         */
+        public String getName() {
+            return name;
+        }
 
         /**
          * The optional attribute of the text element.
@@ -555,8 +638,6 @@ public class MacroDef extends AntlibDefinition  {
         }
 
         /**
-         * Gets whether this text element is optional or not.
-         *
          * @return true if the text is optional
          */
         public boolean getOptional() {
@@ -574,23 +655,64 @@ public class MacroDef extends AntlibDefinition  {
         }
 
         /**
-         * Gets whether to trim the raw provided text.
-         *
          * @return true if the text is trim
          */
         public boolean getTrim() {
             return trim;
         }
 
-        /** {@inheritDoc}. */
-        protected boolean equals(Member m) {
-            Text t = (Text) m;
-            return super.equals(m) &&
-                   optional == t.optional &&
-                   trim == t.trim;
+        /**
+         * @param desc Description of the text.
+         */
+        public void setDescription(String desc) {
+            description = desc;
         }
 
-    } // END static class Text
+        /**
+         * @return the description of the text, or <code>null</code> if
+         *         no description is available.
+         */
+        public String getDescription() {
+            return description;
+        }
+
+        /**
+         * equality method
+         *
+         * @param obj an <code>Object</code> value
+         * @return a <code>boolean</code> value
+         */
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (obj.getClass() != getClass()) {
+                return false;
+            }
+            Text other = (Text) obj;
+            if (name == null) {
+                if (other.name != null) {
+                    return false;
+                }
+            } else if (!name.equals(other.name)) {
+                return false;
+            }
+            if (optional != other.optional) {
+                return false;
+            }
+            if (trim != other.trim) {
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * @return a hash code value for this object.
+         */
+        public int hashCode() {
+            return objectHashCode(name);
+        }
+    }
 
     /**
      * A nested element for the MacroDef task.
@@ -641,9 +763,8 @@ public class MacroDef extends AntlibDefinition  {
         /** {@inheritDoc}. */
         protected boolean equals(Member m) {
             TemplateElement t = (TemplateElement) m;
-            return super.equals(m) &&
-                   optional == t.optional &&
-                   implicit == t.implicit;
+            return super.equals(m)
+                && optional == t.optional && implicit == t.implicit;
         }
 
         /**

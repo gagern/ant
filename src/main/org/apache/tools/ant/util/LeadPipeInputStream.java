@@ -67,6 +67,7 @@ public class LeadPipeInputStream extends PipedInputStream {
      * circular buffer of the specified size.
      * @param src    the <code>PipedOutputStream</code> source.
      * @param size   the size of the circular buffer.
+     * @throws IOException if there is an error.
      */
     public LeadPipeInputStream(PipedOutputStream src, int size) throws IOException {
         super(src);
@@ -74,6 +75,11 @@ public class LeadPipeInputStream extends PipedInputStream {
     }
 
     //inherit doc
+    /**
+     * Read a byte from the stream.
+     * @return the byte (0 to 255) or -1 if there are no more.
+     * @throws IOException if there is an error.
+     */
     public synchronized int read() throws IOException {
         int result = -1;
         try {
@@ -106,7 +112,7 @@ public class LeadPipeInputStream extends PipedInputStream {
                     int outlen = buffer.length - out;
                     System.arraycopy(buffer, out, newBuffer, 0, outlen);
                     System.arraycopy(buffer, 0, newBuffer, outlen, in);
-                    in+= outlen;
+                    in += outlen;
                     out = 0;
                 }
             }

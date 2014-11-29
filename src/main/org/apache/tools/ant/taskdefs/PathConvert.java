@@ -139,8 +139,11 @@ public class PathConvert extends Task {
                      + "in a map entry");
             }
             // If we're on windows, then do the comparison ignoring case
-            String cmpElem = onWindows ? elem.toLowerCase() : elem;
-            String cmpFrom = onWindows ? from.toLowerCase() : from;
+            // and treat the two directory characters the same
+            String cmpElem =
+                onWindows ? elem.toLowerCase().replace('\\', '/') : elem;
+            String cmpFrom =
+                onWindows ? from.toLowerCase().replace('\\', '/') : from;
 
             // If the element starts with the configured prefix, then
             // convert the prefix to the configured 'to' value.
@@ -210,6 +213,7 @@ public class PathConvert extends Task {
      * Set targetos to a platform to one of
      * "windows", "unix", "netware", or "os/2";
      * current platform settings are used by default.
+     * @param target the target os.
      * @deprecated since 1.5.x.
      *             Use the method taking a TargetOs argument instead.
      * @see #setTargetos(PathConvert.TargetOs)

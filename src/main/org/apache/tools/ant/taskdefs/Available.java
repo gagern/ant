@@ -53,6 +53,19 @@ public class Available extends Task implements Condition {
     private String value = "true";
     private boolean isTask = false;
     private boolean ignoreSystemclasses = false;
+    private boolean searchParents   = false;
+
+    /**
+     * Set the searchParents attribute.
+     * This controls the behaviour of the the "file" type.
+     * If true, the path, parent path and grandparent path are
+     * searched for the file. If false, only the path is seached.
+     * The default value is false.
+     * @param searchParents the value to set.
+     */
+    public void setSearchParents(boolean  searchParents) {
+        this.searchParents = searchParents;
+    }
 
     /**
      * Set the classpath to be used when searching for classes and resources.
@@ -160,7 +173,7 @@ public class Available extends Task implements Condition {
     }
 
     /**
-     * @deprecated since 1.5.x. 
+     * @deprecated since 1.5.x.
      *             setType(String) is deprecated and is replaced with
      *             setType(Available.FileDir) to make Ant's Introspection
      *             mechanism do the work and also to encapsulate operations on
@@ -353,21 +366,12 @@ public class Available extends Task implements Condition {
                     }
                 }
                 // **   simple name specified   == parent dir + name
-                if (parent != null && parent.exists()) {
+                while (searchParents && parent != null && parent.exists()) {
                     if (checkFile(new File(parent, filename),
                                   filename + " in " + parent)) {
                         return true;
                     }
-                }
-                // **   simple name specified   == parent of parent dir + name
-                if (parent != null) {
-                    File grandParent = parent.getParentFile();
-                    if (grandParent != null && grandParent.exists()) {
-                        if (checkFile(new File(grandParent, filename),
-                                      filename + " in " + grandParent)) {
-                            return true;
-                        }
-                    }
+                    parent = parent.getParentFile();
                 }
             }
         }
@@ -471,6 +475,7 @@ public class Available extends Task implements Condition {
         /**
          * @see EnumeratedAttribute#getValues
          */
+        /** {@inheritDoc}. */
         public String[] getValues() {
             return VALUES;
         }

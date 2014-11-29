@@ -52,6 +52,7 @@ public class Native2AsciiAdapterFactory {
      * @param log a ProjectComponent instance used to access Ant's
      * logging system.
      * @return The adapter to use.
+     * @throws BuildException if there was a problem.
      */
     public static Native2AsciiAdapter getAdapter(String choice,
                                                  ProjectComponent log)
@@ -79,10 +80,9 @@ public class Native2AsciiAdapterFactory {
      * isn't an instance of Native2AsciiAdapter.
      */
     private static Native2AsciiAdapter resolveClassName(String className)
-        throws BuildException 
-    {
+        throws BuildException {
         return (Native2AsciiAdapter) ClasspathUtils.newInstance(className,
-            Native2AsciiAdapterFactory.class.getClassLoader(), 
+            Native2AsciiAdapterFactory.class.getClassLoader(),
             Native2AsciiAdapter.class);
     }
 }

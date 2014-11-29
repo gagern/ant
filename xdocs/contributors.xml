@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!--
-   Copyright 2002-2006 The Apache Software Foundation
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+     Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
 
        http://www.apache.org/licenses/LICENSE-2.0
 
@@ -76,10 +77,9 @@ in a telecommunication network setting.
             <p>
                 <b>Antoine Levy-Lambert</b> (antoine at apache.org)
 <br/>
-Antoine is an IT consultant specialized in financial IT and
-in application management/configuration management. He has experience with
-conceiving, building and managing distributed applications. His consultancy
-is called <a href="http://www.antbuild.com">antbuild</a>.
+Antoine is working as a software engineer for 
+<a href="http://www.arielpartners.com">Ariel Partners</a>.
+He is specialized in builds and automation of deployment processes.
 
             </p>
 

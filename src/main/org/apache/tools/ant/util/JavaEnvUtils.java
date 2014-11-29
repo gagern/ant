@@ -132,7 +132,7 @@ public final class JavaEnvUtils {
 
     /**
      * Returns the version of Java this class is running under.
-     * This number can be used for comparisions; it will always be 
+     * This number can be used for comparisions; it will always be
      * @return the version of Java as a number 10x the major/minor,
      * e.g Java1.5 has a value of 15
      */
@@ -152,6 +152,21 @@ public final class JavaEnvUtils {
      */
     public static boolean isJavaVersion(String version) {
         return javaVersion.equals(version);
+    }
+
+    /**
+     * Compares the current Java version to the passed in String -
+     * assumes the argument is one of the constants defined in this
+     * class.
+     * Note that Ant now requires JDK 1.2+ so {@link #JAVA_1_0} and
+     * {@link #JAVA_1_1} need no longer be tested for.
+     * @param version the version to check against the current version.
+     * @return true if the version of Java is the same or higher than the 
+     * given version.
+     * @since Ant 1.7
+     */
+    public static boolean isAtLeastJavaVersion(String version) {
+        return javaVersion.compareTo(version) >= 0;
     }
 
     /**
@@ -292,11 +307,11 @@ public final class JavaEnvUtils {
         switch(javaVersionNumber) {
             case 16:
             case 15:
-                //In Java1.5, the apache stuff moved. 
+                //In Java1.5, the apache stuff moved.
                 jrePackages.addElement("com.sun.org.apache");
-                //fall through. 
+                //fall through.
             case 14:
-                if(javaVersionNumber == 14) {
+                if (javaVersionNumber == 14) {
                     jrePackages.addElement("org.apache.crimson");
                     jrePackages.addElement("org.apache.xalan");
                     jrePackages.addElement("org.apache.xml");
@@ -342,10 +357,12 @@ public final class JavaEnvUtils {
         switch(javaVersionNumber) {
             case 16:
             case 15:
-                tests.addElement("com.sun.org.apache.xerces.internal.jaxp.datatype.DatatypeFactoryImpl ");
+                tests.addElement(
+                    "com.sun.org.apache.xerces.internal.jaxp.datatype.DatatypeFactoryImpl ");
+                // Fall tru
             case 14:
                 tests.addElement("sun.audio.AudioPlayer");
-                if(javaVersionNumber == 14) {
+                if (javaVersionNumber == 14) {
                     tests.addElement("org.apache.crimson.parser.ContentModel");
                     tests.addElement("org.apache.xalan.processor.ProcessorImport");
                     tests.addElement("org.apache.xml.utils.URI");

@@ -259,7 +259,7 @@ public class ProjectHelper2 extends ProjectHelper {
      * @param handler  new main handler
      */
     protected static void setMainHandler(AntHandler handler) {
-        mainHandler=handler;
+        mainHandler = handler;
     }
 
     /**
@@ -275,7 +275,7 @@ public class ProjectHelper2 extends ProjectHelper {
      * @param handler  new project handler
      */
     protected static void setProjectHandler(AntHandler handler) {
-        projectHandler=handler;
+        projectHandler = handler;
     }
 
     /**
@@ -291,7 +291,7 @@ public class ProjectHelper2 extends ProjectHelper {
      * @param handler  new target handler
      */
     protected static void setTargetHandler(AntHandler handler) {
-        targetHandler=handler;
+        targetHandler = handler;
     }
 
     /**
@@ -307,7 +307,7 @@ public class ProjectHelper2 extends ProjectHelper {
      * @param handler  new element handler
      */
     protected static void setElementHandler(AntHandler handler) {
-        elementHandler=handler;
+        elementHandler = handler;
     }
 
 
@@ -479,9 +479,9 @@ public class ProjectHelper2 extends ProjectHelper {
                 if (!file.isAbsolute()) {
                     file = FILE_UTILS.resolveFile(context.getBuildFileParent(), path);
                     context.getProject().log(
-                            "Warning: '" + systemId + "' in " + context.getBuildFile() +
-                            " should be expressed simply as '" + path.replace('\\', '/') +
-                            "' for compliance with other XML tools",
+                            "Warning: '" + systemId + "' in " + context.getBuildFile()
+                            + " should be expressed simply as '" + path.replace('\\', '/')
+                            + "' for compliance with other XML tools",
                             Project.MSG_WARN);
                 }
                 context.getProject().log("file=" + file, Project.MSG_DEBUG);
@@ -738,7 +738,7 @@ public class ProjectHelper2 extends ProjectHelper {
                 }
             }
 
-            if (context.getBuildFile() != null) {
+            if (context.getBuildFile() != null && nameAttributeSet) {
                 project.setUserProperty("ant.file."
                     + context.getCurrentProjectName(),
                     context.getBuildFile().toString());
@@ -1007,8 +1007,6 @@ public class ProjectHelper2 extends ProjectHelper {
             task.setLocation(location);
             task.setOwningTarget(context.getCurrentTarget());
 
-            context.configureId(task, attrs);
-
             if (parent != null) {
                 // Nested element
                 ((UnknownElement) parent).addChild(task);
@@ -1016,6 +1014,8 @@ public class ProjectHelper2 extends ProjectHelper {
                 // Task included in a target ( including the default one ).
                 context.getCurrentTarget().addTask(task);
             }
+
+            context.configureId(task, attrs);
 
             // container.addTask(task);
             // This is a nop in UE: task.init();

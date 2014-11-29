@@ -48,6 +48,7 @@ public class Native2Ascii extends MatchingTask {
     private Mapper mapper;
     private FacadeTaskHelper facade = null;
 
+    /** No args constructor */
     public Native2Ascii() {
         facade = new FacadeTaskHelper(Native2AsciiAdapterFactory.getDefault());
     }
@@ -65,7 +66,7 @@ public class Native2Ascii extends MatchingTask {
 
     /**
      * The value of the reverse attribute.
-     *
+     * @return the reverse attribute.
      * @since Ant 1.6.3
      */
     public boolean getReverse() {
@@ -84,8 +85,8 @@ public class Native2Ascii extends MatchingTask {
     }
 
     /**
-     * The value of the reverse attribute.
-     *
+     * The value of the encoding attribute.
+     * @return the encoding attribute.
      * @since Ant 1.6.3
      */
     public String getEncoding() {
@@ -131,7 +132,7 @@ public class Native2Ascii extends MatchingTask {
             facade.setImplementation(Native2AsciiAdapterFactory.getDefault());
         } else {
             facade.setImplementation(impl);
-        }        
+        }
     }
 
     /**
@@ -233,7 +234,7 @@ public class Native2Ascii extends MatchingTask {
      * @param srcName name of the input file.
      * @param destName name of the input file.
      */
-    private void convert(String srcName, String destName) 
+    private void convert(String srcName, String destName)
         throws BuildException {
         File srcFile;                         // File to convert
         File destFile;                        // where to put the results
@@ -261,7 +262,7 @@ public class Native2Ascii extends MatchingTask {
         }
 
         log("converting " + srcName, Project.MSG_VERBOSE);
-        Native2AsciiAdapter ad = 
+        Native2AsciiAdapter ad =
             Native2AsciiAdapterFactory.getAdapter(facade.getImplementation(),
                                                   this);
         if (!ad.convert(this, srcFile, destFile)) {
@@ -272,7 +273,7 @@ public class Native2Ascii extends MatchingTask {
     /**
      * Returns the (implementation specific) settings given as nested
      * arg elements.
-     *
+     * @return the arguments.
      * @since Ant 1.6.3
      */
     public String[] getCurrentArgs() {

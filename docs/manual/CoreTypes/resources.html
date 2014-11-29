@@ -1,3 +1,19 @@
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 <html>
 
 <head>
@@ -27,7 +43,7 @@ explicit use beginning in <b>Ant 1.7</b>.
   <li><a href="#gzipresource">gzipresource</a> - a GZip compressed resource.</li>
   <li><a href="#javaresource">javaresource</a> - a resource loadable
         via a Java classloader.</li>
-  <li><a href="#property">property</a> - an Ant property.</li>
+  <li><a href="#propertyresource">propertyresource</a> - an Ant property.</li>
   <li><a href="#string">string</a> - a text string.</li>
   <li><a href="#tarentry">tarentry</a> - an entry in a tar file.</li>
   <li><a href="#url">url</a> - a URL.</li>
@@ -248,7 +264,7 @@ element.</p>
   </tr>
 </table>
 
-<h4><a name="property">property</a></h4>
+<h4><a name="propertyresource">propertyresource</a></h4>
 
 <p>Represents an Ant property.</p>
 
@@ -301,6 +317,8 @@ Ant's "legacy" datatypes have been modified to behave as Resource Collections:
   <li><a href="#sort">sort</a> - sorted resource collection</li>
   <li><a href="#first">first</a> - first <i>n</i> resources from a
     nested collection</li>
+  <li><a href="#tokens">tokens</a> - <a href="#string">string</a> tokens
+    gathered from a nested collection</li>
   <li><a href="#union">union</a> - set union of nested resource collections</li>
   <li><a href="#intersect">intersect</a> - set intersection
     of nested resource collections</li>
@@ -441,6 +459,12 @@ platforms.
       by a majority of nested resource selectors.</li>
     <li><a href="selectors.html#modified">modified</a> - select resources which
       content has changed.</li>
+    <li><a href="selectors.html#containsselect">contains</a> - select resources 
+      containing a particular text string.</li>
+    <li><a href="selectors.html#regexpselect">containsregexp</a> - select
+      resources whose contents match a particular regular expression.</li>
+    <li><a href="#rsel.compare">compare</a> - select resources
+      based on comparison to other resources.</li>
   </ul>
 
   <h4><a name="rsel.name">name</a></h4>
@@ -599,12 +623,51 @@ platforms.
     </tr>
   </table>
 
+  <h4><a name="rsel.compare">compare</a></h4>
+  <p>Selects a resource based on its comparison to one or more "control"
+     resources using nested <a href="#rcmp">resource comparators</a>.</p>
+  <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+      <td valign="top"><b>Attribute</b></td>
+      <td valign="top"><b>Description</b></td>
+      <td align="center" valign="top"><b>Required</b></td>
+    </tr>
+    <tr>
+      <td valign="top">when</td>
+      <td valign="top">Comparison ("equal"/"eq", "greater"/"gt", "less"/"lt",
+        "le" (less or equal), "ge" (greater or equal), "ne" (not equal).</td>
+      <td valign="top">No, default "equal"</td>
+    </tr>
+    <tr>
+      <td valign="top">against</td>
+      <td valign="top">Quantifier ("all"/"each"/"every", "any"/"some",
+        (exactly) "one", "most"/"majority", "none".</td>
+      <td valign="top">No, default "all"</td>
+    </tr>
+  </table>
+  <h4>Parameters specified as nested elements</h4>
+  <p>The resources against which comparisons will be made must be specified
+    using the nested &lt;control&gt; element, which denotes a
+    <a href="#resources">resources</a> collection.</p>
+  <h4>Examples</h4>
+  <p>The following selects files a, b, c, and d:</p>
+  <pre>
+&lt;restrict&gt;
+  &lt;fileset dir="src" includes="a,b,c,d,e,f,g" /&gt;
+  &lt;rsel:compare when="le" against="all"&gt;
+    &lt;control&gt;
+      &lt;resource name="d" /&gt;
+    &lt;/control&gt;
+    &lt;rcmp:name /&gt;
+  &lt;/rsel:compare&gt;
+&lt;/restrict&gt;</pre>
 </blockquote>
 
 <h4><a name="sort">sort</a></h4>
 
 <p>Sorts another nested resource collection according to the resources'
-natural order, or by one or more nested resource comparators:</p>
+   natural order, or by one or more nested <a href="#rcmp">resource
+   comparators</a>:</p>
 <blockquote>
   <table border="1" cellpadding="2" cellspacing="0">
     <tr>
@@ -628,7 +691,7 @@ natural order, or by one or more nested resource comparators:</p>
     are available in the internal <a href="antlib.html">antlib</a>
     <code>org.apache.tools.ant.types.resources.comparators</code>:
   </p>
-
+  <h4><a name="rcmp">Resource Comparators:</a></h4>
   <ul>
     <li><a href="#rcmp.name">name</a> - sort resources by name</li>
     <li><a href="#rcmp.exists">exists</a> - sort resources by existence</li>
@@ -707,6 +770,36 @@ larger collection.</p>
   <p>A single resource collection is required.</p>
 </blockquote>
 
+<h4><a name="tokens">tokens</a></h4>
+<p>Includes the <a href="#string">string</a> tokens gathered from a nested
+ resource collection. Uses the same tokenizers supported by the
+<a href="filterchain.html#tokenfilter">TokenFilter</a>. Hint: imaginative
+  use of this resource collection can implement equivalents for such Unix
+  functions as <code>sort</code>, <code>grep -c</code>, <code>wc</code> and
+  <code>wc -l</code>.</p>
+<blockquote>
+  <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+      <td valign="top"><b>Attribute</b></td>
+      <td valign="top"><b>Description</b></td>
+      <td align="center" valign="top"><b>Required</b></td>
+    </tr>
+    <tr>
+      <td valign="top">encoding</td>
+      <td valign="top">The encoding of the nested resources</td>
+      <td valign="top" align="center">No, default is platform default</td>
+    </tr>
+    <tr>
+      <td valign="top">cache</td>
+      <td valign="top">Whether to cache results; disabling
+        may seriously impact performance</td>
+      <td valign="top" align="center">No, default <i>true</i></td>
+    </tr>
+  </table>
+  <h4>Parameters specified as nested elements</h4>
+  <p>A single resource collection is required.</p>
+</blockquote>
+
 <h4><a name="setlogic">Set operations</a></h4>
 <blockquote>
   <p>The following resource collections implement set operations:</p>
@@ -742,9 +835,7 @@ larger collection.</p>
   </table>
 </blockquote>
 
-<hr>
-<p align="center">Copyright &copy; 2005 The Apache Software Foundation. All rights
-Reserved.</p>
+
 
 </body>
 </html>

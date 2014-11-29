@@ -18,7 +18,7 @@
 package org.apache.tools.ant.types.optional;
 
 import org.apache.tools.ant.ProjectComponent;
-import org.apache.tools.ant.util.ScriptRunner;
+import org.apache.tools.ant.util.optional.ScriptRunner;
 
 import java.io.File;
 
@@ -69,7 +69,7 @@ public abstract class AbstractScriptComponent extends ProjectComponent {
 
     /**
      * Initialize the script runner. Calls this before running the system
-     */ 
+     */
     protected void initScriptRunner() {
         getRunner().bindToComponent(this);
     }

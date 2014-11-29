@@ -84,11 +84,16 @@ public class LogOutputStream extends LineOrientedOutputStream {
      * Logs a line to the log system of ant.
      *
      * @param line the line to log.
+     * @param level the logging level to use.
      */
     protected void processLine(String line, int level) {
         pc.log(line, level);
     }
 
+    /**
+     * Get the level.
+     * @return the log level.
+     */
     public int getMessageLevel() {
         return level;
     }

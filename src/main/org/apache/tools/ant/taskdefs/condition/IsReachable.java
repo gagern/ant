@@ -49,11 +49,11 @@ import java.net.UnknownHostException;
  * Requires Java1.5+ to work properly. On Java1.4 and earlier, if a hostname
  * can be resolved, the destination is assumed to be reachable.
  *
- * @ant.condition name="isreachable"
  * @since Ant 1.7
  */
 public class IsReachable extends ProjectComponent implements Condition {
 
+    private static final int SECOND = 1000; // millis per second
     private String host;
     private String url;
 
@@ -73,17 +73,23 @@ public class IsReachable extends ProjectComponent implements Condition {
     /**
      * Unknown host message is seen.
      */
-    public static final String WARN_UNKNOWN_HOST = "Unknown host: ";
+    private static final String WARN_UNKNOWN_HOST = "Unknown host: ";
     /**
      * Network error message is seen.
      */
     public static final String ERROR_ON_NETWORK = "network error to ";
-    public static final String ERROR_BOTH_TARGETS = "Both url and host have been specified";
+    /** Error message when url and host are specified. */
+    public static final String ERROR_BOTH_TARGETS
+        = "Both url and host have been specified";
+    /** Error message when no reachably test avail. */
     public static final String MSG_NO_REACHABLE_TEST
         = "cannot do a proper reachability test on this Java version";
+    /** Error message when an invalid url is used. */
     public static final String ERROR_BAD_URL = "Bad URL ";
+    /** Error message when no hostname in url. */
     public static final String ERROR_NO_HOST_IN_URL = "No hostname in URL ";
-    private static final String METHOD_NAME = "isReachable";
+    /** The method name to look for in InetAddress */
+    public static final String METHOD_NAME = "isReachable";
 
     /**
      * Set the host to ping.
@@ -173,7 +179,7 @@ public class IsReachable extends ProjectComponent implements Condition {
             reachableMethod = InetAddress.class.getMethod(METHOD_NAME,
                     parameterTypes);
             Object[] params = new Object[1];
-            params[0] = new Integer(timeout * 1000);
+            params[0] = new Integer(timeout * SECOND);
             try {
                 reachable = ((Boolean) reachableMethod.invoke(address, params))
                         .booleanValue();

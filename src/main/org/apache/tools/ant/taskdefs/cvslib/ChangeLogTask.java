@@ -42,23 +42,35 @@ import org.apache.tools.ant.util.FileUtils;
  * It produces an XML output representing the list of changes.
  * <pre>
  * <font color=#0000ff>&lt;!-- Root element --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> changelog <font color=#ff00ff>(entry</font><font color=#ff00ff>+</font><font color=#ff00ff>)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> changelog <font color=#ff00ff>
+ * (entry</font><font color=#ff00ff>+</font><font color=#ff00ff>)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- CVS Entry --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> entry <font color=#ff00ff>(date,author,file</font><font color=#ff00ff>+</font><font color=#ff00ff>,msg)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> entry <font color=#ff00ff>
+ * (date,author,file</font><font color=#ff00ff>+</font><font color=#ff00ff>,msg)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- Date of cvs entry --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> date <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> date <font color=#ff00ff>(#PCDATA)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- Author of change --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> author <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> author <font color=#ff00ff>(#PCDATA)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- List of files affected --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> msg <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> msg <font color=#ff00ff>(#PCDATA)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- File changed --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> file <font color=#ff00ff>(name,revision,prevrevision</font><font color=#ff00ff>?</font><font color=#ff00ff>)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> file <font color=#ff00ff>
+ * (name,revision,prevrevision</font><font color=#ff00ff>?</font>
+ * <font color=#ff00ff>)</font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- Name of the file --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> name <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> name <font color=#ff00ff>(#PCDATA)
+ * </font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- Revision number --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> revision <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> revision <font color=#ff00ff>
+ * (#PCDATA)</font><font color=#6a5acd>&gt;</font>
  * <font color=#0000ff>&lt;!-- Previous revision number --&gt;</font>
- * <font color=#6a5acd>&lt;!ELEMENT</font> prevrevision <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
+ * <font color=#6a5acd>&lt;!ELEMENT</font> prevrevision <font color=#ff00ff>
+ * (#PCDATA)</font><font color=#6a5acd>&gt;</font>
  * </pre>
  *
  * @since Ant 1.5
@@ -327,7 +339,7 @@ public class ChangeLogTask extends AbstractCvsTask {
         for (int i = 0; i < entrySet.length; i++) {
             final CVSEntry cvsEntry = entrySet[i];
             final Date date = cvsEntry.getDate();
-            
+
             //bug#30471
             //this is caused by Date.after throwing a NullPointerException
             //for some reason there's no date set in the CVSEntry
@@ -339,12 +351,12 @@ public class ChangeLogTask extends AbstractCvsTask {
             //according to the docs it doesn't throw, according to the bug report it does
             //http://java.sun.com/j2se/1.5.0/docs/api/java/util/Date.html#after(java.util.Date)
             //according to the docs it does throw
-            
+
             //for now skip entries which are missing a date
             if (null == date) {
                 continue;
             }
-            
+
             if (null != startDate && startDate.after(date)) {
                 //Skip dates that are too early
                 continue;

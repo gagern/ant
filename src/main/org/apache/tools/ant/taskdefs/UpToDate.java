@@ -53,7 +53,9 @@ public class UpToDate extends Task implements Condition {
     private Vector sourceFileSets = new Vector();
     private Union sourceResources = new Union();
 
+    // CheckStyle:VisibilityModifier OFF - bc
     protected Mapper mapperElement = null;
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * The property to set if the target file is more up-to-date than
@@ -112,6 +114,7 @@ public class UpToDate extends Task implements Condition {
 
     /**
      * Nested resource collections as sources.
+     * @return the source resources to configure.
      * @since Ant 1.7
      */
     public Union createSrcResources() {
@@ -207,10 +210,9 @@ public class UpToDate extends Task implements Condition {
 
         if (upToDate) {
             Resource[] r = sourceResources.listResources();
-            upToDate = upToDate &&
-                (ResourceUtils.selectOutOfDateSources(this, r, getMapper(),
-                                                      getProject()).length
-                 == 0);
+            upToDate = upToDate
+                && (ResourceUtils.selectOutOfDateSources(
+                        this, r, getMapper(), getProject()).length == 0);
         }
 
         return upToDate;

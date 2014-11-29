@@ -23,7 +23,8 @@ import java.io.File;
 import java.util.ArrayList;
 import org.apache.tools.ant.types.FileSet;
 import java.util.Iterator;
-import org.apache.tools.ant.*;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.DirectoryScanner;
 
 /**
  * Used by {@link DotnetCompile} to name resources.
@@ -62,53 +63,69 @@ public class DotnetResource {
      */
     private String namespace = null;
 
+    /**
+     * Return the embed attribute.
+     * @return the embed value.
+     */
     public boolean isEmbed() {
         return embed;
     }
 
     /**
      * embed the resource in the assembly (default, true) or just link to it.
-     * 
-     * @param embed
+     *
+     * @param embed a <code>boolean</code> value.
      */
     public void setEmbed(boolean embed) {
         this.embed = embed;
     }
 
+    /**
+     * The file resource.
+     * @return the file resource.
+     */
     public File getFile() {
         return file;
     }
 
     /**
      * name the resource
-     * 
-     * @param file
+     *
+     * @param file the file.
      */
     public void setFile(File file) {
         this.file = file;
     }
 
+    /**
+     * Get the public attribute.
+     * @return the public attribute.
+     */
     public Boolean getPublic() {
         return isPublic;
     }
 
     /**
      * VB and J# only: is a resource public or not?
-     * 
-     * @param aPublic
+     *
+     * @param aPublic a <code>boolean</code> value.
      */
     public void setPublic(Boolean aPublic) {
         isPublic = aPublic;
     }
 
+    /**
+     * The name of the resource.
+     * @return the name of the resource.
+     */
     public String getName() {
         return name;
     }
 
     /**
      * should the resource have a name?
-     * 
-     * @param name
+     *
+     * @param name the name of the resource.
      */
     public void setName(String name) {
         this.name = name;
@@ -116,7 +133,7 @@ public class DotnetResource {
 
     /**
      * Filesets root namespace. The value always ends with '.' .
-     * 
+     *
      * @return String namespace name
      */
     public String getNamespace() {
@@ -125,7 +142,7 @@ public class DotnetResource {
 
     /**
      * Sets filesets root namespace.
-     * 
+     *
      * @param namespace
      *            String root namespace
      */
@@ -140,21 +157,27 @@ public class DotnetResource {
 
     private void checkParameters() {
         if (hasFilesets()) {
-            if (getName() != null)
+            if (getName() != null) {
                 throw new BuildException(
                         "Cannot use <resource name=\"...\"> attribute with filesets");
-            if (getFile() != null)
+            }
+            if (getFile() != null) {
                 throw new BuildException(
                         "Cannot use <resource file=\"...\"> attribute with filesets");
+            }
         } else {
-            if (getNamespace() != null)
+            if (getNamespace() != null) {
                 throw new BuildException(
                         "Cannot use <resource namespace=\"...\"> attribute without filesets");
+            }
         }
     }
 
     /**
      * build the C# style parameter (which has no public/private option)
+     * @param p the current project.
+     * @param command the command.
+     * @param csharpStyle a <code>boolean</code> attribute.
      */
     public void getParameters(Project p, NetCommand command, boolean csharpStyle) {
         checkParameters();
@@ -206,7 +229,7 @@ public class DotnetResource {
 
     /**
      * Adds a resource file set.
-     * 
+     *
      * @param fileset
      *            FileSet
      */
@@ -216,7 +239,7 @@ public class DotnetResource {
 
     /**
      * Checks that <resource> node has embedded <filesets>
-     * 
+     *
      * @return boolean
      */
     public boolean hasFilesets() {

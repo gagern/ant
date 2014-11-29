@@ -34,10 +34,11 @@ import org.apache.tools.ant.Task;
  * by the Ant developers and is unmaintained.  Don't use
  * it.</strong></p>
  *
- * @deprecated since 1.2. 
+ * @deprecated since 1.2.
  *             Use Jikes' exit value to detect compilation failure.
  */
 public class JikesOutputParser implements ExecuteStreamHandler {
+    // CheckStyle:VisibilityModifier OFF - bc
     protected Task task;
     protected boolean errorFlag = false; // no errors so far
     protected int errors;
@@ -46,6 +47,7 @@ public class JikesOutputParser implements ExecuteStreamHandler {
     protected boolean emacsMode;
 
     protected BufferedReader br;
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Ignore.

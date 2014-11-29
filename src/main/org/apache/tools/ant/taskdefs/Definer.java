@@ -44,7 +44,6 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * handling is handled by DefBase
  *
  * @since Ant 1.4
- * @noinspection ParameterHidesMemberVariable
  */
 public abstract class Definer extends DefBase {
 
@@ -291,7 +290,8 @@ public abstract class Definer extends DefBase {
 
     /**
      * This is where the logic to map from a URI to an antlib resource
-     * is kept. 
+     * is kept.
+     * @param uri the xml namespace uri that to convert.
      * @return the name of a resource. It may not exist
      */
 
@@ -299,8 +299,8 @@ public abstract class Definer extends DefBase {
         String path = uri.substring(MagicNames.ANTLIB_PREFIX.length());
         String resource;
         if (path.startsWith("//")) {
-            //handle new style full paths to an antlib, in which 
-            //all but the forward slashes are allowed. 
+            //handle new style full paths to an antlib, in which
+            //all but the forward slashes are allowed.
             resource = path.substring("//".length());
             if (!resource.endsWith(".xml")) {
                 //if we haven't already named an XML file, it gets antlib.xml
@@ -314,11 +314,11 @@ public abstract class Definer extends DefBase {
     }
 
     /**
-     * Convert a file to a file: URL. 
-     * 
+     * Convert a file to a file: URL.
+     *
      * @return the URL, or null if it isn't valid and the active error policy
      * is not to raise a fault
-     * @throws BuildException if the file is missing/not a file and the 
+     * @throws BuildException if the file is missing/not a file and the
      * policy requires failure at this point.
      */
     private URL fileToURL() {
@@ -460,6 +460,30 @@ public abstract class Definer extends DefBase {
         }
         definerSet = true;
         this.resource = res;
+    }
+
+    /**
+     * Antlib attribute, sets resource and uri.
+     * uri is set the antlib value and, resource is set
+     * to the antlib.xml resource in the classpath.
+     * For example antlib="antlib:org.acme.bland.cola"
+     * corresponds to uri="antlib:org.acme.bland.cola"
+     * resource="org/acme/bland/cola/antlib.xml".
+     * ASF Bugzilla Bug 31999
+     * @param antlib the value to set.
+     */
+    public void setAntlib(String antlib) {
+        if (definerSet) {
+            tooManyDefinitions();
+        }
+        if (!antlib.startsWith("antlib:")) {
+            throw new BuildException(
+                "Invalid antlib attribute - it must start with antlib:");
+        }
+        setURI(antlib);
+        this.resource = antlib.substring("antlib:".length()).replace('.', '/')
+            + "/antlib.xml";
+        definerSet = true;
     }
 
     /**

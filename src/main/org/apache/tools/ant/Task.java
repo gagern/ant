@@ -32,6 +32,7 @@ import java.io.IOException;
  * @see Project#createTask
  */
 public abstract class Task extends ProjectComponent {
+    // CheckStyle:VisibilityModifier OFF - bc
     /**
      * Target this task belongs to, if any.
      * @deprecated since 1.6.x.
@@ -42,18 +43,10 @@ public abstract class Task extends ProjectComponent {
 
     /**
      * Description of this task, if any.
-     * @deprecated since 1.6.x. 
+     * @deprecated since 1.6.x.
      *             You should not be accessing this variable directly.
      */
     protected String description;
-
-    /**
-     * Location within the build file of this task definition.
-     * @deprecated since 1.6.x. 
-     *             You should not be accessing this variable directly.
-     *             Please use the {@link #getLocation()} method.
-     */
-    protected Location location = Location.UNKNOWN_LOCATION;
 
     /**
      * Name of this task to be used for logging purposes.
@@ -62,7 +55,7 @@ public abstract class Task extends ProjectComponent {
      * isn't terribly descriptive for a task used within
      * another task - the outer task code can probably
      * provide a better one.
-     * @deprecated since 1.6.x. 
+     * @deprecated since 1.6.x.
      *             You should not be accessing this variable directly.
      *             Please use the {@link #getTaskName()} method.
      */
@@ -71,7 +64,7 @@ public abstract class Task extends ProjectComponent {
     /**
      * Type of this task.
      *
-     * @deprecated since 1.6.x. 
+     * @deprecated since 1.6.x.
      *             You should not be accessing this variable directly.
      *             Please use the {@link #getTaskType()} method.
      */
@@ -80,11 +73,13 @@ public abstract class Task extends ProjectComponent {
     /**
      * Wrapper for this object, used to configure it at runtime.
      *
-     * @deprecated since 1.6.x. 
+     * @deprecated since 1.6.x.
      *             You should not be accessing this variable directly.
      *             Please use the {@link #getWrapper()} method.
      */
     protected RuntimeConfigurable wrapper;
+
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Whether or not this task is invalid. A task becomes invalid
@@ -188,32 +183,6 @@ public abstract class Task extends ProjectComponent {
      * @exception BuildException if something goes wrong with the build.
      */
     public void execute() throws BuildException {
-    }
-
-    /**
-     * Returns the file/location where this task was defined.
-     *
-     * @return the file/location where this task was defined.
-     *         Should not return <code>null</code>. Location.UNKNOWN_LOCATION
-     *         is used for unknown locations.
-     *
-     * @see Location#UNKNOWN_LOCATION
-     */
-    public Location getLocation() {
-        return location;
-    }
-
-    /**
-     * Sets the file/location where this task was defined.
-     *
-     * @param location The file/location where this task was defined.
-     *                 Should not be <code>null</code>--use
-     *                 Location.UNKNOWN_LOCATION if the location isn't known.
-     *
-     * @see Location#UNKNOWN_LOCATION
-     */
-    public void setLocation(Location location) {
-        this.location = location;
     }
 
     /**
@@ -358,6 +327,40 @@ public abstract class Task extends ProjectComponent {
         }
     }
 
+    /**
+     * Logs a message with the given priority. This delegates
+     * the actual logging to the project.
+     *
+     * @param t The exception to be logged. Should not be <code>null</code>.
+     * @param msgLevel The message priority at which this message is to
+     *                 be logged.
+     * @since 1.7
+     */
+    public void log(Throwable t, int msgLevel) {
+        if(t != null)
+        {
+            log(t.getMessage(), t, msgLevel);
+        }
+    }
+    
+    /**
+     * Logs a message with the given priority. This delegates
+     * the actual logging to the project.
+     *
+     * @param msg The message to be logged. Should not be <code>null</code>.
+     * @param t The exception to be logged. May be <code>null</code>.
+     * @param msgLevel The message priority at which this message is to
+     *                 be logged.
+     * @since 1.7
+     */
+    public void log(String msg, Throwable t, int msgLevel) {
+        if (getProject() != null) {
+            getProject().log(this, msg, t, msgLevel);
+        } else {
+            super.log(msg, msgLevel);
+        }
+    }
+    
     /**
      * Performs this task if it's still valid, or gets a replacement
      * version and performs that otherwise.

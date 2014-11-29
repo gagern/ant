@@ -34,14 +34,15 @@ import org.apache.tools.ant.BuildException;
  * nested <code>&lt;src&gt;</code> elements instead of the basedir
  * attribute if you need more control.</p>
  *
- * @see <A=ref="http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dv_vjsharp/html/vjoriMicrosoftVisualJ.asp">
- * Visual J++ online documentation</a>
+ * @see <a ref=
+ * "http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dv_vjsharp/html/vjoriMicrosoftVisualJ.asp"
+ * >Visual J++ online documentation</a>
  *
  * @since ant1.6
  * @ant.task category="dotnet" name="jsharpc"
  */
 public class JSharp extends DotnetCompile {
-
+    // CheckStyle:VisibilityModifier OFF - bc
     /**
      * hex base address
      */
@@ -57,18 +58,25 @@ public class JSharp extends DotnetCompile {
      */
     boolean secureScoping = false;
 
+    // CheckStyle:VisibilityModifier ON
+
+    /** No arg constructor. */
     public JSharp() {
         setExecutable("vjc");
     }
 
 
+    /**
+     * Set the base address attribute.
+     * @param baseAddress the value to use.
+     */
     public void setBaseAddress(String baseAddress) {
         this.baseAddress = baseAddress;
     }
 
     /**
      * do we want pure java (default, true) or corrupted J#?
-     * @param pureJava
+     * @param pureJava a <code>boolean</code> value.
      */
     public void setPureJava(boolean pureJava) {
         this.pureJava = pureJava;
@@ -78,7 +86,7 @@ public class JSharp extends DotnetCompile {
      * Make package scoped code visible to the current assembly only (default: false)
      * .NET does not have package scoping. Instead it has assembly, private and public.
      * By default, package content is public to all.
-     * @param secureScoping
+     * @param secureScoping a <code>boolean</code> value.
      */
     public void setSecureScoping(boolean secureScoping) {
         this.secureScoping = secureScoping;
@@ -103,7 +111,7 @@ public class JSharp extends DotnetCompile {
 
     /**
      * add jvc specific commands
-     * @param command
+     * @param command the command to add to.
      */
     protected void addCompilerSpecificOptions(NetCommand command) {
         if (pureJava) {
@@ -114,6 +122,7 @@ public class JSharp extends DotnetCompile {
         }
     }
 
+    /** {@inheritDoc} */
     protected void createResourceParameter(NetCommand command, DotnetResource resource) {
         resource.getParameters(getProject(), command, true);
     }

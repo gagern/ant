@@ -43,6 +43,9 @@ public class ConditionTask extends ConditionBase {
     private String value = "true";
     private String alternative = null;
 
+    /**
+     * Constructor, names this task "condition".
+     */
     public ConditionTask() {
         super("condition");
     }

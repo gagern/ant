@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-import org.apache.tools.ant.MagicNames;
 
 
 /**
@@ -39,9 +38,8 @@ public class Launcher {
     /**
      * The Ant Home (installation) Directory property.
      * {@value}
-     * @deprecated since 1.7
      */
-    public static final String ANTHOME_PROPERTY = MagicNames.ANT_HOME;
+    public static final String ANTHOME_PROPERTY = "ant.home";
 
     /**
      * The Ant Library Directory property.
@@ -128,7 +126,7 @@ public class Launcher {
     private void addPath(String path, boolean getJars, List libPathURLs)
             throws MalformedURLException {
         StringTokenizer tokenizer = new StringTokenizer(path, File.pathSeparator);
-        while(tokenizer.hasMoreElements()) {
+        while (tokenizer.hasMoreElements()) {
             String elementName = tokenizer.nextToken();
             File element = new File(elementName);
             if (elementName.indexOf("%") != -1 && !element.exists()) {
@@ -157,7 +155,7 @@ public class Launcher {
      */
     private int run(String[] args)
             throws LaunchException, MalformedURLException {
-        String antHomeProperty = System.getProperty(MagicNames.ANT_HOME);
+        String antHomeProperty = System.getProperty(ANTHOME_PROPERTY);
         File antHome = null;
 
         File sourceJar = Locator.getClassSource(getClass());
@@ -170,7 +168,7 @@ public class Launcher {
 
         if (antHome == null || !antHome.exists()) {
             antHome = jarDir.getParentFile();
-            System.setProperty(MagicNames.ANT_HOME, antHome.getAbsolutePath());
+            System.setProperty(ANTHOME_PROPERTY, antHome.getAbsolutePath());
         }
 
         if (!antHome.exists()) {
@@ -293,14 +291,14 @@ public class Launcher {
         URLClassLoader loader = new URLClassLoader(jars);
         Thread.currentThread().setContextClassLoader(loader);
         Class mainClass = null;
-        int exitCode=0;
+        int exitCode = 0;
         try {
             mainClass = loader.loadClass(mainClassname);
             AntMain main = (AntMain) mainClass.newInstance();
             main.startAnt(newArgs, null, null);
         } catch (InstantiationException ex) {
             System.err.println(
-                "Incompatible version of "+mainClassname+" detected");
+                "Incompatible version of " + mainClassname + " detected");
             File mainJar = Locator.getClassSource(mainClass);
             System.err.println(
                 "Location of this class " + mainJar);
@@ -310,7 +308,5 @@ public class Launcher {
             exitCode = EXIT_CODE_ERROR;
         }
         return exitCode;
-        
     }
-
 }

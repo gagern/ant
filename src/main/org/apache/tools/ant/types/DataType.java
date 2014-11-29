@@ -37,7 +37,8 @@ import org.apache.tools.ant.util.IdentityStack;
  * but not &lt;path&gt;).</p>
  *
  */
-public abstract class DataType extends ProjectComponent {
+public abstract class DataType extends ProjectComponent implements Cloneable {
+    // CheckStyle:VisibilityModifier OFF - bc
 
     /**
      * The description the user has set.
@@ -52,7 +53,7 @@ public abstract class DataType extends ProjectComponent {
     /**
      * Value to the refid attribute.
      *
-     * @deprecated since 1.7. 
+     * @deprecated since 1.7.
      *             The user should not be directly referencing
      *             variable. Please use {@link #getRefid} instead.
      */
@@ -66,12 +67,14 @@ public abstract class DataType extends ProjectComponent {
      * child element has been added that is a subclass of
      * DataType).</p>
      *
-     * @deprecated since 1.7. 
+     * @deprecated since 1.7.
      *             The user should not be directly referencing
-     *             variable. Please use {@link #setChecked} or 
+     *             variable. Please use {@link #setChecked} or
      *             {@link #isChecked} instead.
      */
     protected boolean checked = true;
+
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Sets a description of the current data type. It will be useful
@@ -253,10 +256,10 @@ public abstract class DataType extends ProjectComponent {
      */
     protected Object getCheckedRef(final Class requiredClass,
                                    final String dataTypeName, final Project project) {
-        dieOnCircularReference(project);
         if (project == null) {
             throw new BuildException("No Project specified");
         }
+        dieOnCircularReference(project);
         Object o = ref.getReferencedObject(project);
         if (!(requiredClass.isAssignableFrom(o.getClass()))) {
             log("Class " + o.getClass() + " is not a subclass of " + requiredClass,
@@ -352,5 +355,19 @@ public abstract class DataType extends ProjectComponent {
         return d == null ? getDataTypeName() : getDataTypeName() + " " + d;
     }
 
+    /**
+     * @since Ant 1.7
+     * @return a shallow copy of this DataType.
+     * @throws CloneNotSupportedException if there is a problem.
+     */
+    public Object clone() throws CloneNotSupportedException {
+        DataType dt = (DataType) super.clone();
+        dt.setDescription(getDescription());
+        if (getRefid() != null) {
+            dt.setRefid(getRefid());
+        }
+        dt.setChecked(isChecked());
+        return dt;
+    }
 }
 

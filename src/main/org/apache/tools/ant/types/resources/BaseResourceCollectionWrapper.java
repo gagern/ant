@@ -70,7 +70,7 @@ public abstract class BaseResourceCollectionWrapper
             return;
         }
         if (rc != null) {
-            throwOneNested();
+            throw oneNested();
         }
         rc = c;
         setChecked(false);
@@ -80,7 +80,7 @@ public abstract class BaseResourceCollectionWrapper
      * Fulfill the ResourceCollection contract.
      * @return an Iterator of Resources.
      */
-    public synchronized final Iterator iterator() {
+    public final synchronized Iterator iterator() {
         if (isReference()) {
             return ((BaseResourceCollectionWrapper) getCheckedRef()).iterator();
         }
@@ -152,10 +152,10 @@ public abstract class BaseResourceCollectionWrapper
      * @return a ResourceCollection.
      * @throws BuildException if no nested ResourceCollection has been provided.
      */
-    protected synchronized final ResourceCollection getResourceCollection() {
+    protected final synchronized ResourceCollection getResourceCollection() {
         dieOnCircularReference();
         if (rc == null) {
-            throwOneNested();
+            throw oneNested();
         }
         return rc;
     }
@@ -194,8 +194,8 @@ public abstract class BaseResourceCollectionWrapper
         return coll;
     }
 
-    private void throwOneNested() throws BuildException {
-        throw new BuildException(super.toString() + ONE_NESTED_MESSAGE);
+    private BuildException oneNested() {
+        return new BuildException(super.toString() + ONE_NESTED_MESSAGE);
     }
 
 }

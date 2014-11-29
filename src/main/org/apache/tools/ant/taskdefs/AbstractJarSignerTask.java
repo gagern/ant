@@ -36,6 +36,7 @@ import org.apache.tools.ant.util.JavaEnvUtils;
  */
 
 public abstract class AbstractJarSignerTask extends Task {
+    // CheckStyle:VisibilityModifier OFF - bc
     /**
      * The name of the jar file.
      */
@@ -76,6 +77,9 @@ public abstract class AbstractJarSignerTask extends Task {
      * name of JDK program we are looking for
      */
     protected static final String JARSIGNER_COMMAND = "jarsigner";
+
+    // CheckStyle:VisibilityModifier ON
+
     /**
      * redirector used to talk to the jarsigner program
      */
@@ -84,7 +88,7 @@ public abstract class AbstractJarSignerTask extends Task {
     /**
      * Java declarations -J-Dname=value
      */
-    private Environment sysProperties=new Environment();
+    private Environment sysProperties = new Environment();
 
     /**
      * error string for unit test verification: {@value}
@@ -98,7 +102,7 @@ public abstract class AbstractJarSignerTask extends Task {
      * @since Ant 1.7
      */
     private Path path = null;
-    
+
     /**
      * Set the maximum memory to be used by the jarsigner process
      *
@@ -226,7 +230,7 @@ public abstract class AbstractJarSignerTask extends Task {
      */
     private RedirectorElement createRedirector() {
         RedirectorElement result = new RedirectorElement();
-        if(storepass!=null) {
+        if (storepass != null) {
             StringBuffer input = new StringBuffer(storepass).append('\n');
             if (keypass != null) {
                 input.append(keypass).append('\n');
@@ -252,19 +256,19 @@ public abstract class AbstractJarSignerTask extends Task {
      */
     protected void setCommonOptions(final ExecTask cmd) {
         if (maxMemory != null) {
-            addValue(cmd,"-J-Xmx" + maxMemory);
+            addValue(cmd, "-J-Xmx" + maxMemory);
         }
 
         if (verbose) {
-            addValue(cmd,"-verbose");
+            addValue(cmd, "-verbose");
         }
 
         //now patch in all system properties
-        Vector props=sysProperties.getVariablesVector();
-        Enumeration e=props.elements();
+        Vector props = sysProperties.getVariablesVector();
+        Enumeration e = props.elements();
         while (e.hasMoreElements()) {
             Environment.Variable variable = (Environment.Variable) e.nextElement();
-            declareSysProperty(cmd,variable);
+            declareSysProperty(cmd, variable);
         }
     }
 
@@ -274,8 +278,9 @@ public abstract class AbstractJarSignerTask extends Task {
      * @param property property to set
      * @throws BuildException if the property is not correctly defined.
      */
-    protected void declareSysProperty(ExecTask cmd,Environment.Variable property) {
-        addValue(cmd, "-J-D"+property.getContent());
+    protected void declareSysProperty(
+        ExecTask cmd, Environment.Variable property) throws BuildException {
+        addValue(cmd, "-J-D" + property.getContent());
     }
 
 
@@ -286,7 +291,7 @@ public abstract class AbstractJarSignerTask extends Task {
     protected void bindToKeystore(final ExecTask cmd) {
         if (null != keystore) {
             // is the keystore a file
-            addValue(cmd,"-keystore");
+            addValue(cmd, "-keystore");
             String loc;
             File keystoreFile = getProject().resolveFile(keystore);
             if (keystoreFile.exists()) {
@@ -323,7 +328,7 @@ public abstract class AbstractJarSignerTask extends Task {
      * @return a vector of FileSet instances
      */
     protected Vector createUnifiedSources() {
-        Vector sources = (Vector)filesets.clone();
+        Vector sources = (Vector) filesets.clone();
         if (jar != null) {
             //we create a fileset with the source file.
             //this lets us combine our logic for handling output directories,
@@ -356,6 +361,7 @@ public abstract class AbstractJarSignerTask extends Task {
 
     /**
      * Has either a path or a fileset been specified?
+     * @return true if a path or fileset has been specified.
      * @since Ant 1.7
      */
     protected boolean hasResources() {

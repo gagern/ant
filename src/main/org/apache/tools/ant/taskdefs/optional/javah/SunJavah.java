@@ -34,11 +34,14 @@ import org.apache.tools.ant.types.Path;
  */
 public class SunJavah implements JavahAdapter {
 
+    /** the name of the javah adapter - sun */
     public static final String IMPLEMENTATION_NAME = "sun";
 
     /**
      * Performs the actual compilation.
-     *
+     * @param javah the calling javah task.
+     * @return true if the compilation was successful.
+     * @throws BuildException if there is an error.
      * @since Ant 1.6.3
      */
     public boolean compile(Javah javah) throws BuildException {
@@ -54,8 +57,8 @@ public class SunJavah implements JavahAdapter {
                 c = Class.forName("com.sun.tools.javah.Main");
             }
         } catch (ClassNotFoundException ex) {
-            throw new BuildException("Can't load javah", ex, 
-                                     javah.getLocation());
+            throw new BuildException(
+                "Can't load javah", ex, javah.getLocation());
         }
         cmd.setExecutable(c.getName());
         ej.setJavaCommand(cmd);
@@ -94,8 +97,8 @@ public class SunJavah implements JavahAdapter {
             cmd.createArgument().setValue("-force");
         }
         if (javah.getStubs() && !javah.getOld()) {
-            throw new BuildException("stubs only available in old mode.", 
-                                     javah.getLocation());
+            throw new BuildException(
+                "stubs only available in old mode.", javah.getLocation());
         }
 
         if (javah.getStubs()) {

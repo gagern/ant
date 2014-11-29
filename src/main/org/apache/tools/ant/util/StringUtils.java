@@ -100,8 +100,10 @@ public final class StringUtils {
     }
 
     /**
-     * Checks that a string buffer ends up with a given string. It may sound trivial with the existing
-     * JDK API but the various implementation among JDKs can make those methods extremely resource intensive
+     * Checks that a string buffer ends up with a given string. It may sound
+     * trivial with the existing
+     * JDK API but the various implementation among JDKs can make those
+     * methods extremely resource intensive
      * and perform poorly due to massive memory allocation and copying. See
      * @param buffer the buffer to perform the check on
      * @param suffix the suffix
@@ -115,19 +117,73 @@ public final class StringUtils {
         if (suffix.length() > buffer.length()) {
             return false;
         }
-        // this loop is done on purpose to avoid memory allocation performance problems on various JDKs
-        // StringBuffer.lastIndexOf() was introduced in jdk 1.4 and implementation is ok though does allocation/copying
-        // StringBuffer.toString().endsWith() does massive memory allocation/copying on JDK 1.5
+        // this loop is done on purpose to avoid memory allocation performance
+        // problems on various JDKs
+        // StringBuffer.lastIndexOf() was introduced in jdk 1.4 and
+        // implementation is ok though does allocation/copying
+        // StringBuffer.toString().endsWith() does massive memory
+        // allocation/copying on JDK 1.5
         // See http://issues.apache.org/bugzilla/show_bug.cgi?id=37169
         int endIndex = suffix.length() - 1;
         int bufferIndex = buffer.length() - 1;
-        while ( endIndex >= 0 ) {
-            if ( buffer.charAt(bufferIndex) != suffix.charAt(endIndex) ) {
+        while (endIndex >= 0) {
+            if (buffer.charAt(bufferIndex) != suffix.charAt(endIndex)) {
                 return false;
             }
             bufferIndex--;
             endIndex--;
         }
         return true;
+    }
+
+    /**
+     * xml does not do "c" like interpretation of strings.
+     * i.e. \n\r\t etc.
+     * this method processes \n, \r, \t, \f, \\
+     * also subs \s -> " \n\r\t\f"
+     * a trailing '\' will be ignored
+     *
+     * @param input raw string with possible embedded '\'s
+     * @return converted string
+     * @since Ant 1.7
+     */
+    public static String resolveBackSlash(String input) {
+        StringBuffer b = new StringBuffer();
+        boolean backSlashSeen = false;
+        for (int i = 0; i < input.length(); ++i) {
+            char c = input.charAt(i);
+            if (!backSlashSeen) {
+                if (c == '\\') {
+                    backSlashSeen = true;
+                } else {
+                    b.append(c);
+                }
+            } else {
+                switch (c) {
+                    case '\\':
+                        b.append((char) '\\');
+                        break;
+                    case 'n':
+                        b.append((char) '\n');
+                        break;
+                    case 'r':
+                        b.append((char) '\r');
+                        break;
+                    case 't':
+                        b.append((char) '\t');
+                        break;
+                    case 'f':
+                        b.append((char) '\f');
+                        break;
+                    case 's':
+                        b.append(" \t\n\r\f");
+                        break;
+                    default:
+                        b.append(c);
+                }
+                backSlashSeen = false;
+            }
+        }
+        return b.toString();
     }
 }

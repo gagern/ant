@@ -63,6 +63,7 @@ public class ZipFileSet extends ArchiveFileSet {
      * @since Ant 1.7
      */
     public void setEncoding(String enc) {
+        checkAttributesAllowed();
         this.encoding = enc;
     }
 
@@ -72,9 +73,21 @@ public class ZipFileSet extends ArchiveFileSet {
      * @since Ant 1.7
      */
     public String getEncoding() {
+        if (isReference()) {
+            AbstractFileSet ref = getRef(getProject());
+            if (ref instanceof ZipFileSet) {
+                return ((ZipFileSet) ref).getEncoding();
+            } else {
+                return null;
+            }
+        }
         return encoding;
     }
 
+    /**
+     * Return a new archive scanner based on this one.
+     * @return a new ZipScanner with the same encoding as this one.
+     */
     protected ArchiveScanner newArchiveScanner() {
         ZipScanner zs = new ZipScanner();
         zs.setEncoding(encoding);

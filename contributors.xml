@@ -19,12 +19,24 @@
     <last>Ishutin</last>
   </name>
   <name>
+    <first>Alexey</first>
+    <last>Panchenko</last>
+  </name>
+  <name>
+    <first>Alexey</first>
+    <last>Solofnenko</last>
+  </name>
+  <name>
     <first>Andreas</first>
     <last>Ames</last>
   </name>
   <name>
     <first>Andrew</first>
     <last>Everitt</last>
+  </name>
+  <name>
+    <first>Andrey</first>
+    <last>Urazov</last>
   </name>
   <name>
     <first>Anil</first>
@@ -83,6 +95,10 @@
   <name>
     <first>Benoit</first>
     <last>Moussaud</last>
+  </name>
+  <name>
+    <first>Bernd</first>
+    <last>Dutkowski</last>
   </name>
   <name>
     <first>Brad</first>
@@ -177,6 +193,10 @@
   </name>
   <name>
     <first>Daniel</first>
+    <last>Ribagnac</last>
+  </name>
+  <name>
+    <first>Daniel</first>
     <last>Spilker</last>
   </name>
   <name>
@@ -260,6 +280,10 @@
     <last>Sudell</last>
   </name>
   <name>
+    <first>Edwin</first>
+    <last>Woudt</last>
+  </name>
+  <name>
     <first>Eli</first>
     <last>Tucker</last>
   </name>
@@ -292,12 +316,20 @@
     <last>de Haan</last>
   </name>
   <name>
-    <first>Frederic</first>
-    <last>Lavigne</last>
+    <first>Frank</first>
+    <last>Harnack</last>
   </name>
   <name>
     <first>Frank</first>
     <last>Somers</last>
+  </name>
+  <name>
+    <first>Frank</first>
+    <last>Zeyda</last>
+  </name>
+  <name>
+    <first>Frederic</first>
+    <last>Lavigne</last>
   </name>
   <name>
     <first>Gary</first>
@@ -378,6 +410,10 @@
     <first>Jan</first>
     <last>Mat&#232;rne</last>
   </name>
+    <name>
+      <first>Jan</first>
+      <last>Cumps</last>
+    </name>
   <name>
     <first>Jan</first>
     <last>Mynarik</last>
@@ -480,6 +516,10 @@
   <name>
     <first>Josh</first>
     <last>Lucas</last>
+  </name>
+  <name>
+    <first>Joseph</first>
+    <last>Walton</last>
   </name>
   <name>
     <first>Juerg</first>
@@ -616,6 +656,10 @@
   </name>
   <name>
     <first>Matt</first>
+    <last>Grosso</last>
+  </name>
+  <name>
+    <first>Matt</first>
     <last>Humphrey</last>
   </name>
   <name>
@@ -735,6 +779,10 @@
     <last>Galbraith</last>
   </name>
   <name>
+    <first>Paul</first>
+    <last>King</last>
+  </name>
+  <name>
     <first>Paulo</first>
     <last>Gaspar</last>
   </name>
@@ -746,6 +794,14 @@
   <name>
     <first>Peter</first>
     <last>Donald</last>
+  </name>
+  <name>
+    <first>Peter</first>
+    <last>Doornbosch</last>
+  </name>
+  <name>
+    <first>Peter</first>
+    <last>Hulst</last>
   </name>
   <name>
     <first>Peter</first>
@@ -804,6 +860,10 @@
     <last>Watkins</last>
   </name>
   <name>
+    <first>Roberto</first>
+    <last>Scaramuzzi</last>
+  </name>
+  <name>
     <first>Robin</first>
     <last>Green</last>
   </name>
@@ -818,6 +878,10 @@
   <name>
     <first>Roger</first>
     <last>Vaughn</last>
+  </name>
+  <name>
+    <first>Ronen</first>
+    <last>Mashal</last>
   </name>
   <name>
     <first>Russell</first>
@@ -897,6 +961,10 @@
     <last>Morin</last>
   </name>
   <name>
+    <first>Steve</first>
+    <last>Wadsworth</last>
+  </name>
+  <name>
     <first>Steven</first>
     <middle>E.</middle>
     <last>Newton</last>
@@ -904,6 +972,10 @@
   <name>
     <first>Takashi</first>
     <last>Okamoto</last>
+  </name>
+  <name>
+    <first>Taoufik</first>
+    <last>Romdhane</last>
   </name>
   <name>
     <first>Tariq</first>
@@ -924,6 +996,10 @@
   <name>
     <first>Thomas</first>
     <last>Haas</last>
+  </name>
+  <name>
+    <first>Tim</first>
+    <last>Drury</last>
   </name>
   <name>
     <first>Tim</first>
@@ -955,6 +1031,10 @@
     <last>Eugelink</last>
   </name>
   <name>
+    <first>Trejkaz</first>
+    <last>Xaoz</last>
+  </name>
+  <name>
     <first>Ulrich</first>
     <last>Schmidt</last>
   </name>
@@ -971,6 +1051,14 @@
     <last>Ferguson</last>
   </name>
   <name>
+    <first>Wolf</first>
+    <last>Siberski</last>
+  </name>
+  <name>
+    <first>Wolfgang</first>
+    <last>Baer</last>
+  </name>
+  <name>
     <first>Wolfgang</first>
     <last>Frech</last>
   </name>
@@ -979,8 +1067,12 @@
     <last>Werner</last>
   </name>
   <name>
-    <first>Wolf</first>
-    <last>Siberski</last>
+    <first>Xavier</first>
+    <last>Hanin</last>
+  </name>
+  <name>
+    <first>Xavier</first>
+    <last>Witdouck</last>
   </name>
   <name>
     <first>Yohann</first>

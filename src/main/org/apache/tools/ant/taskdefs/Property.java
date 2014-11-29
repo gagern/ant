@@ -70,6 +70,7 @@ import org.apache.tools.ant.types.Reference;
  */
 public class Property extends Task {
 
+    // CheckStyle:VisibilityModifier OFF - bc
     protected String name;
     protected String value;
     protected File file;
@@ -82,6 +83,7 @@ public class Property extends Task {
     private Project fallback;
 
     protected boolean userProperty; // set read-only properties
+    // CheckStyle:VisibilityModifier ON
 
     /**
      * Constructor for Property.
@@ -334,7 +336,7 @@ public class Property extends Task {
     /**
      * @param userProperty ignored
      * @deprecated since 1.5.x.
-     *             This was never a supported feature and has been 
+     *             This was never a supported feature and has been
      *             deprecated without replacement.
      * @ant.attribute ignore="true"
      */
@@ -606,8 +608,9 @@ public class Property extends Task {
         String propertyValue = props.getProperty(name);
         Vector fragments = new Vector();
         Vector propertyRefs = new Vector();
-        PropertyHelper.getPropertyHelper(this.getProject()).parsePropertyString(propertyValue, fragments,
-                propertyRefs);
+        PropertyHelper.getPropertyHelper(
+            this.getProject()).parsePropertyString(
+                propertyValue, fragments, propertyRefs);
 
         if (propertyRefs.size() != 0) {
             referencesSeen.push(name);

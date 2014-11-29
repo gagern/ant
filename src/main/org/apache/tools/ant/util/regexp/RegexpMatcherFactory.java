@@ -94,8 +94,9 @@ public class RegexpMatcherFactory {
             cause = orCause(cause, be, true);
         }
 
-        throw new BuildException("No supported regular expression matcher found" +
-                (cause != null ? ": " + cause : ""), cause);
+        throw new BuildException(
+            "No supported regular expression matcher found"
+            + (cause != null ? ": " + cause : ""), cause);
    }
 
     static Throwable orCause(Throwable deflt, BuildException be, boolean ignoreCnfe) {
@@ -114,8 +115,7 @@ public class RegexpMatcherFactory {
      * @exception BuildException if an error occurs
      */
     protected RegexpMatcher createInstance(String className)
-        throws BuildException 
-    {
+        throws BuildException {
         return (RegexpMatcher) ClasspathUtils.newInstance(className,
                 RegexpMatcherFactory.class.getClassLoader(), RegexpMatcher.class);
     }

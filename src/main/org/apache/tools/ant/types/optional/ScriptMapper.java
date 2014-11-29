@@ -22,13 +22,13 @@ import org.apache.tools.ant.util.FileNameMapper;
 import java.util.ArrayList;
 
 /**
- * Script support at map time. 
+ * Script support at map time.
  * @since Ant1.7
  */
 public class ScriptMapper extends AbstractScriptComponent implements FileNameMapper {
 
 
-    ArrayList files;
+    private ArrayList files;
     static final String[] EMPTY_STRING_ARRAY = new String[0];
 
 
@@ -54,12 +54,12 @@ public class ScriptMapper extends AbstractScriptComponent implements FileNameMap
      * Reset the list of files
      */
     public void clear() {
-        files=new ArrayList(1);
+        files = new ArrayList(1);
     }
 
     /**
      * Add a mapped name
-     * @param mapping
+     * @param mapping the value to use.
      */
     public void addMappedName(String mapping) {
         files.add(mapping);
@@ -84,10 +84,10 @@ public class ScriptMapper extends AbstractScriptComponent implements FileNameMap
         getRunner().addBean("source", sourceFileName);
         clear();
         executeScript("ant_mapper");
-        if(files.size()==0) {
+        if (files.size() == 0) {
             return null;
         } else {
-            return (String[])files.toArray(EMPTY_STRING_ARRAY);
+            return (String[]) files.toArray(EMPTY_STRING_ARRAY);
         }
     }
 }

@@ -31,46 +31,51 @@ import java.io.IOException;
 
 /**
  * Copy the contents of a path to a destination, using the mapper of choice
- * 
+ *
  * @since Ant 1.7
- * 
+ *
  * @ant.task category="filesystem"
  */
 
 public class CopyPath extends Task {
 
+    // Error messages
+    /** No destdir attribute */
+    public static final String ERROR_NO_DESTDIR = "No destDir specified";
+
+    /** No path  */
+    public static final String ERROR_NO_PATH = "No path specified";
+
+    /** No mapper  */
+    public static final String ERROR_NO_MAPPER = "No mapper specified";
+
+    // fileutils
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
+    // --- Fields --
     private FileNameMapper mapper;
 
     private Path path;
 
     private File destDir;
 
-    protected FileUtils fileUtils;
-
     // TODO not read, yet in a public setter
-    private long granularity = 0;
+    private long granularity = FILE_UTILS.getFileTimestampGranularity();
 
-    protected boolean preserveLastModified = false;
+    private boolean preserveLastModified = false;
 
-    public CopyPath() {
-        fileUtils = FileUtils.getFileUtils();
-        granularity = fileUtils.getFileTimestampGranularity();
-    }
-
-    public static final String ERROR_NO_DESTDIR = "No destDir specified";
-
-    public static final String ERROR_NO_PATH = "No path specified";
-
-    public static final String ERROR_NO_MAPPER = "No mapper specified";
-
+    /**
+     * The dest dir attribute.
+     * @param destDir the value of the destdir attribute.
+     */
     public void setDestDir(File destDir) {
         this.destDir = destDir;
     }
 
     /**
      * add a mapper
-     * 
-     * @param newmapper
+     *
+     * @param newmapper the mapper to add.
      */
     public void add(FileNameMapper newmapper) {
         if (mapper != null) {
@@ -81,7 +86,7 @@ public class CopyPath extends Task {
 
     /**
      * Set the path to be used when running the Java class.
-     * 
+     *
      * @param s
      *            an Ant Path object containing the path.
      */
@@ -91,7 +96,7 @@ public class CopyPath extends Task {
 
     /**
      * Set the path to use by reference.
-     * 
+     *
      * @param r
      *            a reference to an existing path.
      */
@@ -101,7 +106,7 @@ public class CopyPath extends Task {
 
     /**
      * Create a path.
-     * 
+     *
      * @return a path to be configured.
      */
     public Path createPath() {
@@ -111,10 +116,22 @@ public class CopyPath extends Task {
         return path;
     }
 
+    /**
+     * Set the number of milliseconds leeway to give before deciding a
+     * target is out of date.
+     * TODO: This is not yet used.
+     * @param granularity the granularity used to decide if a target is out of
+     *                    date.
+     */
     public void setGranularity(long granularity) {
         this.granularity = granularity;
     }
 
+    /**
+     * Give the copied files the same last modified time as the original files.
+     * @param preserveLastModified if true preserve the modified time;
+     *                             default is false.
+     */
     public void setPreserveLastModified(boolean preserveLastModified) {
         this.preserveLastModified = preserveLastModified;
     }
@@ -122,7 +139,7 @@ public class CopyPath extends Task {
     /**
      * Ensure we have a consistent and legal set of attributes, and set any
      * internal flags necessary based on different combinations of attributes.
-     * 
+     *
      * @throws BuildException
      *             if an error occurs.
      */
@@ -140,7 +157,7 @@ public class CopyPath extends Task {
 
     /**
      * This is a very minimal derivative of the nomal copy logic.
-     * 
+     *
      * @throws BuildException
      *             if something goes wrong with the build.
      */
@@ -173,7 +190,7 @@ public class CopyPath extends Task {
                 try {
                     log("Copying " + sourceFile + " to " + destFile, Project.MSG_VERBOSE);
 
-                    fileUtils.copyFile(sourceFile, destFile, null, null, false,
+                    FILE_UTILS.copyFile(sourceFile, destFile, null, null, false,
                             preserveLastModified, null, null, getProject());
                 } catch (IOException ioe) {
                     String msg = "Failed to copy " + sourceFile + " to " + destFile + " due to "

@@ -24,6 +24,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.SubBuildListener;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.LogLevel;
 
 /**
  * Adds a listener to the current build process that records the
@@ -126,24 +127,11 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Sets the level to which this recorder entry should log to.
-     *
+     * @param level the level to set.
      * @see VerbosityLevelChoices
      */
     public void setLoglevel(VerbosityLevelChoices level) {
-        //I hate cascading if/elseif clauses !!!
-        String lev = level.getValue();
-
-        if (lev.equalsIgnoreCase("error")) {
-            loglevel = Project.MSG_ERR;
-        } else if (lev.equalsIgnoreCase("warn")) {
-            loglevel = Project.MSG_WARN;
-        } else if (lev.equalsIgnoreCase("info")) {
-            loglevel = Project.MSG_INFO;
-        } else if (lev.equalsIgnoreCase("verbose")) {
-            loglevel = Project.MSG_VERBOSE;
-        } else if (lev.equalsIgnoreCase("debug")) {
-            loglevel = Project.MSG_DEBUG;
-        }
+        loglevel = level.getLevel();
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -190,6 +178,7 @@ public class Recorder extends Task implements SubBuildListener {
         /**
          * @see EnumeratedAttribute#getValues()
          */
+        /** {@inheritDoc}. */
         public String[] getValues() {
             return VALUES;
         }
@@ -200,16 +189,7 @@ public class Recorder extends Task implements SubBuildListener {
      * A list of possible values for the <code>setLoglevel()</code> method.
      * Possible values include: error, warn, info, verbose, debug.
      */
-    public static class VerbosityLevelChoices extends EnumeratedAttribute {
-        private static final String[] VALUES = {"error", "warn", "info",
-            "verbose", "debug"};
-
-        /**
-         * @see EnumeratedAttribute#getValues()
-         */
-        public String[] getValues() {
-            return VALUES;
-        }
+    public static class VerbosityLevelChoices extends LogLevel {
     }
 
 
@@ -245,7 +225,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void buildStarted(BuildEvent event) {
@@ -253,7 +233,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void subBuildStarted(BuildEvent event) {
@@ -261,7 +241,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void targetStarted(BuildEvent event) {
@@ -269,7 +249,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void targetFinished(BuildEvent event) {
@@ -277,7 +257,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void taskStarted(BuildEvent event) {
@@ -285,7 +265,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void taskFinished(BuildEvent event) {
@@ -293,7 +273,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Empty implementation required by SubBuildListener interface.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void messageLogged(BuildEvent event) {
@@ -301,7 +281,7 @@ public class Recorder extends Task implements SubBuildListener {
 
     /**
      * Cleans recorder registry.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void buildFinished(BuildEvent event) {
@@ -311,7 +291,7 @@ public class Recorder extends Task implements SubBuildListener {
     /**
      * Cleans recorder registry, if this is the subbuild the task has
      * been created in.
-     *
+     * @param event ignored.
      * @since Ant 1.7
      */
     public void subBuildFinished(BuildEvent event) {

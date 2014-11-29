@@ -1,3 +1,19 @@
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 <html>
 
 <head>
@@ -1337,14 +1353,14 @@ the classpath of the ejbdeploy tool and set the <i>websphere.home</i> property (
   </tr>
   <tr>
     <td valign="top">dbVendor</td>
-    <td valign="top">This option is passed to ejbdeploy. Valid options are for example:
-                     <ul>
-                     <li>SQL92</li> <li>SQL99</li> <li>DB2UDBWIN_V71</li>
-                     <li>DB2UDBOS390_V6</li> <li>DB2UDBAS400_V4R5</li> <li>ORACLE_V8</li>
-                     <li>INFORMIX_V92</li> <li>SYBASE_V1192</li> <li>MYSQL_V323</li>
-                     <li>MSSQLSERVER_V7</li>
-                     </ul>
-                     This is also used to determine the name of the Map.mapxmi and
+    <td valign="top">This option is passed to ejbdeploy. 
+                   <p>
+                   Valid options can be obtained by running the following command:
+                   <code>
+                   &lt;WAS_HOME&gt;/bin/EJBDeploy.[sh/bat] -help
+                   </code>
+                   </p>
+                    This is also used to determine the name of the Map.mapxmi and
                      Schema.dbxmi files, for example Account-DB2UDBWIN_V71-Map.mapxmi
                      and Account-DB2UDBWIN_V71-Schema.dbxmi.
                      </td>
@@ -1752,9 +1768,7 @@ descriptors to use the naming standard. This will create only one ejb jar file -
       &lt;/ejbjar&gt;
 </pre>
 
-<hr>
-<p align="center">Copyright &copy; 2000-2006 The Apache Software Foundation. All rights
-Reserved.</p>
+
 
 
 </body>

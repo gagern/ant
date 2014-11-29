@@ -55,6 +55,11 @@ import org.xml.sax.SAXException;
  *
  */
 public class GenericDeploymentTool implements EJBDeploymentTool {
+    /** The default buffer byte size to use for IO */
+    public static final int DEFAULT_BUFFER_SIZE = 1024;
+    /** The level to use for compression */
+    public static final int JAR_COMPRESS_LEVEL  = 9;
+
     /** The standard META-INF directory in jar files */
     protected static final String META_DIR  = "META-INF/";
 
@@ -125,6 +130,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      */
     private DependencyAnalyzer dependencyAnalyzer;
 
+    /** No arg constructor */
     public GenericDeploymentTool() {
     }
 
@@ -314,6 +320,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      * @param logicalFilename A String representing the name, including
      *        all relevant path information, that should be stored for the entry
      *        being added.
+     * @throws BuildException if there is a problem.
      */
     protected void addFileToJar(JarOutputStream jStream,
                                 File inputFile,
@@ -329,7 +336,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
 
                 // Create the file input stream, and buffer everything over
                 // to the jar output stream
-                byte[] byteBuffer = new byte[2 * 1024];
+                byte[] byteBuffer = new byte[2 * DEFAULT_BUFFER_SIZE];
                 int count = 0;
                 do {
                     jStream.write(byteBuffer, 0, count);
@@ -356,6 +363,11 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
         }
     }
 
+    /**
+     * Get a descriptionHandler.
+     * @param srcDir the source directory.
+     * @return a handler.
+     */
     protected DescriptorHandler getDescriptorHandler(File srcDir) {
         DescriptorHandler h = new DescriptorHandler(getTask(), srcDir);
 
@@ -374,11 +386,13 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      *
      * vendor-specific subclasses should override this method to define
      * the vendor-specific locations of the EJB DTDs
+     * @param handler no used in this class.
      */
     protected void registerKnownDTDs(DescriptorHandler handler) {
         // none to register for generic
     }
 
+    /** {@inheritDoc}. */
     public void processDescriptor(String descriptorFileName, SAXParser saxParser) {
 
         checkConfiguration(descriptorFileName, saxParser);
@@ -476,7 +490,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      *                           descriptor to be processed
      * @param saxParser          SAXParser which may be used to parse the XML
      *                           descriptor
-     * @exception BuildException     Thrown if the configuration is invalid
+     * @throws BuildException if there is a problem.
      */
     protected void checkConfiguration(String descriptorFileName,
                                     SAXParser saxParser) throws BuildException {
@@ -620,6 +634,9 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      *
      * This will contain the path and the start of the descriptor name,
      * depending on the naming scheme
+     * @param baseName the base name to use.
+     * @param descriptorFileName the file name to use.
+     * @return the prefix.
      */
     public String getVendorDDPrefix(String baseName, String descriptorFileName) {
         String ddPrefix = null;
@@ -643,6 +660,8 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
     /**
      * Add any vendor specific files which should be included in the
      * EJB Jar.
+     * @param ejbFiles a hashtable entryname -> file.
+     * @param ddPrefix a prefix to use.
      */
     protected void addVendorFiles(Hashtable ejbFiles, String ddPrefix) {
         // nothing to add for generic tool.
@@ -652,6 +671,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
     /**
      * Get the vendor specific name of the Jar that will be output. The modification date
      * of this jar will be checked against the dependent bean classes.
+     * @param baseName the basename to use.
      */
     File getVendorOutputJarFile(String baseName) {
         return new File(destDir, baseName + genericJarSuffix);
@@ -733,6 +753,11 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      * Method used to encapsulate the writing of the JAR file. Iterates over the
      * filenames/java.io.Files in the Hashtable stored on the instance variable
      * ejbFiles.
+     * @param baseName the base name to use.
+     * @param jarfile  the jar file to write to.
+     * @param files    the files to write to the jar.
+     * @param publicId the id to use.
+     * @throws BuildException if there is a problem.
      */
     protected void writeJar(String baseName, File jarfile, Hashtable files,
                             String publicId) throws BuildException {
@@ -847,6 +872,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
     /**
      * Add all available classes, that depend on Remote, Home, Bean, PK
      * @param checkEntries files, that are extracted from the deployment descriptor
+     * @throws BuildException if there is a problem.
      */
     protected void checkAndAddDependants(Hashtable checkEntries)
         throws BuildException {
@@ -890,7 +916,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
      * Returns a Classloader object which parses the passed in generic EjbJar classpath.
      * The loader is used to dynamically load classes from javax.ejb.* and the classes
      * being added to the jar.
-     *
+     * @return a classloader.
      */
     protected ClassLoader getClassLoaderForBuild() {
         if (classpathLoader != null) {

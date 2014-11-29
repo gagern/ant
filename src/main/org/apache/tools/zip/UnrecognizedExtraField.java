@@ -124,7 +124,10 @@ public class UnrecognizedExtraField implements ZipExtraField {
     }
 
     /**
-     * @see ZipExtraField#parseFromLocalFileData(byte[], int, int) 
+     * @param data the array of bytes.
+     * @param offset the source location in the data array.
+     * @param length the number of bytes to use in the data array.
+     * @see ZipExtraField#parseFromLocalFileData(byte[], int, int)
      */
     public void parseFromLocalFileData(byte[] data, int offset, int length) {
         byte[] tmp = new byte[length];

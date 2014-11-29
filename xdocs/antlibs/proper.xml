@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <!--
-   Copyright 2005-2006 The Apache Software Foundation
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
 
        http://www.apache.org/licenses/LICENSE-2.0
 
@@ -60,7 +61,7 @@
           </tr>
           <tr>
             <th>Latest Release:</th>
-            <td>None</td>
+            <td>1.0 Beta 2 released on October 29, 2006</td>
           </tr>
         </table>
       </subsection>
@@ -91,8 +92,7 @@
           </tr>
           <tr>
             <th>Ant compatibility:</th>
-            <td>Ant 1.7.x<br/>A branch that works with Ant 1.6.2 and
-              above exists in <a href="https://svn.apache.org/repos/asf/ant/antlibs/dotnet/branches/Ant_1.6.2_compatible/">https://svn.apache.org/repos/asf/ant/antlibs/dotnet/branches/Ant_1.6.2_compatible/</a></td>
+            <td>Ant 1.7.x</td>
           </tr>
           <tr>
             <th>Added to sandbox:</th>
@@ -104,7 +104,7 @@
           </tr>
           <tr>
             <th>Latest Release:</th>
-            <td>None</td>
+            <td>1.0 released on November 6, 2006</td>
           </tr>
         </table>
       </subsection>

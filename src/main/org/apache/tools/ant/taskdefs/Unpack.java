@@ -33,13 +33,14 @@ import org.apache.tools.ant.types.resources.FileResource;
  */
 
 public abstract class Unpack extends Task {
-
+    // CheckStyle:VisibilityModifier OFF - bc
     protected File source;
     protected File dest;
     protected Resource srcResource;
+    // CheckStyle:VisibilityModifier ON
 
     /**
-     * @deprecated since 1.5.x. 
+     * @deprecated since 1.5.x.
      *             setSrc(String) is deprecated and is replaced with
      *             setSrc(File) to make Ant's Introspection
      *             mechanism do the work and also to encapsulate operations on
@@ -54,7 +55,7 @@ public abstract class Unpack extends Task {
     }
 
     /**
-     * @deprecated since 1.5.x. 
+     * @deprecated since 1.5.x.
      *             setDest(String) is deprecated and is replaced with
      *             setDest(File) to make Ant's Introspection
      *             mechanism do the work and also to encapsulate operations on
@@ -176,7 +177,7 @@ public abstract class Unpack extends Task {
      * Whether this task can deal with non-file resources.
      *
      * <p>This implementation returns false.</p>
-     *
+     * @return false for this task.
      * @since Ant 1.7
      */
     protected boolean supportsNonFileResources() {

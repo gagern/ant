@@ -59,7 +59,7 @@ import org.apache.tools.ant.util.StringUtils;
  */
 public class Checksum extends MatchingTask implements Condition {
     private static class FileUnion extends Restrict {
-        Union u;
+        private Union u;
         FileUnion() {
             u = new Union();
             super.add(u);
@@ -398,6 +398,10 @@ public class Checksum extends MatchingTask implements Condition {
                 }
             }
             if (file != null) {
+                if (totalproperty != null || todir != null) {
+                    relativeFilePaths.put(
+                        file, file.getName().replace(File.separatorChar, '/'));
+                }
                 addToIncludeFileMap(file);
             }
             return generateChecksums();
@@ -445,13 +449,13 @@ public class Checksum extends MatchingTask implements Condition {
         if (todir != null) {
             // A separate directory was explicitly declared
             String path = (String) relativeFilePaths.get(file);
-            if(path==null) {
+            if (path == null) {
                 //bug 37386. this should not occur, but it has, once.
-                throw new BuildException("Internal error: " +
-                        "relativeFilePaths could not match file"+
-                        file+
-                        "\n" +
-                        "please file a bug report on this");
+                throw new BuildException(
+                    "Internal error: "
+                    + "relativeFilePaths could not match file"
+                    + file + "\n"
+                    + "please file a bug report on this");
             }
             directory = new File(todir, path).getParentFile();
             // Create the directory, as it might not exist.
@@ -627,7 +631,7 @@ public class Checksum extends MatchingTask implements Condition {
         } catch (ParseException e) {
             throw new BuildException("Couldn't read checksum file " + f, e);
         } finally {
-        	FileUtils.close(diskChecksumReader);
+            FileUtils.close(diskChecksumReader);
         }
     }
 

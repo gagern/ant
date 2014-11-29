@@ -47,7 +47,7 @@ public class DOMElementWriter {
     private static final String NS = "ns";
 
     /** xml declaration is on by default */
-    private boolean xmlDeclaration=true;
+    private boolean xmlDeclaration = true;
 
     /**
      * XML Namespaces are ignored by default.
@@ -115,7 +115,7 @@ public class DOMElementWriter {
     }
 
     /**
-     * Create an element writer 
+     * Create an element writer
      * XML namespaces will be ignored.
      * @param xmlDeclaration flag to indicate whether the ?xml? declaration
      * should be included.
@@ -126,10 +126,11 @@ public class DOMElementWriter {
     }
 
     /**
-     * Create an element writer 
+     * Create an element writer
      * XML namespaces will be ignored.
      * @param xmlDeclaration flag to indicate whether the ?xml? declaration
      * should be included.
+     * @param namespacePolicy the policy to use.
      * @since Ant1.7
      */
     public DOMElementWriter(boolean xmlDeclaration,
@@ -140,11 +141,13 @@ public class DOMElementWriter {
 
     private static String lSep = System.getProperty("line.separator");
 
+    // CheckStyle:VisibilityModifier OFF - bc
     /**
      * Don't try to be too smart but at least recognize the predefined
      * entities.
      */
     protected String[] knownEntities = {"gt", "amp", "lt", "apos", "quot"};
+    // CheckStyle:VisibilityModifier ON
 
 
     /**
@@ -164,7 +167,9 @@ public class DOMElementWriter {
     }
 
     /**
-     * Writes the XML declaration.
+     * Writes the XML declaration if xmlDeclaration is true.
+     * @param wri the writer to write to.
+     * @throws IOException if there is an error.
      * @since Ant 1.7.0
      */
     public void writeXMLDeclaration(Writer wri) throws IOException {
@@ -196,9 +201,9 @@ public class DOMElementWriter {
         if (hasChildren) {
             for (int i = 0; i < children.getLength(); i++) {
                 Node child = children.item(i);
-    
+
                 switch (child.getNodeType()) {
-    
+
                 case Node.ELEMENT_NODE:
                     hasChildElements = true;
                     if (i == 0) {
@@ -206,29 +211,29 @@ public class DOMElementWriter {
                     }
                     write((Element) child, out, indent + 1, indentWith);
                     break;
-    
+
                 case Node.TEXT_NODE:
                     out.write(encode(child.getNodeValue()));
                     break;
-    
+
                 case Node.COMMENT_NODE:
                     out.write("<!--");
                     out.write(encode(child.getNodeValue()));
                     out.write("-->");
                     break;
-    
+
                 case Node.CDATA_SECTION_NODE:
                     out.write("<![CDATA[");
                     out.write(encodedata(((Text) child).getData()));
                     out.write("]]>");
                     break;
-    
+
                 case Node.ENTITY_REFERENCE_NODE:
                     out.write('&');
                     out.write(child.getNodeName());
                     out.write(';');
                     break;
-    
+
                 case Node.PROCESSING_INSTRUCTION_NODE:
                     out.write("<?");
                     out.write(child.getNodeName());
@@ -365,6 +370,7 @@ public class DOMElementWriter {
      * @param indent number of
      * @param indentWith string that should be used to indent the
      * corresponding tag.
+     * @param hasChildren if true indent.
      * @throws IOException if an error happens while writing to the stream.
      */
     public void closeElement(Element element, Writer out, int indent,
@@ -447,7 +453,8 @@ public class DOMElementWriter {
      * <code>&amp;#x5d;&amp;#x5d;&amp;gt;</code>.</p>
      *
      * <p>See XML 1.0 2.2 <a
-     * href="http://www.w3.org/TR/1998/REC-xml-19980210#charsets">http://www.w3.org/TR/1998/REC-xml-19980210#charsets</a> and
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#charsets">
+     * http://www.w3.org/TR/1998/REC-xml-19980210#charsets</a> and
      * 2.7 <a
      * href="http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect">http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect</a>.</p>
      * @param value the value to be encoded.

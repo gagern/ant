@@ -23,6 +23,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Text;
 
+// CheckStyle:HideUtilityClassConstructorCheck OFF - bc
+
 /**
  * Some utility methods for common tasks when building DOM trees in memory.
  *
@@ -35,7 +37,7 @@ public class DOMUtils {
 
     /**
      * Get a new Document instance,
-     *
+     * @return the document.
      * @since Ant 1.6.3
      */
     public static Document newDocument() {

@@ -38,7 +38,7 @@ import org.apache.tools.ant.taskdefs.PreSetDef;
  * elements.
  * The class is final as it has a private constructor.
  */
-public final class IntrospectionHelper implements BuildListener {
+public final class IntrospectionHelper  {
 
     /**
      * EMPTY_MAP was added in java 1.3 (EMPTY_SET and EMPTY_LIST
@@ -48,9 +48,9 @@ public final class IntrospectionHelper implements BuildListener {
         = Collections.unmodifiableMap(new HashMap(0));
 
     /**
-     * Helper instances we've already created (Class to IntrospectionHelper).
+     * Helper instances we've already created (Class.getName() to IntrospectionHelper).
      */
-    private static final Hashtable HELPERS = new Hashtable();
+    private static final Map HELPERS = new Hashtable();
 
     /**
      * Map from primitive types to wrapper classes for use in
@@ -72,6 +72,9 @@ public final class IntrospectionHelper implements BuildListener {
             PRIMITIVE_TYPE_MAP.put (primitives[i], wrappers[i]);
         }
     }
+
+    private static final int MAX_REPORT_NESTED_TEXT = 20;
+    private static final String ELLIPSIS = "...";
 
     /**
      * Map from attribute names to attribute types
@@ -112,17 +115,6 @@ public final class IntrospectionHelper implements BuildListener {
      */
     private Class bean;
 
-    // XXX: (Jon Skeet) The documentation below doesn't draw a clear
-    // distinction between addConfigured and add. It's obvious what the
-    // code *here* does (addConfigured sets both a creator method which
-    // calls a no-arg constructor and a storer method which calls the
-    // method we're looking at, while add just sets a creator method
-    // which calls the method we're looking at) but it's not at all
-    // obvious what the difference in actual *effect* will be later
-    // on. I can't see any mention of addConfiguredXXX in "Developing
-    // with Ant" (at least in the version on the web site). Someone
-    // who understands should update this documentation
-    // (and preferably the manual too) at some stage.
     /**
      * Sole constructor, which is private to ensure that all
      * IntrospectionHelpers are created via {@link #getHelper(Class) getHelper}.
@@ -151,12 +143,14 @@ public final class IntrospectionHelper implements BuildListener {
      * <code>Bar</code> is not an array, primitive or String type.
      * <code>Bar</code> must have an accessible constructor taking no
      * arguments.
-     * <li><code>void addFoo(Bar)</code> is recognised as a
-     * method for storing an element called <code>foobar</code>
-     * and of type <code>Baz</code>, so long as
-     * <code>Baz</code> is not an array, primitive or String type.
-     * <code>Baz</code> must have an accessible constructor taking no
-     * arguments.
+     * <li><code>void addFoo(Bar)</code> is recognised as a method for storing
+     * an element called <code>foo</code> and of type <code>Bar</code>, so
+     * long as <code>Bar</code> is not an array, primitive or String type.
+     * <code>Bar</code> must have an accessible constructor taking no
+     * arguments. This is distinct from the 'addConfigured' idiom in that
+     * the nested element is added to the parent immediately after it is
+     * constructed; in practice this means that <code>addFoo(Bar)</code> should
+     * do little or nothing with its argument besides storing it for later use.
      * </ul>
      * Note that only one method is retained to create/set/addConfigured/add
      * any element or attribute.
@@ -168,7 +162,6 @@ public final class IntrospectionHelper implements BuildListener {
      */
     private IntrospectionHelper(final Class bean) {
         this.bean = bean;
-
         Method[] methods = bean.getMethods();
         for (int i = 0; i < methods.length; i++) {
             final Method m = methods[i];
@@ -182,8 +175,9 @@ public final class IntrospectionHelper implements BuildListener {
                 insertAddTypeMethod(m);
                 continue;
             }
-            // not really user settable properties on tasks
-            if (org.apache.tools.ant.Task.class.isAssignableFrom(bean)
+            // not really user settable properties on tasks/project components
+            if (org.apache.tools.ant.ProjectComponent.class.isAssignableFrom(
+                    bean)
                  && args.length == 1 && isHiddenSetMethod(name, args[0])) {
                 continue;
             }
@@ -199,7 +193,6 @@ public final class IntrospectionHelper implements BuildListener {
             } else if (name.startsWith("set")
                        && java.lang.Void.TYPE.equals(returnType)
                        && args.length == 1 && !args[0].isArray()) {
-
                 String propName = getPropertyName(name, "set");
                 if (attributeSetters.get(propName) != null) {
                     if (java.lang.String.class.equals(args[0])) {
@@ -212,7 +205,8 @@ public final class IntrospectionHelper implements BuildListener {
                         continue;
                     }
                     /*
-                        If the argument is not a String, and if there
+                        If the argument is not a String or Location,
+                        and if there
                         is an overloaded form of this method already defined,
                         we just override that with the new one.
                         This mechanism does not guarantee any specific order
@@ -337,18 +331,16 @@ public final class IntrospectionHelper implements BuildListener {
      * @return a helper for the specified class
      */
     public static IntrospectionHelper getHelper(Project p, Class c) {
-        IntrospectionHelper ih = (IntrospectionHelper) HELPERS.get(c);
-        if (ih == null) {
+        IntrospectionHelper ih = (IntrospectionHelper) HELPERS.get(c.getName());
+        // If a helper cannot be found, or if the helper is for another
+        // classloader, create a new IH
+        if (ih == null || ih.bean != c) {
             ih = new IntrospectionHelper(c);
             if (p != null) {
                 // #30162: do *not* cache this if there is no project, as we
                 // cannot guarantee that the cache will be cleared.
-                HELPERS.put(c, ih);
+                HELPERS.put(c.getName(), ih);
             }
-        }
-        if (p != null) {
-            // Cleanup at end of project
-            p.addBuildListener(ih);
         }
         return ih;
     }
@@ -439,14 +431,16 @@ public final class IntrospectionHelper implements BuildListener {
     public void addText(Project project, Object element, String text)
         throws BuildException {
         if (addText == null) {
+            text = text.trim();
             // Element doesn't handle text content
-            if (text.trim().length() == 0) {
+            if (text.length() == 0) {
                 // Only whitespace - ignore
                 return;
             } else {
                 // Not whitespace - fail
                 String msg = project.getElementName(element)
-                    + " doesn't support nested text data.";
+                    + " doesn't support nested text data (\""
+                    + condenseText(text) + "\").";
                 throw new BuildException(msg);
             }
         }
@@ -1279,9 +1273,7 @@ public final class IntrospectionHelper implements BuildListener {
         Object create(Project project, Object parent, Object child)
                 throws InvocationTargetException,
                 IllegalAccessException, InstantiationException {
-            if (child != null) {
-                // Empty
-            } else {
+            if (child == null) {
                 child = constructor.newInstance(
                     (constructor.getParameterTypes().length == 0)
                     ? new Object[] {} : new Object[] {project});
@@ -1327,65 +1319,10 @@ public final class IntrospectionHelper implements BuildListener {
     }
 
     /**
-     * Clears all storage used by this class, including the static cache of
-     * helpers.
-     *
-     * @param event Ignored in this implementation.
+     * Clears the static cache of on build finished.
      */
-    public void buildFinished(BuildEvent event) {
-        attributeTypes.clear();
-        attributeSetters.clear();
-        nestedTypes.clear();
-        nestedCreators.clear();
-        addText = null;
+    public static void clearCache() {
         HELPERS.clear();
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     * @param event Ignored in this implementation.
-     */
-    public void buildStarted(BuildEvent event) {
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     *
-     * @param event Ignored in this implementation.
-     */
-    public void targetStarted(BuildEvent event) {
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     *
-     * @param event Ignored in this implementation.
-     */
-    public void targetFinished(BuildEvent event) {
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     *
-     * @param event Ignored in this implementation.
-     */
-    public void taskStarted(BuildEvent event) {
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     *
-     * @param event Ignored in this implementation.
-     */
-    public void taskFinished(BuildEvent event) {
-    }
-
-    /**
-     * Empty implementation to satisfy the BuildListener interface.
-     *
-     * @param event Ignored in this implementation.
-     */
-    public void messageLogged(BuildEvent event) {
     }
 
     /**
@@ -1425,7 +1362,7 @@ public final class IntrospectionHelper implements BuildListener {
             Object create(Project project, Object parent, Object ignore)
                     throws InvocationTargetException, IllegalAccessException {
                 if (!method.getName().endsWith("Configured")) {
-                    method.invoke(parent, new Object[]{realObject});
+                    method.invoke(parent, new Object[] {realObject});
                 }
                 return nestedObject;
             }
@@ -1438,7 +1375,7 @@ public final class IntrospectionHelper implements BuildListener {
                     throws InvocationTargetException, IllegalAccessException,
                     InstantiationException {
                 if (method.getName().endsWith("Configured")) {
-                    method.invoke(parent, new Object[]{realObject});
+                    method.invoke(parent, new Object[] {realObject});
                 }
             }
         };
@@ -1504,4 +1441,12 @@ public final class IntrospectionHelper implements BuildListener {
         return matchedMethod;
     }
 
+    private String condenseText(final String text) {
+        if (text.length() <= MAX_REPORT_NESTED_TEXT) {
+            return text;
+        }
+        int ends = (MAX_REPORT_NESTED_TEXT - ELLIPSIS.length()) / 2;
+        return new StringBuffer(text).replace(ends, text.length() - ends,
+            ELLIPSIS).toString();
+    }
 }
