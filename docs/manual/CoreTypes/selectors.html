@@ -2,6 +2,7 @@
   <head>
     <meta http-equiv="Content-Language" content="en-us">
     <title>Selectors in Ant</title>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
   </head>
 
   <body>
@@ -133,8 +134,10 @@
       </tr>
       <tr>
         <td valign="top">datetime</td>
-        <td valign="top">Specifies the date and time to test for using
-          a string of the format MM/DD/YYYY HH:MM AM_or_PM.
+        <td valign="top">Specifies the date and time to test for.
+          Should be in the format MM/DD/YYYY HH:MM AM_or_PM, or
+          an alternative pattern specified via the <i>pattern</i>
+          attribute.
         </td>
         <td valign="top" align="center" rowspan="2">At least one of the two.</td>
       </tr>
@@ -157,6 +160,23 @@
             <li>equal - select files  whose last modified date is this exact date
           </ul>
           The default is equal.
+        <td valign="top" align="center">No</td>
+      </tr>
+      <tr>
+        <td valign="top">granularity</td>
+        <td valign="top">The number of milliseconds leeway to use when
+          comparing file modification times. This is needed because not every
+          file system supports tracking the last modified time to the
+          millisecond level. Default is 0 milliseconds, or 2 seconds on DOS systems.
+        </td>
+        <td valign="top" align="center">No</td>
+      </tr>
+      <tr>
+        <td valign="top">pattern</td>
+        <td valign="top">The <CODE>SimpleDateFormat</CODE>-compatible pattern
+          to use when interpreting the <i>datetime</i> attribute.
+          <i>Since Ant 1.6.2</i>
+        </td>
         <td valign="top" align="center">No</td>
       </tr>
     </table>
@@ -280,7 +300,8 @@
     <li> Files with different lengths are different.
     <li> If <tt>ignoreFileTimes</tt> is turned off, then differing file
     timestamps will cause files to be regarded as different.
-    <li> Finally a byte-for-byte check is run against the two files
+    <li> Unless<tt>ignoreContents</tt> is set to true, a byte-for-byte check is run
+    against the two files
     </ol>
 
     This is a useful selector to work with programs and tasks that don't handle
@@ -319,6 +340,14 @@
         <td valign="top">ignoreFileTimes</td>
         <td valign="top">Whether to use file times in the comparison or not.
           Default is true (time differences are ignored).
+        </td>
+        <td valign="top" align="center">No</td>
+      </tr>
+      <tr>
+        <td valign="top">ignoreContents</td>
+        <td valign="top">Whether to do a byte per byte compare.
+          Default is false (contents are compared).
+          Since ant 1.6.3
         </td>
         <td valign="top" align="center">No</td>
       </tr>
@@ -632,6 +661,7 @@
             <ul>
                 <li> hashvalue - HashvalueAlgorithm </li>
                 <li> digest - DigestAlgorithm </li>
+                <li> checksum - ChecksumAlgorithm </li>
             </ul>
         </td>
         <td valign="top" align="center"> No, defaults to <i>digest</i> </td>
@@ -652,10 +682,31 @@
             Acceptable values are (further information see later):
             <ul>
                 <li> equal - EqualComparator </li>
-                <li> rule - java.text.RuleBasedCollator </li>
+                <li> rule - java.text.RuleBasedCollator
+                  <!-- NOTE -->
+                  <i>(see <a href="#ModSelNote">note</a> for restrictions)</i>
+                </li>
             </ul>
         </td>
         <td valign="top" align="center"> No, defaults to <i>equal</i> </td>
+      </tr>
+      <tr>
+        <td valign="top"> algorithmclass </td>
+        <td valign="top"> Classname of custom algorithm implementation. Lower
+          priority than <i>algorithm</i>. </td>
+        <td valign="top" align="center"> No </td>
+      </tr>
+      <tr>
+        <td valign="top"> cacheclass </td>
+        <td valign="top"> Classname of custom cache implementation. Lower
+          priority than <i>cache</i>. </td>
+        <td valign="top" align="center"> No </td>
+      </tr>
+      <tr>
+        <td valign="top"> comparatorclass </td>
+        <td valign="top"> Classname of custom comparator implementation. Lower
+          priority than <i>comparator</i>. </td>
+        <td valign="top" align="center"> No </td>
       </tr>
       <tr>
         <td valign="top"> update </td>
@@ -667,6 +718,15 @@
         <td valign="top"> Should directories be selected? (boolean) </td>
         <td valign="top" align="center"> No, defaults to <i>true</i> </td>
       </tr>
+      <tr>
+        <td valign="top"> delayupdate </td>
+        <td valign="top"> If set to <i>true</i>, the storage of the cache will be delayed until the
+             next finished BuildEvent; task finished, target finished or build finished,
+             whichever comes first.  This is provided for increased performance.  If set
+             to <i>false</i>, the storage of the cache will happen with each change.  This
+             attribute depends upon the <i>update</i> attribute. (boolean)</td>
+        <td valign="top" align="center"> No, defaults to <i>true</i> </td>
+      </tr>
     </table>
 
     <p>These attributes can be set with nested &lt;param/&gt; tags. With &lt;param/&gt;
@@ -675,6 +735,9 @@
         <li> <b> algorithm </b>: same as attribute algorithm </li>
         <li> <b> cache </b>: same as attribute cache </li>
         <li> <b> comparator </b>: same as attribute comparator </li>
+        <li> <b> algorithmclass </b>: same as attribute algorithmclass </li>
+        <li> <b> cacheclass </b>: same as attribute cacheclass </li>
+        <li> <b> comparatorclass </b>: same as attribute comparatorclass </li>
         <li> <b> update </b>: same as attribute update </li>
         <li> <b> seldirs </b>: same as attribute seldirs </li>
         <li> <b> algorithm.* </b>: Value is transfered to the algorithm via its
@@ -686,7 +749,7 @@
     </ul></p>
 
     <table border="1" cellpadding="2" cellspacing="0">
-      <tr><td colspan="2"><font size="+1"><b> Algorithm´s </b></font></td></tr>
+      <tr><td colspan="2"><font size="+1"><b> Algorithm's </b></font></td></tr>
       <tr>
         <td valign="top"><b>Name</b></td>
         <td valign="top"><b>Description</b></td>
@@ -709,7 +772,17 @@
           </ul>
         </td>
       </tr>
-      <tr><td colspan="2"><font size="+1"><b> Cache´s </b></font></td></tr>
+      <tr>
+        <td valign="top"> checksum </td>
+        <td valign="top"> Uses java.util.zip.Checksum. This Algorithm supports
+          the following attributes:
+          <ul>
+            <li><i>algorithm.algorithm</i> (optional): Name of the algorithm
+                (e.g. 'CRC' or 'ADLER', default = <i>CRC</i>) </li>
+          </ul>
+        </td>
+      </tr>
+      <tr><td colspan="2"><font size="+1"><b> Cache's </b></font></td></tr>
       <tr>
         <td valign="top"> propertyfile </td>
         <td valign="top"> Use the java.util.Properties class and its possibility
@@ -721,7 +794,7 @@
           </ul>
         </td>
       </tr>
-      <tr><td colspan="2"><font size="+1"><b> Comparator´s </b></font></td></tr>
+      <tr><td colspan="2"><font size="+1"><b> Comparator's </b></font></td></tr>
       <tr>
         <td valign="top"> equal </td>
         <td valign="top"> Very simple object comparison. </td>
@@ -730,9 +803,15 @@
         <td valign="top"> rule </td>
         <td valign="top"> Uses <i>java.text.RuleBasedCollator</i> for Object
           comparison.
+          <!-- NOTE -->
+          <i>(see <a href="#ModSelNote">note</a> for restrictions)</i>
         </td>
       </tr>
     </table>
+
+    <p>The <code>&lt;modified&gt;</code> selector supports a nested
+    <code>&lt;classpath&gt;</code> element that represents a <a href="../using.html#path">
+    PATH like structure</a> for finding custom interface implementations. </p>
 
     <p>Here are some examples of how to use the Modified Selector:</p>
 
@@ -798,6 +877,23 @@
   for homepage generation (e.g. with <a href="http://xml.apache.org/forrest/">
   Apache Forrest</a>). Here all <b>changed</b> files are uploaded to the server. The
   CacheSelector saves therefore much upload time.</p>
+
+    <blockquote><pre>
+  &lt;modified cacheclassname="com.mycompany.MyCache"&gt;
+      &lt;classpath&gt;
+          &lt;pathelement location="lib/mycompony-antutil.jar"/&gt;
+      &lt;/classpath&gt;
+  &lt;/modified&gt;
+    </pre></blockquote>
+    <p>Uses <tt>com.mycompany.MyCache</tt> from a jar outside of Ants own classpath
+    as cache implementation</p>
+
+  <a name="ModSelNote"></a>
+  <h4>Note on RuleBasedCollator</h4>
+  <p>The RuleBasedCollator needs a format for its work, but its needed while
+  instantiation. There is a problem in the initialization algorithm for this
+  case. Therefore you should not use this (or tell me the workaround :-).</p>
+
 
 
     <a name="selectcontainers"></a>
@@ -1191,7 +1287,7 @@
     <a href="selectors-program.html">Programming Selectors in Ant</a>.</p>
 
     <hr>
-    <p align="center">Copyright &copy; 2002-2004 Apache Software
+    <p align="center">Copyright &copy; 2002-2004 The Apache Software
     Foundation. All rights Reserved.</p>
 
   </body>

@@ -72,6 +72,13 @@ public class UnknownElement extends Task {
     }
 
     /**
+     * @return the list of nested UnknownElements for this UnknownElement.
+     */
+    public List getChildren() {
+        return children;
+    }
+
+    /**
      * Returns the name of the XML element which generated this unknown
      * element.
      *
@@ -321,17 +328,24 @@ public class UnknownElement extends Task {
             for (int i = 0; it.hasNext(); i++) {
                 RuntimeConfigurable childWrapper = parentWrapper.getChild(i);
                 UnknownElement child = (UnknownElement) it.next();
-                if (!handleChild(
-                        parentUri, ih, parent, child, childWrapper)) {
-                    if (!(parent instanceof TaskContainer)) {
-                        ih.throwNotSupported(getProject(), parent,
-                                             child.getTag());
-                    } else {
-                        // a task container - anything could happen - just add the
-                        // child to the container
-                        TaskContainer container = (TaskContainer) parent;
-                        container.addTask(child);
+                try {
+                    if (!handleChild(
+                            parentUri, ih, parent, child, childWrapper)) {
+                        if (!(parent instanceof TaskContainer)) {
+                            ih.throwNotSupported(getProject(), parent,
+                                                 child.getTag());
+                        } else {
+                            // a task container - anything could happen - just add the
+                            // child to the container
+                            TaskContainer container = (TaskContainer) parent;
+                            container.addTask(child);
+                        }
                     }
+                } catch (UnsupportedElementException ex) {
+                    throw new BuildException(
+                        parentWrapper.getElementTag()
+                        + " doesn't support the nested \"" + ex.getElement()
+                        + "\" element.", ex);
                 }
             }
         }
@@ -384,7 +398,6 @@ public class UnknownElement extends Task {
             getProject());
         String name = ue.getComponentName();
         Object o = helper.createComponent(ue, ue.getNamespace(), name);
-
         if (o == null) {
             throw getNotFoundException("task or type", name);
         }
@@ -521,6 +534,16 @@ public class UnknownElement extends Task {
     public Object getRealThing() {
         return realThing;
     }
+
+    /**
+     * Set the configured object
+     * @param realThing the configured object
+     * @since ant 1.7
+     */
+    public void setRealThing(Object realThing) {
+        this.realThing = realThing;
+    }
+
     /**
      * Try to create a nested element of <code>parent</code> for the
      * given tag.

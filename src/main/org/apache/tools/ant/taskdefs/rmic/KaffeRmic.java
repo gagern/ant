@@ -29,6 +29,12 @@ import org.apache.tools.ant.types.Commandline;
  * @since Ant 1.4
  */
 public class KaffeRmic extends DefaultRmicAdapter {
+    public static final String RMIC_CLASSNAME = "kaffe.rmi.rmic.RMIC";
+    /**
+     * the name of this adapter for users to select
+     */
+    public static final String COMPILER_NAME = "kaffe";
+
 
     public boolean execute() throws BuildException {
         getRmic().log("Using Kaffe rmic", Project.MSG_VERBOSE);
@@ -36,7 +42,7 @@ public class KaffeRmic extends DefaultRmicAdapter {
 
         try {
 
-            Class c = Class.forName("kaffe.rmi.rmic.RMIC");
+            Class c = Class.forName(RMIC_CLASSNAME);
             Constructor cons = c.getConstructor(new Class[] {String[].class});
             Object rmic = cons.newInstance(new Object[] {cmd.getArguments()});
             Method doRmic = c.getMethod("run", null);
@@ -49,13 +55,26 @@ public class KaffeRmic extends DefaultRmicAdapter {
                                      + "set the environment variable "
                                      + "JAVA_HOME or CLASSPATH.",
                                      getRmic().getLocation());
+        } catch (BuildException ex) {
+            //rethrow
+            throw ex;
         } catch (Exception ex) {
-            if (ex instanceof BuildException) {
-                throw (BuildException) ex;
-            } else {
-                throw new BuildException("Error starting Kaffe rmic: ",
+            //wrap
+           throw new BuildException("Error starting Kaffe rmic: ",
                                          ex, getRmic().getLocation());
-            }
+        }
+    }
+
+    /**
+     * test for kaffe being on the system
+     * @return true if kaffe is on the current classpath
+     */
+    public static boolean isAvailable() {
+        try {
+            Class.forName(RMIC_CLASSNAME);
+            return true;
+        } catch (ClassNotFoundException cnfe) {
+            return false;
         }
     }
 }

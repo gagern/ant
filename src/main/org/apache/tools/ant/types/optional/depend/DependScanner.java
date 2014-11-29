@@ -39,11 +39,6 @@ public class DependScanner extends DirectoryScanner {
         = "org.apache.tools.ant.util.depend.bcel.FullAnalyzer";
 
     /**
-     * The base directory for the scan
-     */
-    private File basedir;
-
-    /**
      * The root classes to drive the search for dependent classes
      */
     private Vector rootClasses;
@@ -72,23 +67,6 @@ public class DependScanner extends DirectoryScanner {
     }
 
     /**
-     * Sets the basedir for scanning. This is the directory that is scanned
-     * recursively.
-     *
-     * @param basedir the basedir for scanning
-     */
-    public void setBasedir(File basedir) {
-        this.basedir = basedir;
-    }
-
-    /**
-     * Gets the basedir that is used for scanning.
-     *
-     * @return the basedir that is used for scanning
-     */
-    public File getBasedir() { return basedir; }
-
-    /**
      * Sets the root classes to be used to drive the scan.
      *
      * @param rootClasses the rootClasses to be used for this scan
@@ -109,6 +87,12 @@ public class DependScanner extends DirectoryScanner {
             files[i] = (String) included.elementAt(i);
         }
         return files;
+    }
+
+    //inherit doc
+    public int getIncludedFilesCount() {
+        if (included == null) throw new IllegalStateException();
+        return included.size();
     }
 
     /**
@@ -179,6 +163,11 @@ public class DependScanner extends DirectoryScanner {
      */
     public String[] getIncludedDirectories() {
         return new String[0];
+    }
+
+    //inherit doc
+    public int getIncludedDirsCount() {
+        return 0;
     }
 
     /**

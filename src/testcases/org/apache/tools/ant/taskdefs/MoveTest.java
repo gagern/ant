@@ -88,4 +88,41 @@ public class MoveTest extends BuildFileTest {
         assertTrue(!getProject().resolveFile("A/1").exists());
         assertTrue(!getProject().resolveFile("A").exists());
     }
+
+    public void testMoveFileAndFileset() {
+        executeTarget("testMoveFileAndFileset");
+    }
+
+    public void testCompleteDirectoryMoveToExistingDir() {
+        executeTarget("testCompleteDirectoryMoveToExistingDir");
+    }
+
+    public void testCompleteDirectoryMoveFileToFile() {
+        executeTarget("testCompleteDirectoryMoveFileToFile");
+    }
+
+    public void testCompleteDirectoryMoveFileToDir() {
+        executeTarget("testCompleteDirectoryMoveFileToDir");
+    }
+
+    public void testCompleteDirectoryMoveFileAndFileset() {
+        executeTarget("testCompleteDirectoryMoveFileAndFileset");
+    }
+
+    public void testCompleteDirectoryMoveFileToExistingFile() {
+        executeTarget("testCompleteDirectoryMoveFileToExistingFile");
+    }
+
+    public void testCompleteDirectoryMoveFileToExistingDir() {
+        executeTarget("testCompleteDirectoryMoveFileToExistingDir");
+    }
+
+    public void testCompleteDirectoryMoveFileToDirWithExistingFile() {
+        executeTarget("testCompleteDirectoryMoveFileToDirWithExistingFile");
+    }
+
+    public void testCompleteDirectoryMoveFileToDirWithExistingDir() {
+        executeTarget("testCompleteDirectoryMoveFileToDirWithExistingDir");
+    }
+
 }

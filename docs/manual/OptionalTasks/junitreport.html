@@ -14,15 +14,27 @@ the Ant distribution.  See <a href="../install.html#librarydependencies">
 Library Dependencies</a> for more information.</p>
 
 <h3>Requirements</h3>
-<p>The task needs <a href="http://xml.apache.org/xalan-j/">Xalan 2.x</a>;
-although
-<a href="http://xml.apache.org/dist/xalan-j/old/xalan-j_1_2_2.zip">Xalan 1.2.2</a>
-does work, but as Xalan1 is not supported, we do not recommend this.
+
+<p>The task needs Apache <a
+href="http://xml.apache.org/xalan-j/">Xalan 2.4.1+ or Xalan XSLTC</a>
+(JDK 1.4 contains a version of Xalan-J 2.x while JDK 1.5 ships with a
+version of XSLTC). Starting from JDK 1.4.2-01 it ships with a bundled
+Xalan-J 2.4.1+, meaning that JDK version prior to 1.4.2-01 won't work
+out of the box. The table below summarize the compatibility status. 
 </p>
-<p>
-If you do you use Xalan 1.2.2 you will need a compatible (older) version of Xerces.
-as well as BSF(bsf.jar). Again, using Xalan 2 is simpler and supported.
-</i></p>
+<table border="1" cellpadding="2" cellspacing="0">
+<tr><th>Xalan</th><th>Sun JDK Bundle</th><th>Status<th></tr> 
+<tr><td>2.4.1+</td><td>JDK 1.4.2-01+</td><td>OK</td></tr>
+<tr><td>XSLTC</td><td>JDK 1.5.x</td><td>OK</td></tr>
+<tr><td>2.x</td><td>JDK 1.4.x</td><td>DEPRECATED<br /><i>Use ${ant.home}/etc/junit-frames-xalan1.xsl
+<br /> Upgrade Xalan using the JDK endorsement mechanism</i></td></tr>
+<tr><td>1.2</td><td>N/A</td><td>DEPRECATED<br /><i>Use ${ant.home}/etc/junit-frames-xalan1.xsl</i><td></tr> 
+</table>
+
+<p>With Ant 1.6.2 we had to decide between supporting Xalan-J 1/Xalan J 2.4.1-
+and Xalan 2.4.1+/XSLTC, since there was no way to support both couples at the same
+time.</p>
+
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
   <tr>

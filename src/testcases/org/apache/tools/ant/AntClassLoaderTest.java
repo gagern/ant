@@ -16,8 +16,20 @@
  */
 
 package org.apache.tools.ant;
-import org.apache.tools.ant.types.Path;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 import junit.framework.TestCase;
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Test case for ant class loader
@@ -71,4 +83,3 @@ public class AntClassLoaderTest extends TestCase {
         }
     }
 }
-

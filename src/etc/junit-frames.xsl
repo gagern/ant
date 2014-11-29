@@ -1,6 +1,6 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"
     xmlns:lxslt="http://xml.apache.org/xslt"
-    xmlns:redirect="org.apache.xalan.lib.Redirect"
+    xmlns:redirect="http://xml.apache.org/xalan/redirect"
     xmlns:stringutils="xalan://org.apache.tools.ant.util.StringUtils"
     extension-element-prefixes="redirect">
 <xsl:output method="html" indent="yes" encoding="US-ASCII"/>
@@ -23,14 +23,10 @@
 
 <!--
 
- Sample stylesheet to be used with An JUnitReport output.
+ Sample stylesheet to be used with Ant JUnitReport output.
 
  It creates a set of HTML files a la javadoc where you can browse easily
  through all packages and classes.
-
- @author Stephane Bailliez <a href="mailto:sbailliez@apache.org"/>
- @author Erik Hatcher <a href="mailto:ehatcher@apache.org"/>
- @author Martijn Kruithof <a href="mailto:martijn@kruithof.xs4all.nl"/>
 
 -->
 <xsl:param name="output.dir" select="'.'"/>
@@ -461,7 +457,6 @@ h6 {
                     <xsl:with-param name="value" select="$timeCount"/>
                 </xsl:call-template>
             </td>
-
         </tr>
         </table>
         <table border="0" width="95%">
@@ -500,6 +495,8 @@ h6 {
                         <xsl:with-param name="value" select="sum($insamepackage/@time)"/>
                     </xsl:call-template>
                     </td>
+                    <td><xsl:value-of select="$insamepackage/@timestamp"/></td>
+                    <td><xsl:value-of select="$insamepackage/@hostname"/></td>
                 </tr>
             </xsl:for-each>
         </table>
@@ -588,6 +585,8 @@ h6 {
         <th>Errors</th>
         <th>Failures</th>
         <th nowrap="nowrap">Time(s)</th>
+        <th nowrap="nowrap">Time Stamp</th>
+        <th>Host</th>
     </tr>
 </xsl:template>
 
@@ -620,6 +619,8 @@ h6 {
                 <xsl:with-param name="value" select="@time"/>
             </xsl:call-template>
         </td>
+        <td><xsl:apply-templates select="@timestamp"/></td>
+        <td><xsl:apply-templates select="@hostname"/></td>
     </tr>
 </xsl:template>
 
@@ -713,4 +714,3 @@ h6 {
     <xsl:value-of select="format-number($value,'0.00%')"/>
 </xsl:template>
 </xsl:stylesheet>
-

@@ -61,6 +61,7 @@ public class SubAnt
 
     private Path buildpath;
 
+    private Ant ant = null;
     private String target = null;
     private String antfile = "build.xml";
     private File genericantfile = null;
@@ -72,6 +73,90 @@ public class SubAnt
     private Vector properties = new Vector();
     private Vector references = new Vector();
     private Vector propertySets = new Vector();
+
+    /**
+     * Pass output sent to System.out to the new project.
+     *
+     * @param output a line of output
+     * @since Ant 1.6.2
+     */
+    public void handleOutput(String output) {
+        if (ant != null) {
+            ant.handleOutput(output);
+        } else {
+            super.handleOutput(output);
+        }
+    }
+
+    /**
+     * Process input into the ant task
+     *
+     * @param buffer the buffer into which data is to be read.
+     * @param offset the offset into the buffer at which data is stored.
+     * @param length the amount of data to read
+     *
+     * @return the number of bytes read
+     *
+     * @exception IOException if the data cannot be read
+     *
+     * @see Task#handleInput(byte[], int, int)
+     *
+     * @since Ant 1.6.2
+     */
+    public int handleInput(byte[] buffer, int offset, int length)
+        throws IOException {
+        if (ant != null) {
+            return ant.handleInput(buffer, offset, length);
+        } else {
+            return super.handleInput(buffer, offset, length);
+        }
+    }
+
+    /**
+     * Pass output sent to System.out to the new project.
+     *
+     * @param output The output to log. Should not be <code>null</code>.
+     *
+     * @since Ant 1.6.2
+     */
+    public void handleFlush(String output) {
+        if (ant != null) {
+            ant.handleFlush(output);
+        } else {
+            super.handleFlush(output);
+        }
+    }
+
+    /**
+     * Pass output sent to System.err to the new project.
+     *
+     * @param output The error output to log. Should not be <code>null</code>.
+     *
+     * @since Ant 1.6.2
+     */
+    public void handleErrorOutput(String output) {
+        if (ant != null) {
+            ant.handleErrorOutput(output);
+        } else {
+            super.handleErrorOutput(output);
+        }
+    }
+
+    /**
+     * Pass output sent to System.err to the new project.
+     *
+     * @param output The error output to log. Should not be <code>null</code>.
+     *
+     * @since Ant 1.6.2
+     */
+    public void handleErrorFlush(String output) {
+        if (ant != null) {
+            ant.handleErrorFlush(output);
+        } else {
+            super.handleErrorFlush(output);
+        }
+    }
+
     /**
      * Runs the various sub-builds.
      */
@@ -167,7 +252,7 @@ public class SubAnt
             return;
         }
 
-        Ant ant = createAntTask(directory);
+        ant = createAntTask(directory);
         String antfilename = null;
         try {
             antfilename = file.getCanonicalPath();
@@ -193,13 +278,16 @@ public class SubAnt
                 + "' of: " + antfilename + "\n"
                 + e.toString(),
                 Project.MSG_WARN);
-        }
+        } finally {
+            ant = null;
+        }        
     }
 
     /**
-     * Build file name, to use in conjunction with directories.<br/>
-     * Defaults to "build.xml".<br/>
-     * If <code>genericantfile</code> is set, this attribute is ignored.
+     * This method builds the file name to use in conjunction with directories.
+     * 
+     * <p>Defaults to "build.xml".
+     * If <code>genericantfile</code> is set, this attribute is ignored.</p>
      *
      * @param  antfile the short build file name. Defaults to "build.xml".
      */
@@ -208,9 +296,10 @@ public class SubAnt
     }
 
     /**
-     * Build file path, to use in conjunction with directories.<br/>
-     * Use <code>genericantfile</code>, in order to run the same build file
-     * with different basedirs.<br/>
+     * This method builds a file path to use in conjunction with directories.
+     * 
+     * <p>Use <code>genericantfile</code>, in order to run the same build file
+     * with different basedirs.</p>
      * If this attribute is set, <code>antfile</code> is ignored.
      *
      * @param afile (path of the generic ant file, absolute or relative to

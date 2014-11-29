@@ -27,6 +27,7 @@ import org.apache.tools.ant.taskdefs.DefBase;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Set;
@@ -93,7 +94,7 @@ public class ScriptDef extends DefBase {
          * @param name the attribute name
          */
         public void setName(String name) {
-            this.name = name;
+            this.name = name.toLowerCase(Locale.US);
         }
     }
 
@@ -125,7 +126,7 @@ public class ScriptDef extends DefBase {
          * @param name the name of this nested element
          */
         public void setName(String name) {
-            this.name = name;
+            this.name = name.toLowerCase(Locale.US);
         }
 
         /**
@@ -306,13 +307,30 @@ public class ScriptDef extends DefBase {
      * Execute the script.
      *
      * @param attributes collection of attributes
-     *
      * @param elements a list of nested element values.
+     * @deprecated use executeScript(attribute, elements, instance) instead
      */
     public void executeScript(Map attributes, Map elements) {
         runner.addBean("attributes", attributes);
         runner.addBean("elements", elements);
         runner.addBean("project", getProject());
+        runner.executeScript("scriptdef_" + name);
+    }
+
+    /**
+     * Execute the script.
+     * This is called by the script instance to execute the script for this
+     * definition.
+     *
+     * @param attributes collection of attributes
+     * @param elements   a list of nested element values.
+     * @param instance   the script instance
+     */
+    public void executeScript(Map attributes, Map elements, ScriptDefBase instance) {
+        runner.addBean("attributes", attributes);
+        runner.addBean("elements", elements);
+        runner.addBean("project", getProject());
+        runner.addBean("self", instance);
         runner.executeScript("scriptdef_" + name);
     }
 

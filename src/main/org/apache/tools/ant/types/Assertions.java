@@ -20,9 +20,10 @@ package org.apache.tools.ant.types;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 
 /**
  * The assertion datatype. This type describes
@@ -203,6 +204,33 @@ public class Assertions extends DataType implements Cloneable {
     }
 
     /**
+     * add the assertions to a list in a format suitable
+     * for adding to a command line
+     * @param commandList
+     */
+    public void applyAssertions(final ListIterator commandIterator) {
+        getProject().log("Applying assertions", Project.MSG_DEBUG);
+        Assertions clause = getFinalReference();
+        //do the system assertions
+        if (Boolean.TRUE.equals(clause.enableSystemAssertions)) {
+            getProject().log("Enabling system assertions", Project.MSG_DEBUG);
+            commandIterator.add("-enablesystemassertions");
+        } else if (Boolean.FALSE.equals(clause.enableSystemAssertions)) {
+            getProject().log("disabling system assertions", Project.MSG_DEBUG);
+            commandIterator.add("-disablesystemassertions");
+        }
+
+        //now any inner assertions
+        Iterator it = clause.assertionList.iterator();
+        while (it.hasNext()) {
+            BaseAssertion assertion = (BaseAssertion) it.next();
+            String arg = assertion.toCommand();
+            getProject().log("adding assertion "+arg, Project.MSG_DEBUG);
+            commandIterator.add(arg);
+        }
+    }
+
+    /**
      * helper method to add a string JVM argument to a command
      * @param command
      * @param arg
@@ -277,7 +305,7 @@ public class Assertions extends DataType implements Cloneable {
         /**
          * create a full command string from this class
          * @throws BuildException in case of trouble
-         * @return
+         * @return The command string
          */
         public String toCommand() {
             //catch invalidness

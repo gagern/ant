@@ -116,15 +116,18 @@ public class ProjectHelper2 extends ProjectHelper {
             // we are in an imported file.
             context.setIgnoreProjectTag(true);
             Target currentTarget = context.getCurrentTarget();
+            Target currentImplicit = context.getImplicitTarget();
             try {
                 Target newCurrent = new Target();
                 newCurrent.setProject(project);
                 newCurrent.setName("");
                 context.setCurrentTarget(newCurrent);
+                context.setImplicitTarget(newCurrent);
                 parse(project, source, new RootHandler(context, mainHandler));
                 newCurrent.execute();
             } finally {
                 context.setCurrentTarget(currentTarget);
+                context.setImplicitTarget(currentImplicit);
             }
         } else {
             // top level file
@@ -317,8 +320,8 @@ public class ProjectHelper2 extends ProjectHelper {
         }
 
         /**
-         * Called when this element and all elements nested into it have been
-         * handled (i.e. at the </end_tag_of_the_element> ).
+         * This method is called when this element and all elements nested into it have been
+         * handled. I.e., this happens at the &lt;/end_tag_of_the_element&gt;.
          * @param uri the namespace uri for this element
          * @param tag the element name
          * @param context the current context
@@ -757,6 +760,7 @@ public class ProjectHelper2 extends ProjectHelper {
             Project project = context.getProject();
             Target target = new Target();
             target.setProject(project);
+            target.setLocation(new Location(context.getLocator()));
             context.addTarget(target);
 
             for (int i = 0; i < attrs.getLength(); i++) {
@@ -805,10 +809,7 @@ public class ProjectHelper2 extends ProjectHelper {
                 if (!context.isIgnoringProjectTag()) {
                     // not in an import'ed file
                     throw new BuildException(
-                        "Duplicate target '" + name + "'",
-                        new Location(context.getLocator().getSystemId(),
-                                     context.getLocator().getLineNumber(),
-                                     context.getLocator().getColumnNumber()));
+                        "Duplicate target '" + name + "'", target.getLocation());
                 }
                 // Alter the name.
                 if (context.getCurrentProjectName() != null) {
@@ -944,19 +945,22 @@ public class ProjectHelper2 extends ProjectHelper {
                 = new RuntimeConfigurable(task, task.getTaskName());
 
             for (int i = 0; i < attrs.getLength(); i++) {
+                String name = attrs.getLocalName(i);
                 String attrUri = attrs.getURI(i);
                 if (attrUri != null
                     && !attrUri.equals("")
                     && !attrUri.equals(uri)) {
-                    continue; // Ignore attributes from unknown uris
+                    name = attrUri + ":" + attrs.getQName(i);
                 }
-                String name = attrs.getLocalName(i);
                 String value = attrs.getValue(i);
                 // PR: Hack for ant-type value
                 //  an ant-type is a component name which can
                 // be namespaced, need to extract the name
                 // and convert from qualified name to uri/name
-                if (name.equals("ant-type")) {
+                if (ANT_TYPE.equals(name)
+                    || (ANT_CORE_URI.equals(attrUri)
+                        && ANT_TYPE.equals(attrs.getLocalName(i)))) {
+                    name = ANT_TYPE;
                     int index = value.indexOf(":");
                     if (index != -1) {
                         String prefix = value.substring(0, index);

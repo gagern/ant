@@ -3,6 +3,7 @@
 <head>
 <meta http-equiv="Content-Language" content="en-us">
 <title>Apply Task</title>
+<link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
 </head>
 
 <body>
@@ -248,6 +249,12 @@ to send input to it is via the input and inputstring attributes.</p>
       Defaults to <code>false</code>.  <em>Since Ant 1.6.</em></td>
     <td align="center" valign="top">No</td>
   </tr>
+  <tr>
+    <td valign="top">ignoremissing</td>
+    <td valign="top">Whether to ignore nonexistent files specified
+      via filelists.  <em>Since Ant 1.6.2.</em></td>
+    <td align="center" valign="top">No, default is <i>true</i></td>
+  </tr>
 </table>
 <h3>Parameters specified as nested elements</h3>
 <h4>fileset</h4>
@@ -298,10 +305,7 @@ can be specified.  &lt;apply&gt;'s behavior is like that of
 redirectors, with the exception that, in non-<i>parallel</i> mode,
 file mapping will take place with each iteration.  This grants the
 user the capacity to receive input from, and send output to, different
-files for each sourcefile.  In this context it may be apparent
-that no provision has been made whereby output/error properties
-can be mapped per sourcefile; we humbly accept your gratitude for
-having denied you &quot;Enough Rope To Hang Yourself With.&quot;
+files for each sourcefile.
 </p>
 <h3>Examples</h3>
 <blockquote><pre>

@@ -110,7 +110,7 @@ public class Zip extends MatchingTask {
      * Whether the file modification times will be rounded up to the
      * next even number of seconds.
      *
-     * @since Ant 1.7
+     * @since Ant 1.6.2
      */
     private boolean roundUp = true;
 
@@ -303,7 +303,7 @@ public class Zip extends MatchingTask {
      * JSPs inside a web archive that seem to be slightly more recent
      * than precompiled pages, rendering precompilation useless.</p>
      *
-     * @since Ant 1.7
+     * @since Ant 1.6.2
      */
     public void setRoundUp(boolean r) {
         roundUp = r;
@@ -336,6 +336,14 @@ public class Zip extends MatchingTask {
         if (zipFile == null) {
             throw new BuildException("You must specify the "
                                      + archiveType + " file to create!");
+        }
+
+        if (zipFile.exists() && !zipFile.isFile()) {
+            throw new BuildException(zipFile + " is not a file.");
+        }
+
+        if (zipFile.exists() && !zipFile.canWrite()) {
+            throw new BuildException(zipFile + " is read-only.");
         }
 
         // Renamed version of original file, if it exists
@@ -895,6 +903,12 @@ public class Zip extends MatchingTask {
     protected Resource[][] grabResources(FileSet[] filesets) {
         Resource[][] result = new Resource[filesets.length][];
         for (int i = 0; i < filesets.length; i++) {
+            boolean skipEmptyNames = true;
+            if (filesets[i] instanceof ZipFileSet) {
+                ZipFileSet zfs = (ZipFileSet) filesets[i];
+                skipEmptyNames = zfs.getPrefix(getProject()).equals("")
+                    && zfs.getFullpath(getProject()).equals("");
+            }
             DirectoryScanner rs =
                 filesets[i].getDirectoryScanner(getProject());
             if (rs instanceof ZipScanner) {
@@ -903,11 +917,15 @@ public class Zip extends MatchingTask {
             Vector resources = new Vector();
             String[] directories = rs.getIncludedDirectories();
             for (int j = 0; j < directories.length; j++) {
-                resources.addElement(rs.getResource(directories[j]));
+                if (!"".equals(directories[j]) || !skipEmptyNames) {
+                    resources.addElement(rs.getResource(directories[j]));
+                }
             }
             String[] files = rs.getIncludedFiles();
             for (int j = 0; j < files.length; j++) {
-                resources.addElement(rs.getResource(files[j]));
+                if (!"".equals(files[j]) || !skipEmptyNames) {
+                    resources.addElement(rs.getResource(files[j]));
+                }
             }
 
             result[i] = new Resource[resources.size()];

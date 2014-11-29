@@ -200,10 +200,7 @@ public class ComponentHelper  {
      */
     public Object createComponent(String componentName) {
         AntTypeDefinition def = getDefinition(componentName);
-        if (def == null) {
-            return null;
-        }
-        return def.create(project);
+        return (def == null) ? null : def.create(project);
     }
 
     /**
@@ -229,15 +226,13 @@ public class ComponentHelper  {
      */
     public AntTypeDefinition getDefinition(String componentName) {
         checkNamespace(componentName);
-        AntTypeDefinition ret = null;
-        ret = antTypeTable.getDefinition(componentName);
-        return ret;
+        return antTypeTable.getDefinition(componentName);
     }
 
     /**
-     * Initialization code - implementing the original ant component
+     * This method is initialization code implementing the original ant component
      * loading from /org/apache/tools/ant/taskdefs/default.properties
-     * and .../types/default.properties
+     * and /org/apache/tools/ant/types/default.properties.
      */
     public void initDefaultDefinitions() {
         initTasks();
@@ -803,8 +798,7 @@ public class ComponentHelper  {
         }
 
         public AntTypeDefinition getDefinition(String key) {
-            AntTypeDefinition ret = (AntTypeDefinition) super.get(key);
-            return ret;
+            return (AntTypeDefinition)(super.get(key));
         }
 
         /** Equivalent to getTypeType */
@@ -814,37 +808,28 @@ public class ComponentHelper  {
 
         public Object create(String name) {
             AntTypeDefinition def = getDefinition(name);
-            if (def == null) {
-                return null;
-            }
-            return def.create(project);
+            return (def == null) ? null : def.create(project);
         }
 
         public Class getTypeClass(String name) {
             AntTypeDefinition def = getDefinition(name);
-            if (def == null) {
-                return null;
-            }
-            return def.getTypeClass(project);
+            return (def == null) ? null : def.getTypeClass(project);
         }
 
         public Class getExposedClass(String name) {
             AntTypeDefinition def = getDefinition(name);
-            if (def == null) {
-                return null;
-            }
-            return def.getExposedClass(project);
+            return (def == null) ? null : def.getExposedClass(project);
         }
 
         public boolean contains(Object clazz) {
-            for (Iterator i = values().iterator(); i.hasNext();) {
-                AntTypeDefinition def = (AntTypeDefinition) i.next();
-                Class c = def.getExposedClass(project);
-                if (c == clazz) {
-                    return true;
+            boolean found = false;
+            if (clazz instanceof Class) {
+                for (Iterator i = values().iterator(); i.hasNext() && !found;) {
+                    found |= (((AntTypeDefinition)(i.next())).getExposedClass(
+                        project) == clazz);
                 }
             }
-            return false;
+            return found;
         }
 
         public boolean containsValue(Object value) {

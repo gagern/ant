@@ -27,6 +27,9 @@ import org.apache.tools.ant.Task;
  * @since 1.4
  */
 public class RmicAdapterFactory {
+    public static final String ERROR_UNKNOWN_COMPILER = "Cannot find the compiler or class: ";
+    public static final String ERROR_NOT_RMIC_ADAPTER = "Not an rmic adapter: ";
+    public static final String DEFAULT_COMPILER = "default";
 
     /** This is a singleton -- can't create instances!! */
     private RmicAdapterFactory() {
@@ -41,6 +44,8 @@ public class RmicAdapterFactory {
      * <li>kaffe = Kaffe's rmic
      * <li><i>a fully quallified classname</i> = the name of a rmic
      * adapter
+     * <li>weblogic = weblogic compiler
+     * <li>forking = Sun's RMIC by forking a new JVM
      * </ul>
      *
      * @param rmicType either the name of the desired rmic, or the
@@ -51,12 +56,23 @@ public class RmicAdapterFactory {
      */
     public static RmicAdapter getRmic(String rmicType, Task task)
         throws BuildException {
-        if (rmicType.equalsIgnoreCase("sun")) {
+
+        //handle default specially.
+        if(DEFAULT_COMPILER.equalsIgnoreCase(rmicType) || rmicType.length()==0) {
+            String adapter = KaffeRmic.isAvailable() ?
+                    KaffeRmic.COMPILER_NAME
+                    :SunRmic.COMPILER_NAME;
+            return getRmic(adapter,task);
+        }
+
+        if (SunRmic.COMPILER_NAME.equalsIgnoreCase(rmicType)) {
             return new SunRmic();
-        } else if (rmicType.equalsIgnoreCase("kaffe")) {
+        } else if (KaffeRmic.COMPILER_NAME.equalsIgnoreCase(rmicType)) {
             return new KaffeRmic();
-        } else if (rmicType.equalsIgnoreCase("weblogic")) {
+        } else if (WLRmic.COMPILER_NAME.equalsIgnoreCase(rmicType)) {
             return new WLRmic();
+        } else if (ForkingSunRmic.COMPILER_NAME.equalsIgnoreCase(rmicType)) {
+            return new ForkingSunRmic();
         }
         return resolveClassName(rmicType);
     }
@@ -76,10 +92,11 @@ public class RmicAdapterFactory {
             Object o = c.newInstance();
             return (RmicAdapter) o;
         } catch (ClassNotFoundException cnfe) {
-            throw new BuildException(className + " can\'t be found.", cnfe);
+            throw new BuildException(ERROR_UNKNOWN_COMPILER+className,
+                    cnfe);
         } catch (ClassCastException cce) {
-            throw new BuildException(className + " isn\'t the classname of "
-                                     + "a rmic adapter.", cce);
+            throw new BuildException(ERROR_NOT_RMIC_ADAPTER+className,
+                    cce);
         } catch (Throwable t) {
             // for all other possibilities
             throw new BuildException(className + " caused an interesting "

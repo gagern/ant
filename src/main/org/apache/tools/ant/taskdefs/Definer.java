@@ -21,6 +21,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.NoSuchElementException;
@@ -41,6 +43,15 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * @since Ant 1.4
  */
 public abstract class Definer extends DefBase {
+    private static class ResourceStack extends ThreadLocal {
+        public Object initialValue() {
+            return new HashMap();
+        }
+        Map getStack() {
+            return (Map) get();
+        }
+    }
+    private static ResourceStack resourceStack = new ResourceStack();
     private String name;
     private String classname;
     private File file;
@@ -179,6 +190,9 @@ public abstract class Definer extends DefBase {
             Enumeration/*<URL>*/ urls = null;
             if (file != null) {
                 final URL url = fileToURL();
+                if (url == null) {
+                    return;
+                }
                 urls = new Enumeration() {
                     private boolean more = true;
                     public boolean hasMoreElements() {
@@ -209,7 +223,21 @@ public abstract class Definer extends DefBase {
                     loadProperties(al, url);
                     break;
                 } else {
-                    loadAntlib(al, url);
+                    if (resourceStack.getStack().get(url) != null) {
+                        log("Warning: Recursive loading of " + url
+                            + " ignored"
+                            + " at " + getLocation()
+                            + " originally loaded at "
+                            + resourceStack.getStack().get(url),
+                            Project.MSG_WARN);
+                    } else {
+                        try {
+                            resourceStack.getStack().put(url, getLocation());
+                            loadAntlib(al, url);
+                        } finally {
+                            resourceStack.getStack().remove(url);
+                        }
+                    }
                 }
             }
         }

@@ -66,16 +66,16 @@ public class Copy extends Task {
     protected boolean flatten = false;
     protected int verbosity = Project.MSG_VERBOSE;
     protected boolean includeEmpty = true;
-    private boolean failonerror = true;
+    protected boolean failonerror = true;
 
     protected Hashtable fileCopyMap = new Hashtable();
     protected Hashtable dirCopyMap = new Hashtable();
     protected Hashtable completeDirMap = new Hashtable();
 
     protected Mapper mapperElement = null;
+    protected FileUtils fileUtils;
     private Vector filterChains = new Vector();
     private Vector filterSets = new Vector();
-    private FileUtils fileUtils;
     private String inputEncoding = null;
     private String outputEncoding = null;
     private long granularity = 0;
@@ -335,7 +335,7 @@ public class Copy extends Task {
      *
      * <p>Default is 0 milliseconds, or 2 seconds on DOS systems.</p>
      *
-     * @since Ant 1.6
+     * @since Ant 1.6.2
      */
     public void setGranularity(long granularity) {
         this.granularity = granularity;
@@ -467,7 +467,7 @@ public class Copy extends Task {
             throw new BuildException("One of tofile or todir must be set.");
         }
 
-        if (file != null && file.exists() && file.isDirectory()) {
+        if (file != null && file.isDirectory()) {
             throw new BuildException("Use a fileset to copy directories.");
         }
 
@@ -660,4 +660,3 @@ public class Copy extends Task {
         }
     }
 }
-

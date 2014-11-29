@@ -175,12 +175,14 @@
     </h3>
                         <p>This page lists external resources for Apache Ant: <a href="#Tasks">Tasks</a>, <a href="#Compiler%20Implementations">Compiler Implementations</a>,
       <a href="#IDE%20and%20Editor%20Integration">IDE integration
-      tools</a>, loggers, you name it. If you've written
+      tools</a>, <a href="#Source%20Control%20ystems">Source Control
+      Systems</a>, loggers, you name it. If you've written
       something that should be included, please post all relevant
       information to one of the mailing lists.  For details, see the
       <a href="faq.html#adding-external-tasks">FAQ</a>.</p>
                                 <p>Nothing listed here is directly supported by the Ant
-      developers, if you encounter any problems with them, please use
+      developers (therefore '<i>external</i> tools and tasks'),
+      if you encounter any problems with them, please use
       the contact information.</p>
                         <h3 class="section">
       <a name="Tasks"></a>
@@ -333,6 +335,57 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="Ant2Svg"></a>
+        Ant2Svg
+      </h4>
+                        <p>Ant2Svg creates a graphical representation of an Ant build file.
+        The graphical representation is in the form of a Scalable Vector
+        Graphics (SVG) file that can be displayed in a web browser. This
+        simplified SVG depiction helps the developer understand build file
+        structure and identify extraneous or missing dependencies.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.6.1 and higher
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.spiritedsw.com/ant2svg/">http://www.spiritedsw.com/ant2svg/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          loney &lt;at&gt; spiritedsw &lt;dot&gt; com
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          The Apache Software License 2.0
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="AntDoc"></a>
         AntDoc
       </h4>
@@ -344,7 +397,7 @@
         progress.</p>
                                 <p>AntDoc can be run via an Ant task, AntDoc GUI can be run
         via an Ant task, or via a JVM launch.</p>
-                                      <table class="ForrestTable" cellspacing="1" cellpadding="4">
+                                      <table class="externals" cellspacing="1" cellpadding="4">
               <tr>
                       <th colspan="1" rowspan="1"
       valign="top" align="left">
@@ -473,7 +526,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="mailto:p.lord@russet.org.uk">Phillip Lord</a>
+          <a href="mailto:antmerge@russet.org.uk">Phillip Lord</a>
       </td>
       </tr>
                   <tr>
@@ -770,7 +823,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="http://www.thecortex.net/clover/">http://www.thecortex.net/clover/</a>
+          <a href="http://www.cenqua.com/clover/">http://www.cenqua.com/clover/</a>
       </td>
       </tr>
                   <tr>
@@ -780,7 +833,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="mailto:clover-support@cortexebusiness.com.au">clover-support@cortexebusiness.com.au</a>
+          <a href="mailto:clover-support@cenqua.com">clover-support@cenqua.com</a>
       </td>
       </tr>
                   <tr>
@@ -830,7 +883,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="masogato@users.sourceforge.net">masogato@users.sourceforge.net</a>
+          <a href="mailto:masogato@users.sourceforge.net">masogato@users.sourceforge.net</a>
       </td>
       </tr>
                   <tr>
@@ -1015,6 +1068,56 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="Dependencies"></a>
+        Dependencies
+      </h4>
+                        <p>The dependencies task manages a set of external dependencies which
+            may be downloaded from a remote repository,
+             such as ibiblio.org. Uses a local cache to avoid repeated
+            downloads.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Tested with 1.5.1, should work with 1.4+.
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.httpunit.org/doc/dependencies.html">http://www.httpunit.org/doc/dependencies.html</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:russgold@httpunit.org">Russell Gold</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          MIT License
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="Dependency Finder"></a>
         Dependency Finder
       </h4>
@@ -1162,6 +1265,105 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="DTDDoc"></a>
+        DTDDoc
+      </h4>
+                        <p>DTDDoc is here to help you to document your DTD's efficiently. It is a
+        straightforward extension of the javadoc concept to the DTD file format.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.4 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://dtddoc.sourceforge.net/">http://dtddoc.sourceforge.net/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://sourceforge.net/mail/?group_id=53704">Project Mailing List</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          X11 (Open Source)
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="EMMA"></a>
+        EMMA
+      </h4>
+                        <p>EMMA is an open-source toolkit for measuring and reporting
+        Java code coverage. EMMA distinguishes itself from other tools
+        by going after a unique feature combination: support large-scale
+        enterprise software development while keeping individual developers
+        work fast and iterative at the same time.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.4 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://emma.sourceforge.net/">http://emma.sourceforge.net/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:emma-users@lists.sourceforge.net">Mailinglist</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Common Public License 1.0
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="FMPP"></a>
         FMPP
       </h4>
@@ -1250,6 +1452,57 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           Apache Software Foundation License
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="Grand"></a>
+        Grand
+      </h4>
+                        <p>Grand is a set of tools to create a visual representation of Ant target
+          dependencies. It works by taking an Ant build file and creating a "dot" file. It
+          differs from the existing tools by relying on the Ant API rather than XML parsing to
+          get the dependencies. It includes many advanced features such as filtering or
+          rendering depending on the target's nature. Also features a SWT based GUI.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.6 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.ggtools.net/grand/">http://www.ggtools.net/grand/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Christophe Labouisse
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          BSD License
       </td>
       </tr>
         </table>
@@ -1359,6 +1612,56 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="Hammurapi"></a>
+        Hammurapi
+      </h4>
+                        <p>Java code review tool. Performs automated code
+        review. Contains 111 inspectors which check different aspects
+        of code quality including coding standards, EJB, threading,
+        ...</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Tested with Ant 1.5 and 1.5.2
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.hammurapi.org">http://www.hammurapi.org</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.hammurapi.org/content/menu.show@id=Hammurapi.4.html">Project's Contact Page</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GNU General Public License (GPL)
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="IDLDepend"></a>
         IDLDepend
       </h4>
@@ -1429,7 +1732,14 @@
         "border" (add a border), "text" (text on
         image), "crop" (a sub-image of a bigger image),
         "rotate", "grayscale" (change a color
-        image to shades of gray).</p>
+        image to shades of gray).<br />
+        Now it supports transparency (making images translucent), a
+        bestfit option for Resize, simple support for images within
+        a security-constraint, a preliminary support (if pjatools.jar
+        is available) for saving files as GIF and some other fixes.</p>
+                                <p>IMPORTANT: You will need the PMIW (Poor Man's Imaging Wrapper) jar
+        for all the operations and the pjatools jar for GIF encoding/ saving
+        support.</p>
                                       <table class="externals" cellspacing="1" cellpadding="4">
               <tr>
                       <th colspan="1" rowspan="1"
@@ -1454,11 +1764,33 @@
                   <tr>
                       <th colspan="1" rowspan="1"
       valign="top" align="left">
+          pmiw jar
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.mullassery.com/software/PMIW/">http://www.mullassery.com/software/PMIW/</a>
+                (Poor Man's Imaging Wrapper)
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          pjatools jar
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.eteks.com/pja/en/">http://www.eteks.com/pja/en/</a>
+                (pjatools for GIF encoding support)
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
           Contact:
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="http://www.mullassery.com/contact/feedback.jsp">Abey Mullassery</a>
+          <a href="http://www.mullassery.com">Abey Mullassery</a>
       </td>
       </tr>
                   <tr>
@@ -1669,106 +2001,23 @@
         <a name="J2ME Ant Tasks"></a>
         J2ME Ant Tasks
       </h4>
-                        <p>There are four different sets of tasks to help build <a href="http://java.sun.com/j2me/">Java 2 Platform, Micro
+                        <p>There are different sets of tasks to help build <a href="http://java.sun.com/j2me/">Java 2 Platform, Micro
         Edition</a> (J2ME) applications.</p>
-                                <p>This set supports CLDC and the K Virtual Machine (KVM):</p>
-                                      <table class="externals" cellspacing="1" cellpadding="4">
-              <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Compatibility:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          Ant 1.3
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          URL:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.dribin.org/dave/j2me_ant/">http://www.dribin.org/dave/j2me_ant/</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Contact:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="mailto:drib@enteract.com">Dave Dribin</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          License:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          Apache Software License
-      </td>
-      </tr>
-        </table>
-                                <p>And this set works with the J2ME Wireless Toolkit and MIDP
-        for PalmOS:</p>
-                                      <table class="externals" cellspacing="1" cellpadding="4">
-              <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Compatibility:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          Ant 1.3
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          URL:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.stampysoft.com/ant/">http://www.stampysoft.com/ant/</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Contact:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="mailto:jeckels@stampysoft.com">Josh Eckels</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          License:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          MIT License
-      </td>
-      </tr>
-        </table>
-                                <p>Antenna provides a set of Ant tasks suitable for developing
-        wireless Java applications targeted at the Mobile Information
-        Device Profile (MIDP). With Antenna, you can compile,
-        preverify, package, obfuscate, and run your MIDP applications
-        (aka MIDlets), manipulate Java Application Descriptor (JAD)
-        files, as well as convert JAR files to PRC files designed to
-        run on MIDP for Palm OS. Deployment is supported via a
-        deployment task and a corresponding HTTP servlet for
-        Over-the-Air (OTA) provisioning. A small preprocessor allows
-        to generate different variants of a MIDlet from a single
-        source.</p>
+                                      <h5 class="subsection">
+        <a name="Antenna"></a>
+        *** Antenna ***
+      </h5>
+                        <p>Antenna provides a set of Ant tasks suitable for developing
+          wireless Java applications targeted at the Mobile Information
+          Device Profile (MIDP). With Antenna, you can compile,
+          preverify, package, obfuscate, and run your MIDP applications
+          (aka MIDlets), manipulate Java Application Descriptor (JAD)
+          files, as well as convert JAR files to PRC files designed to
+          run on MIDP for Palm OS. Deployment is supported via a
+          deployment task and a corresponding HTTP servlet for
+          Over-the-Air (OTA) provisioning. A small preprocessor allows
+          to generate different variants of a MIDlet from a single
+          source.</p>
                                       <table class="externals" cellspacing="1" cellpadding="4">
               <tr>
                       <th colspan="1" rowspan="1"
@@ -1811,13 +2060,17 @@
       </td>
       </tr>
         </table>
-                                <p>Antic is a freely available task for packaging J2ME
-        applications. It produces both the Jar and Jad files in a
-        single step. This allows *all* entries to be correclty set in
-        the jad file, including the size of the jar file that is
-        produced. This task has been used and tested extensively with
-        Sun's Wireless Toolkit and also the Nokia SDK and
-        emulators.</p>
+                                                    <h5 class="subsection">
+        <a name="Antic"></a>
+        *** Antic ***
+      </h5>
+                        <p>Antic is a freely available task for packaging J2ME
+          applications. It produces both the Jar and Jad files in a
+          single step. This allows *all* entries to be correclty set in
+          the jad file, including the size of the jar file that is
+          produced. This task has been used and tested extensively with
+          Sun's Wireless Toolkit and also the Nokia SDK and
+          emulators.</p>
                                       <table class="externals" cellspacing="1" cellpadding="4">
               <tr>
                       <th colspan="1" rowspan="1"
@@ -1836,8 +2089,8 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="http://www.smartkey.co.uk/antic.html">http://www.smartkey.co.uk/antic.html</a>
-            
+          <a href="http://www.smartkey.co.uk/tools/antic/antic.html">http://www.smartkey.co.uk/tools/antic/antic.html</a>
+              
       </td>
       </tr>
                   <tr>
@@ -1861,7 +2114,161 @@
       </td>
       </tr>
         </table>
-                                                    <h4 class="subsection">
+                                                    <h5 class="subsection">
+        <a name="Dave's J2ME Tasks"></a>
+        *** Dave's J2ME Tasks ***
+      </h5>
+                        <p>This set supports CLDC and the K Virtual Machine (KVM):</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.3
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.dribin.org/dave/j2me_ant/">http://www.dribin.org/dave/j2me_ant/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:drib@enteract.com">Dave Dribin</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Apache Software License
+      </td>
+      </tr>
+        </table>
+                                                    <h5 class="subsection">
+        <a name="J2ME Polish"></a>
+        *** J2ME Polish ***
+      </h5>
+                        <p>J2ME Polish is an Ant-based tool for the creation of
+          MIDP applications. It covers the whole circle of preprocessing, compiling,
+          obfuscation, preverifying, packaging and JAD-creation. J2ME Polish is
+          ideal for creating device optimized applications with its powerful
+          preprocessing capabilities and the integrated device database.
+          With J2ME Polish no hardcoded values are needed and the portability of an
+          application is not sacrificed, even though highly opimized applications are
+          created from a single source.
+          <br />
+          It contains a logging framework and an optional MIDP-compatible GUI
+          which can be designed using the web-standard CSS. With the J2ME Polish GUI
+          you can even use MIDP/2.0 features on MIDP/1.0 phones.
+          </p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.4.1 or later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.j2mepolish.org/">http://www.j2mepolish.org/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:j2mepolish@enough.de">Enough Software</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GNU General Public License; commercial licenses available
+      </td>
+      </tr>
+        </table>
+                                                    <h5 class="subsection">
+        <a name="Stampysoft's J2ME Tasks"></a>
+        *** Stampysoft's J2ME Tasks ***
+      </h5>
+                        <p>And this set works with the J2ME Wireless Toolkit and MIDP
+          for PalmOS:</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.3
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.stampysoft.com/ant/">http://www.stampysoft.com/ant/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:jeckels@stampysoft.com">Josh Eckels</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          MIT License
+      </td>
+      </tr>
+        </table>
+                                                                  <h4 class="subsection">
         <a name="Jacson"></a>
         Jacson
       </h4>
@@ -1958,6 +2365,57 @@
           Starting with release 1.0 Beta 6 the license is the
             BSD License.  Prior releases were under the GNU General
             Public License.
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="JarBundler"></a>
+        JarBundler
+      </h4>
+                        <p>JarBundler is a task that generates Mac OS X native Java
+        Application Bundles.  It is fully configurable and can be used
+        to generate Mac OS X application bundles from any supported
+        Java platform, making it ideal for targeting multiple
+        platforms with one build.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.4 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.loomcom.com/jarbundler/">http://www.loomcom.com/jarbundler/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:sethm@loomcom.com">Seth Morabito</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GNU General Public License
       </td>
       </tr>
         </table>
@@ -2279,54 +2737,6 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
-        <a name="Jegustator"></a>
-        Jegustator
-      </h4>
-                        <p>Jegustator is an Ant task which preforms source code and
-        bytecode reviews and also documents source and bytecode.</p>
-                                      <table class="externals" cellspacing="1" cellpadding="4">
-              <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Compatibility:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          Tested with Ant 1.5.2
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          URL:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.pavelvlasov.com/pv/content/menu.show@id=products.jegustator.html">http://www.pavelvlasov.com/pv/content/menu.show@id=products.jegustator.html</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Contact:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.pavelvlasov.com/pv/content/contact.html">Pavel Vlasov</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          License:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          GNU General Public License (GPL)
-      </td>
-      </tr>
-        </table>
-                                                    <h4 class="subsection">
         <a name="JFlex"></a>
         JFlex
       </h4>
@@ -2630,6 +3040,59 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="JReleaseInfo"></a>
+        JReleaseInfo
+      </h4>
+                        <p>Sometimes you are interested at runtime to have information
+        from build time. This may be the build date, a build number or
+        the version.  The JReleaseInfo Ant Task generates a java
+        source file with getter methods for any desired and provided
+        properties.  Furthermore, it can automatically generate a
+        viewer (which can e.g.  be used as main-class in a library jar
+        file) that shows the included release information.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.6 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://jreleaseinfo.sourceforge.net/">HomePage on SourceForge</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://sourceforge.net/projects/jreleaseinfo/">Forums/Tracker on SourceForge</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Apache Software License
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="JRun Ant Tasks"></a>
         JRun Ant Tasks
       </h4>
@@ -2678,6 +3141,59 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           Commercial
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="JudoScript Ant Task"></a>
+        JudoScript Ant Task
+      </h4>
+                        <p>The &lt;judoscript&gt; task is an easy way to embed JudoScript
+           code in the Ant build script. The tag format is quite simple. You can
+           either embed code directly, or can specify an external JudoScript program
+           file as the <code>src</code> attribute value. Parameters can be specified
+           as the <code>params</code> attribute; this is applicable to both embedded
+           code and external files.
+        </p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.5 or higher
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.judoscript.com/articles/ant.html">http://www.judoscript.com/articles/ant.html</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:judoscript@hotmail.com">James Jianbo Huang</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Lesser GNU Public License
       </td>
       </tr>
         </table>
@@ -2821,7 +3337,7 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           
-              <a href="http://www.kanaputs.org/">http://www.kanaputs.org/</a>
+              <a href="http://www.kanaputs.org/">http://www.kanaputs.org/</a> <br />
               <a href="http://www.kanaputs.org/ant.html">http://www.kanaputs.org/ant.html</a>
             
       </td>
@@ -2998,59 +3514,6 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           GNU Lesser General Public License
-      </td>
-      </tr>
-        </table>
-                                                    <h4 class="subsection">
-        <a name="Pamda"></a>
-        Pamda
-      </h4>
-                        <p><a href="http://www.pavelvlasov.com/pv/content/menu.show@id=products.pamda.html">Pamda</a>
-        is an MDA tool (UML2Code generator) implemented as Ant task. Pamda supports
-        Aspect-Oriented Modeling (AOM) and comes with AOM UML Profile and sample project.
-        The tool uses XMI as its input and Velocity as template engine. All elements in
-        the metamodel have navigate(XPath expression) and iterate(XPath expression)
-        (powered by JXPath) which make templates easy to write.<br />
-        Tested with XMI produced by Enterprise Architect.</p>
-                                      <table class="externals" cellspacing="1" cellpadding="4">
-              <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Compatibility:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          Ant 1.5.2
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          URL:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.pavelvlasov.com/pv/content/menu.show@id=products.pamda.html">http://www.pavelvlasov.com/pv/content/menu.show@id=products.pamda.html</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          Contact:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          <a href="http://www.pavelvlasov.com/pv/content/contact.html">Pavel Vlasov</a>
-      </td>
-      </tr>
-                  <tr>
-                      <th colspan="1" rowspan="1"
-      valign="top" align="left">
-          License:
-      </th>
-                          <td colspan="1" rowspan="1"
-      valign="top" align="left">
-          GPL
       </td>
       </tr>
         </table>
@@ -3301,6 +3764,104 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           LGPL
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="RefactorIT"></a>
+        RefactorIT
+      </h4>
+                        <p>RefactorIT includes an Ant task for metrics and audits.
+        RefactorIT is a Java refactoring, audit and metrics tool.
+        It plugs into major Java IDEs, also runs stand-alone with
+        a GUI and a command line interface.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.5 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.refactorit.com/">http://www.refactorit.com/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:support@refactorit.com">support@refactorit.com</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Commercial. (Free for accredited open source products, see
+            <a href="http://www.refactorit.com/osc">http://www.refactorit.com/osc</a>.)
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="Reflectant Task"></a>
+        Reflectant Task
+      </h4>
+                        <p>This is a task for reflection invocation from within ant build file.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.5 or above
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://sourceforge.net/projects/reflectant/">http://sourceforge.net/projects/reflectant/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:sv_ant@mail.bg">sv_ant@mail.bg</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          The Apache Software License
       </td>
       </tr>
         </table>
@@ -3664,6 +4225,60 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="SQLC"></a>
+        SQLC
+      </h4>
+                        <p>SQLC generates Java classes from SQL statements obviating JDBC API
+        in your code. Introduction to SQLC:
+        <a href="http://www.pavelvlasov.com/pv/content/Articles/sqlc/sqlc.html">
+        http://www.pavelvlasov.com/pv/content/Articles/sqlc/sqlc.html</a></p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Tested with Ant 1.5.2. Compilation requires Java 1.4 and database
+              driver shall implement getParameterMetadata(). "Introduction to SQLC"
+              (see above) contains compatibility list. Generated classes work on
+              Java 1.3+
+            
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.pavelvlasov.com/pv/content/Products/Common/doc/AntDoc/com/pavelvlasov/sql/java/ant/StatementCompilerTask.html">http://www.pavelvlasov.com/pv/content/Products/Common/doc/AntDoc/com/pavelvlasov/sql/java/ant/StatementCompilerTask.html</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.pavelvlasov.com/pv/content/contact.html">Pavel Vlasov</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          LGPL
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="Styler"></a>
         Styler
       </h4>
@@ -3921,6 +4536,54 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           BSD-like license
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="Transformica"></a>
+        Transformica
+      </h4>
+                        <p>Code generator. Generates code from UML models, Java
+        metamodel or custom models.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Tested with Ant 1.5 and 1.5.2
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.pavelvlasov.com/pv/content/menu.show@id=products.transformica.html">http://www.pavelvlasov.com/pv/content/menu.show@id=products.transformica.html</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.pavelvlasov.com/pv/content/contact.html">Pavel Vlasov</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GPL
       </td>
       </tr>
         </table>
@@ -4183,6 +4846,63 @@
       </tr>
         </table>
                                                     <h4 class="subsection">
+        <a name="Xcluder"></a>
+        Xcluder
+      </h4>
+                        <p>xcluder is an XML Inclusions (XInclude) task for Apache Ant.
+        Offers the choice of using Xerces or Elliotte Rusty Harold's XOM API.
+        </p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.4 or later. XInclude compliance depends on the
+            underlying Xerces or XOM used. Xerces 2.5.0 and above works fine,
+            but please note that 2.6.1 and 2.6.2 processed the
+            http://www.w3.org/2003/XInclude, now obsolete by
+            http://www.w3.org/2001/XInclude used by the latest
+            Candidate Recommendation (13 April 2004).
+            
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://sourceforge.net/projects/xcluder">http://sourceforge.net/projects/xcluder</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:mbatsis@users.sf.net">mbatsis@users.sf.net</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GNU General Public License (GPL), GNU Library or Lesser
+            General Public License (LGPL)
+            
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
         <a name="XDoclet"></a>
         XDoclet
       </h4>
@@ -4273,6 +4993,56 @@
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
           Lesser GNU Public License
+      </td>
+      </tr>
+        </table>
+                                                    <h4 class="subsection">
+        <a name="XMLReleaseNotes (XRN)"></a>
+        XMLReleaseNotes (XRN)
+      </h4>
+                        <p>This framework is a release notes framework that enables to
+        generate textual release notes from an XML file. This is an
+        open framework that enables to integrate the information
+        coming from VSC and bug tracking solutions, for instance.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.5 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://xmlreleasenotes.free.fr/">http://xmlreleasenotes.free.fr/</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Edouard Mercier
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Apache Software License
       </td>
       </tr>
         </table>
@@ -4729,7 +5499,10 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          Ant 1.3 - 1.4.1
+          
+              Ant 1.3 - 1.4.1
+              Bundles Ant 1.6.2 as of Eclipse 3.0.1 (tested with Ant 1.5.4 - 1.6.2)
+            
       </td>
       </tr>
                   <tr>
@@ -4739,7 +5512,13 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="http://www.eclipse.org/">http://www.eclipse.org/</a>
+          
+              <a href="http://www.eclipse.org/">http://www.eclipse.org/</a>
+              or
+              <a href="http://dev.eclipse.org/viewcvs/index.cgi/~checkout~/platform-ant-home/index.html">
+                http://dev.eclipse.org/viewcvs/index.cgi/~checkout~/platform-ant-home/index.html
+              </a> 
+            
       </td>
       </tr>
                   <tr>
@@ -4749,7 +5528,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          <a href="news://news.eclipse.org/eclipse.tools">news://news.eclipse.org/eclipse.tools</a>
+          <a href="news://news.eclipse.org/eclipse.platform">news://news.eclipse.org/eclipse.platform</a>
       </td>
       </tr>
                   <tr>
@@ -5016,7 +5795,7 @@
       </th>
                           <td colspan="1" rowspan="1"
       valign="top" align="left">
-          bundles Ant 1.6.0 as of NetBeans 3.6
+          bundles Ant 1.6.2 as of NetBeans 4.0
       </td>
       </tr>
                   <tr>
@@ -5134,6 +5913,62 @@
       </td>
       </tr>
         </table>
+                                      <h3 class="section">
+      <a name="Source Control Systems"></a>
+      Source Control Systems
+    </h3>
+                        <p>There are several integration with SCM systems. Some are
+      <a href="manual/tasksoverview.html#scm">built in</a>. But some are available as
+      external libraries. Here a list of task libraries we are aware of:</p>
+                                      <h4 class="subsection">
+        <a name="Surround SCM"></a>
+        Surround SCM
+      </h4>
+                        <p>These are tasks that allow users to access Surround SCM
+         functionality from within Ant build scripts.</p>
+                                      <table class="externals" cellspacing="1" cellpadding="4">
+              <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Compatibility:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          Ant 1.5 and later
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          URL:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="http://www.seapine.com/scmresources.php#integration">
+            Surround SCM Resource Center</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          Contact:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          <a href="mailto:support@seapine.com">Seapine Support</a>
+      </td>
+      </tr>
+                  <tr>
+                      <th colspan="1" rowspan="1"
+      valign="top" align="left">
+          License:
+      </th>
+                          <td colspan="1" rowspan="1"
+      valign="top" align="left">
+          GNU Lesser General Public License
+      </td>
+      </tr>
+        </table>
                               
     </div>
   </div>
@@ -5147,6 +5982,7 @@
       </p>
     </body>
   </html>
+
 
 
 

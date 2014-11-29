@@ -30,6 +30,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -57,9 +60,9 @@ import org.apache.tools.ant.launch.Locator;
  */
 
 public class FileUtils {
-    private static Random rand = new Random(System.currentTimeMillis());
-    private static Object lockReflection = new Object();
-    private static java.lang.reflect.Method setLastModified = null;
+    //get some non-crypto-grade randomness from various places.
+    private static Random rand = new Random(System.currentTimeMillis()
+            +Runtime.getRuntime().freeMemory());
 
     private boolean onNetWare = Os.isFamily("netware");
 
@@ -77,6 +80,7 @@ public class FileUtils {
      * the granularity of timestamps under Unix
      */
     public static final long UNIX_FILE_TIMESTAMP_GRANULARITY = 1000;
+
 
     // stolen from FilePathToURI of the Xerces-J team
     static {
@@ -648,65 +652,27 @@ public class FileUtils {
             }
 
             if (preserveLastModified) {
-                setFileLastModified(destFile, sourceFile.lastModified());
+                destFile.setLastModified(sourceFile.lastModified());
             }
         }
     }
 
-    /**
-     * see whether we have a setLastModified method in File and return it.
-     *
-     * @return a method to setLastModified.
-     */
-    protected final Method getSetLastModified() {
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            return null;
-        }
-        synchronized (lockReflection) {
-            if (setLastModified == null) {
-                try {
-                    setLastModified =
-                        java.io.File.class.getMethod("setLastModified",
-                                                     new Class[] {Long.TYPE});
-                } catch (NoSuchMethodException nse) {
-                    throw new BuildException("File.setlastModified not in JDK > 1.1?",
-                                             nse);
-                }
-            }
-        }
-        return setLastModified;
-    }
 
     /**
-     * Calls File.setLastModified(long time) in a Java 1.1 compatible way.
+     * Calls File.setLastModified(long time). Originally written to
+     * to dynamically bind to that call on Java1.2+.
      *
      * @param file the file whose modified time is to be set
      * @param time the time to which the last modified time is to be set.
-     *
+     *             if this is -1, the current time is used.
      * @throws BuildException if the time cannot be set.
      */
     public void setFileLastModified(File file, long time)
         throws BuildException {
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            return;
-        }
-        Long[] times = new Long[1];
         if (time < 0) {
-            times[0] = new Long(System.currentTimeMillis());
-        } else {
-            times[0] = new Long(time);
+            time=System.currentTimeMillis();
         }
-
-        try {
-            getSetLastModified().invoke(file, times);
-        } catch (java.lang.reflect.InvocationTargetException ite) {
-            Throwable nested = ite.getTargetException();
-            throw new BuildException("Exception setting the modification time "
-                                     + "of " + file, nested);
-        } catch (Throwable other) {
-            throw new BuildException("Exception setting the modification time "
-                                     + "of " + file, other);
-        }
+        file.setLastModified(time);
     }
 
     /**
@@ -1147,34 +1113,18 @@ public class FileUtils {
     }
 
     /**
-     * Emulation of File.createNewFile for JDK 1.1.
+     * This was originally an emulation of File.createNewFile for JDK 1.1,
+     * but it is now implemented using that method (Ant1.7 onwards).
      *
-     * <p>This method does <strong>not</strong> guarantee that the
-     * operation is atomic.</p>
+     * <p>This method has historically <strong>not</strong> guaranteed that the
+     * operation was atomic. In its current implementation it is.
      *
      * @param f the file to be created
      * @return true if the file did not exist already.
      * @since Ant 1.5
      */
     public boolean createNewFile(File f) throws IOException {
-        if (f != null) {
-            if (f.exists()) {
-                return false;
-            }
-
-            FileOutputStream fos = null;
-            try {
-                fos = new FileOutputStream(f);
-                fos.write(new byte[0]);
-            } finally {
-                if (fos != null) {
-                    fos.close();
-                }
-            }
-
-            return true;
-        }
-        return false;
+        return f.createNewFile();
     }
 
     /**
@@ -1358,11 +1308,155 @@ public class FileUtils {
         }
     }
 
+    /**
+     * get the granularity of file timestamps.
+     * The choice is made on OS, which is incorrect -it should really be
+     * by filesystem. We do not have an easy way to probe for file systems,
+     * however.
+     * @return the difference, in milliseconds, which two file timestamps must have
+     * in order for the two files to be given a creation order. 
+     */
     public long getFileTimestampGranularity() {
         if (Os.isFamily("dos")) {
             return FAT_FILE_TIMESTAMP_GRANULARITY;
         } else {
             return UNIX_FILE_TIMESTAMP_GRANULARITY;
+        }
+    }
+
+    /**
+     * Returns true if the source is older than the dest.
+     * If the dest file does not exist, then the test returns false; it is
+     * implicitly not up do date.
+     * @param source source file (should be the older)
+     * @param dest dest file (should be the newer)
+     * @param granularity an offset added to the source time.
+     * @return true if the source is older than the dest, taking the
+     *  granularity into account
+     * @since Ant1.7
+     */
+    public boolean isUpToDate(File source,File dest,long granularity) {
+        //do a check for the destination file existing
+        if(!dest.exists()) {
+            //if it does not, then the file is not up to date.
+            return false;
+        }
+        long sourceTime=source.lastModified();
+        long destTime=dest.lastModified();
+        return isUpToDate(sourceTime, destTime, granularity);
+    }
+
+
+    /**
+     * returns true if the source is older than the dest
+     * @param source source file (should be the older)
+     * @param dest dest file (should be the newer)
+     * @return true if the source is older than the dest, taking the granularity into account
+     * @since Ant1.7
+     */
+    public boolean isUpToDate(File source, File dest) {
+        return isUpToDate(source, dest, getFileTimestampGranularity());
+    }
+
+    /**
+     * compare two timestamps for being up to date, use granularity too.,
+     *
+     * @param sourceTime timestamp of source file
+     * @param destTime timestamp of dest file
+     * @param granularity os/filesys granularity
+     * @return true if the dest file is considered up to date
+     */
+    public boolean isUpToDate(long sourceTime,long destTime, long granularity) {
+        if(destTime==-1) {
+            return false;
+        }
+        return destTime >= sourceTime + granularity;
+    }
+
+    /**
+     * compare two timestamps for being up to date, use the
+     * current granularity
+     *
+     * @param sourceTime  timestamp of source file
+     * @param destTime    timestamp of dest file
+     * @return true if the dest file is considered up to date
+     */
+    public boolean isUpToDate(long sourceTime, long destTime) {
+        return isUpToDate(sourceTime, destTime,getFileTimestampGranularity());
+    }
+
+
+    /**
+     * close a writer without throwing any exception if something went wrong.
+     * Do not attempt to close it if the file is null
+     * @param device output writer, can be null
+     */
+    public static void close(Writer device) {
+        if (device != null) {
+            try {
+                device.close();
+            } catch (IOException ioex) {
+                //ignore
+            }
+        }
+    }
+
+    /**
+     * close a stream without throwing any exception if something went wrong.
+     * Do not attempt to close it if the file is null
+     *
+     * @param device stream, can be null
+     */
+    public static void close(Reader device) {
+        if ( device != null ) {
+            try {
+                device.close();
+            } catch (IOException ioex) {
+                //ignore
+            }
+        }
+    }
+
+    /**
+     * close a stream without throwing any exception if something went wrong.
+     * Do not attempt to close it if the file is null
+     *
+     * @param device stream, can be null
+     */
+    public static void close(OutputStream device) {
+        if ( device != null ) {
+            try {
+                device.close();
+            } catch (IOException ioex) {
+                //ignore
+            }
+        }
+    }
+
+    /**
+     * close a stream without throwing any exception if something went wrong.
+     * Do not attempt to close it if the file is null
+     *
+     * @param device stream, can be null
+     */
+    public static void close(InputStream device) {
+        if ( device != null ) {
+            try {
+                device.close();
+            } catch (IOException ioex) {
+                //ignore
+            }
+        }
+    }
+
+    /**
+     * Delete the file with {@link File#delete()} if the argument is not null.
+     * Do nothing on a null argument
+     * @param file file to delete
+     */
+    public static void delete(File file) {
+        if(file!=null) {
+            file.delete();
         }
     }
 }

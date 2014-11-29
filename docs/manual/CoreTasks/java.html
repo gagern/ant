@@ -94,7 +94,7 @@ EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
   <tr>
     <td valign="top">failonerror</td>
     <td valign="top">Stop the buildprocess if the command exits with a
-      returncode other than 0. Default is "false" (see <a href="#failonerror">note)</a></td>
+      returncode other than 0. Default is "false" (see <a href="#failonerror">note</a>)</td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -235,10 +235,10 @@ see <a href="../CoreTypes/permissions.html">permissions</a></p>
 <p>When the permission RuntimePermission exitVM has not been granted (or has
 been revoked) the System.exit() call will be intercepted
 and treated like indicated in <i>failonerror</i>.</p>
-<p><a name="failonerror"/>
-If you specify <code>failonerror=&quot;true&quot;</code> and you do not specify permissions,
-a set of default permissions will be added to your java invocation making sure that
-a non zero return code will lead to a <code>BuildException</code>.
+<p><a name="failonerror">Note:</a>
+if you specify <code>failonerror=&quot;true&quot;</code> and you do not specify permissions,
+a set of default permissions will be added to your Java invocation to make sure that
+a non-zero return code will lead to a <code>BuildException</code>.
 </p>
 <p>Settings will be ignored if fork is enabled.</p>
 
@@ -250,6 +250,8 @@ a non zero return code will lead to a <code>BuildException</code>.
 <a href="../CoreTypes/assertions.html"><tt>&lt;assertions&gt;</tt></a>
 subelement.</p>
  
+<p>Assertion statements are currently ignored in non-forked mode.</p>
+
 <p><em>since Ant 1.6.</em></p>
 
 <a name="redirector"><h4>redirector</h4></a>

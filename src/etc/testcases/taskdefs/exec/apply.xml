@@ -21,6 +21,16 @@
                 <isset property="sed.exe.executable"/>
             </or>
         </condition>
+        <!-- UNIX -->
+        <available file="echo" filepath="${env.PATH}" property="echo.executable"/>
+        <!-- CYGWIN -->
+        <available file="echo.exe" filepath="${env.PATH}" property="echo.exe.executable"/>
+        <condition property="echo.can.run">
+            <or>
+                <isset property="echo.executable"/>
+                <isset property="echo.exe.executable"/>
+            </or>
+        </condition>
     </target>
 
     <target name="xyz">
@@ -301,6 +311,68 @@
             <arg value="-f" />
             <fileset file="y" />
         </apply>
+    </target>
+
+    <target name="ignoremissing" depends="init,xyz" if="echo.can.run">
+        <filelist id="xylist" dir="${basedir}" files="x,y" />
+        <delete file="z" />
+
+        <condition property="pad" value="">
+            <or>
+                <not>
+                    <os family="dos" />
+                </not>
+                <not>
+                    <or>
+                        <equals arg1="${ant.java.version}" arg2="1.1" />
+                        <equals arg1="${ant.java.version}" arg2="1.2" />
+                    </or>
+                </not>
+            </or>
+        </condition>
+
+        <condition property="pad" value=" ">
+            <and>
+                <os family="dos" />
+                <or>
+                    <equals arg1="${ant.java.version}" arg2="1.1" />
+                    <equals arg1="${ant.java.version}" arg2="1.2" />
+                </or>
+            </and>
+        </condition>
+
+        <pathconvert property="xy" pathsep="${pad}${line.separator}">
+            <path>
+                <filelist refid="xylist" />
+            </path>
+        </pathconvert>
+
+        <pathconvert property="xyz" pathsep="${pad}${line.separator}">
+            <path>
+                <filelist refid="xyzlist" />
+            </path>
+        </pathconvert>
+
+        <apply executable="echo" ignoremissing="true"
+               outputproperty="ignoretrue" append="true">
+            <filelist refid="xyzlist" />
+        </apply>
+
+        <apply executable="echo" ignoremissing="false"
+               outputproperty="ignorefalse" append="true">
+            <filelist refid="xyzlist" />
+        </apply>
+
+        <fail>
+            <condition>
+                <not>
+                    <and>
+                        <equals arg1="${xy}${pad}" arg2="${ignoretrue}" />
+                        <equals arg1="${xyz}${pad}" arg2="${ignorefalse}" />
+                    </and>
+                </not>
+            </condition>
+        </fail>
     </target>
 
     <target name="cleanup">

@@ -117,7 +117,7 @@ public class Main implements AntMain {
     /**
      * optional thread priority
      */
-    private Integer threadPriority=null;
+    private Integer threadPriority = null;
 
     /**
      * Prints the message of the Throwable if it (the message) is not
@@ -184,8 +184,15 @@ public class Main implements AntMain {
         // expect the worst
         int exitCode = 1;
         try {
-            runBuild(coreLoader);
-            exitCode = 0;
+            try {
+                runBuild(coreLoader);
+                exitCode = 0;
+            } catch (ExitStatusException ese) {
+                exitCode = ese.getStatus();
+                if (exitCode != 0) {
+                    throw ese;
+                }
+            }
         } catch (BuildException be) {
             if (err != System.err) {
                 printMessage(be);
@@ -403,18 +410,18 @@ public class Main implements AntMain {
                 keepGoingMode = true;
             } else if (arg.equals("-nice")) {
                 try {
-                    threadPriority=Integer.decode(args[i + 1]);
+                    threadPriority = Integer.decode(args[i + 1]);
                 } catch (ArrayIndexOutOfBoundsException aioobe) {
                     throw new BuildException(
-                            "You must supply a niceness value (1-10)"+
-                            " after the -nice option");
+                            "You must supply a niceness value (1-10)"
+                            + " after the -nice option");
                 } catch (NumberFormatException e) {
-                    throw new BuildException("Unrecognized niceness value: " +
-                            args[i + 1]);
+                    throw new BuildException("Unrecognized niceness value: "
+                                             + args[i + 1]);
                 }
                 i++;
-                if(threadPriority.intValue()<Thread.MIN_PRIORITY ||
-                        threadPriority.intValue()>Thread.MAX_PRIORITY) {
+                if (threadPriority.intValue() < Thread.MIN_PRIORITY
+                    || threadPriority.intValue() > Thread.MAX_PRIORITY) {
                     throw new BuildException(
                             "Niceness value is out of the range 1-10");
                 }
@@ -506,20 +513,19 @@ public class Main implements AntMain {
      * Helper to get the parent file for a given file.
      * <p>
      * Added to simulate File.getParentFile() from JDK 1.2.
+     * @deprecated
      *
      * @param file   File to find parent of. Must not be <code>null</code>.
      * @return       Parent file or null if none
      */
     private File getParentFile(File file) {
-        String filename = file.getAbsolutePath();
-        file = new File(filename);
-        filename = file.getParent();
+        File parent = file.getParentFile();
 
-        if (filename != null && msgOutputLevel >= Project.MSG_VERBOSE) {
-            System.out.println("Searching in " + filename);
+        if (parent != null && msgOutputLevel >= Project.MSG_VERBOSE) {
+            System.out.println("Searching in " + parent.getAbsolutePath());
         }
 
-        return (filename == null) ? null : new File(filename);
+        return parent;
     }
 
     /**
@@ -625,7 +631,7 @@ public class Main implements AntMain {
                 if (threadPriority != null) {
                     try {
                         project.log("Setting Ant's thread priority to "
-                                + threadPriority,Project.MSG_VERBOSE);
+                                + threadPriority, Project.MSG_VERBOSE);
                         Thread.currentThread().setPriority(threadPriority.intValue());
                     } catch (SecurityException swallowed) {
                         //we cannot set the priority here.
@@ -808,12 +814,15 @@ public class Main implements AntMain {
         msg.append("  -quiet, -q             be extra quiet" + lSep);
         msg.append("  -verbose, -v           be extra verbose" + lSep);
         msg.append("  -debug, -d             print debugging information" + lSep);
-        msg.append("  -emacs, -e             produce logging information without adornments" + lSep);
-        msg.append("  -lib <path>            specifies a path to search for jars and classes" + lSep);
+        msg.append("  -emacs, -e             produce logging information without adornments"
+                   + lSep);
+        msg.append("  -lib <path>            specifies a path to search for jars and classes"
+                   + lSep);
         msg.append("  -logfile <file>        use given file for log" + lSep);
         msg.append("    -l     <file>                ''" + lSep);
         msg.append("  -logger <classname>    the class which is to perform logging" + lSep);
-        msg.append("  -listener <classname>  add an instance of class as a project listener" + lSep);
+        msg.append("  -listener <classname>  add an instance of class as a project listener"
+                   + lSep);
         msg.append("  -noinput               do not allow interactive input" + lSep);
         msg.append("  -buildfile <file>      use given buildfile" + lSep);
         msg.append("    -file    <file>              ''" + lSep);
@@ -826,8 +835,12 @@ public class Main implements AntMain {
         msg.append("  -inputhandler <class>  the class which will handle input requests" + lSep);
         msg.append("  -find <file>           (s)earch for buildfile towards the root of" + lSep);
         msg.append("    -s  <file>           the filesystem and use it" + lSep);
-        msg.append("  -nice  number          A niceness value for the main thread:" + lSep +
-                   "                         1 (lowest) to 10 (highest); 5 is the default" + lSep);
+        msg.append("  -nice  number          A niceness value for the main thread:" + lSep
+                   + "                         1 (lowest) to 10 (highest); 5 is the default"
+                   + lSep);
+        msg.append("  -nouserlib             Run ant without using the jar files from ${user.home}/"
+                   + ".ant/lib");
+        msg.append("  -noclasspath           Run ant without using CLASSPATH");
         System.out.println(msg.toString());
     }
 
@@ -1010,7 +1023,8 @@ public class Main implements AntMain {
             msg.append(" ");
             msg.append(names.elementAt(i));
             if (descriptions != null) {
-                msg.append(spaces.substring(0, maxlen - ((String) names.elementAt(i)).length() + 2));
+                msg.append(
+                    spaces.substring(0, maxlen - ((String) names.elementAt(i)).length() + 2));
                 msg.append(descriptions.elementAt(i));
             }
             msg.append(lSep);

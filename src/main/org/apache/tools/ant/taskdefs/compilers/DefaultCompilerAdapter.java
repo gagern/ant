@@ -31,6 +31,7 @@ import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
+import org.apache.tools.ant.taskdefs.condition.Os;
 
 /**
  * This is the default implementation for the CompilerAdapter interface.
@@ -396,12 +397,8 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                 && firstFileName >= 0) {
                 PrintWriter out = null;
                 try {
-                    File userDir = getJavac().getTempdir();
-                    if (userDir == null) {
-                        String userDirName = System.getProperty("user.dir");
-                        userDir = new File(userDirName);
-                    }
-                    tmpFile = fileUtils.createTempFile("files", "", userDir);
+                    tmpFile = fileUtils.createTempFile(
+                        "files", "", getJavac().getTempdir());
                     tmpFile.deleteOnExit();
                     out = new PrintWriter(new FileWriter(tmpFile));
                     for (int i = firstFileName; i < args.length; i++) {
@@ -420,13 +417,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                     throw new BuildException("Error creating temporary file",
                                              e, location);
                 } finally {
-                    if (out != null) {
-                        try {
-                            out.close();
-                        } catch (Throwable t) {
-                            // ignore
-                        }
-                    }
+                    FileUtils.close(out);
                 }
             } else {
                 commandArray = args;
@@ -437,6 +428,11 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                                   new LogStreamHandler(attributes,
                                                        Project.MSG_INFO,
                                                        Project.MSG_WARN));
+                if (Os.isFamily("openvms")) {
+                    //Use the VM launcher instead of shell launcher on VMS
+                    //for java
+                    exe.setVMLauncher(true);
+                }
                 exe.setAntRun(project);
                 exe.setWorkingDirectory(project.getBaseDir());
                 exe.setCommandline(commandArray);

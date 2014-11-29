@@ -365,21 +365,6 @@ public abstract class AbstractCvsTask extends Task {
             } else {
                 log("Caught exception: " + e.getMessage(), Project.MSG_WARN);
             }
-        } finally {
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    //ignore
-                }
-            }
-            if (errorStream != null) {
-                try {
-                    errorStream.close();
-                } catch (IOException e) {
-                    //ignore
-                }
-            }
         }
     }
 
@@ -413,6 +398,21 @@ public abstract class AbstractCvsTask extends Task {
                 removeCommandline(cloned);
             }
             setCommand(savedCommand);
+
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    //ignore
+                }
+            }
+            if (errorStream != null) {
+                try {
+                    errorStream.close();
+                } catch (IOException e) {
+                    //ignore
+                }
+            }
         }
     }
 
@@ -599,7 +599,7 @@ public abstract class AbstractCvsTask extends Task {
     }
 
     /**
-     * add a command line argument to an external command
+     * This method adds a command line argument to an external command.
      *
      * I do not understand what this method does in this class ???
      * particularly not why it is public ????

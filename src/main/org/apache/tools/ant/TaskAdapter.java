@@ -18,6 +18,8 @@
 package org.apache.tools.ant;
 
 import java.lang.reflect.Method;
+import org.apache.tools.ant.dispatch.Dispatchable;
+import org.apache.tools.ant.dispatch.DispatchUtils;
 
 /**
  * Uses introspection to "adapt" an arbitrary Bean which doesn't
@@ -32,6 +34,9 @@ public class TaskAdapter extends Task implements TypeAdapter {
 
     /**
      * Checks whether or not a class is suitable to be adapted by TaskAdapter.
+     * If the class is of type Dispatchable, the check is not performed because
+     * the method that will be executed will be determined only at runtime of
+     * the actual task and not during parse time.
      *
      * This only checks conditions which are additionally required for
      * tasks adapted by TaskAdapter. Thus, this method should be called by
@@ -50,28 +55,30 @@ public class TaskAdapter extends Task implements TypeAdapter {
      */
     public static void checkTaskClass(final Class taskClass,
                                       final Project project) {
-        // don't have to check for interface, since then
-        // taskClass would be abstract too.
-        try {
-            final Method executeM = taskClass.getMethod("execute", null);
-            // don't have to check for public, since
-            // getMethod finds public method only.
-            // don't have to check for abstract, since then
+        if (!Dispatchable.class.isAssignableFrom(taskClass)) {
+            // don't have to check for interface, since then
             // taskClass would be abstract too.
-            if (!Void.TYPE.equals(executeM.getReturnType())) {
-                final String message = "return type of execute() should be "
-                    + "void but was \"" + executeM.getReturnType() + "\" in "
-                    + taskClass;
-                project.log(message, Project.MSG_WARN);
+            try {
+                final Method executeM = taskClass.getMethod("execute", null);
+                // don't have to check for public, since
+                // getMethod finds public method only.
+                // don't have to check for abstract, since then
+                // taskClass would be abstract too.
+                if (!Void.TYPE.equals(executeM.getReturnType())) {
+                    final String message = "return type of execute() should be "
+                        + "void but was \"" + executeM.getReturnType() + "\" in "
+                        + taskClass;
+                    project.log(message, Project.MSG_WARN);
+                }
+            } catch (NoSuchMethodException e) {
+                final String message = "No public execute() in " + taskClass;
+                project.log(message, Project.MSG_ERR);
+                throw new BuildException(message);
+            } catch (LinkageError e) {
+                String message = "Could not load " + taskClass + ": " + e;
+                project.log(message, Project.MSG_ERR);
+                throw new BuildException(message, e);
             }
-        } catch (NoSuchMethodException e) {
-            final String message = "No public execute() in " + taskClass;
-            project.log(message, Project.MSG_ERR);
-            throw new BuildException(message);
-        } catch (LinkageError e) {
-            String message = "Could not load " + taskClass + ": " + e;
-            project.log(message, Project.MSG_ERR);
-            throw new BuildException(message, e);
         }
     }
 
@@ -113,23 +120,8 @@ public class TaskAdapter extends Task implements TypeAdapter {
         Method executeM = null;
         try {
             Class c = proxy.getClass();
-            executeM = c.getMethod("execute", new Class[0]);
-            if (executeM == null) {
-                log("No public execute() in " + proxy.getClass(),
-                    Project.MSG_ERR);
-                throw new BuildException("No public execute() in "
-                    + proxy.getClass());
-            }
-            executeM.invoke(proxy, null);
+            DispatchUtils.execute(proxy);
             return;
-        } catch (java.lang.reflect.InvocationTargetException ie) {
-            log("Error in " + proxy.getClass(), Project.MSG_VERBOSE);
-            Throwable t = ie.getTargetException();
-            if (t instanceof BuildException) {
-                throw ((BuildException) t);
-            } else {
-                throw new BuildException(t);
-            }
         } catch (Exception ex) {
             log("Error in " + proxy.getClass(), Project.MSG_VERBOSE);
             throw new BuildException(ex);

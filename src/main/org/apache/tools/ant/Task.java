@@ -17,6 +17,8 @@
 
 package org.apache.tools.ant;
 
+import org.apache.tools.ant.dispatch.DispatchUtils;
+
 import java.util.Enumeration;
 import java.io.IOException;
 
@@ -315,7 +317,7 @@ public abstract class Task extends ProjectComponent {
     }
 
     /**
-     * Handles an error line by logging it with the ERR priority.
+     * Handles an error line by logging it with the WARN priority.
      *
      * @param output The error output to log. Should not be <code>null</code>.
      *
@@ -357,20 +359,27 @@ public abstract class Task extends ProjectComponent {
      */
     public final void perform() {
         if (!invalid) {
+            getProject().fireTaskStarted(this);
+            Throwable reason = null;
             try {
-                getProject().fireTaskStarted(this);
                 maybeConfigure();
-                execute();
-                getProject().fireTaskFinished(this, null);
-            } catch (RuntimeException exc) {
-                if (exc instanceof BuildException) {
-                    BuildException be = (BuildException) exc;
-                    if (be.getLocation() == Location.UNKNOWN_LOCATION) {
-                        be.setLocation(getLocation());
-                    }
+                DispatchUtils.execute(this);
+            } catch (BuildException ex) {
+                if (ex.getLocation() == Location.UNKNOWN_LOCATION) {
+                    ex.setLocation(getLocation());
                 }
-                getProject().fireTaskFinished(this, exc);
-                throw exc;
+                reason = ex;
+                throw ex;
+            } catch (Exception ex) {
+                reason = ex;
+                BuildException be = new BuildException(ex);
+                be.setLocation(getLocation());
+                throw be;
+            } catch (Error ex) {
+                reason = ex;
+                throw ex;
+            } finally {
+                getProject().fireTaskFinished(this, reason);
             }
         } else {
             UnknownElement ue = getReplacement();

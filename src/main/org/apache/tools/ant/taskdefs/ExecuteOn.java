@@ -59,6 +59,7 @@ public class ExecuteOn extends ExecTask {
     private int maxParallel = -1;
     private boolean addSourceFile = true;
     private boolean verbose = false;
+    private boolean ignoreMissing = true;
 
     /**
      * Has &lt;srcfile&gt; been specified before &lt;targetfile&gt;
@@ -171,6 +172,15 @@ public class ExecuteOn extends ExecTask {
     }
 
     /**
+     * Whether to ignore nonexistent files from filelists.
+     *
+     * @since Ant 1.6.2
+     */
+    public void setIgnoremissing(boolean b) {
+        ignoreMissing = b;
+    }
+
+    /**
      * Marker that indicates where the name of the source file should
      * be put on the command line.
      */
@@ -270,6 +280,7 @@ public class ExecuteOn extends ExecTask {
                     }
                 }
                 File base = fs.getDir(getProject());
+
                 DirectoryScanner ds = fs.getDirectoryScanner(getProject());
 
                 if (!"dir".equals(currentType)) {
@@ -291,8 +302,15 @@ public class ExecuteOn extends ExecTask {
                 }
 
                 if (fileNames.size() == 0 && skipEmpty) {
-                    log("Skipping fileset for directory "
-                        + base + ". It is empty.", Project.MSG_INFO);
+                    int includedCount
+                        = ((!"dir".equals(currentType))
+                        ? ds.getIncludedFilesCount() : 0)
+                        + ((!"file".equals(currentType))
+                        ? ds.getIncludedDirsCount() : 0);
+
+                    log("Skipping fileset for directory " + base + ". It is "
+                        + ((includedCount > 0) ? "up to date." : "empty."),
+                        Project.MSG_INFO);
                     continue;
                 }
 
@@ -331,10 +349,10 @@ public class ExecuteOn extends ExecTask {
 
                 for (int j = 0; j < names.length; j++) {
                     File f = new File(base, names[j]);
-                    if ((f.isFile() && !"dir".equals(type))
+                    if ((!ignoreMissing) || (f.isFile() && !"dir".equals(type))
                         || (f.isDirectory() && !"file".equals(type))) {
 
-                        if (f.isFile()) {
+                        if (ignoreMissing || f.isFile()) {
                             totalFiles++;
                         } else {
                             totalDirs++;
@@ -346,8 +364,16 @@ public class ExecuteOn extends ExecTask {
                 }
 
                 if (fileNames.size() == 0 && skipEmpty) {
-                    log("Skipping filelist for directory "
-                        + base + ". It is empty.", Project.MSG_INFO);
+                    DirectoryScanner ds = new DirectoryScanner();
+                    ds.setBasedir(base);
+                    ds.setIncludes(list.getFiles(getProject()));
+                    ds.scan();
+                    int includedCount
+                        = ds.getIncludedFilesCount() + ds.getIncludedDirsCount();
+
+                    log("Skipping filelist for directory " + base + ". It is "
+                        + ((includedCount > 0) ? "up to date." : "empty."),
+                        Project.MSG_INFO);
                     continue;
                 }
 

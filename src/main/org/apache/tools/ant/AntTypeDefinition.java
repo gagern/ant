@@ -215,7 +215,7 @@ public class AntTypeDefinition {
     }
 
     /**
-     * check if the attributes are correct
+     * Checks if the attributes are correct.
      * <dl>
      *   <li>if the class can be created.</li>
      *   <li>if an adapter class can be created</li>
@@ -352,6 +352,9 @@ public class AntTypeDefinition {
         // is the same
         ClassLoader oldLoader = other.getClassLoader();
         ClassLoader newLoader = this.getClassLoader();
+        if (oldLoader == newLoader) {
+            return true;
+        }
         return
             newLoader != null
             && oldLoader != null

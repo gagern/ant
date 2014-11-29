@@ -24,6 +24,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Vector;
 import java.util.Set;
 import java.util.HashSet;
@@ -35,6 +36,7 @@ import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.Target;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.helper.SingleCheckExecutor;
 import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.util.FileUtils;
 
@@ -61,6 +63,9 @@ import org.apache.tools.ant.util.FileUtils;
  */
 public class Ant extends Task {
 
+    /** Target Executor */
+    private static SingleCheckExecutor executor = new SingleCheckExecutor();
+
     /** the basedir where is executed the build file */
     private File dir = null;
 
@@ -69,9 +74,6 @@ public class Ant extends Task {
      * ignored
      */
     private String antFile = null;
-
-    /** the target to call if any */
-    private String target = null;
 
     /** the output */
     private String output  = null;
@@ -96,6 +98,12 @@ public class Ant extends Task {
 
     /** the sets of properties to pass to the new project */
     private Vector propertySets = new Vector();
+
+    /** the targets to call on the new project */
+    private Vector targets = new Vector();
+
+    /** whether the target attribute was specified **/
+    private boolean targetAttributeSet = false;
 
     /**
      * If true, pass all properties to the new Ant project.
@@ -147,10 +155,9 @@ public class Ant extends Task {
     private void initializeProject() {
         newProject.setInputHandler(getProject().getInputHandler());
 
-        Vector listeners = getProject().getBuildListeners();
-        final int count = listeners.size();
-        for (int i = 0; i < count; i++) {
-            newProject.addBuildListener((BuildListener) listeners.elementAt(i));
+        Iterator iter = getBuildListeners();
+        while (iter.hasNext()) {
+            newProject.addBuildListener((BuildListener) iter.next());
         }
 
         if (output != null) {
@@ -285,7 +292,7 @@ public class Ant extends Task {
     public void execute() throws BuildException {
         File savedDir = dir;
         String savedAntFile = antFile;
-        String savedTarget = target;
+        Vector locals = new Vector(targets);
         try {
             if (newProject == null) {
                 reinit();
@@ -317,15 +324,18 @@ public class Ant extends Task {
             File file = FileUtils.newFileUtils().resolveFile(dir, antFile);
             antFile = file.getAbsolutePath();
 
-            log("calling target " + (target != null ? target : "[default]")
-                    + " in build file " +  antFile, Project.MSG_VERBOSE);
+            log("calling target(s) "
+                + ((locals.size() == 0) ? locals.toString() : "[default]")
+                + " in build file " + antFile, Project.MSG_VERBOSE);
             newProject.setUserProperty("ant.file" , antFile);
 
+            String thisAntFile = getProject().getProperty("ant.file");
             // Are we trying to call the target in which we are defined (or
             // the build file if this is a top level task)?
-            if (newProject.resolveFile(newProject.getProperty("ant.file"))
-                .equals(getProject().resolveFile(getProject()
-                .getProperty("ant.file"))) && getOwningTarget() != null) {
+            if (thisAntFile != null
+                && newProject.resolveFile(newProject.getProperty("ant.file"))
+                .equals(getProject().resolveFile(thisAntFile)) 
+                && getOwningTarget() != null) {
 
                 if (getOwningTarget().getName().equals("")) {
                     if (getTaskName().equals("antcall")) {
@@ -346,8 +356,11 @@ public class Ant extends Task {
                     ex, getLocation());
             }
 
-            if (target == null) {
-                target = newProject.getDefaultTarget();
+            if (locals.size() == 0) {
+                String defaultTarget = newProject.getDefaultTarget();
+                if (defaultTarget != null) {
+                    locals.add(defaultTarget);
+                }
             }
 
             if (newProject.getProperty("ant.file")
@@ -356,13 +369,18 @@ public class Ant extends Task {
 
                 String owningTargetName = getOwningTarget().getName();
 
-                if (owningTargetName.equals(target)) {
+                if (locals.contains(owningTargetName)) {
                     throw new BuildException(getTaskName() + " task calling "
                                              + "its own parent target.");
                 } else {
-                    Target other =
-                        (Target) getProject().getTargets().get(target);
-                    if (other != null && other.dependsOn(owningTargetName)) {
+                    boolean circular = false;
+                    for (Iterator it = locals.iterator(); !circular && it.hasNext();) {
+                        Target other = (Target)(getProject().getTargets().get(
+                            (String)(it.next())));
+                        circular |= (other != null
+                            && other.dependsOn(owningTargetName));
+                    }
+                    if (circular) {
                         throw new BuildException(getTaskName()
                                                  + " task calling a target"
                                                  + " that depends on"
@@ -375,15 +393,21 @@ public class Ant extends Task {
 
             addReferences();
 
-            if (target != null && !"".equals(target)) {
+            if (locals.size() > 0 && !(locals.size() == 1 && locals.get(0) == "")) {
+                Throwable t = null;
                 try {
                     log("Entering " + antFile + "...", Project.MSG_VERBOSE);
-                    newProject.executeTarget(target);
+                    newProject.fireSubBuildStarted();
+                    executor.executeTargets(newProject,
+                        (String[])(locals.toArray(new String[locals.size()])));
+
                 } catch (BuildException ex) {
-                    throw ProjectHelper.addLocationToBuildException(
-                        ex, getLocation());
-              } finally {
+                    t = ProjectHelper
+                        .addLocationToBuildException(ex, getLocation());
+                    throw (BuildException) t;
+                } finally {
                     log("Exiting " + antFile + ".", Project.MSG_VERBOSE);
+                    newProject.fireSubBuildFinished(t);
                 }
             }
         } finally {
@@ -404,7 +428,6 @@ public class Ant extends Task {
             }
             dir = savedDir;
             antFile = savedAntFile;
-            target = savedTarget;
         }
     }
 
@@ -595,7 +618,8 @@ public class Ant extends Task {
             throw new BuildException("target attribute must not be empty");
         }
 
-        this.target = s;
+        targets.add(s);
+        targetAttributeSet = true;
     }
 
     /**
@@ -635,6 +659,23 @@ public class Ant extends Task {
     }
 
     /**
+     * Add a target to this Ant invocation.
+     * @param target   the <CODE>TargetElement</CODE> to add.
+     * @since Ant 1.7
+     */
+    public void addConfiguredTarget(TargetElement t) {
+        if (targetAttributeSet) {
+            throw new BuildException(
+                "nested target is incompatible with the target attribute");
+        }
+        String name = t.getName();
+        if (name.equals("")) {
+            throw new BuildException("target name must not be empty");
+        }
+        targets.add(name);
+    }
+
+    /**
      * Set of properties to pass to the new project.
      *
      * @param ps property set to add
@@ -642,6 +683,13 @@ public class Ant extends Task {
      */
     public void addPropertyset(PropertySet ps) {
         propertySets.addElement(ps);
+    }
+
+    /**
+     * @since Ant 1.6.2
+     */
+    private Iterator getBuildListeners() {
+        return getProject().getBuildListeners().iterator();
     }
 
     /**
@@ -676,6 +724,36 @@ public class Ant extends Task {
          */
         public String getToRefid() {
             return targetid;
+        }
+    }
+
+    /**
+     * Helper class that implements the nested &lt;target&gt;
+     * element of &lt;ant&gt; and &lt;antcall&gt;.
+     * @since Ant 1.7
+     */
+    public static class TargetElement {
+        private String name;
+
+        /**
+         * Default constructor.
+         */
+        public TargetElement() {}
+
+        /**
+         * Set the name of this TargetElement.
+         * @param name   the <CODE>String</CODE> target name.
+         */
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        /**
+         * Get the name of this TargetElement.
+         * @return <CODE>String</CODE>.
+         */
+        public String getName() {
+            return name;
         }
     }
 }

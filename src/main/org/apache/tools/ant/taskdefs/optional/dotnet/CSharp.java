@@ -197,7 +197,7 @@ public class CSharp extends DotnetCompile {
      *@return    The OutputFile Parameter to CSC
      */
     protected String getFileAlignParameter() {
-        if (fileAlign != 0) {
+        if (fileAlign != 0 && !"mcs".equals(getExecutable())) {
             return "/filealign:" + fileAlign;
         } else {
             return null;
@@ -361,7 +361,7 @@ public class CSharp extends DotnetCompile {
     // end execute
 
     /**
-     * how does C# separate references? with a semi colon
+     * Returns the delimiter which C# uses to separate references, i.e., a semi colon.
      */
     public String getReferenceDelimiter() {
         return ";";
@@ -369,8 +369,8 @@ public class CSharp extends DotnetCompile {
 
 
     /**
-     * extension is '.cs'
-     * @return
+     * This method indicates the filename extension for C# files.
+     * @return the file extension for C#, i.e., "cs" (without the dot).
      */
     public String getFileExtension() {
         return "cs";

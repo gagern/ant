@@ -30,6 +30,7 @@ import java.lang.reflect.Method;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Properties;
+import java.util.StringTokenizer;
 import java.util.Vector;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
@@ -126,16 +127,6 @@ public class JUnitTestRunner implements TestListener {
     private boolean haltOnFailure = false;
 
     /**
-     * The corresponding testsuite.
-     */
-    private Test suite = null;
-
-    /**
-     * Exception caught in constructor.
-     */
-    private Exception exception;
-
-    /**
      * Returncode
      */
     private int retCode = SUCCESS;
@@ -153,6 +144,12 @@ public class JUnitTestRunner implements TestListener {
 
     /** is this runner running in forked mode? */
     private boolean forked = false;
+
+    /** Running more than one test suite? */
+    private static boolean multipleTests = false;
+
+    /** ClassLoader passed in in non-forked mode. */
+    private ClassLoader loader;
 
     /**
      * Constructor for fork=true or when the user hasn't specified a
@@ -188,43 +185,12 @@ public class JUnitTestRunner implements TestListener {
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
                            boolean showOutput, ClassLoader loader) {
-        this.filtertrace = filtertrace;
+        JUnitTestRunner.filtertrace = filtertrace;
         this.junitTest = test;
         this.haltOnError = haltOnError;
         this.haltOnFailure = haltOnFailure;
         this.showOutput = showOutput;
-
-        try {
-            Class testClass = null;
-            if (loader == null) {
-                testClass = Class.forName(test.getName());
-            } else {
-                testClass = Class.forName(test.getName(), true, loader);
-            }
-
-            Method suiteMethod = null;
-            try {
-                // check if there is a suite method
-                suiteMethod = testClass.getMethod("suite", new Class[0]);
-            } catch (NoSuchMethodException e) {
-                // no appropriate suite method found. We don't report any
-                // error here since it might be perfectly normal.
-            }
-            if (suiteMethod != null) {
-                // if there is a suite method available, then try
-                // to extract the suite from it. If there is an error
-                // here it will be caught below and reported.
-                suite = (Test) suiteMethod.invoke(null, new Class[0]);
-            } else {
-                // try to extract a test suite automatically
-                // this will generate warnings if the class is no suitable Test
-                suite = new TestSuite(testClass);
-            }
-
-        } catch (Exception e) {
-            retCode = ERRORS;
-            exception = e;
-        }
+        this.loader = loader;
     }
 
     public void run() {
@@ -234,77 +200,114 @@ public class JUnitTestRunner implements TestListener {
             res.addListener((TestListener) formatters.elementAt(i));
         }
 
-        long start = System.currentTimeMillis();
+        ByteArrayOutputStream errStrm = new ByteArrayOutputStream();
+        systemError = new PrintStream(errStrm);
 
-        fireStartTestSuite();
-        if (exception != null) { // had an exception in the constructor
-            for (int i = 0; i < formatters.size(); i++) {
-                ((TestListener) formatters.elementAt(i)).addError(null,
-                                                                 exception);
-            }
-            junitTest.setCounts(1, 0, 1);
-            junitTest.setRunTime(0);
-        } else {
+        ByteArrayOutputStream outStrm = new ByteArrayOutputStream();
+        systemOut = new PrintStream(outStrm);
 
+        PrintStream savedOut = null;
+        PrintStream savedErr = null;
 
-            ByteArrayOutputStream errStrm = new ByteArrayOutputStream();
-            systemError = new PrintStream(errStrm);
-
-            ByteArrayOutputStream outStrm = new ByteArrayOutputStream();
-            systemOut = new PrintStream(outStrm);
-
-            PrintStream savedOut = null;
-            PrintStream savedErr = null;
-
-            if (forked) {
-                savedOut = System.out;
-                savedErr = System.err;
-                if (!showOutput) {
-                    System.setOut(systemOut);
-                    System.setErr(systemError);
-                } else {
-                    System.setOut(new PrintStream(
-                                      new TeeOutputStream(savedOut, systemOut)
-                                      )
-                                  );
-                    System.setErr(new PrintStream(
-                                      new TeeOutputStream(savedErr,
-                                                          systemError)
-                                      )
-                                  );
-                }
-                perm = null;
+        if (forked) {
+            savedOut = System.out;
+            savedErr = System.err;
+            if (!showOutput) {
+                System.setOut(systemOut);
+                System.setErr(systemError);
             } else {
-                if (perm != null) {
-                    perm.setSecurityManager();
-                }
+                System.setOut(new PrintStream(
+                                       new TeeOutputStream(savedOut, systemOut)
+                                       )
+                              );
+                System.setErr(new PrintStream(
+                                       new TeeOutputStream(savedErr,
+                                                           systemError)
+                                       )
+                              );
             }
+            perm = null;
+        } else {
+            if (perm != null) {
+                perm.setSecurityManager();
+            }
+        }
 
+        Test suite = null;
+        Exception exception = null;
+
+        try {
 
             try {
-                suite.run(res);
-            } finally {
-                if (perm != null) {
-                    perm.restoreSecurityManager();
-                }
-                if (savedOut != null) {
-                    System.setOut(savedOut);
-                }
-                if (savedErr != null) {
-                    System.setErr(savedErr);
+                Class testClass = null;
+                if (loader == null) {
+                    testClass = Class.forName(junitTest.getName());
+                } else {
+                    testClass = Class.forName(junitTest.getName(), true, 
+                                              loader);
                 }
 
-                systemError.close();
-                systemError = null;
-                systemOut.close();
-                systemOut = null;
-                sendOutAndErr(new String(outStrm.toByteArray()),
-                              new String(errStrm.toByteArray()));
+                Method suiteMethod = null;
+                try {
+                    // check if there is a suite method
+                    suiteMethod = testClass.getMethod("suite", new Class[0]);
+                } catch (NoSuchMethodException e) {
+                    // no appropriate suite method found. We don't report any
+                    // error here since it might be perfectly normal.
+                }
+                if (suiteMethod != null) {
+                    // if there is a suite method available, then try
+                    // to extract the suite from it. If there is an error
+                    // here it will be caught below and reported.
+                    suite = (Test) suiteMethod.invoke(null, new Class[0]);
+                } else {
+                    // try to extract a test suite automatically this
+                    // will generate warnings if the class is no
+                    // suitable Test
+                    suite = new TestSuite(testClass);
+                }
 
-                junitTest.setCounts(res.runCount(), res.failureCount(),
-                                    res.errorCount());
-                junitTest.setRunTime(System.currentTimeMillis() - start);
+            } catch (Exception e) {
+                retCode = ERRORS;
+                exception = e;
             }
+
+            long start = System.currentTimeMillis();
+
+            fireStartTestSuite();
+            if (exception != null) { // had an exception constructing suite
+                for (int i = 0; i < formatters.size(); i++) {
+                    ((TestListener) formatters.elementAt(i))
+                        .addError(null, exception);
+                }
+                junitTest.setCounts(1, 0, 1);
+                junitTest.setRunTime(0);
+            } else {
+                try {
+                    suite.run(res);
+                } finally {
+                    junitTest.setCounts(res.runCount(), res.failureCount(),
+                                        res.errorCount());
+                    junitTest.setRunTime(System.currentTimeMillis() - start);
+                }
+            }
+        } finally {
+            if (perm != null) {
+                perm.restoreSecurityManager();
+            }
+            if (savedOut != null) {
+                System.setOut(savedOut);
+            }
+            if (savedErr != null) {
+                System.setErr(savedErr);
+            }
+
+            systemError.close();
+            systemError = null;
+            systemOut.close();
+            systemOut = null;
+            sendOutAndErr(new String(outStrm.toByteArray()),
+                          new String(errStrm.toByteArray()));
         }
         fireEndTestSuite();
 
@@ -387,7 +390,7 @@ public class JUnitTestRunner implements TestListener {
     }
 
     /**
-     * @see Task#handleInput(byte[], int, int)
+     * @see org.apache.tools.ant.Task#handleInput(byte[], int, int)
      *
      * @since Ant 1.6
      */
@@ -478,6 +481,11 @@ public class JUnitTestRunner implements TestListener {
             System.exit(ERRORS);
         }
 
+        if (args[0].startsWith("testsfile=")) {
+            multipleTests = true;
+            args[0] = args[0].substring(10 /* "testsfile=".length() */);
+        }
+
         for (int i = 1; i < args.length; i++) {
             if (args[i].startsWith("haltOnError=")) {
                 haltError = Project.toBoolean(args[i].substring(12));
@@ -502,30 +510,70 @@ public class JUnitTestRunner implements TestListener {
             }
         }
 
-        JUnitTest t = new JUnitTest(args[0]);
-
         // Add/overlay system properties on the properties from the Ant project
         Hashtable p = System.getProperties();
         for (Enumeration e = p.keys(); e.hasMoreElements();) {
             Object key = e.nextElement();
             props.put(key, p.get(key));
         }
-        t.setProperties(props);
 
-        JUnitTestRunner runner = new JUnitTestRunner(t, haltError, stackfilter,
-                                                     haltFail, showOut);
-        runner.forked = true;
-        transferFormatters(runner);
-        runner.run();
-        System.exit(runner.getRetCode());
+        int returnCode = SUCCESS;
+        if (multipleTests) {
+            try {
+                java.io.BufferedReader reader = 
+                    new java.io.BufferedReader(new java.io.FileReader(args[0]));
+                String testCaseName;
+                int code = 0;
+                boolean errorOccured = false;
+                boolean failureOccured = false;
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    StringTokenizer st = new StringTokenizer(line, ",");
+                    testCaseName = st.nextToken();
+                    JUnitTest t = new JUnitTest(testCaseName);
+                    t.setTodir(new File(st.nextToken()));
+                    t.setOutfile(st.nextToken());
+                    code = launch(t, haltError, stackfilter, haltFail, 
+                                  showOut, props);
+                    errorOccured = (code == ERRORS);
+                    failureOccured = (code != SUCCESS);
+                    if (errorOccured || failureOccured ) {
+                        if ((errorOccured && haltError) 
+                            || (failureOccured && haltFail)) {
+                            System.exit(code);
+                        } else {
+                            if (code > returnCode) {
+                                returnCode = code;
+                            }
+                            System.out.println("TEST " + t.getName() 
+                                               + " FAILED");
+                        }
+                    }
+                }
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            returnCode = launch(new JUnitTest(args[0]), haltError,
+                                stackfilter, haltFail, showOut, props);
+        }
+
+        System.exit(returnCode);
     }
 
     private static Vector fromCmdLine = new Vector();
 
-    private static void transferFormatters(JUnitTestRunner runner) {
+    private static void transferFormatters(JUnitTestRunner runner,
+                                           JUnitTest test) {
         for (int i = 0; i < fromCmdLine.size(); i++) {
-            runner.addFormatter((JUnitResultFormatter) fromCmdLine
-                                .elementAt(i));
+            FormatterElement fe = (FormatterElement) fromCmdLine.elementAt(i);
+            if (multipleTests && fe.getUseFile()) {
+                File destFile = 
+                    new File(test.getTodir(), 
+                             test.getOutfile() + fe.getExtension());
+                fe.setOutfile(destFile);
+            }
+            runner.addFormatter(fe.createFormatter());
         }
     }
 
@@ -538,17 +586,20 @@ public class JUnitTestRunner implements TestListener {
         int pos = line.indexOf(',');
         if (pos == -1) {
             fe.setClassname(line);
+            fe.setUseFile(false);
         } else {
             fe.setClassname(line.substring(0, pos));
-            fe.setOutfile(new File(line.substring(pos + 1)));
+            fe.setUseFile(true);
+            if (!multipleTests) {
+                fe.setOutfile(new File(line.substring(pos + 1)));
+            }
         }
-        fromCmdLine.addElement(fe.createFormatter());
+        fromCmdLine.addElement(fe);
     }
 
     /**
      * Returns a filtered stack trace.
      * This is ripped out of junit.runner.BaseTestRunner.
-     * Scott M. Stirling.
      */
     public static String getFilteredTrace(Throwable t) {
         String trace = StringUtils.getStackTrace(t);
@@ -589,4 +640,19 @@ public class JUnitTestRunner implements TestListener {
         return false;
     }
 
+    /**
+     * @since Ant 1.6.2
+     */
+    private static int launch(JUnitTest t, boolean haltError,
+                              boolean stackfilter, boolean haltFail, 
+                              boolean showOut, Properties props) {
+        t.setProperties(props);
+        JUnitTestRunner runner = 
+            new JUnitTestRunner(t, haltError, stackfilter, haltFail, showOut);
+        runner.forked = true;
+        transferFormatters(runner, t);
+
+        runner.run();
+        return runner.getRetCode();
+     }
 } // JUnitTestRunner

@@ -1,0 +1,185 @@
+<?xml version="1.0"?>
+<project name="rmic" default="teardown" basedir=".">
+
+  <property name="rmic.dir" location="." />
+  <property name="src.dir" location="${rmic.dir}/src"/>
+  <property name="build.dir" location="${rmic.dir}/build"/>
+
+  <target name="teardown">
+    <delete dir="${build.dir}"/>
+  </target>
+
+  <!-- init builds the java source -->
+  <target name="init" depends="probe-rmic">
+    <mkdir dir="${build.dir}"/>
+
+    <javac
+      destdir="${build.dir}"
+      srcdir="${src.dir}"
+      includes="Remote*.java">
+    </javac>
+
+    <presetdef name="base-rmic">
+      <rmic
+        base="${build.dir}"
+        verify="true"
+        includes="**/*.class"/>
+    </presetdef>
+
+    <presetdef name="rmic-bad-class">
+      <rmic
+        base="${build.dir}"
+        verify="false"
+        classname="unimplemented.class"
+        />
+    </presetdef>
+
+    <macrodef name="assertFileCreated">
+      <attribute name="file" />
+      <sequential>
+        <property name="file.to.find" location="${build.dir}/@{file}" />
+        <available property="file.found" file="${file.to.find}"/>
+        <fail unless="file.found">Not found : ${file.to.find}</fail>
+      </sequential>
+    </macrodef>
+
+    <macrodef name="assertBaseCompiled">
+      <sequential>
+        <assertFileCreated file="RemoteTimestampImpl_Stub.class"  />
+        <assertFileCreated file="RemoteTimestampImpl_Skel.class"/>
+      </sequential>
+    </macrodef>
+
+    <macrodef name="assertAntCompiled">
+      <sequential>
+        <assertFileCreated file="AntTimestamp_Stub.class"/>
+        <assertFileCreated file="AntTimestamp_Skel.class"/>
+      </sequential>
+    </macrodef>
+
+  </target>
+  
+  <target name="probe-rmic">
+    <available property="kaffe.present" classname="jkaffe.rmi.rmic.RMIC"/>
+    <available property="rmic.present" classname="sun.rmi.rmic.Main"/>
+    <available property="wlrmic.present" classname="weblogic.rmic"/>
+  </target>
+
+  <target name="testDefault" depends="init">
+    <base-rmic compiler="default"/>
+    <assertBaseCompiled/>
+  </target>
+
+  <target name="testEmpty" depends="init">
+    <base-rmic compiler=""/>
+    <assertBaseCompiled/>
+  </target>
+
+  <target name="testRmic" if="rmic.present" depends="init">
+    <base-rmic compiler="sun"/>
+    <assertBaseCompiled/>
+  </target>
+
+  <target name="testKaffe" if="kaffe.present" depends="init">
+    <base-rmic
+      compiler="kaffe"
+      />
+    <assertBaseCompiled/>
+  </target>
+
+  <target name="testWlrmic" if="wlrmic.present" depends="init">
+    <base-rmic
+      compiler="weblogic"
+      />
+  </target>
+
+  <target name="testForking" if="rmic.present" depends="init">
+    <base-rmic
+      compiler="forking"
+      />
+    <assertBaseCompiled/>
+  </target>
+
+  <target name="testBadName" if="rmic.present" depends="init">
+    <base-rmic
+      compiler="no-such-compiler"
+      />
+  </target>
+
+  <target name="testWrongClass" if="rmic.present" depends="init">
+    <base-rmic
+      compiler="org.apache.tools.ant.BuildException"
+      />
+  </target>
+
+  <target name="testNoBase" depends="init">
+    <rmic
+      verify="true"
+      includes="**/*.class"/>
+  </target>
+
+  <target name="testBaseDoesntExist" depends="init">
+    <rmic
+      base="${build.dir}/classes"
+      verify="true"
+      includes="**/*.class"/>
+  </target>
+
+  <target name="testBaseIsntDir" depends="init">
+    <rmic
+      base="${ant.file}"
+      verify="true"
+      includes="**/*.class"/>
+  </target>
+
+  <target name="testFailingAdapter" depends="init">
+    <base-rmic
+      compiler="org.apache.tools.ant.taskdefs.rmic.RmicAdvancedTest$FailingRmicAdapter"
+      />
+  </target>
+  
+  <target name="compileAntTimestamp" depends="init">
+    <javac
+      destdir="${build.dir}"
+      srcdir="${src.dir}"
+      includes="Ant*.java">
+    </javac>
+  </target>
+
+  <target name="testAntClasspath" depends="compileAntTimestamp">
+    <base-rmic
+      compiler="default"
+      />
+    <assertAntCompiled/>
+  </target>
+
+  <target name="testForkingAntClasspath" if="rmic.present" depends="compileAntTimestamp">
+    <base-rmic
+      compiler="forking"
+      />
+    <assertAntCompiled />
+  </target>
+
+  <target name="testDefaultBadClass" depends="init">
+    <rmic-bad-class compiler="default"/>
+  </target>
+
+  <target name="testMagicProperty" depends="init">
+    <property name="build.rmic" value="no-such-adapter"/>
+    <base-rmic
+      />
+  </target>
+
+  <target name="testMagicPropertyOverridesEmptyString" depends="init">
+    <property name="build.rmic" value="no-such-adapter"/>
+    <base-rmic compiler=""
+      />
+  </target>
+
+  <target name="testMagicPropertyIsEmptyString" depends="init">
+    <property name="build.rmic" value=""/>
+    <base-rmic />
+    <assertBaseCompiled/>
+  </target>
+
+</project>

@@ -40,9 +40,6 @@ import org.xml.sax.helpers.AttributeListImpl;
  */
 public class RuntimeConfigurable implements Serializable {
 
-    /** Polymorphic attribute (May be XML NS attribute later) */
-    private static final String ANT_TYPE = "ant-type";
-
     /** Name of the element to configure. */
     private String elementTag = null;
 
@@ -168,7 +165,7 @@ public class RuntimeConfigurable implements Serializable {
      * @param value the attribute's value.
      */
     public void setAttribute(String name, String value) {
-        if (name.equalsIgnoreCase(ANT_TYPE)) {
+        if (name.equalsIgnoreCase(ProjectHelper.ANT_TYPE)) {
             this.polyType = value;
         } else {
             if (attributeNames == null) {
@@ -183,6 +180,7 @@ public class RuntimeConfigurable implements Serializable {
     /** Return the attribute map.
      *
      * @return Attribute name to attribute value map
+     * @since Ant 1.6
      */
     public Hashtable getAttributeMap() {
         if (attributeMap != null) {
@@ -195,7 +193,7 @@ public class RuntimeConfigurable implements Serializable {
     /**
      * Returns the list of attributes for the wrapped element.
      *
-     * @deprecated
+     * @deprecated Deprecated since Ant 1.6 in favor of {@link #getAttributeMap}.
      * @return An AttributeList representing the attributes defined in the
      *         XML for this element. May be <code>null</code>.
      */
@@ -231,7 +229,7 @@ public class RuntimeConfigurable implements Serializable {
     /**
      * Returns an enumeration of all child wrappers.
      * @return an enumeration of the child wrappers.
-     * @since Ant 1.5.1
+     * @since Ant 1.6
      */
     public Enumeration getChildren() {
         if (children != null) {
@@ -282,6 +280,7 @@ public class RuntimeConfigurable implements Serializable {
      * multiple fragments.
      *
      * @return the text content of this element.
+     * @since Ant 1.6
      */
     public StringBuffer getText() {
         if (characters != null) {
@@ -353,7 +352,6 @@ public class RuntimeConfigurable implements Serializable {
         Object target = (wrappedObject instanceof TypeAdapter)
             ? ((TypeAdapter) wrappedObject).getProxy() : wrappedObject;
 
-        //PropertyHelper ph=PropertyHelper.getPropertyHelper(p);
         IntrospectionHelper ih =
             IntrospectionHelper.getHelper(p, target.getClass());
 
@@ -365,11 +363,26 @@ public class RuntimeConfigurable implements Serializable {
                 // reflect these into the target
                 value = p.replaceProperties(value);
                 try {
-                    ih.setAttribute(p, target,
-                                    name.toLowerCase(Locale.US), value);
-                } catch (BuildException be) {
+                    ih.setAttribute(p, target, name, value);
+                } catch (UnsupportedAttributeException be) {
                     // id attribute must be set externally
-                    if (!name.equals("id")) {
+                    if (name.equals("id")) {
+                        // Do nothing
+                    } else  if (getElementTag() == null) {
+                        throw be;
+                    } else {
+                        throw new BuildException(
+                            getElementTag()
+                            +  " doesn't support the \""
+                            + be.getAttribute()
+                            + "\" attribute", be);
+                    }
+                } catch (BuildException be) {
+                    if (name.equals("id")) {
+                        // Assume that this is an not supported attribute type
+                        // thrown for example by a dymanic attribute task
+                        // Do nothing
+                    } else {
                         throw be;
                     }
                 }

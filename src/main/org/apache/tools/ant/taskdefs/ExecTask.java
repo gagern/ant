@@ -51,6 +51,7 @@ public class ExecTask extends Task {
     private boolean failIfExecFails = true;
     private String executable;
     private boolean resolveExecutable = false;
+    private boolean searchPath = false;
     private boolean spawn = false;
     private boolean incompatibleWithSpawn = false;
 
@@ -190,7 +191,7 @@ public class ExecTask extends Task {
      */
     public void setLogError(boolean logError) {
         redirector.setLogError(logError);
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= logError;
     }
 
     /**
@@ -236,7 +237,7 @@ public class ExecTask extends Task {
      */
     public void setFailonerror(boolean fail) {
         failOnError = fail;
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= fail;
     }
 
     /**
@@ -258,6 +259,16 @@ public class ExecTask extends Task {
      */
     public void setResolveExecutable(boolean resolveExecutable) {
         this.resolveExecutable = resolveExecutable;
+    }
+
+    /**
+     * Sets a flag indicating whether to search nested, then
+     * system PATH environment variables for the executable.
+     *
+     * @param searchPath if true, search PATHs
+     */
+    public void setSearchPath(boolean searchPath) {
+        this.searchPath = searchPath;
     }
 
     /**
@@ -308,8 +319,8 @@ public class ExecTask extends Task {
      * @param result value desired for the result property value
      */
     protected void maybeSetResultPropertyValue(int result) {
-        String res = Integer.toString(result);
         if (resultProperty != null) {
+            String res = Integer.toString(result);
             getProject().setNewProperty(resultProperty, res);
         }
     }
@@ -345,6 +356,7 @@ public class ExecTask extends Task {
      * Add a <CODE>RedirectorElement</CODE> to this task.
      *
      * @param redirectorElement   <CODE>RedirectorElement</CODE>.
+     * @since Ant 1.6.2
      */
     public void addConfiguredRedirector(RedirectorElement redirectorElement) {
         if (this.redirectorElement != null) {
@@ -357,9 +369,9 @@ public class ExecTask extends Task {
 
 
     /**
-     * Attempt to figure out where the executable is so that we can feed
-     * the full path - first try basedir, then the exec dir and then
-     * fallback to the straight executable name (i.e. on ther path)
+     * The method attempts to figure out where the executable is so that we can feed
+     * the full path. We first try basedir, then the exec dir, and then
+     * fallback to the straight executable name (i.e. on ther path).
      *
      * @param exec the name of the executable
      * @param searchPath if true, the excutable will be looked up in
@@ -391,15 +403,28 @@ public class ExecTask extends Task {
 
         // couldn't find it - must be on path
         if (searchPath) {
+            Path p = null;
+            String[] environment = env.getVariables();
+            if (environment != null) {
+                for (int i = 0; i < environment.length; i++) {
+                    if (isPath(environment[i])) {
+                        p = new Path(getProject(), 
+                                     environment[i].substring(5));
+                        break;
+                    }
+                }
+            }
+
+            if (p == null) {
             Vector env = Execute.getProcEnvironment();
             Enumeration e = env.elements();
-            Path p = null;
             while (e.hasMoreElements()) {
                 String line = (String) e.nextElement();
-                if (line.startsWith("PATH=") || line.startsWith("Path=")) {
+                if (isPath(line)) {
                     p = new Path(getProject(), line.substring(5));
                     break;
                 }
+            }
             }
 
             if (p != null) {
@@ -431,7 +456,7 @@ public class ExecTask extends Task {
      */
     public void execute() throws BuildException {
         File savedDir = dir; // possibly altered in prepareExec
-        cmdl.setExecutable(resolveExecutable(executable, false));
+        cmdl.setExecutable(resolveExecutable(executable, searchPath));
         checkConfiguration();
         if (isValidOs()) {
             try {
@@ -645,6 +670,10 @@ public class ExecTask extends Task {
      * Flush the output stream - if there is one.
      */
     protected void logFlush() {
+    }
+
+    private boolean isPath(String line) {
+        return line.startsWith("PATH=") || line.startsWith("Path=");
     }
 
 }

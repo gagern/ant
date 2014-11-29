@@ -60,6 +60,34 @@ public class Launcher {
         }
     }
 
+    /**
+      * Add a CLASSPATH or -lib to lib path urls.
+      * @param path        the classpath or lib path to add to the libPathULRLs
+      * @param getJars     if true and a path is a directory, add the jars in
+      *                    the directory to the path urls
+      * @param libPathURLs the list of paths to add to
+      */
+    private void addPath(String path, boolean getJars, List libPathURLs)
+        throws MalformedURLException {
+        StringTokenizer myTokenizer
+            = new StringTokenizer(path, System.getProperty("path.separator"));
+        while (myTokenizer.hasMoreElements()) {
+            String elementName = myTokenizer.nextToken();
+            File element = new File(elementName);
+            if (elementName.indexOf("%") != -1 && !element.exists()) {
+                continue;
+            }
+            if (getJars && element.isDirectory()) {
+                // add any jars in the directory
+                URL[] dirURLs = Locator.getLocationURLs(element);
+                for (int j = 0; j < dirURLs.length; ++j) {
+                    libPathURLs.add(dirURLs[j]);
+                }
+            }
+
+            libPathURLs.add(element.toURL());
+        }
+    }
 
     /**
      * Run the launcher to launch Ant
@@ -91,8 +119,11 @@ public class Launcher {
         }
 
         List libPaths = new ArrayList();
+        String cpString = null;
         List argList = new ArrayList();
         String[] newArgs;
+        boolean  noUserLib = false;
+        boolean  noClassPath = false;
 
         for (int i = 0; i < args.length; ++i) {
             if (args[i].equals("-lib")) {
@@ -101,38 +132,40 @@ public class Launcher {
                         + "be followed by a library location");
                 }
                 libPaths.add(args[++i]);
+            } else if (args[i].equals("-cp")) {
+                if (i == args.length - 1) {
+                    throw new LaunchException("The -cp argument must "
+                        + "be followed by a classpath expression");
+                }
+                if (cpString != null) {
+                    throw new LaunchException("The -cp argument must "
+                        + "not be repeated");
+                }
+                cpString = args[++i];
+            } else if (args[i].equals("--nouserlib") || args[i].equals("-nouserlib")) {
+                noUserLib = true;
+            } else if (args[i].equals("--noclasspath") || args[i].equals("-noclasspath")) {
+                noClassPath = true;
             } else {
                 argList.add(args[i]);
             }
         }
 
-        if (libPaths.size() == 0) {
+        if (libPaths.size() == 0 && cpString == null) {
             newArgs = args;
         } else {
             newArgs = (String[]) argList.toArray(new String[0]);
         }
 
         List libPathURLs = new ArrayList();
+
+        if (cpString != null && !noClassPath) {
+            addPath(cpString, false, libPathURLs);
+        }
+
         for (Iterator i = libPaths.iterator(); i.hasNext();) {
             String libPath = (String) i.next();
-            StringTokenizer myTokenizer
-                = new StringTokenizer(libPath, System.getProperty("path.separator"));
-            while (myTokenizer.hasMoreElements()) {
-                String elementName = myTokenizer.nextToken();
-                File element = new File(elementName);
-                if (elementName.indexOf("%") != -1 && !element.exists()) {
-                    continue;
-                }
-                if (element.isDirectory()) {
-                    // add any jars in the directory
-                    URL[] dirURLs = Locator.getLocationURLs(element);
-                    for (int j = 0; j < dirURLs.length; ++j) {
-                        libPathURLs.add(dirURLs[j]);
-                    }
-                }
-
-                libPathURLs.add(element.toURL());
-            }
+            addPath(libPath, true, libPathURLs);
         }
 
         URL[] libJars = (URL[]) libPathURLs.toArray(new URL[0]);
@@ -155,8 +188,8 @@ public class Launcher {
 
         File userLibDir
             = new File(System.getProperty("user.home"), USER_LIBDIR);
-        URL[] userJars = Locator.getLocationURLs(userLibDir);
 
+        URL[] userJars = noUserLib ? new URL[0] : Locator.getLocationURLs(userLibDir);
 
         int numJars = libJars.length + userJars.length + systemJars.length;
         if (toolsJar != null) {

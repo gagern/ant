@@ -47,10 +47,10 @@ public class RedirectorElement extends DataType {
     private boolean usingError = false;
 
     /**
-      * Indicates if standard error should be logged to Ant's log system
-      * rather than the output. This has no effect if standard error is
-      * redirected to a file or property.
-      */
+     * Indicates if standard error should be logged to Ant's log system
+     * rather than the output. This has no effect if standard error is
+     * redirected to a file or property.
+     */
     private Boolean logError;
 
     /** The name of the property into which output is to be stored */
@@ -64,6 +64,9 @@ public class RedirectorElement extends DataType {
 
     /** Flag which indicates if error and output files are to be appended. */
     private Boolean append;
+
+    /** Flag which indicates that output should be always sent to the log */
+    private Boolean alwaysLog;
 
     /** Flag which indicates whether files should be created even if empty. */
     private Boolean createEmptyFiles;
@@ -165,6 +168,10 @@ public class RedirectorElement extends DataType {
             || inputString != null
             || logError != null
             || append != null
+            || createEmptyFiles != null
+            || inputEncoding != null
+            || outputEncoding != null
+            || errorEncoding != null
             || outputProperty != null
             || errorProperty != null) {
             throw tooManyAttributes();
@@ -313,6 +320,21 @@ public class RedirectorElement extends DataType {
     }
 
     /**
+     * If true, (error and non-error) output will be "teed", redirected
+     * as specified while being sent to Ant's logging mechanism as if no
+     * redirection had taken place.  Defaults to false.
+     * @param alwaysLog <code>boolean</code>
+     * @since Ant 1.6.3
+     */
+    public void setAlwaysLog(boolean alwaysLog) {
+        if (isReference()) {
+            throw tooManyAttributes();
+        }
+        //pre JDK 1.4 compatible
+        this.alwaysLog = ((alwaysLog) ? Boolean.TRUE : Boolean.FALSE);
+    }
+
+    /**
      * Whether output and error files should be created even when empty.
      * Defaults to true.
      * @param createEmptyFiles <CODE>boolean</CODE>.
@@ -396,6 +418,9 @@ public class RedirectorElement extends DataType {
      * @param sourcefile   <CODE>String</CODE>.
      */
     public void configure(Redirector redirector, String sourcefile) {
+        if (alwaysLog != null) {
+            redirector.setAlwaysLog(alwaysLog.booleanValue());
+        }
         if (logError != null) {
             redirector.setLogError(logError.booleanValue());
         }

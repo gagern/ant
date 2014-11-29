@@ -9,7 +9,7 @@
 
   =======================================================================
 -->
-<project default="main" basedir=".">
+<project name="apache-ant" default="main" basedir=".">
 
   <!-- Give user a chance to override without editing this file
        (and without typing -D each time it compiles it) -->
@@ -48,11 +48,13 @@
   <property name="chmod.maxparallel" value="250"/>
   <property name="deprecation" value="false"/>
   <property name="optimize" value="true"/>
-  <property name="javac.target" value="1.1"/>
+  <property name="javac.target" value="1.2"/>
+  <property name="javac.source" value="1.2"/>
   <property name="junit.fork" value="false"/>
   <property name="junit.filtertrace" value="off"/>
   <property name="junit.summary" value="no"/>
   <property name="test.haltonfailure" value="yes" />
+  <property name="junit.forkmode" value="once"/>
   <property name="unfiltered.files" value="**/*.gif,**/*.jpg,**/*.ico,**/*.pdf,**/*.zip"/>
 
   <!--
@@ -83,6 +85,8 @@
   <property name="build.tests" value="${build.dir}/testcases"/>
   <property name="build.tests.javadocs" value="${build.dir}/javadocs.test/"/>
   <property name="manifest.tmp" value="${build.dir}/optional.manifest"/>
+  <!-- the absolute path -->
+  <property name="build.tests.value" location="${build.tests}"/>
 
   <!--
        ===================================================================
@@ -148,6 +152,12 @@
     </or>
   </selector>
 
+  <selector id="needs.jdk1.5+">
+    <or>
+      <filename name="${ant.package}/taskdefs/optional/condition/IsPingable*"/>
+    </or>
+  </selector>
+  
   <!-- classes that should be present in Sun based JVMs, but not in
        Kaffe for example -->
   <selector id="needs.sun.tools">
@@ -170,6 +180,7 @@
   <!-- depends on external libraries -->
   <selector id="needs.trax">
     <or>
+      <filename name="${optional.package}/junit/Xalan2Executor*"/>
       <filename name="${optional.package}/TraXLiaison*"/>
       <filename name="${optional.package}/sitraka/**"/>
       <filename name="${optional.package}/metamata/MMetrics*"/>
@@ -183,10 +194,6 @@
       <filename name="${optional.package}/XalanLiaison*"/>
       <filename name="${optional.package}/junit/Xalan1Executor*"/>
     </or>
-  </selector>
-
-  <selector id="needs.xalan2">
-    <filename name="${optional.package}/junit/Xalan2Executor*"/>
   </selector>
 
   <selector id="needs.xslp">
@@ -362,12 +369,35 @@
 
   <!--
        ===================================================================
+         Set up a preset def for javac depending on
+         the java version
+       ===================================================================
+  -->
+
+  <target name="javac.preset" depends="javac.preset.1.5+,javac.preset.1.5-"/>
+  <target name="javac.preset.1.5+" depends="check_for_optional_packages"
+          if="jdk1.5+">
+    <presetdef name="javac.preset">
+      <javac source="${javac.source}"/>
+    </presetdef>
+  </target>
+  <target name="javac.preset.1.5-" depends="check_for_optional_packages"
+          unless="jdk1.5+">
+    <presetdef name="javac.preset">
+      <javac/>
+    </presetdef>
+  </target>
+
+
+  <!--
+       ===================================================================
          Check to see what optional dependencies are available
        ===================================================================
   -->
   <target name="check_for_optional_packages">
     <available property="jdk1.3+" classname="java.lang.StrictMath"/>
     <available property="jdk1.4+" classname="java.lang.CharSequence"/>
+    <available property="jdk1.5+" classname="java.lang.Readable"/>
     <available property="kaffe" classname="kaffe.util.NotImplemented"/>
     <available property="bsf.present"
                classname="org.apache.bsf.BSFManager"
@@ -510,6 +540,7 @@
         <!-- absolute paths in CLASSPATH -->
         <contains string="${java.class.path}"
                   substring="${build.tests.resolved}"/>
+        <istrue value="${junit.fork}"/>
       </or>
     </condition>
 
@@ -539,6 +570,7 @@
     <echo level="verbose"> wsdl.found=${wsdl.found}</echo>
     <condition property="csc.found">
       <or>
+        <available file="mcs"     filepath="${env.PATH}"/>
         <available file="csc"     filepath="${env.PATH}"/>
         <available file="csc.exe" filepath="${env.PATH}"/>
         <available file="csc.exe" filepath="${env.Path}"/>
@@ -592,13 +624,13 @@
        ===================================================================
   -->
   <target name="build"
-          depends="prepare, check_for_optional_packages"
+          depends="prepare, check_for_optional_packages, javac.preset"
           description="--> compiles the source code">
     <mkdir dir="${build.dir}"/>
     <mkdir dir="${build.classes}"/>
     <mkdir dir="${build.lib}"/>
 
-    <javac srcdir="${java.dir}"
+    <javac.preset srcdir="${java.dir}"
            destdir="${build.classes}"
            debug="${debug}"
            deprecation="${deprecation}"
@@ -611,13 +643,13 @@
           <or>
             <selector refid="needs.jdk1.3+" unless="jdk1.3+"/>
             <selector refid="needs.jdk1.4+" unless="jdk1.4+"/>
+            <selector refid="needs.jdk1.5+" unless="jdk1.5+"/>
             <selector refid="needs.sun.tools" unless="sun.tools.present"/>
             <selector refid="needs.sun.uue" unless="sunuue.present"/>
             <selector refid="needs.sun.b64" unless="base64.present"/>
 
             <selector refid="needs.trax" unless="trax.present"/>
             <selector refid="needs.xalan1" unless="xalan.present"/>
-            <selector refid="needs.xalan2" unless="xalan2.present"/>
             <selector refid="needs.xslp" unless="xslp.present"/>
             <selector refid="needs.apache-resolver" unless="apache.resolver.present"/>
             <selector refid="needs.junit" unless="junit.present"/>
@@ -649,7 +681,7 @@
           </or>
         </not>
       </selector>
-    </javac>
+    </javac.preset>
 
     <copy todir="${build.classes}">
       <fileset dir="${java.dir}">
@@ -795,7 +827,6 @@
           <or>
             <selector refid="needs.trax"/>
             <selector refid="needs.xalan1"/>
-            <selector refid="needs.xalan2"/>
             <selector refid="needs.xslp"/>
             <selector refid="needs.apache-resolver"/>
             <selector refid="needs.junit"/>
@@ -843,7 +874,6 @@
 
     <optional-jar dep="trax"/>
     <optional-jar dep="xalan1"/>
-    <optional-jar dep="xalan2"/>
     <optional-jar dep="xslp"/>
     <optional-jar dep="apache-resolver"/>
     <optional-jar dep="junit"/>
@@ -884,6 +914,10 @@
           depends="compile-tests"
           description="--> creates the Apache Ant Test Utilties jar">
 
+    <fail unless="junit.present">
+      We cannot build the test jar unless JUnit is present,
+      as JUnit is needed to compile the test classes.
+    </fail>
     <jar destfile="${build.lib}/${name}-testutil.jar"
          basedir="${build.tests}">
       <patternset refid="useful.tests"/>
@@ -1013,6 +1047,7 @@
         <fileset dir="${etc.dir}">
             <include name="junit-frames.xsl"/>
             <include name="junit-noframes.xsl"/>
+            <include name="junit-frames-xalan1.xsl"/>
             <include name="coverage-frames.xsl"/>
             <include name="maudit-frames.xsl"/>
             <include name="mmetrics-frames.xsl"/>
@@ -1349,7 +1384,7 @@
   <target name="compile-tests" depends="build" if="junit.present">
     <mkdir dir="${build.tests}"/>
 
-    <javac srcdir="${tests.dir}"
+    <javac.preset srcdir="${tests.dir}"
            destdir="${build.tests}"
            debug="${debug}"
            target="${javac.target}"
@@ -1357,7 +1392,7 @@
       <classpath refid="tests-classpath"/>
 
       <selector refid="conditional-patterns"/>
-    </javac>
+    </javac.preset>
 
     <!-- Used by AntlibTest.testAntlibResource: -->
     <jar jarfile="${build.tests}/org/apache/tools/ant/taskdefs/test2-antlib.jar">
@@ -1428,13 +1463,14 @@
 
     <junit printsummary="${junit.summary}" haltonfailure="${test.haltonfailure}"
            filtertrace="${junit.filtertrace}"
-           fork="${junit.fork}"
+           fork="${junit.fork}" forkmode="${junit.forkmode}"
            failureproperty="tests.failed">
 <!--      <jvmarg value="-classic"/> -->
       <classpath refid="tests-classpath"/>
 
       <sysproperty key="ant.home" value="${ant.home}"/>
-      <sysproperty key="build.tests" value="${build.tests}"/>
+      <sysproperty key="build.tests" file="${build.tests}"/>
+      <sysproperty key="build.tests.value" value="${build.tests.value}"/>
       <sysproperty key="tests-classpath.value"
                    value="${tests-classpath.value}"/>
 
@@ -1493,6 +1529,8 @@
                    unless="beanshell.present"/>
 
           <!-- fail if testcases can be loaded from the system classloader -->
+          <exclude name="${ant.package}/AntClassLoaderDelegationTest.java"
+                   if="tests.are.on.system.classpath"/>
           <exclude name="${optional.package}/junit/JUnitClassLoaderTest.java"
                    if="tests.are.on.system.classpath"/>
           <exclude name="${optional.package}/sitraka/XMLReportTest.java"
@@ -1550,6 +1588,8 @@
                    unless="tests.and.ant.share.classloader"/>
           <exclude name="${ant.package}/taskdefs/ProcessDestroyerTest.java"
                    unless="tests.and.ant.share.classloader"/>
+          <exclude name="${ant.package}/taskdefs/ProtectedJarMethodsTest.java"
+                   unless="tests.and.ant.share.classloader"/>
 
           <!-- can only run if cvs is installed on your machine
                enable by setting the property have.cvs
@@ -1581,7 +1621,8 @@
           filtertrace="${junit.filtertrace}">
 <!--      <jvmarg value="-classic"/> -->
       <sysproperty key="ant.home" value="${ant.home}"/>
-      <sysproperty key="build.tests" value="${build.tests}"/>
+      <sysproperty key="build.tests" file="${build.tests}"/>
+      <sysproperty key="build.tests.value" value="${build.tests.value}"/>
       <sysproperty key="tests-classpath.value"
                    value="${tests-classpath.value}"/>
       <classpath refid="tests-classpath"/>

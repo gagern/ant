@@ -20,6 +20,7 @@ package org.apache.tools.ant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -42,6 +43,8 @@ public class Target implements TaskContainer {
     private List dependencies = null;
     /** Children of this target (tasks and data types). */
     private List children = new ArrayList();
+    /** Since Ant 1.6.2 */
+    private Location location = Location.UNKNOWN_LOCATION;
 
     /** Project this target belongs to. */
     private Project project;
@@ -71,6 +74,26 @@ public class Target implements TaskContainer {
      */
     public Project getProject() {
         return project;
+    }
+
+    /**
+     * Sets the location of this target's definition.
+     *
+     * @param location   <CODE>Location</CODE>
+     * @since 1.6.2
+     */
+    public void setLocation(Location location) {
+        this.location = location;
+    }
+
+    /**
+     * Get the location of this target's definition.
+     *
+     * @return <CODE>Location</CODE>
+     * @since 1.6.2
+     */
+    public Location getLocation() {
+        return location;
     }
 
     /**
@@ -199,14 +222,9 @@ public class Target implements TaskContainer {
      * @since Ant 1.6
      */
     public boolean dependsOn(String other) {
-        if (getProject() != null) {
-            List l = getProject().topoSort(getName(),
-                                           getProject().getTargets());
-            int myIdx = l.indexOf(this);
-            int otherIdx = l.indexOf(getProject().getTargets().get(other));
-            return myIdx >= otherIdx;
-        }
-        return false;
+        Project p = getProject();
+        Hashtable t = (p == null) ? null : p.getTargets();
+        return (p != null && p.topoSort(getName(), t, false).contains(t.get(other)));
     }
 
     /**
@@ -227,6 +245,17 @@ public class Target implements TaskContainer {
     }
 
     /**
+     * Returns the "if" property condition of this target.
+     *
+     * @return the "if" property condition or <code>null</code> if no
+     *         "if" condition had been defined.
+     * @since 1.6.2
+     */
+    public String getIf() {
+        return ("".equals(ifCondition) ? null : ifCondition);
+    }
+
+    /**
      * Sets the "unless" condition to test on execution. This is the
      * name of a property to test for existence - if the property
      * is set, the task will not execute. The property goes
@@ -241,6 +270,17 @@ public class Target implements TaskContainer {
      */
     public void setUnless(String property) {
         this.unlessCondition = (property == null) ? "" : property;
+    }
+
+    /**
+     * Returns the "unless" property condition of this target.
+     *
+     * @return the "unless" property condition or <code>null</code>
+     *         if no "unless" condition had been defined.
+     * @since 1.6.2
+     */
+    public String getUnless() {
+        return ("".equals(unlessCondition) ? null : unlessCondition);
     }
 
     /**
@@ -323,13 +363,15 @@ public class Target implements TaskContainer {
      * @see #execute()
      */
     public final void performTasks() {
+        RuntimeException thrown = null;
+        project.fireTargetStarted(this);
         try {
-            project.fireTargetStarted(this);
             execute();
-            project.fireTargetFinished(this, null);
         } catch (RuntimeException exc) {
-            project.fireTargetFinished(this, exc);
+            thrown = exc;
             throw exc;
+        } finally {
+            project.fireTargetFinished(this, thrown);
         }
     }
 

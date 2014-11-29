@@ -66,7 +66,7 @@ public class ImportTask extends Task {
      *                 default is false
      */
     public void setOptional(boolean optional) {
-        this.optional = true;
+        this.optional = optional;
     }
 
     /**
@@ -131,8 +131,6 @@ public class ImportTask extends Task {
             }
         }
 
-        importedFile = new File(getPath(importedFile));
-
         if (importStack.contains(importedFile)) {
             getProject().log(
                 "Skipped already imported file:\n   "
@@ -148,11 +146,4 @@ public class ImportTask extends Task {
         }
     }
 
-    private static String getPath(File file) {
-        try {
-            return file.getCanonicalPath();
-        } catch (IOException e) {
-            return file.getAbsolutePath();
-        }
-    }
 }

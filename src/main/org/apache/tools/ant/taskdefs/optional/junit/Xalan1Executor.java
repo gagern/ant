@@ -21,6 +21,8 @@ import org.apache.xalan.xslt.XSLTInputSource;
 import org.apache.xalan.xslt.XSLTProcessor;
 import org.apache.xalan.xslt.XSLTProcessorFactory;
 import org.apache.xalan.xslt.XSLTResultTarget;
+import org.apache.tools.ant.BuildException;
+import org.xml.sax.SAXException;
 
 /**
  * Xalan 1 executor. It will need a lot of things in the classpath:
@@ -30,10 +32,41 @@ import org.apache.xalan.xslt.XSLTResultTarget;
  * @ant.task ignore="true"
  */
 public class Xalan1Executor extends XalanExecutor {
+
+    private static final String xsltP = "org.apache.xalan.xslt.XSLTProcessor";
+
+    XSLTProcessor processor = null;
+    public Xalan1Executor() {
+        try {
+            processor = XSLTProcessorFactory.getProcessor();
+        } catch (SAXException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+    }
+    protected String getImplementation() {
+        return processor.getClass().getName();
+    }
+
+    protected String getProcVersion(String classNameImpl) 
+        throws BuildException {
+        try {
+            // xalan 1
+            if (classNameImpl.equals(xsltP)){
+                return getXalanVersion(xsltP + "Version");
+            }
+            throw new BuildException("Could not find a valid processor version"
+                                     + " implementation from " 
+                                     + classNameImpl);
+        } catch (ClassNotFoundException e){
+            throw new BuildException("Could not find processor version "
+                                     + "implementation", e);
+        }
+    }
+
     void execute() throws Exception {
-        XSLTProcessor processor = XSLTProcessorFactory.getProcessor();
         // need to quote otherwise it breaks because of "extra illegal tokens"
-        processor.setStylesheetParam("output.dir", "'" + caller.toDir.getAbsolutePath() + "'");
+        processor.setStylesheetParam("output.dir", "'" 
+                                     + caller.toDir.getAbsolutePath() + "'");
         XSLTInputSource xml_src = new XSLTInputSource(caller.document);
         String system_id = caller.getStylesheetSystemId();
         XSLTInputSource xsl_src = new XSLTInputSource(system_id);

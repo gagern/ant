@@ -18,8 +18,8 @@
 package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.Project;
-
 import junit.framework.TestCase;
+
 
 /**
  * Testcase for <rmic>.
@@ -43,6 +43,19 @@ public class RmicTest extends TestCase {
         rmic.setProject(project);
     }
 
+    /**
+     * test for a compiler class existing
+     * @param compilerClass
+     * @return
+     */
+    private boolean hasCompiler(String compilerClass) {
+        try {
+            Class.forName(compilerClass);
+            return true;
+        } catch (ClassNotFoundException cnfe) {
+            return false;
+        }
+    }
     /**
      * Test nested compiler args.
      */
@@ -85,8 +98,7 @@ public class RmicTest extends TestCase {
         // check defaults
         String compiler = rmic.getCompiler();
         assertNotNull(compiler);
-        assertTrue("default value",
-                   "sun".equals(compiler) || "kaffe".equals(compiler));
+        assertEquals("expected sun or kaffe, but found "+compiler,compiler,"default");
 
         project.setNewProperty("build.rmic", "weblogic");
         compiler = rmic.getCompiler();
@@ -99,5 +111,4 @@ public class RmicTest extends TestCase {
         assertNotNull(compiler);
         assertEquals("kaffe", compiler);
     }
-
 }

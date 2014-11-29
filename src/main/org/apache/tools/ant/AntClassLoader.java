@@ -32,6 +32,8 @@ import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.CollectionUtils;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.LoaderUtils;
 
@@ -43,7 +45,9 @@ import org.apache.tools.ant.util.LoaderUtils;
  * class will then use this loader rather than the system class loader.
  *
  */
-public class AntClassLoader extends ClassLoader implements BuildListener {
+public class AntClassLoader extends ClassLoader implements SubBuildListener {
+
+    private static final FileUtils fileUtils = FileUtils.newFileUtils();
 
     /**
      * An enumeration of all resources of a given name found within the
@@ -115,7 +119,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
         private void findNextResource() {
             URL url = null;
             while ((pathElementsIndex < pathComponents.size())
-                    && (url == null)) {
+                   && (url == null)) {
                 try {
                     File pathComponent
                         = (File) pathComponents.elementAt(pathElementsIndex);
@@ -219,7 +223,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
             Class protectionDomain
                 = Class.forName("java.security.ProtectionDomain");
             Class[] args = new Class[] {String.class, byte[].class,
-                Integer.TYPE, Integer.TYPE, protectionDomain};
+                                        Integer.TYPE, Integer.TYPE, protectionDomain};
             defineClassProtectionDomain
                 = ClassLoader.class.getDeclaredMethod("defineClass", args);
         } catch (Exception e) {
@@ -389,9 +393,9 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
         if (project != null) {
             project.log(message, priority);
         }
-//         else {
-//             System.out.println(message);
-//         }
+        //         else {
+        //             System.out.println(message);
+        //         }
     }
 
     /**
@@ -439,7 +443,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
     public void addPathElement(String pathElement) throws BuildException {
         File pathComponent
             = project != null ? project.resolveFile(pathElement)
-                              : new File(pathElement);
+            : new File(pathElement);
         try {
             addPathFile(pathComponent);
         } catch (IOException e) {
@@ -579,7 +583,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      *                                   on this loader's classpath.
      */
     public Class forceLoadClass(String classname)
-         throws ClassNotFoundException {
+        throws ClassNotFoundException {
         log("force loading " + classname, Project.MSG_DEBUG);
 
         Class theClass = findLoadedClass(classname);
@@ -608,7 +612,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      * on this loader's classpath.
      */
     public Class forceLoadSystemClass(String classname)
-         throws ClassNotFoundException {
+        throws ClassNotFoundException {
         log("force system loading " + classname, Project.MSG_DEBUG);
 
         Class theClass = findLoadedClass(classname);
@@ -812,7 +816,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
         URL url = null;
         if (isParentFirst(name)) {
             url = (parent == null) ? super.getResource(name)
-                                   : parent.getResource(name);
+                : parent.getResource(name);
         }
 
         if (url != null) {
@@ -861,8 +865,24 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      * @return an enumeration of URLs for the resources
      * @exception IOException if I/O errors occurs (can't happen)
      */
-    protected Enumeration findResources(String name) throws IOException {
-        return new ResourceEnumeration(name);
+    protected Enumeration/*<URL>*/ findResources(String name) throws IOException {
+        Enumeration/*<URL>*/ mine = new ResourceEnumeration(name);
+        Enumeration/*<URL>*/ base;
+        if (parent != null && parent != getParent()) {
+            // Delegate to the parent:
+            base = parent.getResources(name);
+            // Note: could cause overlaps in case ClassLoader.this.parent has matches.
+        } else {
+            // ClassLoader.this.parent is already delegated to from ClassLoader.getResources, no need:
+            base = new CollectionUtils.EmptyEnumeration();
+        }
+        if (isParentFirst(name)) {
+            // Normal case.
+            return CollectionUtils.append(base, mine);
+        } else {
+            // Inverted.
+            return CollectionUtils.append(mine, base);
+        }
     }
 
     /**
@@ -888,7 +908,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
 
                 if (resource.exists()) {
                     try {
-                        return new URL("file:" + resource.toString());
+                        return fileUtils.getFileURL(resource);
                     } catch (MalformedURLException ex) {
                         return null;
                     }
@@ -903,8 +923,8 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
                 ZipEntry entry = zipFile.getEntry(resourceName);
                 if (entry != null) {
                     try {
-                        return new URL("jar:file:" + file.toString()
-                            + "!/" + entry);
+                        return new URL("jar:" + fileUtils.getFileURL(file)
+                                       + "!/" + entry);
                     } catch (MalformedURLException ex) {
                         return null;
                     }
@@ -938,7 +958,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      * classpath.
      */
     protected synchronized Class loadClass(String classname, boolean resolve)
-         throws ClassNotFoundException {
+        throws ClassNotFoundException {
         // 'sync' is needed - otherwise 2 threads can load the same class
         // twice, resulting in LinkageError: duplicated class definition.
         // findLoadedClass avoids that, but without sync it won't work.
@@ -1056,8 +1076,8 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      * reading the class from the stream.
      */
     private Class getClassFromStream(InputStream stream, String classname,
-                                       File container)
-                throws IOException, SecurityException {
+                                     File container)
+        throws IOException, SecurityException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         int bytesRead = -1;
         byte[] buffer = new byte[BUFFER_SIZE];
@@ -1117,7 +1137,7 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      * on this loader's classpath.
      */
     private Class findClassInComponents(String name)
-         throws ClassNotFoundException {
+        throws ClassNotFoundException {
         // we need to search the components of the path to see if
         // we can find the class we want.
         InputStream stream = null;
@@ -1214,6 +1234,31 @@ public class AntClassLoader extends ClassLoader implements BuildListener {
      */
     public void buildFinished(BuildEvent event) {
         cleanup();
+    }
+
+    /**
+     * Cleans up any resources held by this classloader at the end of
+     * a subbuild if it has been created for the subbuild's project
+     * instance.
+     *
+     * @param event the buildFinished event
+     *
+     * @since Ant 1.6.2
+     */
+    public void subBuildFinished(BuildEvent event) {
+        if (event.getProject() == project) {
+            cleanup();
+        }
+    }
+
+    /**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the buildStarted event
+     *
+     * @since Ant 1.6.2
+     */
+    public void subBuildStarted(BuildEvent event) {
     }
 
     /**

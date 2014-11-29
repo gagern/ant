@@ -40,6 +40,7 @@
    <echo> wsdl.found=${wsdl.found}</echo>
    <condition property="csc.found">
       <or>
+        <available file="mcs"     filepath="${env.PATH}" />
         <available file="csc"     filepath="${env.PATH}" />
         <available file="csc.exe" filepath="${env.PATH}" />
         <available file="csc.exe" filepath="${env.Path}" />
@@ -57,7 +58,6 @@
    <condition property="dotnetapps.found">
       <and>
         <isset property="csc.found"/>
-        <isset property="vbc.found"/>
         <isset property="wsdl.found"/>
       </and>
     </condition>
@@ -113,6 +113,7 @@
       srcDir="${src.dir}"
       destFile="${out.app}"
       targetType="${out.type}"
+      references="System.Web.Services.dll"
       />
     <available property="app.created" file="${out.app}"/>
     <fail unless="app.created">No app created</fail>
@@ -128,6 +129,7 @@
       destFile="${out.app}"
       targetType="${out.type}" 
       fileAlign="512"
+      references="System.Web.Services.dll"
       />
     <available property="app.created" file="${out.app}"/>
     <fail unless="app.created">No app created</fail>
@@ -142,7 +144,7 @@
 
 
   
-  <target name="testLocalWsdlVB" depends="init">
+  <target name="testLocalWsdlVB" depends="init" if="vbc.found">
     <wsdltodotnet destFile="${out.vbc}"
       language="VB"
       srcFile="${local.wsdl}"
@@ -160,7 +162,7 @@
   </target>
   
   <target name="testLocalWsdlServerVB" 
-    depends="init" >
+    depends="init" if="vbc.found">
     <wsdltodotnet destFile="${out.vbc}"
       language="VB"
       srcFile="${local.wsdl}"
@@ -179,12 +181,46 @@
     <fail unless="app.created">No app created</fail>
   </target>
   
-  <target name="testInvalidExtraOpsVB" depends="init" if="vbc.found">
+  <target name="testInvalidExtraOpsVB" depends="init">
     <wsdltodotnet destFile="${out.vbc}"
       language="VB"
       srcFile="${local.wsdl}"
       extraOptions="/newOption:not-one-known-of"
       />
-  </target>    
+  </target>
+
+
+  <target name="testideErrorsIgnoredWhenFalse" depends="init">
+    <wsdltodotnet destFile="${out.csc}"
+      srcFile="${local.wsdl}"
+      ideErrors="false"
+      >
+    </wsdltodotnet>
+  </target>
+
+  <target name="testSchemaMustBeSet" depends="init">
+    <wsdltodotnet destFile="${out.csc}"
+      srcFile="${local.wsdl}"
+      >
+      <schema/>
+    </wsdltodotnet>
+  </target>
+
+  <target name="testSchemaFileMustExist" depends="init">
+    <wsdltodotnet destFile="${out.csc}"
+      srcFile="${local.wsdl}"
+      >
+      <schema file="this-file-does-not-exist.xsd"/>
+    </wsdltodotnet>
+  </target>
+
+  <target name="testSchemaFileMustHaveOneOptionOnly" depends="init">
+    <wsdltodotnet destFile="${out.csc}"
+      srcFile="${local.wsdl}"
+      >
+      <schema file="WsdlToDotnet.xml"
+        url="http://ant.apache.org/xml/AntSchema.xsd"/>
+    </wsdltodotnet>
+  </target>
 
 </project>
