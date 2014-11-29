@@ -19,6 +19,8 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ExitException;
@@ -32,6 +34,7 @@ import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.Assertions;
 import org.apache.tools.ant.types.Permissions;
+import org.apache.tools.ant.types.RedirectorElement;
 
 /**
  * Launcher for Java applications. Allows use of
@@ -51,7 +54,16 @@ public class Java extends Task {
     private File dir = null;
     private boolean failOnError = false;
     private Long timeout = null;
-    private Redirector redirector = new Redirector(this);
+
+    //include locally for screening purposes
+    private String inputString;
+    private File input;
+    private File output;
+    private File error;
+    
+    protected Redirector redirector = new Redirector(this);
+    protected RedirectorElement redirectorElement;
+    
     private String resultProperty;
     private Permissions perm = null;
 
@@ -108,9 +120,11 @@ public class Java extends Task {
         if (spawn && incompatibleWithSpawn) {
             getProject().log("spawn does not allow attributes related to input, "
             + "output, error, result", Project.MSG_ERR);
-            getProject().log("spawn does not also not allow timeout", Project.MSG_ERR);
-            throw new BuildException("You have used an attribute which is "
-            + "not compatible with spawn");
+            getProject().log("spawn also does not allow timeout", Project.MSG_ERR);
+            getProject().log( "finally, spawn is not compatible "
+                + "with a nested I/O <redirector>", Project.MSG_ERR);
+            throw new BuildException("You have used an attribute "
+                + "or nested element which is not compatible with spawn");
         }
         if (cmdl.getAssertions() != null && !fork) {
             log("Assertion statements are currently ignored in non-forked mode");
@@ -149,6 +163,7 @@ public class Java extends Task {
                 Project.MSG_VERBOSE);
         }
 
+        setupRedirector();
         try {
             if (fork) {
                 if (!spawn) {
@@ -169,14 +184,14 @@ public class Java extends Task {
             if (failOnError) {
                 throw e;
             } else {
-                log(e.getMessage(), Project.MSG_ERR);
+                log(e);
                 return 0;
             }
         } catch (Throwable t) {
             if (failOnError) {
                 throw new BuildException(t);
             } else {
-                log(t.getMessage(), Project.MSG_ERR);
+                log(t);
                 return 0;
             }
         }
@@ -417,7 +432,7 @@ public class Java extends Task {
      * @param out name of the output file
      */
     public void setOutput(File out) {
-        redirector.setOutput(out);
+        this.output = out;
         incompatibleWithSpawn = true;
     }
 
@@ -427,7 +442,11 @@ public class Java extends Task {
      * @param input name of the input file
      */
     public void setInput(File input) {
-        redirector.setInput(input);
+        if (inputString != null) {
+            throw new BuildException("The \"input\" and \"inputstring\" "
+                + "attributes cannot both be specified");
+        }
+        this.input = input;
         incompatibleWithSpawn = true;
     }
 
@@ -437,7 +456,11 @@ public class Java extends Task {
      * @param inputString the string which is used as the input source
      */
     public void setInputString(String inputString) {
-        redirector.setInputString(inputString);
+        if (input != null) {
+            throw new BuildException("The \"input\" and \"inputstring\" "
+                + "attributes cannot both be specified");
+        }
+        this.inputString = inputString;
         incompatibleWithSpawn = true;
     }
 
@@ -462,7 +485,7 @@ public class Java extends Task {
      * @since ant 1.6
      */
     public void setError(File error) {
-        redirector.setError(error);
+        this.error = error;
         incompatibleWithSpawn = true;
     }
 
@@ -555,7 +578,7 @@ public class Java extends Task {
      */
     public void setTimeout(Long value) {
         timeout = value;
-        incompatibleWithSpawn = true;
+        incompatibleWithSpawn |= timeout!=null;
     }
 
     /**
@@ -568,6 +591,19 @@ public class Java extends Task {
             throw new BuildException("Only one assertion declaration is allowed");
         }
         cmdl.setAssertions(asserts);
+    }
+
+    /**
+     * Add a <CODE>RedirectorElement</CODE> to this task.
+     * @param redirectorElement   <CODE>RedirectorElement</CODE>.
+     */
+    public void addConfiguredRedirector(RedirectorElement redirectorElement) {
+        if (this.redirectorElement != null) {
+            throw new BuildException("cannot have > 1 nested <redirector>s");
+        } else {
+            this.redirectorElement = redirectorElement;
+            incompatibleWithSpawn = true;
+        }
     }
 
     /**
@@ -652,6 +688,19 @@ public class Java extends Task {
     }
 
     /**
+     * Set up properties on the redirector that we needed to store locally.
+     */
+    protected void setupRedirector() {
+        redirector.setInput(input);
+        redirector.setInputString(inputString);
+        redirector.setOutput(output);
+        redirector.setError(error);
+        if (redirectorElement != null) {
+            redirectorElement.configure(redirector);
+        }
+    }
+
+    /**
      * Executes the given classname with the given arguments as it
      * was a command line application.
      */
@@ -679,41 +728,41 @@ public class Java extends Task {
      */
     private int fork(String[] command) throws BuildException {
 
-            Execute exe
-                = new Execute(redirector.createHandler(), createWatchdog());
-            exe.setAntRun(getProject());
+        Execute exe
+            = new Execute(redirector.createHandler(), createWatchdog());
+        exe.setAntRun(getProject());
 
-            if (dir == null) {
-                dir = getProject().getBaseDir();
-            } else if (!dir.exists() || !dir.isDirectory()) {
-                throw new BuildException(dir.getAbsolutePath()
-                                         + " is not a valid directory",
-                                         getLocation());
+        if (dir == null) {
+            dir = getProject().getBaseDir();
+        } else if (!dir.exists() || !dir.isDirectory()) {
+            throw new BuildException(dir.getAbsolutePath()
+                                     + " is not a valid directory",
+                                     getLocation());
+        }
+
+        exe.setWorkingDirectory(dir);
+
+        String[] environment = env.getVariables();
+        if (environment != null) {
+            for (int i = 0; i < environment.length; i++) {
+                log("Setting environment variable: " + environment[i],
+                    Project.MSG_VERBOSE);
             }
+        }
+        exe.setNewenvironment(newEnvironment);
+        exe.setEnvironment(environment);
 
-            exe.setWorkingDirectory(dir);
-
-            String[] environment = env.getVariables();
-            if (environment != null) {
-                for (int i = 0; i < environment.length; i++) {
-                    log("Setting environment variable: " + environment[i],
-                        Project.MSG_VERBOSE);
-                }
+        exe.setCommandline(command);
+        try {
+            int rc = exe.execute();
+            redirector.complete();
+            if (exe.killedProcess()) {
+                throw new BuildException("Timeout: killed the sub-process");
             }
-            exe.setNewenvironment(newEnvironment);
-            exe.setEnvironment(environment);
-
-            exe.setCommandline(command);
-            try {
-                int rc = exe.execute();
-                redirector.complete();
-                if (exe.killedProcess()) {
-                    throw new BuildException("Timeout: killed the sub-process");
-                }
-                return rc;
-            } catch (IOException e) {
-                throw new BuildException(e, getLocation());
-            }
+            return rc;
+        } catch (IOException e) {
+            throw new BuildException(e, getLocation());
+        }
     }
 
     /**
@@ -721,36 +770,36 @@ public class Java extends Task {
      */
     private void spawn(String[] command) throws BuildException {
 
-            Execute exe
-                = new Execute();
-            exe.setAntRun(getProject());
+        Execute exe
+            = new Execute();
+        exe.setAntRun(getProject());
 
-            if (dir == null) {
-                dir = getProject().getBaseDir();
-            } else if (!dir.exists() || !dir.isDirectory()) {
-                throw new BuildException(dir.getAbsolutePath()
-                                         + " is not a valid directory",
-                                         getLocation());
+        if (dir == null) {
+            dir = getProject().getBaseDir();
+        } else if (!dir.exists() || !dir.isDirectory()) {
+            throw new BuildException(dir.getAbsolutePath()
+                                     + " is not a valid directory",
+                                     getLocation());
+        }
+
+        exe.setWorkingDirectory(dir);
+
+        String[] environment = env.getVariables();
+        if (environment != null) {
+            for (int i = 0; i < environment.length; i++) {
+                log("Setting environment variable: " + environment[i],
+                    Project.MSG_VERBOSE);
             }
+        }
+        exe.setNewenvironment(newEnvironment);
+        exe.setEnvironment(environment);
 
-            exe.setWorkingDirectory(dir);
-
-            String[] environment = env.getVariables();
-            if (environment != null) {
-                for (int i = 0; i < environment.length; i++) {
-                    log("Setting environment variable: " + environment[i],
-                        Project.MSG_VERBOSE);
-                }
-            }
-            exe.setNewenvironment(newEnvironment);
-            exe.setEnvironment(environment);
-
-            exe.setCommandline(command);
-            try {
-                exe.spawn();
-            } catch (IOException e) {
-                throw new BuildException(e, getLocation());
-            }
+        exe.setCommandline(command);
+        try {
+            exe.spawn();
+        } catch (IOException e) {
+            throw new BuildException(e, getLocation());
+        }
     }
     /**
      * Executes the given classname with the given arguments as it
@@ -792,4 +841,14 @@ public class Java extends Task {
         return new ExecuteWatchdog(timeout.longValue());
     }
 
+    /**
+     * @since 1.6.2
+     */
+    private void log(Throwable t) {
+        StringWriter sw = new StringWriter();
+        PrintWriter w = new PrintWriter(sw);
+        t.printStackTrace(w);
+        w.close();
+        log(sw.toString(), Project.MSG_ERR);
+    }
 }

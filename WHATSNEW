@@ -23,6 +23,12 @@ Fixed bugs:
 
 * <junit> and <assertions> are working together. Bugzilla report 27218
 
+* I/O-intensive processes hung when executed via <exec spawn="true">.
+  Bugzilla reports 23893/26852.
+
+* UNC pathnames did not work for ANT_HOME or -lib locations on Windows.
+  Bugzilla report 27922.
+
 
 Other changes:
 --------------
@@ -47,6 +53,9 @@ Other changes:
   comparable to those of <condition>, <filter>, and <selector>.
 
 * New attribute "negate" on <propertyset> to invert selection criteria.
+
+* New <redirector> type introduced to provide extreme I/O flexibility.
+  Initial support for <exec>, <apply>, and <java> tasks.
 
 Changes from Ant 1.6.1 to current Ant 1.6 CVS version
 =============================================
@@ -84,6 +93,18 @@ Fixed bugs:
 
 * NPE when running commons listener. Bugzilla Report 27373.
 
+* <java> swallowed the stack trace of exceptions thrown by the
+  executed program if run in the same VM.
+
+* -projecthelp swallowed (configuration) errors silently.
+  Bugzilla report 27732.
+
+* filterset used by filtertask doesn't respect loglevel. Bugzilla Report 27568.
+
+* wrong compare used in ProjectComponent for logging. Bugzilla Report 28070.
+
+* failOnAny attribute for <parallel> was broken. Bugzilla Report 28122.
+
 Other changes:
 --------------
 
@@ -97,6 +118,8 @@ Other changes:
 * Added nested file element to filelist.
 
 * spelling fixes, occurred. Bugzilla Report 27282.
+
+* add uid and gid to tarfileset. Bugzilla Report 19120.
 
 Changes from Ant 1.6.0 to Ant 1.6.1
 =============================================

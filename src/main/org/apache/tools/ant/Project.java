@@ -137,6 +137,11 @@ public class Project {
     private Hashtable targets = new Hashtable();
     /** Set of global filters. */
     private FilterSet globalFilterSet = new FilterSet();
+    {
+        // Initialize the globalFileSet's project
+        globalFilterSet.setProject(this);
+    }
+
     /**
      * Wrapper around globalFilterSet. This collection only ever
      * contains one FilterSet, but the wrapper is needed in order to
@@ -948,11 +953,7 @@ public class Project {
      * @see Project#addOrReplaceTarget
      */
     public void addTarget(Target target) throws BuildException {
-        String name = target.getName();
-        if (targets.get(name) != null) {
-            throw new BuildException("Duplicate target: `" + name + "'");
-        }
-        addOrReplaceTarget(name, target);
+        addTarget(target.getName(), target);
     }
 
     /**
