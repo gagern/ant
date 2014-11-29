@@ -1,5 +1,5 @@
 /*
- * Copyright  2004 The Apache Software Foundation
+ * Copyright  2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ public class RmicAdvancedTest extends BuildFileTest {
     /**
      * The JUnit setup method
      */
-    public void setUp() {
+    public void setUp() throws Exception {
+        super.setUp();
         configureProject(TASKDEFS_DIR + "rmic.xml");
     }
 
@@ -92,7 +93,7 @@ public class RmicAdvancedTest extends BuildFileTest {
     /**
      * test the forking compiler
      */
-    public void NotestForkingAntClasspath() throws Exception {
+    public void testForkingAntClasspath() throws Exception {
         executeTarget("testForkingAntClasspath");
     }
 
@@ -110,6 +111,13 @@ public class RmicAdvancedTest extends BuildFileTest {
         expectBuildExceptionContaining("testBadName",
                 "compiler not known",
                 RmicAdapterFactory.ERROR_UNKNOWN_COMPILER);
+    }
+
+    /**
+     * load an adapter by name
+     */
+    public void testExplicitClass() throws Exception {
+        executeTarget("testExplicitClass");
     }
 
     /**
@@ -154,7 +162,7 @@ public class RmicAdvancedTest extends BuildFileTest {
 
 
     /**
-     * test the forking compiler
+     *
      */
     public void testMagicPropertyIsEmptyString() throws Exception {
         executeTarget("testMagicPropertyIsEmptyString");
@@ -167,6 +175,77 @@ public class RmicAdvancedTest extends BuildFileTest {
                 Rmic.ERROR_RMIC_FAILED);
     }
 
+
+    /**
+     * test that version 1.1 stubs are good
+     * @throws Exception
+     */
+    public void testVersion11() throws Exception {
+        executeTarget("testVersion11");
+    }
+
+    /**
+     * test that version 1.2 stubs are good
+     *
+     * @throws Exception
+     */
+    public void testVersion12() throws Exception {
+        executeTarget("testVersion12");
+    }
+
+    /**
+     * test that version compat stubs are good
+     *
+     * @throws Exception
+     */
+    public void testVersionCompat() throws Exception {
+        executeTarget("testVersionCompat");
+    }
+
+    /**
+     * test that passes -Xnew to sun's rmic.
+     *
+     * @throws Exception
+     */
+    public void testXnew() throws Exception {
+        executeTarget("testXnew");
+    }
+
+    /**
+     * test that passes -Xnew to sun's rmic running in a different VM.
+     *
+     * @throws Exception
+     */
+    public void testXnewForked() throws Exception {
+        executeTarget("testXnewForked");
+    }
+
+    /**
+     * test that runs the new xnew compiler adapter.
+     *
+     * @throws Exception
+     */
+    public void testXnewCompiler() throws Exception {
+        executeTarget("testXnewCompiler");
+    }
+
+    /**
+     * test that verifies that IDL compiles.
+     *
+     * @throws Exception
+     */
+    public void testIDL() throws Exception {
+        executeTarget("testIDL");
+    }
+
+    /**
+     * test that verifies that IIOP compiles.
+     *
+     * @throws Exception
+     */
+    public void testIIOP() throws Exception {
+        executeTarget("testIIOP");
+    }
 
     /**
      * this little bunny verifies that we can load stuff, and that

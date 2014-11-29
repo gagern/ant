@@ -1,5 +1,5 @@
 /*
- * Copyright  2002,2004 The Apache Software Foundation
+ * Copyright  2002,2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import junit.framework.TestCase;
 /**
  * Testcase for <rmic>.
  *
- * @version $Revision$
  * @since Ant 1.5
  */
 public class RmicTest extends TestCase {
@@ -43,19 +42,6 @@ public class RmicTest extends TestCase {
         rmic.setProject(project);
     }
 
-    /**
-     * test for a compiler class existing
-     * @param compilerClass
-     * @return
-     */
-    private boolean hasCompiler(String compilerClass) {
-        try {
-            Class.forName(compilerClass);
-            return true;
-        } catch (ClassNotFoundException cnfe) {
-            return false;
-        }
-    }
     /**
      * Test nested compiler args.
      */

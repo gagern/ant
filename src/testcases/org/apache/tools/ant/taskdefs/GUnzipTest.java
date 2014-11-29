@@ -20,7 +20,6 @@ import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
- * @version $Revision$
  */
 public class GUnzipTest extends BuildFileTest {
 
@@ -48,15 +47,24 @@ public class GUnzipTest extends BuildFileTest {
     }
 
     public void testRealTest() throws java.io.IOException {
-        executeTarget("realTest");
+        testRealTest("realTest");
+    }
+
+    public void testRealTestWithResource() throws java.io.IOException {
+        testRealTest("realTestWithResource");
+    }
+
+    private void testRealTest(String target) throws java.io.IOException {
+        executeTarget(target);
         assertTrue(FILE_UTILS.contentEquals(project.resolveFile("../asf-logo.gif"),
                                            project.resolveFile("asf-logo.gif")));
     }
 
     public void testTestGzipTask() throws java.io.IOException {
-        executeTarget("testGzipTask");
-        assertTrue(FILE_UTILS.contentEquals(project.resolveFile("../asf-logo.gif"),
-                                           project.resolveFile("asf-logo.gif")));
+        testRealTest("testGzipTask");
     }
 
+    public void testDocumentationClaimsOnCopy() throws java.io.IOException {
+        testRealTest("testDocumentationClaimsOnCopy");
+    }
 }

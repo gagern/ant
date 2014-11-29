@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -94,9 +95,6 @@ public class TarEntry implements TarConstants {
     /** The entry's modification time. */
     private long modTime;
 
-    /** The entry's checksum. */
-    private int checkSum;
-
     /** The entry's link flag. */
     private byte linkFlag;
 
@@ -173,7 +171,6 @@ public class TarEntry implements TarConstants {
         this.userId = 0;
         this.groupId = 0;
         this.size = 0;
-        this.checkSum = 0;
         this.modTime = (new Date()).getTime() / MILLIS_PER_SECOND;
         this.linkName = new StringBuffer("");
         this.userName = new StringBuffer("");
@@ -258,7 +255,6 @@ public class TarEntry implements TarConstants {
 
         this.size = file.length();
         this.modTime = file.lastModified() / MILLIS_PER_SECOND;
-        this.checkSum = 0;
         this.devMajor = 0;
         this.devMinor = 0;
     }
@@ -625,7 +621,6 @@ public class TarEntry implements TarConstants {
         offset += SIZELEN;
         this.modTime = TarUtils.parseOctal(header, offset, MODTIMELEN);
         offset += MODTIMELEN;
-        this.checkSum = (int) TarUtils.parseOctal(header, offset, CHKSUMLEN);
         offset += CHKSUMLEN;
         this.linkFlag = header[offset++];
         this.linkName = TarUtils.parseName(header, offset, NAMELEN);

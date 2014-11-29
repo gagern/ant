@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +21,10 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
+import java.io.FileOutputStream;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -37,6 +42,8 @@ public class Echo extends Task {
     protected String message = ""; // required
     protected File file = null;
     protected boolean append = false;
+    /** encoding; set to null or empty means 'default' */
+    private String encoding = "";
 
     // by default, messages are always displayed
     protected int logLevel = Project.MSG_WARN;
@@ -50,9 +57,16 @@ public class Echo extends Task {
         if (file == null) {
             log(message, logLevel);
         } else {
-            FileWriter out = null;
+            Writer out = null;
             try {
-                out = new FileWriter(file.getAbsolutePath(), append);
+                String filename = file.getAbsolutePath();
+                if(encoding==null || encoding.length()==0) {
+                    out = new FileWriter(filename, append);
+                } else {
+                    out = new BufferedWriter(
+                            new OutputStreamWriter(
+                                new FileOutputStream(filename, append),encoding));
+                }
                 out.write(message, 0, message.length());
             } catch (IOException ioe) {
                 throw new BuildException(ioe, getLocation());
@@ -115,6 +129,16 @@ public class Echo extends Task {
     }
 
     /**
+     * Declare the encoding to use when outputting to a file;
+     * Use "" for the platform's default encoding.
+     * @param encoding
+     * @since 1.7
+     */
+    public void setEncoding(String encoding) {
+        this.encoding = encoding;
+    }
+
+    /**
      * The enumerated values for the level attribute.
      */
     public static class EchoLevel extends EnumeratedAttribute {
@@ -134,7 +158,7 @@ public class Echo extends Task {
         /**
          * mapping of enumerated values to log levels
          */
-        private static int levels[] = {
+        private static int[] levels = {
             Project.MSG_ERR,
             Project.MSG_WARN,
             Project.MSG_INFO,
@@ -144,7 +168,7 @@ public class Echo extends Task {
 
         /**
          * get the level of the echo of the current value
-         * @return
+         * @return the level
          */
         public int getLevel() {
             return levels[getIndex()];

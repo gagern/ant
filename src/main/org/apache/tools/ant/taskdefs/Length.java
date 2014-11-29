@@ -1,9 +1,10 @@
 /*
- * Copyright 2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,34 +21,42 @@ package org.apache.tools.ant.taskdefs;
 import java.io.File;
 import java.io.PrintStream;
 import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
-import java.util.Vector;
-import java.util.HashSet;
+import java.util.Iterator;
 
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.taskdefs.condition.Condition;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.Comparison;
+import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.EnumeratedAttribute;
-import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.types.resources.Resources;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.PropertyOutputStream;
 
 /**
- * Gets lengths:  of files, byte size; of strings, length (optionally trimmed).
+ * Gets lengths:  of files/resources, byte size; of strings, length (optionally trimmed).
  * The task is overloaded in this way for semantic reasons, much like Available.
- * @since Ant 1.7
+ * @since Ant 1.6.3
  */
-public class Length extends Task {
+public class Length extends Task implements Condition {
 
     private static final String ALL = "all";
     private static final String EACH = "each";
     private static final String STRING = "string";
 
+    private static final String LENGTH_REQUIRED
+        = "Use of the Length condition requires that the length attribute be set.";
+
     private String property;
     private String string;
     private Boolean trim;
-    private Vector filesets;
     private String mode = ALL;
+    private Comparison when = Comparison.EQUAL;
+    private Long length;
+    private Resources resources;
 
     /**
      * The property in which the length will be stored.
@@ -62,9 +71,7 @@ public class Length extends Task {
      * @param file the <code>File</code> whose length to retrieve.
      */
     public synchronized void setFile(File file) {
-        FileSet fs = new FileSet();
-        fs.setFile(file);
-        add(fs);
+        add(new FileResource(file));
     }
 
     /**
@@ -72,8 +79,47 @@ public class Length extends Task {
      * @param fs the <code>FileSet</code> to add.
      */
     public synchronized void add(FileSet fs) {
-        filesets = (filesets == null) ? new Vector() : filesets;
-        filesets.add(fs);
+        add((ResourceCollection) fs);
+    }
+
+    /**
+     * Add a ResourceCollection.
+     * @param c the <code>ResourceCollection</code> to add.
+     * @since Ant 1.7
+     */
+    public synchronized void add(ResourceCollection c) {
+        if (c == null) {
+            return;
+        }
+        resources = (resources == null) ? new Resources() : resources;
+        resources.add(c);
+    }
+
+    /**
+     * Set the target count number for use as a Condition.
+     * @param ell the long length to compare with.
+     */
+    public synchronized void setLength(long ell) {
+        length = new Long(ell);
+    }
+
+    /**
+     * Set the comparison for use as a Condition.
+     * @param w EnumeratedAttribute When.
+     * @see org.apache.tools.ant.types.Comparison
+     */
+    public synchronized void setWhen(When w) {
+        setWhen((Comparison) w);
+    }
+
+    /**
+     * Set the comparison for use as a Condition.
+     * @param c Comparison.
+     * @see org.apache.tools.ant.types.Comparison
+     * @since Ant 1.7
+     */
+    public synchronized void setWhen(Comparison c) {
+        when = c;
     }
 
     /**
@@ -102,39 +148,67 @@ public class Length extends Task {
     }
 
     /**
+     * Learn whether strings will be trimmed.
+     * @return boolean trim setting.
+     */
+    public boolean getTrim() {
+        return trim != null && trim.booleanValue();
+    }
+
+    /**
      * Execute the length task.
      */
     public void execute() {
         validate();
         PrintStream ps = new PrintStream((property != null)
-            ? (OutputStream) new PropertyOutputStream()
+            ? (OutputStream) new PropertyOutputStream(getProject(), property)
             : (OutputStream) new LogOutputStream(this, Project.MSG_INFO));
 
         if (STRING.equals(mode)) {
-            ps.print(((trim != null && trim.booleanValue())
-                ? string.trim() : string).length());
+            ps.print(getLength(string, getTrim()));
             ps.close();
         } else if (EACH.equals(mode)) {
-            handleFilesets(new EachHandler(ps));
+            handleResources(new EachHandler(ps));
         } else if (ALL.equals(mode)) {
-            handleFilesets(new AllHandler(ps));
+            handleResources(new AllHandler(ps));
         }
+    }
+
+    /**
+     * Fulfill the condition contract.
+     * @return true if the condition is true.
+     * @throws BuildException if an error occurs.
+     */
+    public boolean eval() {
+        validate();
+        if (length == null) {
+            throw new BuildException(LENGTH_REQUIRED);
+        }
+        Long ell = null;
+        if (STRING.equals(mode)) {
+            ell = new Long(getLength(string, getTrim()));
+        } else {
+            ConditionHandler h = new ConditionHandler();
+            handleResources(h);
+            ell = new Long(h.getLength());
+        }
+        return when.evaluate(ell.compareTo(length));
     }
 
     private void validate() {
         if (string != null) {
-            if (filesets != null && filesets.size() > 0) {
+            if (resources != null) {
                 throw new BuildException("the string length function"
-                    + " is incompatible with the file length function");
+                    + " is incompatible with the file/resource length function");
             }
             if (!(STRING.equals(mode))) {
                 throw new BuildException("the mode attribute is for use"
-                    + " with the file length function");
+                    + " with the file/resource length function");
             }
-        } else if (filesets != null && filesets.size() > 0) {
+        } else if (resources != null) {
             if (!(EACH.equals(mode) || ALL.equals(mode))) {
                 throw new BuildException("invalid mode setting for"
-                    + " file length function: \"" + mode + "\"");
+                    + " file/resource length function: \"" + mode + "\"");
             } else if (trim != null) {
                 throw new BuildException("the trim attribute is"
                     + " for use with the string length function only");
@@ -142,36 +216,27 @@ public class Length extends Task {
         } else {
             throw new BuildException("you must set either the string attribute"
                 + " or specify one or more files using the file attribute or"
-                + " nested filesets");
+                + " nested resource collections");
         }
     }
 
-    private void handleFilesets(Handler h) {
-        HashSet included = new HashSet(filesets.size() * 10);
-        for (int i = 0; i < filesets.size(); i++) {
-            FileSet fs = (FileSet)(filesets.get(i));
-            DirectoryScanner ds = fs.getDirectoryScanner(getProject());
-            File basedir = fs.getDir(getProject());
-            String[] f = ds.getIncludedFiles();
-            for (int j = 0; j < f.length; j++) {
-                File file = FileUtils.getFileUtils().resolveFile(basedir, f[j]);
-                if (included.add(file)) {
-                    h.handle(file);
-                }
+    private void handleResources(Handler h) {
+        for (Iterator i = resources.iterator(); i.hasNext();) {
+            Resource r = (Resource) i.next();
+            if (!r.isExists()) {
+                log(r + " does not exist", Project.MSG_ERR);
+            } else if (r.isDirectory()) {
+                log(r + " is a directory; length unspecified",
+                    Project.MSG_ERR);
+            } else {
+                h.handle(r);
             }
         }
-        included.clear();
-        included = null;
         h.complete();
     }
 
-    private static long getLength(File f) {
-        //should be an existing file
-        if (!(f.isFile())) {
-            throw new BuildException("The absolute pathname " + f
-                + " does not denote an existing file.");
-        }
-        return f.length();
+    private static long getLength(String s, boolean t) {
+        return (t ? s.trim() : s).length();
     }
 
     /** EnumeratedAttribute operation mode */
@@ -188,10 +253,11 @@ public class Length extends Task {
 
     }
 
-    private class PropertyOutputStream extends ByteArrayOutputStream {
-        public void close() {
-            getProject().setProperty(property, new String(toByteArray()).trim());
-        }
+    /**
+     * EnumeratedAttribute for the when attribute.
+     */
+    public static class When extends Comparison {
+        //extend Comparison; retain for BC only
     }
 
     private abstract class Handler {
@@ -200,7 +266,7 @@ public class Length extends Task {
             this.ps = ps;
         }
 
-        protected abstract void handle(File f);
+        protected abstract void handle(Resource r);
 
         void complete() {
             ps.close();
@@ -211,25 +277,46 @@ public class Length extends Task {
         EachHandler(PrintStream ps) {
             super(ps);
         }
-        protected void handle(File f) {
-            ps.print(f);
+        protected void handle(Resource r) {
+            ps.print(r.toString());
             ps.print(" : ");
             //when writing to the log, we'll see what's happening:
-            ps.println(getLength(f));
+            long size = r.getSize();
+            if (size == Resource.UNKNOWN_SIZE) {
+                ps.println("unknown");
+            } else {
+                ps.println(size);
+            }
        }
     }
 
     private class AllHandler extends Handler {
-        long length = 0L;
+        long accum = 0L;
         AllHandler(PrintStream ps) {
             super(ps);
         }
-        protected synchronized void handle(File f) {
-            length += getLength(f);
+        protected synchronized void handle(Resource r) {
+            long size = r.getSize();
+            if (size == Resource.UNKNOWN_SIZE) {
+                log("Size unknown for " + r.toString(), Project.MSG_WARN);
+            } else {
+                accum += size;
+            }
         }
         void complete() {
-            ps.print(length);
+            ps.print(accum);
             super.complete();
+        }
+    }
+
+    private class ConditionHandler extends AllHandler {
+        ConditionHandler() {
+            super(null);
+        }
+        void complete() {
+        }
+        long getLength() {
+            return accum;
         }
     }
 }

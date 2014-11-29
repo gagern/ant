@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2002,2004-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,7 +25,6 @@ package org.apache.tools.zip;
  * <p>Assumes local file data and central directory entries are
  * identical - unless told the opposite.</p>
  *
- * @version $Revision$
  */
 public class UnrecognizedExtraField implements ZipExtraField {
 
@@ -124,7 +124,7 @@ public class UnrecognizedExtraField implements ZipExtraField {
     }
 
     /**
-     * @see ZipExtraField#parseFromLocalFileData(data, offset, length)
+     * @see ZipExtraField#parseFromLocalFileData(byte[], int, int) 
      */
     public void parseFromLocalFileData(byte[] data, int offset, int length) {
         byte[] tmp = new byte[length];

@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,6 +28,7 @@ import java.util.zip.GZIPInputStream;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.bzip2.CBZip2InputStream;
@@ -90,25 +92,57 @@ public class Untar extends Expand {
      * @see Expand#expandFile(FileUtils, File, File)
      */
     protected void expandFile(FileUtils fileUtils, File srcF, File dir) {
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(srcF);
+            expandStream(srcF.getPath(), fis, dir);
+        } catch (IOException ioe) {
+            throw new BuildException("Error while expanding " + srcF.getPath(),
+                                     ioe, getLocation());
+        } finally {
+            FileUtils.close(fis);
+        }
+    }
+
+    /**
+     * This method is to be overridden by extending unarchival tasks.
+     *
+     * @param srcR      the source resource
+     * @param dir       the destination directory
+     * @since Ant 1.7
+     */
+    protected void expandResource(Resource srcR, File dir) {
+        InputStream i = null;
+        try {
+            i = srcR.getInputStream();
+            expandStream(srcR.getName(), i, dir);
+        } catch (IOException ioe) {
+            throw new BuildException("Error while expanding " + srcR.getName(),
+                                     ioe, getLocation());
+        } finally {
+            FileUtils.close(i);
+        }
+    }
+
+    /**
+     * @since Ant 1.7
+     */
+    private void expandStream(String name, InputStream stream, File dir)
+        throws IOException {
         TarInputStream tis = null;
         try {
-            log("Expanding: " + srcF + " into " + dir, Project.MSG_INFO);
-            tis = new TarInputStream(
-                compression.decompress(srcF,
-                    new BufferedInputStream(
-                        new FileInputStream(srcF))));
+            tis = 
+                new TarInputStream(compression.decompress(name,
+                                                          new BufferedInputStream(stream)));
+            log("Expanding: " + name + " into " + dir, Project.MSG_INFO);
             TarEntry te = null;
             FileNameMapper mapper = getMapper();
             while ((te = tis.getNextEntry()) != null) {
-                extractFile(fileUtils, srcF, dir, tis,
+                extractFile(FileUtils.getFileUtils(), null, dir, tis,
                             te.getName(), te.getModTime(),
                             te.isDirectory(), mapper);
             }
             log("expand complete", Project.MSG_VERBOSE);
-
-        } catch (IOException ioe) {
-            throw new BuildException("Error while expanding " + srcF.getPath(),
-                                     ioe, getLocation());
         } finally {
             FileUtils.close(tis);
         }
@@ -157,14 +191,14 @@ public class Untar extends Expand {
          *  This method wraps the input stream with the
          *     corresponding decompression method
          *
-         *  @param file provides location information for BuildException
+         *  @param name provides location information for BuildException
          *  @param istream input stream
          *  @return input stream with on-the-fly decompression
          *  @exception IOException thrown by GZIPInputStream constructor
          *  @exception BuildException thrown if bzip stream does not
          *     start with expected magic values
          */
-        private InputStream decompress(final File file,
+        public InputStream decompress(final String name,
                                        final InputStream istream)
             throws IOException, BuildException {
             final String v = getValue();
@@ -176,7 +210,7 @@ public class Untar extends Expand {
                     for (int i = 0; i < magic.length; i++) {
                         if (istream.read() != magic[i]) {
                             throw new BuildException(
-                                "Invalid bz2 file." + file.toString());
+                                                     "Invalid bz2 file." + name);
                         }
                     }
                     return new CBZip2InputStream(istream);

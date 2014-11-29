@@ -1,5 +1,5 @@
 /*
- * Copyright  2002,2004 The Apache Software Foundation
+ * Copyright  2002, 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
  */
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.BuildFileTest;
-import java.lang.reflect.InvocationTargetException;
 
 /**
  * @created 13 January 2002
@@ -162,6 +159,18 @@ public class ConditionTest extends BuildFileTest {
             "filesmatch-different-onemissing");
     }
 
+    public void testFilesmatchDifferentEol() {
+        executeTarget("filesmatch-different-eol");
+    }
+
+    public void testFilesmatchSameEol() {
+        executeTarget("filesmatch-same-eol");
+    }
+
+    public void testFilesmatchNeitherExist() {
+        executeTarget("filesmatch-neitherexist");
+    }
+
     public void testContains() {
         expectPropertySet("contains","contains");
     }
@@ -226,5 +235,40 @@ public class ConditionTest extends BuildFileTest {
                     "Nothing to test for falsehood");
     }
 
-}
+    public void testElse() {
+        executeTarget("testElse");
+    }
 
+    public void testResourcesmatchError() {
+        expectBuildException("resourcesmatch-error",
+            "should fail because no resources specified");
+    }
+
+    public void testResourcesmatchEmpty() {
+        executeTarget("resourcesmatch-match-empty");
+    }
+
+    public void testResourcesmatchOne() {
+        executeTarget("resourcesmatch-match-one");
+    }
+
+    public void testResourcesmatchBinary() {
+        executeTarget("resourcesmatch-match-binary");
+    }
+
+    public void testResourcesmatchMultipleBinary() {
+        executeTarget("resourcesmatch-match-multiple-binary");
+    }
+
+    public void testResourcesmatchDiffer() {
+        executeTarget("resourcesmatch-differ");
+    }
+
+    public void testResourcesmatchText() {
+        executeTarget("resourcesmatch-match-text");
+    }
+
+    public void testResourcesmatchNoneExist() {
+        executeTarget("resourcesmatch-noneexist");
+    }
+}

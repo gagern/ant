@@ -2,6 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>EAR Task</title>
 </head>
 
@@ -134,6 +135,13 @@ to a value other than its default, <code>&quot;add&quot;</code>.</b></p>
     Defaults to true.  <em>Since Ant 1.6.2</em></td>
     <td align="center" valign="top">No</td>
   </tr>
+  <tr>
+    <td valign="top">level</td>
+    <td valign="top">Non-default level at which file compression should be
+    performed. Valid values range from 0 (no compression/fastest) to 9
+    (maximum compression/slowest). <em>Since Ant 1.7</em></td>
+    <td valign="top" align="center">No</td>
+  </tr>
 </table>
 <h3>Nested elements</h3>
 <h4>metainf</h4>
@@ -149,7 +157,7 @@ ignored and you will get a warning.</p>
     &lt;/ear&gt;
 </pre>
 <hr>
-<p align="center">Copyright &copy; 2001-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2001-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 
 </body>

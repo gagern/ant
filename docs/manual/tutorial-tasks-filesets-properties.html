@@ -1,7 +1,8 @@
 <html>
 <head>
-  <title>Tutorial: Tasks using Properties, Filesets & Paths</title>
-  <meta name="author" content="Jan Matèrne">
+  <link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+<title>Tutorial: Tasks using Properties, Filesets &amp; Paths</title>
+  <meta name="author" content="Jan Mat&egrave;rne">
   <style type="text/css">
   <!--
   .code { background: #EFEFEF; margin-top: }
@@ -10,7 +11,7 @@
   </style>
 </head>
 <body>
-<h1>Tutorial: Tasks using Properties, Filesets & Paths</h1>
+<h1>Tutorial: Tasks using Properties, Filesets &amp; Paths</h1>
 
 <p>After reading the tutorial about <a href="tutorial-writing-tasks.html">writing
 tasks [1]</a> this tutorial explains how to get and set properties and how to use
@@ -30,21 +31,19 @@ nested filesets and paths. Finally it explains how to contribute tasks to Ant.</
 </ul></p>
 
 
-<a name="goal"/>
-<h2>The goal</h2>
+<h2><a name="goal">The goal</a></h2>
 <p>The goal is to write a task, which searchs in a path for a file and saves the
 location of that file in a property.</p>
 
 
-<a name="buildenvironment"/>
-<h2>Build environment</h2>
+<h2><a name="buildenvironment">Build environment</a></h2>
 <p>We can use the buildfile from the other tutorial and modify it a little bit.
-That´s the advantage of using properties - we can reuse nearly the whole script. :-)</p>
+That's the advantage of using properties - we can reuse nearly the whole script. :-)</p>
 <pre class="code">
 &lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
 &lt;project name="<b>FindTask</b>" basedir="." default="test"&gt;
     ...
-    &lt;target name="use.init" description="Taskdef´ the <b>Find</b>-Task" depends="jar"&gt;
+    &lt;target name="use.init" description="Taskdef's the <b>Find</b>-Task" depends="jar"&gt;
         &lt;taskdef name="<b>find</b>" classname="<b>Find</b>" classpath="${ant.project.name}.jar"/&gt;
     &lt;/target&gt;
 
@@ -58,8 +57,7 @@ tutorial-tasks-filesets-properties.zip [2]</a> in <tt>/build.xml.01-propertyacce
 (future version saved as *.02..., final version as build.xml; same for sources).</p>
 
 
-<a name="propertyaccess"/>
-<h2>Property access</h2>
+<h2><a name="propertyaccess">Property access</a></h2>
 <p>Our first step is to set a property to a value and print the value of that property.
 So our scenario would be
 <pre class="code">
@@ -73,7 +71,7 @@ ok, can be rewritten with the core tasks
 </pre>
 but I have to start on known ground :-)</p>
 <p>So what to do? Handling three attributes (property, value, print) and an execute method.
-Because this is only an introduction example I don´t do much checking:
+Because this is only an introduction example I don't do much checking:
 
 <pre class="code">
 import org.apache.tools.ant.BuildException;
@@ -106,7 +104,7 @@ public class Find extends Task {
 As said in the other tutorial, the property access is done via Project instance.
 We get this instance via the public <tt>getProject()</tt> method which we inherit from
 <tt>Task</tt> (more precise from ProjectComponent). Reading a property is done via
-<tt>getProperty(<i>propertyname</i>)</tt> (very simple, isn´t it?). This property returns
+<tt>getProperty(<i>propertyname</i>)</tt> (very simple, isn't it?). This property returns
 the value as String or <i>null</i> if not set.<br>
 Setting a property is ... not really difficult, but there is more than one setter. You can
 use the <tt>setProperty()</tt> method which will do the job like expected. But there is
@@ -115,13 +113,13 @@ to the specified value - whether it has a value before that or not. So we use an
 way. <tt>setNewProperty()</tt> sets the property only if there is no property with that
 name. Otherwise a message is logged.</p>
 
-<p><i>(by the way: a short word to ants "namespaces" (don´t
-be confused with xml namespaces which will be also introduces in the future (1.6 or 1.7):
+<p><i>(by the way: a short word to ants "namespaces" (don't
+be confused with xml namespaces:
 an <code>&lt;antcall&gt;</code> creates a new space for property names. All properties from the caller
 are passed to the callee, but the callee can set its own properties without notice by the
 caller.)</i></p>
 
-<p>There are some other setter, too (but I haven´t used them, so I can´t say something
+<p>There are some other setter, too (but I haven't used them, so I can't say something
 to them, sorry :-)</p>
 
 <p>After putting our two line example from above into a target names <tt>use.simple</tt>
@@ -150,10 +148,9 @@ and all works fine.</p>
 
 
 
-<a name="filesets"/>
-<h2>Using filesets</h2>
+<h2><a name="filesets">Using filesets</a></h2>
 <p>Ant provides a common way of bundling files: the fileset. Because you are reading
-this tutorial I think you know them and I don´t have to spend more explanations about
+this tutorial I think you know them and I don't have to spend more explanations about
 their usage in buildfiles. Our goal is to search a file in path. And on this step the
 path is simply a fileset (or more precise: a collection of filesets). So our usage
 would be
@@ -190,16 +187,16 @@ public class Find extends Task {
     }
 }
 </pre>
-Ok - that task wouldn´t do very much, but we can use it in the described manner without
+Ok - that task wouldn't do very much, but we can use it in the described manner without
 failure. On next step we have to implement the execute method. And before that we will
 implement the appropriate testcases (TDD - test driven development).</p>
 
 <p>In the other tutorial we have reused the already written targets of our buildfile.
-Now we will configure most of the testcases via java code (sometimes it´s much easier
+Now we will configure most of the testcases via java code (sometimes it's much easier
 to write a target than doing it via java coding). What can be tested?<ul>
 <li>not valid configured task (missing file, missing location, missing fileset)</li>
-<li>don´t find a present file</li>
-<li>behaviour if file can´t be found</li>
+<li>don't find a present file</li>
+<li>behaviour if file can't be found</li>
 </ul>
 Maybe you find some more testcases. But this is enough for now.<br>
 For each of these points we create a <tt>testXX</tt> method.</p>
@@ -259,7 +256,7 @@ public class FindTest extends BuildFileTest {
 }
 </pre>
 
-<p>If we run this test class all test cases (except <i>testFileNotPresent</i>) fail. No we
+<p>If we run this test class all test cases (except <i>testFileNotPresent</i>) fail. Now we
 can implement our task, so that these test cases will pass.</p>
 
 <pre class="code">
@@ -279,7 +276,7 @@ can implement our task, so that these test cases will pass.</p>
             for(int i=0; i&lt;includedFiles.length; i++) {
                 String filename = includedFiles[i].replace('\\','/');           // 4
                 filename = filename.substring(filename.lastIndexOf("/")+1);
-                if (foundLocation==null && file.equals(filename)) {
+                if (foundLocation==null &amp;&amp; file.equals(filename)) {
                     File base  = ds.getBasedir();                               // 5
                     File found = new File(base, includedFiles[i]);
                     foundLocation = found.getAbsolutePath();
@@ -293,7 +290,7 @@ can implement our task, so that these test cases will pass.</p>
 
 <p>On <b>//1</b> we check the prerequisites for our task. Doing that in a <tt>validate</tt>-method
 is a common way, because we separate the prerequisites from the real work. On <b>//2</b> we iterate
-over all nested filesets. If we don´t want to handle multiple filesets, the <tt>addFileset()</tt>
+over all nested filesets. If we don't want to handle multiple filesets, the <tt>addFileset()</tt>
 method has to reject the further calls. We can get the result of a fileset via its DirectoryScanner
 like done in <b>//3</b>. After that we create a plattform independend String representation of
 the file path (<b>//4</b>, can be done in other ways of course). We have to do the <tt>replace()</tt>,
@@ -330,8 +327,7 @@ Therefore we have do modify our buildfile:
 </pre>
 
 
-<a name="path"/>
-<h2>Using nested paths</h2>
+<h2><a name="path">Using nested paths</a></h2>
 <p>A task providing support for filesets is a very comfortable one. But there is another
 possibility of bundling files: the <code>&lt;path&gt;</code>. Fileset are easy if the files are all under
 a common base directory. But if this is not the case you have a problem. Another disadvantage
@@ -364,13 +360,13 @@ too.</p>
         &lt;/path&gt;
     &lt;/find&gt;
 </pre>
-<p>On <b>*1</b> we rename only the vector. It´s just for better reading the source. On <b>*2</b>
+<p>On <b>*1</b> we rename only the vector. Itï¿½s just for better reading the source. On <b>*2</b>
 we have to provide the right method: an add<i>Name</i>(<i>Type</i> t). Therefore replace the
 fileset with path here. Finally we have to modify our buildfile on <b>*3</b> because our task
-doesn´t support nested filesets any longer. So we wrap the fileset inside a path.</p>
+doesnï¿½t support nested filesets any longer. So we wrap the fileset inside a path.</p>
 
 <p>And now we modify the testcase. Oh, not very much to do :-) Renaming the <tt>testMissingFileset()</tt>
-(not really a <i>must-be</i> but better it´s named like the think it does) and update the
+(not really a <i>must-be</i> but better itï¿½s named like the think it does) and update the
 <i>expected</i>-String in that method (now a <tt>path not set</tt> message is expected). The more complex
 test cases base on the buildscript. So the targets <tt>testFileNotPresent</tt> and <tt>testFilePresent</tt> have to be
 modified in the manner described above.</p>
@@ -378,7 +374,7 @@ modified in the manner described above.</p>
 <p>The test are finished. Now we have to adapt the task implementation. The easiest modification is
 in the <tt>validate()</tt> method where we change le last line to <tt>if (paths.size()&lt;1) throw new
 BuildException("path not set");</tt>. In the <tt>execute()</tt> method we have a little more work.
-... mmmh ... in reality it´s lesser work, because the Path class does the whole DirectoryScanner-handling
+... mmmh ... in reality it's lesser work, because the Path class does the whole DirectoryScanner-handling
 and creating-absolute-paths stuff for us. So the execute method is just:</p>
 
 <pre class="code">
@@ -391,7 +387,7 @@ and creating-absolute-paths stuff for us. So the execute method is just:</p>
             for(int i=0; i&lt;includedFiles.length; i++) {
                 String filename = includedFiles[i].replace('\\','/');
                 filename = filename.substring(filename.lastIndexOf("/")+1);
-                if (foundLocation==null && file.equals(filename)) {
+                if (foundLocation==null &amp;&amp; file.equals(filename)) {
                     <b>foundLocation = includedFiles[i];</b>                        // 3
                 }
             }
@@ -407,8 +403,7 @@ creating of the absolute path (was at 3).</p>
 
 
 
-<a name="returning-list"/>
-<h2>Returning a list</h2>
+<h2><a name="returning-list">Returning a list</a></h2>
 <p>So far so good. But could a file be on more than one place in the path? - Of course.<br>
 And would it be good to get all of them? - It depends on ...<p>
 
@@ -476,7 +471,7 @@ elements are concatenated and separated with a customizable separator (default '
 </pre>
 
 <p>Now we need a directory structure where we CAN find files with the same
-name in different directories. Because we can´t sure to have one we create
+name in different directories. Because we can't sure to have one we create
 one on <b>*1</b> and <b>*2</b>. And of course we clean up that on <b>*4</b>. The creation
 can be done inside our test target or in a separate one, which will be better
 for reuse later (<b>*3</b>).
@@ -501,7 +496,7 @@ for reuse later (<b>*3</b>).
             for(int i=0; i&lt;includedFiles.length; i++) {
                 String filename = includedFiles[i].replace('\\','/');
                 filename = filename.substring(filename.lastIndexOf("/")+1);
-                if (file.equals(filename) && <b>!foundFiles.contains(includedFiles[i]</b>)) {   // 1
+                if (file.equals(filename) &amp;&amp; <b>!foundFiles.contains(includedFiles[i]</b>)) {   // 1
                     foundFiles.add(includedFiles[i]);
                 }
             }
@@ -540,8 +535,7 @@ delimiter.</p>
 tune the performance of your own :-)</p>
 
 
-<a name="documentation"/>
-<h2>Documentation</h2>
+<h2><a name="documentation">Documentation</a></h2>
 <p>A task is useless if the only who is able to code the buildfile is the task developer
 (and he only the next few weeks :-). So documentation is also very important. In which
 form you do that depends on your favourite. But inside Ant there is a common format and
@@ -555,8 +549,8 @@ you decide to contribute your task. So we will doc our task in that form.</p>
 <li>has sections: description, parameters, nested elements, (maybe return codes) and (most
 important :-) examples</li>
 <li>parameters are listed in a table with columns for attribute name, its description and whether
-  it´s required (if you add a feature after an Ant release, provide a <tt>since Ant xx</tt>
-  statement when it´s introduced)</li>
+  it's required (if you add a feature after an Ant release, provide a <tt>since Ant xx</tt>
+  statement when it's introduced)</li>
 <li>describe the nested elements (since-statement if necessary)</li>
 <li>provide one or more useful examples; first code then description</li>
 </ul>
@@ -602,7 +596,7 @@ As a template we have:
 
 &lt;h3&gt;Examples&lt;/h3&gt;
 &lt;pre&gt;
-    <b>A code sample; don´t forget to escape the &lt; of the tags with &amp;lt;</b>
+    <b>A code sample; don't forget to escape the &lt; of the tags with &amp;lt;</b>
 &lt;/pre&gt;
 <b>what should that example do?</b>
 
@@ -683,8 +677,7 @@ After that it prints out the result (e.g. C:/ant-1.5.4/bin/ant.jar;C:/ant-1.6/bi
 </pre>
 
 
-<a name="contribute"/>
-<h2>Contribute the new task</h2>
+<h2><a name="contribute">Contribute the new task</a></h2>
 If we decide to contribute our task, we should do some things:<ul>
 <li>is our task welcome? :-) Simply ask on the user list</li>
 <li>is the right package used? </li>
@@ -706,7 +699,7 @@ information on that.</p>
 <li>Code compiles and runs on Java1.2 <b><i>have to try</i></b></li>
 <li>Member variables are private, and provide public accessor methods
         if access is actually needed. <b><i>have to check (checkstyle)</i></b></li>
-<li><i>Maybe</i> Task has failonerror attribute to control failure behaviour <b><i>hasn´t</i></b></li>
+<li><i>Maybe</i> Task has failonerror attribute to control failure behaviour <b><i>hasn't</i></b></li>
 <li>New test cases written and succeed <b><i>passed on JDK 1.4, have to try on JDK 1.2</i></b></li>
 <li>Documentation page written <b><i>ok</i></b></li>
 <li>Example task declarations in the documentation tested. <b><i>ok (used in tests)</i></b></li>
@@ -744,10 +737,10 @@ cvs -d :pserver:anoncvs@cvs.apache.org:/home/cvspublic update                //4
 </pre></p>
 
 <p>We use the <i>-d</i> flag on <b>//1</b> to specifiy the cvs directory. You can
-specify the environment variable CVSROOT with that value and after that you haven´t
+specify the environment variable CVSROOT with that value and after that you havenï¿½t
 to use that flag any more. On <b>//2</b> we get the whole cvs tree of ant. (Sorry,
 but that uses a lot of time ... 10 up to 30 minutes are not unusual ... but this has
-to be done only once :-). A cvs update doesn´t use a modulename but you have to be
+to be done only once :-). A cvs update doesn't use a modulename but you have to be
 inside the directory. Therefore we go into that on <b>//3</b> and do the update
 on <b>//4</b>.</p>
 
@@ -766,9 +759,9 @@ environment variable to the directory where the new created distribution is stor
 write it out). On <b>//3</b> we let Ant do all the tests (which enforced a compile
 of all tests) without stopping on first failure.</p>
 
-<p>Next we apply our work onto Ants sources. Because we haven´t modified any, this is
+<p>Next we apply our work onto Ants sources. Because we haven't modified any, this is
 a relative simple step. <i>(Because I have a local copy of Ant and usually contribute my
-work, I work on the local copy just from the beginning. The advantage: this step isn´t
+work, I work on the local copy just from the beginning. The advantage: this step isn't
 necessary and saves a lot of work if you modify existing source :-)</i>.
 
 <ul>
@@ -830,14 +823,14 @@ is the same as directly after the cvs update (without our modifications).</p>
 
 <h3>Apache copyright and license statement</h3>
 <p>Simply copy the license text from one the other source from the Ant source tree. But
-ensure that the current year is used in the<tt> * Copyright (c) 2000-2003 The Apache Software
-Foundation.  All rights reserved.</tt> lines. Don´t forget to add a license statement at the end
+ensure that the current year is used in the<tt> * Copyright (c) 2000-2005 The Apache Software
+Foundation.  All rights reserved.</tt> lines. Don't forget to add a license statement at the end
 of the find.html. (Can be copied from other manual files.)</p>
 
 
 <h3>Test on JDK 1.2</h3>
 <p>Until version 1.5 Ant must be able to run on a JDK 1.1. With version 1.6 this is not a
-requisite any more. But JDK 1.2 is a must be able. So we have to test that. You can download older
+requisite any more. But JDK 1.2 is a must-to-work-with. So we have to test that. You can download older
 JDKs from <a href="http://java.sun.com/products/archive/index.html">Sun [9]</a>.</p>
 
 <p>Clean the ANT_HOME variable, delete the <i>build, bootstrap</i> and <i>dist</i> directory
@@ -858,7 +851,7 @@ Sourceforge [11]</a> and Ant provides with the <tt>check.xml</tt> a buildfile wh
 for us.</p>
 
 <p>Download it and put the checkstyle-*-all.jar into your %USERPROFILE%\.ant\lib directory.
-All jar´s stored there are available to Ant so you haven´t to add it to you %ANT_HOME%\lib
+All jar's stored there are available to Ant so you haven't to add it to you %ANT_HOME%\lib
 directory (this feature was added with Ant 1.6).</p>
 
 <p>So we will run the tests with
@@ -874,16 +867,19 @@ to do that.</p>
 up to date and you will find the next error place much more easier without redoing the checkstyle.</p>
 
 <p>After cleaning up the code according to the messages we delete the reports directory and
-do a second checkstyle run. Now our task isn´t listed. That´s fine :-)</p>
+do a second checkstyle run. Now our task isn't listed. That's fine :-)</p>
 
 
 
-
+<!--
+  Couldnt create the diff that way for myself, but that should be documented.
+  But on the other hand this tutorial should not be forgotten any longer so I
+  comment that out.  JHM
 <h3>Creating the diff</h3>
 <p>Creating a diff for Ant is very easy: just start <tt>ant -f patch.xml</tt> and all is done
 automatically. This step requires a cvs executable in your path and internet access (more precise:
 cvs access). As a result we get a file <i> XXX </i>.</p>
-
+-->
 
 
 <h3>Publish the task</h3>
@@ -906,18 +902,18 @@ entry. For both we need some information:</p>
 <tr>
   <th>attachements</th>
   <td><i>all files needed to apply the path</td>
-  <td>Archive containing the path produced with path.xml</td>
+  <td>Archive containing a patch with the new and modified resources</td>
 </tr>
 </table>
 
-<p>Sending an email with these information is very easy and I think I haven´t to show that.
+<p>Sending an email with these information is very easy and I think I haven't to show that.
 The other way - BugZilla - is slightly more difficult. But it has the advantage that entries
 will not be forgotten (once per week a report is generated). So I will show this way.</p>
 
 <p>You must have a BugZilla account for that. So open the <a href="http://issues.apache.org/bugzilla/">
 BugZilla Main Page [12]</a> and follow the link
 <a href="http://issues.apache.org/bugzilla/createaccount.cgi">Open a new Bugzilla account [13]</a>
-and the steps described there if you haven´t one.</p>
+and the steps described there if you haven't one.</p>
 
 <ol>
 <li>From the BugZilla main page choose <a href="http://issues.apache.org/bugzilla/enter_bug.cgi">Enter
@@ -934,56 +930,45 @@ and the steps described there if you haven´t one.</p>
 <li>Summary: add the <i>subject</i> from the table</li>
 <li>Description: add the <i>body</i> from the table</li>
 <li>Then press "Commit"</li>
-
-<!-- XXX MAT: Attachement eintragen, wenn ich das online auch mache - dazu brauche ich vorher
-     das CVS Patch -->
-
+<li>After redirecting to the new created bug entry click "Create a New Attachment"</li>
+<li>Enter the path to your local path file into "File" or choose it via the "File"'s
+    button.</li>
+<li>Enter a short description into "Description", so that you could guess, what the
+    path file includes. Here we could add "Initial Patch".</li>
+<li>The "Content Type" is "auto-detect". You could use the "patch" type, if you only
+    provide a single path file, but we want do upload more that one, included in our
+    patch.zip.</li>
+<li>Then press "Commit"</li>
 </ol>
+Now the new task is uploaded into the bug database.
 
 
+<h2><a name="resources">Resources</a></h2>
+&nbsp;&nbsp;[1] <a href="tutorial-writing-tasks.html">tutorial-writing-tasks.html</a><br>
+&nbsp;&nbsp;[2] <a href="tutorial-tasks-filesets-properties.zip">tutorial-tasks-filesets-properties.zip</a><br>
+&nbsp;&nbsp;[3] <a href="using.html#built-in-props">using.html#built-in-props</a><br>
+&nbsp;&nbsp;[4] <a href="http://ant-contrib.sourceforge.net/">http://ant-contrib.sourceforge.net/</a><br>
+&nbsp;&nbsp;[5] <a href="CoreTasks/java.html">CoreTasks/java.html</a><br>
+&nbsp;&nbsp;[6] <a href="CoreTasks/find.html">CoreTasks/find.html</a><br>
+&nbsp;&nbsp;[7] <a href="../ant_task_guidelines.html">../ant_task_guidelines.html</a><br>
+&nbsp;&nbsp;[8] <a href="http://ant.apache.org/cvs.html">http://ant.apache.org/cvs.html</a><br>
+&nbsp;&nbsp;[9] <a href="http://java.sun.com/products/archive/index.html">http://java.sun.com/products/archive/index.html</a><br>
+&nbsp;&nbsp;[10] <a href="http://java.sun.com/docs/codeconv/html/CodeConvTOC.doc.html">http://java.sun.com/docs/codeconv/html/CodeConvTOC.doc.html</a><br>
+&nbsp;&nbsp;[11] <a href="http://checkstyle.sourceforge.net/">http://checkstyle.sourceforge.net/</a><br>
+&nbsp;&nbsp;[12] <a href="http://issues.apache.org/bugzilla/">http://issues.apache.org/bugzilla/</a><br>
+&nbsp;&nbsp;[13] <a href="http://issues.apache.org/bugzilla/createaccount.cgi">http://issues.apache.org/bugzilla/createaccount.cgi</a><br>
+&nbsp;&nbsp;[14] <a href="http://issues.apache.org/bugzilla/enter_bug.cgi">http://issues.apache.org/bugzilla/enter_bug.cgi</a><br>
 
-<br><br><br><br><br><br><br><br>
-- patch erstellen --&gt; zu hause wg. cvs zugang <br>
-- bugzilla einstellen --&gt; zu hause wg. abhängigkeit zu patch-file
-
-
-
-
-<a name="resources"/>
-<h2>Resources</h2>
-&nbsp;&nbsp;[1] <a href="tutorial-writing-tasks.html">tutorial-writing-tasks.html</a><br/>
-&nbsp;&nbsp;[2] <a href="tutorial-tasks-filesets-properties.zip">tutorial-tasks-filesets-properties.zip</a><br/>
-&nbsp;&nbsp;[3] <a href="using.html#built-in-props">using.html#built-in-props</a><br/>
-&nbsp;&nbsp;[4] <a href="http://ant-contrib.sourceforge.net/">http://ant-contrib.sourceforge.net/</a><br/>
-&nbsp;&nbsp;[5] <a href="CoreTasks/java.html">CoreTasks/java.html</a><br/>
-&nbsp;&nbsp;[6] <a href="CoreTasks/find.html">CoreTasks/find.html</a><br/>
-&nbsp;&nbsp;[7] <a href="../ant_task_guidelines.html">../ant_task_guidelines.html</a><br/>
-&nbsp;&nbsp;[8] <a href="http://ant.apache.org/cvs.html">http://ant.apache.org/cvs.html</a><br/>
-&nbsp;&nbsp;[9] <a href="http://java.sun.com/products/archive/index.html">http://java.sun.com/products/archive/index.html</a><br/>
-&nbsp;&nbsp;[10] <a href="http://java.sun.com/docs/codeconv/html/CodeConvTOC.doc.html">http://java.sun.com/docs/codeconv/html/CodeConvTOC.doc.html</a><br/>
-&nbsp;&nbsp;[11] <a href="http://checkstyle.sourceforge.net/">http://checkstyle.sourceforge.net/</a><br/>
-&nbsp;&nbsp;[12] <a href="http://issues.apache.org/bugzilla/">http://issues.apache.org/bugzilla/</a><br/>
-&nbsp;&nbsp;[13] <a href="http://issues.apache.org/bugzilla/createaccount.cgi">http://issues.apache.org/bugzilla/createaccount.cgi</a><br/>
-&nbsp;&nbsp;[14] <a href="http://issues.apache.org/bugzilla/enter_bug.cgi">http://issues.apache.org/bugzilla/enter_bug.cgi</a><br/>
-
-<br><br><br>
 
 <!--
-&nbsp;&nbsp;[15] <a href=" "> </a><br/>
-&nbsp;&nbsp;[16] <a href=" "> </a><br/>
-&nbsp;&nbsp;[17] <a href=" "> </a><br/>
-&nbsp;&nbsp;[18] <a href=" "> </a><br/>
-&nbsp;&nbsp;[19] <a href=" "> </a><br/>
-&nbsp;&nbsp;[20] <a href=" "> </a><br/>
-&nbsp;&nbsp;[21] <a href=" "> </a><br/>
-&nbsp;&nbsp;[22] <a href=" "> </a><br/>
-&nbsp;&nbsp;[23] <a href=" "> </a><br/>
-&nbsp;&nbsp;[24] <a href=" "> </a><br/>
-&nbsp;&nbsp;[25] <a href=" "> </a><br/>
+  TODO:
+  - how to create a path (path.xml / command line)
 -->
 
+
+
 <hr>
-<p align="center">Copyright &copy; 2003-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2003-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 
 </body>

@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,9 +15,6 @@
  *
  */
 package org.apache.tools.ant.taskdefs.optional;
-
-import java.io.*;
-import java.util.Properties;
 
 import org.apache.tools.ant.BuildFileTest;
 
@@ -88,6 +85,13 @@ public class DotnetTest extends BuildFileTest {
      */
     public void testCscReferences() throws Exception {
         executeTarget("testCscReferences");
+    }
+
+    /**
+     * A unit test for JUnit
+     */
+    public void testCscResources() throws Exception {
+        executeTarget("testCSCResources");
     }
 
     /**

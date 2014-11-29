@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,8 +34,6 @@ package org.apache.tools.ant.taskdefs.optional.dotnet;
 
 import java.io.File;
 
-import org.apache.tools.ant.taskdefs.condition.Os;
-
 // ====================================================================
 
 /**
@@ -60,8 +59,14 @@ import org.apache.tools.ant.taskdefs.condition.Os;
  * For more complex source trees, nested <tt>src</tt> elemements can be
  * supplied. When such an element is present, the implicit fileset is ignored.
  * This makes sense, when you think about it :)
- * <p>
  *
+ * <p>For historical reasons the pattern
+ * <code>**</code><code>/*.cs</code> is preset as includes list and
+ * you can not override it with an explicit includes attribute.  Use
+ * nested <code>&lt;src&gt;</code> elements instead of the basedir
+ * attribute if you need more control.</p>
+ *
+ * <p>
  * References to external files can be made through the references attribute,
  * or (since Ant1.6), via nested &lt;reference&gt; filesets. With the latter,
  * the timestamps of the references are also used in the dependency
@@ -154,7 +159,7 @@ public class CSharp extends DotnetCompile {
         unsafe = false;
         noconfig = false;
         definitions = null;
-        setExecutable(Os.isFamily("windows") ? "csc" : "mcs");
+        setExecutable(isWindows ? "csc" : "mcs");
     }
 
 
@@ -376,14 +381,8 @@ public class CSharp extends DotnetCompile {
         return "cs";
     }
 
-    /**
-     * from a resource, get the resource param string
-     * @param resource
-     * @return a string containing the resource param, or a null string
-     * to conditionally exclude a resource.
-     */
-    protected String createResourceParameter(DotnetResource resource) {
-        return resource.getCSharpStyleParameter();
+    protected void createResourceParameter(NetCommand command, DotnetResource resource) {
+        resource.getParameters(getProject(), command, true);
     }
 
 }

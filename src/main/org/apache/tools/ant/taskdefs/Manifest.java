@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,13 +30,13 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.util.CollectionUtils;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Holds the data of a jar manifest.
  *
  * Manifests are processed according to the
- * {@link <a href="http://java.sun.com/j2se/1.4/docs/guide/jar/jar.html">Jar
+ * {@link <a href="http://java.sun.com/j2se/1.5.0/docs/guide/jar/jar.html">Jar
  * file specification.</a>}.
  * Specifically, a manifest element consists of
  * a set of attributes and sections. These sections in turn may contain
@@ -79,14 +80,36 @@ public class Manifest {
 
     /** The End-Of-Line marker in manifests */
     public static final String EOL = "\r\n";
+    /** Error for attributes */
     public static final String ERROR_FROM_FORBIDDEN = "Manifest attributes should not start "
                         + "with \"" + ATTRIBUTE_FROM + "\" in \"";
 
+    /** Encoding to be used for JAR files. */
+    public static final String JAR_ENCODING = "UTF-8";
+    
     /**
      * An attribute for the manifest.
      * Those attributes that are not nested into a section will be added to the "Main" section.
      */
     public static class Attribute {
+
+        /**
+         * Maximum length of the name to have the value starting on the same
+         * line as the name. This to stay under 72 bytes total line length
+         * (including CRLF).
+         */
+        private static final int MAX_NAME_VALUE_LENGTH = 68;
+
+        /**
+         * Maximum length of the name according to the jar specification.
+         * In this case the first line will have 74 bytes total line length
+         * (including CRLF). This conflicts with the 72 bytes total line length
+         * max, but is the only possible conclusion from the manifest specification, if
+         * names with 70 bytes length are allowed, have to be on the first line, and 
+         * have to be followed by ": ".
+         */
+        private static final int MAX_NAME_LENGTH = 70;
+
         /** The attribute's name */
         private String name = null;
 
@@ -161,7 +184,7 @@ public class Manifest {
                 return false;
             }
 
-            return CollectionUtils.equals(values, rhsAttribute.values);
+            return values.equals(rhsAttribute.values);
         }
 
         /**
@@ -301,12 +324,31 @@ public class Manifest {
          */
         private void writeValue(PrintWriter writer, String value)
              throws IOException {
-            String line = name + ": " + value;
-            while (line.getBytes().length > MAX_LINE_LENGTH) {
+            String line = null;
+            int nameLength = name.getBytes(JAR_ENCODING).length;
+            if (nameLength > MAX_NAME_VALUE_LENGTH)
+            {
+                if (nameLength > MAX_NAME_LENGTH)
+                {
+                    throw new IOException("Unable to write manifest line "
+                            + name + ": " + value);
+                }
+                writer.print(name + ": " + EOL);
+                line = " " + value;
+            }
+            else
+            {
+                line = name + ": " + value;
+            }
+            while (line.getBytes(JAR_ENCODING).length > MAX_SECTION_LENGTH) {
                 // try to find a MAX_LINE_LENGTH byte section
                 int breakIndex = MAX_SECTION_LENGTH;
+                if (breakIndex >= line.length())
+                {
+                    breakIndex = line.length() - 1;
+                }
                 String section = line.substring(0, breakIndex);
-                while (section.getBytes().length > MAX_SECTION_LENGTH
+                while (section.getBytes(JAR_ENCODING).length > MAX_SECTION_LENGTH
                      && breakIndex > 0) {
                     breakIndex--;
                     section = line.substring(0, breakIndex);
@@ -516,7 +558,7 @@ public class Manifest {
         }
 
         /**
-         * Remove tge given attribute from the section
+         * Remove the given attribute from the section
          *
          * @param attributeName the name of the attribute to be removed.
          */
@@ -673,7 +715,7 @@ public class Manifest {
 
             Section rhsSection = (Section) rhs;
 
-            return CollectionUtils.equals(attributes, rhsSection.attributes);
+            return attributes.equals(rhsSection.attributes);
         }
     }
 
@@ -698,28 +740,34 @@ public class Manifest {
      *            default manifest
      */
     public static Manifest getDefaultManifest() throws BuildException {
+        InputStream in = null;
+        InputStreamReader insr = null;
         try {
             String defManifest = "/org/apache/tools/ant/defaultManifest.mf";
-            InputStream in = Manifest.class.getResourceAsStream(defManifest);
+            in = Manifest.class.getResourceAsStream(defManifest);
             if (in == null) {
                 throw new BuildException("Could not find default manifest: "
                     + defManifest);
             }
             try {
-                Manifest defaultManifest
-                    = new Manifest(new InputStreamReader(in, "UTF-8"));
+                insr = new InputStreamReader(in, "UTF-8");
+                Manifest defaultManifest = new Manifest(insr);
                 Attribute createdBy = new Attribute("Created-By",
                     System.getProperty("java.vm.version") + " ("
                     + System.getProperty("java.vm.vendor") + ")");
                 defaultManifest.getMainSection().storeAttribute(createdBy);
                 return defaultManifest;
             } catch (UnsupportedEncodingException e) {
-                return new Manifest(new InputStreamReader(in));
+                insr = new InputStreamReader(in);
+                return new Manifest(insr);
             }
         } catch (ManifestException e) {
             throw new BuildException("Default manifest is invalid !!", e);
         } catch (IOException e) {
             throw new BuildException("Unable to read default manifest", e);
+        } finally {
+            FileUtils.close(insr);
+            FileUtils.close(in);
         }
     }
 
@@ -987,7 +1035,7 @@ public class Manifest {
             return false;
         }
 
-        return CollectionUtils.equals(sections, rhsManifest.sections);
+        return sections.equals(rhsManifest.sections);
     }
 
     /**

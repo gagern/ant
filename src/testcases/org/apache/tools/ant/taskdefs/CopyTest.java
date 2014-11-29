@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
+ * Copyright 2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.util.FileUtils;
-import org.apache.tools.ant.util.JavaEnvUtils;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 
 /**
@@ -83,10 +83,8 @@ public class CopyTest extends BuildFileTest {
         }
 
         //file time checks for java1.2+
-        if (!JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            assertTrue(file3a.lastModified()==file3.lastModified());
-            assertTrue(file3c.lastModified()<file3a.lastModified());
-        }
+        assertTrue(file3a.lastModified()==file3.lastModified());
+        assertTrue(file3c.lastModified()<file3a.lastModified());
 
     }
 
@@ -123,6 +121,13 @@ public class CopyTest extends BuildFileTest {
         assertTrue(file.exists());
     }
 
+    public void testSingleFilePath() {
+        executeTarget("test_single_file_path");
+        File file  = new File(getProjectDir(),
+                                        "copytest_single_file_path.tmp");
+        assertTrue(file.exists());
+    }
+
     public void testTranscoding() throws IOException {
         executeTarget("testTranscoding");
         File f1 = getProject().resolveFile("copy/expected/utf-8");
@@ -149,4 +154,77 @@ public class CopyTest extends BuildFileTest {
         expectBuildException("testMissingDirBail", "not-there doesn't exist");
         assertTrue(getBuildException().getMessage().endsWith(" not found."));
     }
+    
+    public void testFileResourcePlain() {
+        executeTarget("testFileResourcePlain");
+        File file1 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file1.txt");
+        File file2 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file2.txt");
+        File file3 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file3.txt");
+        assertTrue(file1.exists());
+        assertTrue(file2.exists());
+        assertTrue(file3.exists());
+    }
+    
+    public void _testFileResourceWithMapper() {
+        executeTarget("testFileResourceWithMapper");
+        File file1 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file1.txt.bak");
+        File file2 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file2.txt.bak");
+        File file3 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file3.txt.bak");
+        assertTrue(file1.exists());
+        assertTrue(file2.exists());
+        assertTrue(file3.exists());
+    }
+    
+    public void testFileResourceWithFilter() {
+        executeTarget("testFileResourceWithFilter");
+        File file1 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/fileNR.txt");
+        assertTrue(file1.exists());
+        try {
+            String file1Content = FILE_UTILS.readFully(new FileReader(file1));
+            assertEquals("This is file 42", file1Content);
+        } catch (IOException e) {
+            // no-op: not a real business error
+        }
+    }
+    
+    public void testPathAsResource() {
+        executeTarget("testPathAsResource");
+        File file1 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file1.txt");
+        File file2 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file2.txt");
+        File file3 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file3.txt");
+        assertTrue(file1.exists());
+        assertTrue(file2.exists());
+        assertTrue(file3.exists());
+    }
+    
+    public void testZipfileset() {
+        executeTarget("testZipfileset");
+        File file1 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file1.txt");
+        File file2 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file2.txt");
+        File file3 = new File(getProjectDir(), getProject().getProperty("to.dir")+"/file3.txt");
+        assertTrue(file1.exists());
+        assertTrue(file2.exists());
+        assertTrue(file3.exists());
+    }
+
+    public void testDirset() {
+        executeTarget("testDirset");
+    }
+    
+    public void _testResourcePlain() {
+        executeTarget("testResourcePlain");
+    }
+    
+    public void _testResourcePlainWithMapper() {
+        executeTarget("testResourcePlainWithMapper");
+    }
+    
+    public void _testResourcePlainWithFilter() {
+        executeTarget("testResourcePlainWithFilter");
+    }
+    
+    public void _testOnlineResources() {
+        executeTarget("testOnlineResources");
+    }
+    
 }

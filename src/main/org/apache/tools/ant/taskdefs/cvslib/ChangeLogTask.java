@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -60,7 +61,6 @@ import org.apache.tools.ant.util.FileUtils;
  * <font color=#6a5acd>&lt;!ELEMENT</font> prevrevision <font color=#ff00ff>(#PCDATA)</font><font color=#6a5acd>&gt;</font>
  * </pre>
  *
- * @version $Revision$ $Date$
  * @since Ant 1.5
  * @ant.task name="cvschangelog" category="scm"
  */
@@ -218,7 +218,7 @@ public class ChangeLogTask extends AbstractCvsTask {
                 // We want something of the form: -d ">=YYYY-MM-dd"
                 final String dateRange = ">=" + outputDate.format(startDate);
 
-        // Supply '-d' as a separate argument - Bug# 14397
+                // Supply '-d' as a separate argument - Bug# 14397
                 addCommandArgument("-d");
                 addCommandArgument(dateRange);
             }
@@ -247,13 +247,15 @@ public class ChangeLogTask extends AbstractCvsTask {
 
             setDest(inputDir);
             setExecuteStreamHandler(handler);
-            super.execute();
-            final String errors = handler.getErrors();
+            try {
+                super.execute();
+            } finally {
+                final String errors = handler.getErrors();
 
-            if (null != errors) {
-                log(errors, Project.MSG_ERR);
+                if (null != errors) {
+                    log(errors, Project.MSG_ERR);
+                }
             }
-
             final CVSEntry[] entrySet = parser.getEntrySetAsArray();
             final CVSEntry[] filteredEntrySet = filterEntrySet(entrySet);
 
@@ -325,7 +327,24 @@ public class ChangeLogTask extends AbstractCvsTask {
         for (int i = 0; i < entrySet.length; i++) {
             final CVSEntry cvsEntry = entrySet[i];
             final Date date = cvsEntry.getDate();
-
+            
+            //bug#30471
+            //this is caused by Date.after throwing a NullPointerException
+            //for some reason there's no date set in the CVSEntry
+            //Java 1.3.1 API
+            //http://java.sun.com/j2se/1.3/docs/api/java/util/Date.html#after(java.util.Date)
+            //doesn't throw NullPointerException
+            //Java 1.4.2 + 1.5 API
+            //http://java.sun.com/j2se/1.4.2/docs/api/java/util/Date.html#after(java.util.Date)
+            //according to the docs it doesn't throw, according to the bug report it does
+            //http://java.sun.com/j2se/1.5.0/docs/api/java/util/Date.html#after(java.util.Date)
+            //according to the docs it does throw
+            
+            //for now skip entries which are missing a date
+            if (null == date) {
+                continue;
+            }
+            
             if (null != startDate && startDate.after(date)) {
                 //Skip dates that are too early
                 continue;

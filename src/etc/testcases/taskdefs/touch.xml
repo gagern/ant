@@ -53,6 +53,12 @@
     </touch>
   </target>
 
+  <target name="testResourceCollection">
+    <touch millis="1662256000000">
+      <file file="touchtest"/>
+    </touch>
+  </target>
+
   <target name="testMappedFileset">
     <touch file="touchtest" millis="${mappermillis}" />
     <touch>
@@ -63,19 +69,34 @@
       </compositemapper>
     </touch>
 
+    <fileset id="touchtest" file="touchtest">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <fileset id="touchtestfoo" file="touchtestfoo">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <fileset id="touchtestbar" file="touchtestbar">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <pathconvert property="touchtest" pathsep=" "
+                 refid="touchtest" setonempty="false" />
+
+    <pathconvert property="touchtestfoo" pathsep=" "
+                 refid="touchtestfoo" setonempty="false" />
+
+    <pathconvert property="touchtestbar" pathsep=" "
+                 refid="touchtestbar" setonempty="false" />
+
     <fail>
       <condition>
         <not>
           <and>
-            <isfileselected file="touchtest">
-              <selector refid="map.selector" />
-            </isfileselected>
-            <isfileselected file="touchtestfoo">
-              <selector refid="map.selector" />
-            </isfileselected>
-            <isfileselected file="touchtestbar">
-              <selector refid="map.selector" />
-            </isfileselected>
+            <isset property="touchtest" />
+            <isset property="touchtestfoo" />
+            <isset property="touchtestbar" />
           </and>
         </not>
       </condition>
@@ -95,19 +116,34 @@
       </mapper>
     </touch>
 
+    <fileset id="touchtest" file="touchtest">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <fileset id="touchtestfoo" file="touchtestfoo">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <fileset id="touchtestbar" file="touchtestbar">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <pathconvert property="touchtest" pathsep=" "
+                 refid="touchtest" setonempty="false" />
+
+    <pathconvert property="touchtestfoo" pathsep=" "
+                 refid="touchtestfoo" setonempty="false" />
+
+    <pathconvert property="touchtestbar" pathsep=" "
+                 refid="touchtestbar" setonempty="false" />
+
     <fail>
       <condition>
         <not>
           <and>
-            <isfileselected file="touchtest">
-              <selector refid="map.selector" />
-            </isfileselected>
-            <isfileselected file="touchtestfoo">
-              <selector refid="map.selector" />
-            </isfileselected>
-            <isfileselected file="touchtestbar">
-              <selector refid="map.selector" />
-            </isfileselected>
+            <isset property="touchtest" />
+            <isset property="touchtestfoo" />
+            <isset property="touchtestbar" />
           </and>
         </not>
       </condition>
@@ -121,12 +157,17 @@
       <mergemapper to="touchtest" />
     </touch>
 
+    <fileset id="touchtest" file="touchtest">
+      <selector refid="map.selector" />
+    </fileset>
+
+    <pathconvert property="touchtest" pathsep=" "
+                 refid="touchtest" setonempty="false" />
+
     <fail>
       <condition>
         <not>
-          <isfileselected file="touchtest">
-            <selector refid="map.selector" />
-          </isfileselected>
+          <isset property="touchtest" />
         </not>
       </condition>
     </fail>
@@ -135,12 +176,18 @@
 
   <target name="testGoodPattern">
     <touch file="touchtest" datetime="06242003142012GMTfoo" pattern="MMddyyyyHHmmssz'foo'" />
+
+    <fileset id="touchtest" file="touchtest">
+      <date millis="1056464412000" />
+    </fileset>
+
+    <pathconvert property="touchtest" pathsep=" "
+                 refid="touchtest" setonempty="false" />
+
     <fail>
       <condition>
         <not>
-          <isfileselected file="touchtest">
-            <date millis="1056464412000" />
-          </isfileselected>
+          <isset property="touchtest" />
         </not>
       </condition>
     </fail>

@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -511,7 +512,7 @@ public class WeblogicDeploymentTool extends GenericDeploymentTool {
         String ejbcClassName = ejbcClass;
 
         try {
-            javaTask = (Java) getTask().getProject().createTask("java");
+            javaTask = new Java(getTask());
             javaTask.setTaskName("ejbc");
 
             javaTask.createJvmarg().setLine(additionalJvmArgs);
@@ -665,6 +666,7 @@ public class WeblogicDeploymentTool extends GenericDeploymentTool {
         JarFile wlJar = null;
         File newWLJarFile = null;
         JarOutputStream newJarStream = null;
+        ClassLoader genericLoader = null;
 
         try {
             log("Checking if weblogic Jar needs to be rebuilt for jar " + weblogicJarFile.getName(),
@@ -694,8 +696,7 @@ public class WeblogicDeploymentTool extends GenericDeploymentTool {
                 }
 
                 //Cycle Through generic and make sure its in weblogic
-                ClassLoader genericLoader
-                    = getClassLoaderFromJar(genericJarFile);
+                genericLoader = getClassLoaderFromJar(genericJarFile);
 
                 for (Enumeration e = genericEntries.keys(); e.hasMoreElements();) {
                     String filepath = (String) e.nextElement();
@@ -797,11 +798,6 @@ public class WeblogicDeploymentTool extends GenericDeploymentTool {
                     log("Weblogic Jar rebuild needed due to changed "
                          + "interface or XML", Project.MSG_VERBOSE);
                 }
-
-                if (genericLoader instanceof AntClassLoader) {
-                    AntClassLoader loader = (AntClassLoader) genericLoader;
-                    loader.cleanup();
-                }
             } else {
                 rebuild = true;
             }
@@ -845,6 +841,11 @@ public class WeblogicDeploymentTool extends GenericDeploymentTool {
                     log(renameException.getMessage(), Project.MSG_WARN);
                     rebuild = true;
                 }
+            }
+            if (genericLoader != null
+                && genericLoader instanceof AntClassLoader) {
+                AntClassLoader loader = (AntClassLoader) genericLoader;
+                loader.cleanup();
             }
         }
 

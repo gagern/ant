@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.util.JavaEnvUtils;
-
-import java.net.*;
 import junit.framework.*;
 import java.io.*;
 
@@ -29,12 +27,12 @@ import java.io.*;
  */
 public class ExecuteWatchdogTest extends TestCase {
 
-    private final static int TIME_OUT = 5000;
+    private final static long TIME_OUT = 5000;
 
     private final static String TEST_CLASSPATH = getTestClassPath();
 
     private final static int CLOCK_ERROR=200;
-    private final static int TIME_OUT_TEST=TIME_OUT-CLOCK_ERROR;
+    private final static long TIME_OUT_TEST=TIME_OUT-CLOCK_ERROR;
 
     private ExecuteWatchdog watchdog;
 
@@ -57,18 +55,10 @@ public class ExecuteWatchdogTest extends TestCase {
             classpath = System.getProperty("java.class.path");
         }
 
-        // JDK 1.1 needs classes.zip in -classpath argument
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            classpath +=   File.pathSeparator
-                + System.getProperty("java.home")
-                + File.separator + "lib"
-                + File.separator + "classes.zip";
-        }
-
         return classpath;
     }
 
-    private Process getProcess(int timetorun) throws Exception {
+    private Process getProcess(long timetorun) throws Exception {
         String[] cmdArray = {
             JavaEnvUtils.getJreExecutable("java"), "-classpath", TEST_CLASSPATH,
             TimeProcess.class.getName(), String.valueOf(timetorun)
@@ -104,7 +94,7 @@ public class ExecuteWatchdogTest extends TestCase {
         watchdog.start(process);
         int retCode = waitForEnd(process);
         assertTrue("process should not have been killed", !watchdog.killedProcess());
-        assertEquals(0, retCode);
+        assertFalse(Execute.isFailure(retCode));
     }
 
     // test that the watchdog ends the process

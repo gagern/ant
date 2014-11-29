@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2002,2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +26,12 @@ import java.util.Vector;
  *
  */
 public final class StringUtils {
+
+    /**
+     * constructor to stop anyone instantiating the class
+     */
+    private StringUtils() {
+    }
 
     /** the line separator for this OS */
     public static final String LINE_SEP = System.getProperty("line.separator");
@@ -92,4 +99,35 @@ public final class StringUtils {
         return sw.toString();
     }
 
+    /**
+     * Checks that a string buffer ends up with a given string. It may sound trivial with the existing
+     * JDK API but the various implementation among JDKs can make those methods extremely resource intensive
+     * and perform poorly due to massive memory allocation and copying. See
+     * @param buffer the buffer to perform the check on
+     * @param suffix the suffix
+     * @return  <code>true</code> if the character sequence represented by the
+     *          argument is a suffix of the character sequence represented by
+     *          the StringBuffer object; <code>false</code> otherwise. Note that the
+     *          result will be <code>true</code> if the argument is the
+     *          empty string.
+     */
+    public static boolean endsWith(StringBuffer buffer, String suffix) {
+        if (suffix.length() > buffer.length()) {
+            return false;
+        }
+        // this loop is done on purpose to avoid memory allocation performance problems on various JDKs
+        // StringBuffer.lastIndexOf() was introduced in jdk 1.4 and implementation is ok though does allocation/copying
+        // StringBuffer.toString().endsWith() does massive memory allocation/copying on JDK 1.5
+        // See http://issues.apache.org/bugzilla/show_bug.cgi?id=37169
+        int endIndex = suffix.length() - 1;
+        int bufferIndex = buffer.length() - 1;
+        while ( endIndex >= 0 ) {
+            if ( buffer.charAt(bufferIndex) != suffix.charAt(endIndex) ) {
+                return false;
+            }
+            bufferIndex--;
+            endIndex--;
+        }
+        return true;
+    }
 }

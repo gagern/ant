@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,7 +38,6 @@ public class Ear extends Jar {
     private File deploymentDescriptor;
     private boolean descriptorAdded;
 
-
     /**
      * Create an Ear task.
      */
@@ -48,7 +48,10 @@ public class Ear extends Jar {
     }
 
     /**
-     * @deprecated Use setDestFile(destfile) instead
+     * Set the destination file.
+     * @param earFile the destination file
+     * @deprecated since 1.5.x. 
+     *             Use setDestFile(destfile) instead.
      */
     public void setEarfile(File earFile) {
         setDestFile(earFile);
@@ -56,6 +59,7 @@ public class Ear extends Jar {
 
     /**
      * File to incorporate as application.xml.
+     * @param descr the descriptor file
      */
     public void setAppxml(File descr) {
         deploymentDescriptor = descr;
@@ -86,6 +90,12 @@ public class Ear extends Jar {
     }
 
 
+    /**
+     * Initialize the output stream.
+     * @param zOut the zip output stream.
+     * @throws IOException on I/O errors
+     * @throws BuildException on other errors
+     */
     protected void initZipOutputStream(ZipOutputStream zOut)
         throws IOException, BuildException {
         // If no webxml file is specified, it's an error.
@@ -98,6 +108,11 @@ public class Ear extends Jar {
 
     /**
      * Overridden from Zip class to deal with application.xml
+     * @param file the file to add to the archive
+     * @param zOut the stream to write to
+     * @param vPath the name this entry shall have in the archive
+     * @param mode the Unix permissions to set.
+     * @throws IOException on error
      */
     protected void zipFile(File file, ZipOutputStream zOut, String vPath,
                            int mode)

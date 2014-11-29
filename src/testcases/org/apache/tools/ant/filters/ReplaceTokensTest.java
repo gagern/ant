@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.apache.tools.ant.util.FileUtils;
 /**
  */
 public class ReplaceTokensTest extends BuildFileTest {
-    
+
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     public ReplaceTokensTest(String name) {
@@ -43,8 +43,15 @@ public class ReplaceTokensTest extends BuildFileTest {
 
     public void testReplaceTokens() throws IOException {
         executeTarget("testReplaceTokens");
-        File expected = getProject().resolveFile("expected/replacetokens.test");
-        File result = getProject().resolveFile("result/replacetokens.test");
+        File expected = FILE_UTILS.resolveFile(getProject().getBaseDir(),"expected/replacetokens.test");
+        File result = FILE_UTILS.resolveFile(getProject().getBaseDir(),"result/replacetokens.test");
+        assertTrue(FILE_UTILS.contentEquals(expected, result));
+    }
+
+    public void testReplaceTokensPropertyFile() throws IOException {
+        executeTarget("testReplaceTokensPropertyFile");
+        File expected = FILE_UTILS.resolveFile(getProjectDir(), "expected/replacetokens.test");
+        File result = FILE_UTILS.resolveFile(getProjectDir(), "result/replacetokensPropertyFile.test");
         assertTrue(FILE_UTILS.contentEquals(expected, result));
     }
 

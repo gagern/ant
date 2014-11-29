@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,36 +18,35 @@
 
 package org.apache.tools.ant.helper;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Location;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectHelper;
+import org.apache.tools.ant.RuntimeConfigurable;
+import org.apache.tools.ant.Target;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.UnknownElement;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.JAXPUtils;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Map;
 import java.util.Stack;
-
-import org.xml.sax.Locator;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.SAXException;
-import org.xml.sax.Attributes;
-import org.xml.sax.helpers.DefaultHandler;
-
-import org.apache.tools.ant.util.JAXPUtils;
-import org.apache.tools.ant.util.FileUtils;
-
-import org.apache.tools.ant.ProjectHelper;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.Target;
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.RuntimeConfigurable;
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.Location;
-import org.apache.tools.ant.UnknownElement;
-
-import org.xml.sax.XMLReader;
 
 /**
  * Sax2 based project reader
@@ -117,20 +117,24 @@ public class ProjectHelper2 extends ProjectHelper {
             context.setIgnoreProjectTag(true);
             Target currentTarget = context.getCurrentTarget();
             Target currentImplicit = context.getImplicitTarget();
+            Map    currentTargets = context.getCurrentTargets();
             try {
                 Target newCurrent = new Target();
                 newCurrent.setProject(project);
                 newCurrent.setName("");
                 context.setCurrentTarget(newCurrent);
+                context.setCurrentTargets(new HashMap());
                 context.setImplicitTarget(newCurrent);
                 parse(project, source, new RootHandler(context, mainHandler));
                 newCurrent.execute();
             } finally {
                 context.setCurrentTarget(currentTarget);
                 context.setImplicitTarget(currentImplicit);
+                context.setCurrentTargets(currentTargets);
             }
         } else {
             // top level file
+            context.setCurrentTargets(new HashMap());
             parse(project, source, new RootHandler(context, mainHandler));
             // Execute the top-level target
             context.getImplicitTarget().execute();
@@ -162,12 +166,6 @@ public class ProjectHelper2 extends ProjectHelper {
             buildFileName = buildFile.toString();
 //         } else if (source instanceof InputStream ) {
         } else if (source instanceof URL) {
-            if (handler.getCurrentAntHandler() != elementHandler) {
-                throw new BuildException(
-                    "Source " + source.getClass().getName()
-                    + " not supported by this plugin for "
-                    + " non task xml");
-            }
             url = (URL) source;
             buildFileName = url.toString();
 //         } else if (source instanceof InputSource ) {
@@ -244,15 +242,75 @@ public class ProjectHelper2 extends ProjectHelper {
                                      + buildFileName + ": " + exc.getMessage(),
                                      exc);
         } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException ioe) {
-                    // ignore this
-                }
-            }
+            FileUtils.close(inputStream);
         }
     }
+
+    /**
+     * Returns main handler
+     * @return main handler
+     */
+    protected static AntHandler getMainHandler() {
+        return mainHandler;
+    }
+
+    /**
+     * Sets main handler
+     * @param handler  new main handler
+     */
+    protected static void setMainHandler(AntHandler handler) {
+        mainHandler=handler;
+    }
+
+    /**
+     * Returns project handler
+     * @return project handler
+     */
+    protected static AntHandler getProjectHandler() {
+        return projectHandler;
+    }
+
+    /**
+     * Sets project handler
+     * @param handler  new project handler
+     */
+    protected static void setProjectHandler(AntHandler handler) {
+        projectHandler=handler;
+    }
+
+    /**
+     * Returns target handler
+     * @return target handler
+     */
+    protected static AntHandler getTargetHandler() {
+        return targetHandler;
+    }
+
+    /**
+     * Sets target handler
+     * @param handler  new target handler
+     */
+    protected static void setTargetHandler(AntHandler handler) {
+        targetHandler=handler;
+    }
+
+    /**
+     * Returns element handler
+     * @return element handler
+     */
+    protected static AntHandler getElementHandler() {
+        return elementHandler;
+    }
+
+    /**
+     * Sets element handler
+     * @param handler  new element handler
+     */
+    protected static void setElementHandler(AntHandler handler) {
+        elementHandler=handler;
+    }
+
+
 
     /**
      * The common superclass for all SAX event handlers used to parse
@@ -420,7 +478,13 @@ public class ProjectHelper2 extends ProjectHelper {
                 File file = new File(path);
                 if (!file.isAbsolute()) {
                     file = FILE_UTILS.resolveFile(context.getBuildFileParent(), path);
+                    context.getProject().log(
+                            "Warning: '" + systemId + "' in " + context.getBuildFile() +
+                            " should be expressed simply as '" + path.replace('\\', '/') +
+                            "' for compliance with other XML tools",
+                            Project.MSG_WARN);
                 }
+                context.getProject().log("file=" + file, Project.MSG_DEBUG);
                 try {
                     InputSource inputSource =
                             new InputSource(new FileInputStream(file));
@@ -433,6 +497,8 @@ public class ProjectHelper2 extends ProjectHelper {
 
             }
             // use default if not file or file not found
+            context.getProject().log(
+                "could not resolve systemId", Project.MSG_DEBUG);
             return null;
         }
 
@@ -596,7 +662,6 @@ public class ProjectHelper2 extends ProjectHelper {
                                    Attributes attrs,
                                    AntXMLContext context)
             throws SAXParseException {
-            String id = null;
             String baseDir = null;
             boolean nameAttributeSet = false;
 
@@ -815,38 +880,39 @@ public class ProjectHelper2 extends ProjectHelper {
                     + "a name attribute", context.getLocator());
             }
 
-            Hashtable currentTargets = project.getTargets();
-
-            // If the name has already been defined ( import for example )
-            if (currentTargets.containsKey(name)) {
-                if (!context.isIgnoringProjectTag()) {
-                    // not in an import'ed file
-                    throw new BuildException(
-                        "Duplicate target '" + name + "'", target.getLocation());
-                }
-                // Alter the name.
-                if (context.getCurrentProjectName() != null) {
-                    String newName = context.getCurrentProjectName()
-                        + "." + name;
-                    project.log("Already defined in main or a previous import, "
-                        + "define " + name + " as " + newName,
-                                Project.MSG_VERBOSE);
-                    name = newName;
-                } else {
-                    project.log("Already defined in main or a previous import, "
-                        + "ignore " + name, Project.MSG_VERBOSE);
-                    name = null;
-                }
+            // Check if this target is in the current build file
+            if (context.getCurrentTargets().get(name) != null) {
+                throw new BuildException(
+                    "Duplicate target '" + name + "'", target.getLocation());
             }
 
-            if (name != null) {
+            Hashtable projectTargets = project.getTargets();
+            boolean   usedTarget = false;
+            // If the name has not already been defined define it
+            if (projectTargets.containsKey(name)) {
+                project.log("Already defined in main or a previous import, "
+                            + "ignore " + name, Project.MSG_VERBOSE);
+            } else {
                 target.setName(name);
+                context.getCurrentTargets().put(name, target);
                 project.addOrReplaceTarget(name, target);
+                usedTarget = true;
             }
 
-            // take care of dependencies
             if (depends.length() > 0) {
                 target.setDepends(depends);
+            }
+
+            if (context.isIgnoringProjectTag() && context.getCurrentProjectName() != null
+                && context.getCurrentProjectName().length() != 0) {
+                // In an impored file (and not completely
+                // ignoring the project tag)
+                String newName = context.getCurrentProjectName()
+                    + "." + name;
+                Target newTarget = usedTarget ? new Target(target) : target;
+                newTarget.setName(newName);
+                context.getCurrentTargets().put(newName, newTarget);
+                project.addOrReplaceTarget(newName, newTarget);
             }
         }
 

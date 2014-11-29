@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -162,13 +163,7 @@ public class ProjectHelperImpl extends ProjectHelper {
             throw new BuildException("Error reading project file: "
                                      + exc.getMessage(), exc);
         } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException ioe) {
-                    // ignore this
-                }
-            }
+            FileUtils.close(inputStream);
         }
     }
 
@@ -302,6 +297,11 @@ public class ProjectHelperImpl extends ProjectHelper {
                 File file = new File(path);
                 if (!file.isAbsolute()) {
                     file = FILE_UTILS.resolveFile(helperImpl.buildFileParent, path);
+                    helperImpl.project.log(
+                            "Warning: '" + systemId + "' in " + helperImpl.buildFile +
+                            " should be expressed simply as '" + path.replace('\\', '/') +
+                            "' for compliance with other XML tools",
+                            Project.MSG_WARN);
                 }
                 try {
                     InputSource inputSource = new InputSource(new FileInputStream(file));
@@ -429,8 +429,8 @@ public class ProjectHelperImpl extends ProjectHelper {
                     if ((new File(baseDir)).isAbsolute()) {
                         helperImpl.project.setBasedir(baseDir);
                     } else {
-                        File resolvedBaseDir = helperImpl.project.resolveFile(baseDir,
-                                helperImpl.buildFileParent);
+                        File resolvedBaseDir = FILE_UTILS.resolveFile(
+                                helperImpl.buildFileParent, baseDir);
                         helperImpl.project.setBaseDir(resolvedBaseDir);
                     }
                 }
@@ -863,7 +863,7 @@ public class ProjectHelperImpl extends ProjectHelper {
         public void init(String propType, AttributeList attrs) throws SAXParseException {
             Class parentClass = parent.getClass();
             IntrospectionHelper ih =
-                IntrospectionHelper.getHelper(parentClass);
+                IntrospectionHelper.getHelper(helperImpl.project, parentClass);
 
             try {
                 String elementName = propType.toLowerCase(Locale.US);

@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,9 +17,13 @@
 
 package org.apache.tools.ant.util;
 
-import junit.framework.Test;
+import java.io.IOException;
+import java.io.StringWriter;
+
 import junit.framework.TestCase;
-import junit.framework.TestSuite;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 /**
  * Tests for org.apache.tools.ant.util.DOMElementWriter.
@@ -91,5 +95,162 @@ public class DOMElementWriterTest extends TestCase {
         assertEquals("A&#x5d;&#x5d;&gt;A", w.encodedata("A]]>A"));
         assertEquals("A&#x5d;&#x5d;&gt;B&#x5d;&#x5d;&gt;C",
                      w.encodedata("A]]>B]]>C"));
+    }
+
+    public void testNoAdditionalWhiteSpaceForText() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElement("root");
+        DOMUtils.appendTextElement(root, "textElement", "content");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w = new DOMElementWriter();
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root>" + StringUtils.LINE_SEP
+                     + "  <textElement>content</textElement>"
+                     + StringUtils.LINE_SEP
+                     + "</root>" + StringUtils.LINE_SEP,
+                     sw.toString());
+    }
+
+    public void testNoAdditionalWhiteSpaceForCDATA() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElement("root");
+        DOMUtils.appendCDATAElement(root, "cdataElement", "content");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w = new DOMElementWriter();
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root>" + StringUtils.LINE_SEP
+                     + "  <cdataElement><![CDATA[content]]></cdataElement>"
+                     + StringUtils.LINE_SEP
+                     + "</root>" + StringUtils.LINE_SEP,
+                     sw.toString());
+    }
+
+    public void testNoAdditionalWhiteSpaceForEmptyElement() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElement("root");
+        DOMUtils.createChildElement(root, "emptyElement");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w = new DOMElementWriter();
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root>" + StringUtils.LINE_SEP
+                     //                     + "  <emptyElement></emptyElement>"
+                     + "  <emptyElement />"
+                     + StringUtils.LINE_SEP
+                     + "</root>" + StringUtils.LINE_SEP,
+                     sw.toString());
+    }
+
+    public void testNoNSPrefixByDefault() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        root.setAttributeNS("urn:foo2", "bar", "baz");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w = new DOMElementWriter();
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root bar=\"baz\" />"
+                     + StringUtils.LINE_SEP, sw.toString());
+    }
+
+    public void testNSOnElement() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        root.setAttributeNS("urn:foo2", "bar", "baz");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w =
+            new DOMElementWriter(false,
+                                 DOMElementWriter.XmlNamespacePolicy
+                                 .ONLY_QUALIFY_ELEMENTS);
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root bar=\"baz\" xmlns=\"urn:foo\" />"
+                     + StringUtils.LINE_SEP, sw.toString());
+    }
+
+    public void testNSPrefixOnAttribute() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        root.setAttributeNS("urn:foo2", "bar", "baz");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w =
+            new DOMElementWriter(false,
+                                 DOMElementWriter.XmlNamespacePolicy
+                                 .QUALIFY_ALL);
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root ns0:bar=\"baz\" xmlns=\"urn:foo\""
+                     + " xmlns:ns0=\"urn:foo2\" />"
+                     + StringUtils.LINE_SEP, sw.toString());
+    }
+
+    public void testNSPrefixOnAttributeEvenWithoutElement() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        root.setAttributeNS("urn:foo2", "bar", "baz");
+
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w =
+            new DOMElementWriter(false,
+                                 new DOMElementWriter.XmlNamespacePolicy(false,
+                                                                         true)
+                                 );
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root ns0:bar=\"baz\" xmlns:ns0=\"urn:foo2\" />"
+                     + StringUtils.LINE_SEP, sw.toString());
+    }
+
+    public void testNSGetsReused() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        Element child = d.createElementNS("urn:foo", "child");
+        root.appendChild(child);
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w =
+            new DOMElementWriter(false,
+                                 DOMElementWriter.XmlNamespacePolicy
+                                 .ONLY_QUALIFY_ELEMENTS);
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root xmlns=\"urn:foo\">"
+                     + StringUtils.LINE_SEP
+                     + "  <child />"
+                     + StringUtils.LINE_SEP
+                     + "</root>"
+                     + StringUtils.LINE_SEP, sw.toString());
+    }
+
+    public void testNSGoesOutOfScope() throws IOException {
+        Document d = DOMUtils.newDocument();
+        Element root = d.createElementNS("urn:foo", "root");
+        Element child = d.createElementNS("urn:foo2", "child");
+        root.appendChild(child);
+        Element child2 = d.createElementNS("urn:foo2", "child");
+        root.appendChild(child2);
+        Element grandChild = d.createElementNS("urn:foo2", "grandchild");
+        child2.appendChild(grandChild);
+        Element child3 = d.createElementNS("urn:foo2", "child");
+        root.appendChild(child3);
+        StringWriter sw = new StringWriter();
+        DOMElementWriter w =
+            new DOMElementWriter(false,
+                                 DOMElementWriter.XmlNamespacePolicy
+                                 .ONLY_QUALIFY_ELEMENTS);
+        w.write(root, sw, 0, "  ");
+        assertEquals("<root xmlns=\"urn:foo\">"
+                     + StringUtils.LINE_SEP
+                     + "  <ns0:child xmlns:ns0=\"urn:foo2\" />"
+                     + StringUtils.LINE_SEP
+                     + "  <ns1:child xmlns:ns1=\"urn:foo2\">"
+                     + StringUtils.LINE_SEP
+                     + "    <ns1:grandchild />"
+                     + StringUtils.LINE_SEP
+                     + "  </ns1:child>"
+                     + StringUtils.LINE_SEP
+                     + "  <ns2:child xmlns:ns2=\"urn:foo2\" />"
+                     + StringUtils.LINE_SEP
+                      + "</root>"
+                     + StringUtils.LINE_SEP, sw.toString());
     }
 }

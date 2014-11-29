@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,15 +25,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.PatternSet;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
@@ -56,14 +63,15 @@ public class Expand extends Task {
     private boolean overwrite = true;
     private Mapper mapperElement = null;
     private Vector patternsets = new Vector();
-    private Vector filesets = new Vector();
+    private Union resources = new Union();
+    private boolean resourcesSpecified = false;
 
     private static final String NATIVE_ENCODING = "native-encoding";
 
     private String encoding = "UTF8";
     /** Error message when more that one mapper is defined */
     public static final String ERROR_MULTIPLE_MAPPERS = "Cannot define more than one mapper";
-    
+
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
@@ -76,8 +84,8 @@ public class Expand extends Task {
             log("!! expand is deprecated. Use unzip instead. !!");
         }
 
-        if (source == null && filesets.size() == 0) {
-            throw new BuildException("src attribute and/or filesets must be "
+        if (source == null && !resourcesSpecified) {
+            throw new BuildException("src attribute and/or resources must be "
                                      + "specified");
         }
 
@@ -98,17 +106,17 @@ public class Expand extends Task {
                 expandFile(FILE_UTILS, source, dest);
             }
         }
-        if (filesets.size() > 0) {
-            for (int j = 0, size = filesets.size(); j < size; j++) {
-                FileSet fs = (FileSet) filesets.elementAt(j);
-                DirectoryScanner ds = fs.getDirectoryScanner(getProject());
-                File fromDir = fs.getDir(getProject());
+        Iterator iter = resources.iterator();
+        while (iter.hasNext()) {
+            Resource r = (Resource) iter.next();
+            if (!r.isExists()) {
+                continue;
+            }
 
-                String[] files = ds.getIncludedFiles();
-                for (int i = 0; i < files.length; ++i) {
-                    File file = new File(fromDir, files[i]);
-                    expandFile(FILE_UTILS, file, dest);
-                }
+            if (r instanceof FileResource) {
+                expandFile(FILE_UTILS, ((FileResource) r).getFile(), dest);
+            } else {
+                expandResource(r, dest);
             }
         }
     }
@@ -141,6 +149,17 @@ public class Expand extends Task {
         } finally {
             ZipFile.closeQuietly(zf);
         }
+    }
+
+    /**
+     * This method is to be overridden by extending unarchival tasks.
+     *
+     * @param srcR      the source resource
+     * @param dir       the destination directory
+     */
+    protected void expandResource(Resource srcR, File dir) {
+        throw new BuildException("only filesystem based resources are"
+                                 + " supported by this task.");
     }
 
     /**
@@ -179,6 +198,8 @@ public class Expand extends Task {
             String name = entryName.replace('/', File.separatorChar)
                 .replace('\\', File.separatorChar);
             boolean included = false;
+            Set includePatterns = new HashSet();
+            Set excludePatterns = new HashSet();
             for (int v = 0, size = patternsets.size(); v < size; v++) {
                 PatternSet p = (PatternSet) patternsets.elementAt(v);
                 String[] incls = p.getIncludePatterns(getProject());
@@ -193,17 +214,8 @@ public class Expand extends Task {
                     if (pattern.endsWith(File.separator)) {
                         pattern += "**";
                     }
-
-                    included = SelectorUtils.matchPath(pattern, name);
-                    if (included) {
-                        break;
-                    }
+                    includePatterns.add(pattern);
                 }
-
-                if (!included) {
-                    break;
-                }
-
 
                 String[] excls = p.getExcludePatterns(getProject());
                 if (excls != null) {
@@ -214,13 +226,23 @@ public class Expand extends Task {
                         if (pattern.endsWith(File.separator)) {
                             pattern += "**";
                         }
-                        included = !(SelectorUtils.matchPath(pattern, name));
-                        if (!included) {
-                            break;
-                        }
+                        excludePatterns.add(pattern);
                     }
                 }
             }
+
+            for (Iterator iter = includePatterns.iterator();
+                 !included && iter.hasNext();) {
+                String pattern = (String) iter.next();
+                included = SelectorUtils.matchPath(pattern, name);
+            }
+
+            for (Iterator iter = excludePatterns.iterator();
+                 included && iter.hasNext();) {
+                String pattern = (String) iter.next();
+                included = !SelectorUtils.matchPath(pattern, name);
+            }
+
             if (!included) {
                 //Do not process this file
                 return;
@@ -264,13 +286,7 @@ public class Expand extends Task {
                     fos.close();
                     fos = null;
                 } finally {
-                    if (fos != null) {
-                        try {
-                            fos.close();
-                        } catch (IOException e) {
-                            // ignore
-                        }
-                    }
+                    FileUtils.close(fos);
                 }
             }
 
@@ -322,7 +338,17 @@ public class Expand extends Task {
      * @param set a file set
      */
     public void addFileset(FileSet set) {
-        filesets.addElement(set);
+        add(set);
+    }
+
+    /**
+     * Add a resource collection.
+     * @param rc a resource collection.
+     * @since Ant 1.7
+     */
+    public void add(ResourceCollection rc) {
+        resourcesSpecified = true;
+        resources.add(rc);
     }
 
     /**

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-   Copyright 2001-2004 The Apache Software Foundation
+   Copyright 2001-2006 The Apache Software Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -146,16 +146,68 @@
         </table>
       </subsection>
 
+      <subsection name="Antigen">
+
+        <p>Antigen (Ant Installer Generator) is a tool to take an Ant build script, combine it with a GUI 
+        and wrap it up as an executable jar file. Its main use is for creating graphical, ant-based installers.</p>
+
+        <table class="externals">
+          <tr>
+            <th>Compatibility:</th>
+            <td>bundles Ant 1.6.2</td>
+          </tr>
+          <tr>
+            <th>URL:</th>
+            <td><a href="http://antigen.sourceforge.net/">http://antigen.sourceforge.net/</a></td>
+          </tr>
+          <tr>
+            <th>Contact:</th>
+            <td><a href ='mailto:johndavidtaylor@users.sourceforge.net'>Jon Tayler</a></td>
+          </tr>
+          <tr>
+            <th>License:</th>
+            <td>Academic Free License</td>
+          </tr>
+        </table>
+      </subsection>
+
+      <subsection name="AntInstaller">
+        <p>Builds MSI style installers (with command line option)
+        using Ant as Back end. UI developed by writing an XML install
+        descriptor.  Runtime launched from scripts or an all inclusive
+        Jar.</p>
+
+        <table class="externals">
+          <tr>
+            <th>Compatibility:</th>
+            <td>Ant 1.6.1 others not tested</td>
+          </tr>
+          <tr>
+            <th>URL:</th>
+            <td><a href="http://antinstaller.sf.net/">http://antinstaller.sf.net/</a></td>
+          </tr>
+          <tr>
+            <th>Contact:</th>
+            <td><a href='mailto:teknopaul@users.sourceforge.net'>teknopaul@users.sourceforge.net</a></td>
+          </tr>
+          <tr>
+            <th>License:</th>
+            <td>LGPL but in the process of of moving to Apache2.0 on
+            request</td>
+          </tr>
+        </table>
+      </subsection>
+
       <subsection name="Antlion">
 
         <p>The Antlion Project adds value to Ant build scripts by providing
         tasks which centralizes the library dependencies, and enables
         projects to define dependencies upon other projects.</p>
-        
+
         <p>External dependencies may be loaded from a custom local
         repository or Maven-like remote repositories. Antlion handles
         the generation of properties, filesets, and paths.</p>
-        
+
         <p>Inter-project dependencies allow for building the other
         project's files if they aren't already built.</p>
 
@@ -166,7 +218,7 @@
           </tr>
           <tr>
             <th>URL:</th>
-            <td><a href="http://antlion.sourceforge.net">http://antlion.sourceforge.net</a></td>
+            <td><a href="http://antlion.sourceforge.net/">http://antlion.sourceforge.net/</a></td>
           </tr>
           <tr>
             <th>Contact:</th>
@@ -230,7 +282,7 @@
           </tr>
           <tr>
             <th>URL:</th>
-            <td><a href="http://www.buildmonkey.com">http://www.buildmonkey.com</a></td>
+            <td><a href="http://www.buildmonkey.com/">http://www.buildmonkey.com/</a></td>
           </tr>
           <tr>
             <th>Contact:</th>
@@ -390,6 +442,33 @@
         </table>
       </subsection>
 
+      <subsection name="Parabuild">
+
+        <p>Parabuild is an automated multiplatform build management server.
+        Parabuild helps software teams and organizations of all sizes reduce
+        risks of project failures and increase productivity by providing provides
+        automatic continuous integration builds and stable scheduled builds.</p>
+
+        <table class="externals">
+          <tr>
+            <th>Compatibility:</th>
+            <td>Ant 1.3 and later</td>
+          </tr>
+          <tr>
+            <th>URL:</th>
+            <td><a href="http://www.viewtier.com/products/parabuild.htm">http://www.viewtier.com/products/parabuild.htm</a></td>
+          </tr>
+          <tr>
+            <th>Contact:</th>
+            <td><a href="http://www.viewtier.com/about_us.htm">http://www.viewtier.com/about_us.htm</a></td>
+          </tr>
+          <tr>
+            <th>License:</th>
+            <td>Commercial</td>
+          </tr>
+        </table>
+      </subsection>
+
       <subsection name="Rant">
 
         <p>Rant stands for Remote Ant. It is a distributed build
@@ -436,7 +515,7 @@
           </tr>
           <tr>
             <th>URL:</th>
-            <td><a href="http://www.inversoft.com">http://www.inversoft.com</a></td>
+            <td><a href="http://www.inversoft.com/">http://www.inversoft.com/</a></td>
           </tr>
           <tr>
             <th>Contact:</th>
@@ -445,6 +524,33 @@
           <tr>
             <th>License:</th>
             <td>LGPL</td>
+          </tr>
+        </table>
+      </subsection>
+
+      <subsection name="WebTest">
+
+        <p>WebTest is a free open source tool for automated testing of web applications.
+        It is a set of powerful Ant tasks allowing to call web pages, mimic user actions
+        (clicking links, filling forms, ...) and verify the results.
+        The generated reports give comprehensive information on success and failure of the test steps.</p>
+
+        <table class="externals">
+          <tr>
+            <th>Compatibility:</th>
+            <td>Ant 1.6.5</td>
+          </tr>
+          <tr>
+            <th>URL:</th>
+            <td><a href="http://webtest.canoo.com/">http://webtest.canoo.com/</a></td>
+          </tr>
+          <tr>
+            <th>Contact:</th>
+            <td><a href="http://lists.canoo.com/mailman/listinfo/webtest/">project mailing list</a></td>
+          </tr>
+          <tr>
+            <th>License:</th>
+            <td>Apache like license</td>
           </tr>
         </table>
       </subsection>
@@ -480,7 +586,7 @@
         <p>yEd is a freeware multi-purpose graph and diagram editor
         that runs on the Java 2 platform. It provides an import filter
         for Ant build scripts that makes it possible to conveniently
-        display and browse the dependenies between the different targets
+        display and browse the dependencies between the different targets
         of the build file. This is especially useful for debugging and
         understanding large build files.</p>
 

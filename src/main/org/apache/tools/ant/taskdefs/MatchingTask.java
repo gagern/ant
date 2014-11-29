@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -180,6 +181,8 @@ public abstract class MatchingTask extends Task implements SelectorContainer {
 
     /**
      * Returns the directory scanner needed to access the files to process.
+     * @param baseDir the base directory to use with the fileset
+     * @return a directory scanner
      */
     protected DirectoryScanner getDirectoryScanner(File baseDir) {
         fileset.setDir(baseDir);
@@ -430,7 +433,7 @@ public abstract class MatchingTask extends Task implements SelectorContainer {
 
     /**
      * Accessor for the implicit fileset.
-     *
+     * @return the implicit fileset
      * @since Ant 1.5.2
      */
     protected final FileSet getImplicitFileSet() {

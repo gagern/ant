@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -62,6 +63,8 @@ public class TempFile extends Task {
      */
     private String suffix = "";
 
+    /** deleteOnExit flag */
+    private boolean deleteOnExit;
 
     /**
      * Sets the property you wish to assign the temporary file to.
@@ -104,6 +107,22 @@ public class TempFile extends Task {
         this.suffix = suffix;
     }
 
+    /**
+     * Set whether the tempfile created by this task should be set
+     * for deletion on normal VM exit.
+     * @param deleteOnExit boolean flag.
+     */
+    public void setDeleteOnExit(boolean deleteOnExit) {
+        this.deleteOnExit = deleteOnExit;
+    }
+
+    /**
+     * Learn whether deleteOnExit is set for this tempfile task.
+     * @return boolean deleteOnExit flag.
+     */
+    public boolean isDeleteOnExit() {
+        return deleteOnExit;
+    }
 
     /**
      * Creates the temporary file.
@@ -117,7 +136,9 @@ public class TempFile extends Task {
         if (destDir == null) {
             destDir = getProject().resolveFile(".");
         }
-        File tfile = FILE_UTILS.createTempFile(prefix, suffix, destDir);
+        File tfile = FILE_UTILS.createTempFile(
+                prefix, suffix, destDir, deleteOnExit);
+
         getProject().setNewProperty(property, tfile.toString());
     }
 }

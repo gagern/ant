@@ -1,17 +1,18 @@
 <html>
   <head>
     <meta http-equiv="Content-Language" content="en-us">
-    <title>Selectors in Ant</title>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
+<title>Selectors in Ant</title>
     <link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
   </head>
 
   <body>
     <h2>Selectors</h2>
 
-    <p>Selectors are a mechanism whereby the files that make up a fileset&lt;depend&gt;<code>
-    can be selected based on criteria other than filename as provided
-    by the <code>&lt;include&gt;</code> and <code>&lt;exclude&gt;</code>
-    tags.</p>
+    <p>Selectors are a mechanism whereby the files that make up a
+    <code>&lt;fileset&gt;</code> can be selected based on criteria
+    other than filename as provided by the <code>&lt;include&gt;</code>
+    and <code>&lt;exclude&gt;</code> tags.</p>
 
     <h3>How to use a Selector</h3>
 
@@ -67,7 +68,10 @@
         the return value of the configured algorithm is different from that
         stored in a cache.</li>
       <li><a href="#signedselector"><code>&lt;signedselector&gt;</code></a> - Select files if
-        they are signed, and optionally if they have a signative of a certain name.
+        they are signed, and optionally if they have a signature of a certain name.
+      </li>
+      <li><a href="#scriptselector"><code>&lt;scriptselector&gt;</code></a> - 
+        Use a BSF scripting language to create your own selector
       </li>
     </ul>
 
@@ -260,7 +264,7 @@
     <h4>Depth Selector</h4>
 
     <p>The <code>&lt;depth&gt;</code> tag selects files based on
-    how many directy levels deep they are in relation to the base
+    how many directory levels deep they are in relation to the base
     directory of the fileset.
     </p>
 
@@ -301,32 +305,30 @@
     <a name="differentselect">
     <h4>Different Selector</h4>
 
-    <p>The <code>&lt;different&gt;</code> tag selects files
-    who are deemed to be 'different' from another, equivalent file in
-    another location. The rules for determining difference between two
-    files are as follows:
+    <p>The <code>&lt;different&gt;</code> selector will select a file
+    if it is deemed to be 'different' from an equivalent file in
+    another location. The rules for determining difference between
+    the two files are as follows:
     <ol>
     <li> If there is no 'other' file, it's different.
     <li> Files with different lengths are different.
     <li> If <tt>ignoreFileTimes</tt> is turned off, then differing file
     timestamps will cause files to be regarded as different.
-    <li> Unless<tt>ignoreContents</tt> is set to true, a byte-for-byte check is run
-    against the two files
+    <li> Unless <tt>ignoreContents</tt> is set to true,
+         a byte-for-byte check is run against the two files.
     </ol>
 
     This is a useful selector to work with programs and tasks that don't handle
-    dependency checking properly; Even if a predecessor task always creates its
-    output files, followup tasks can be driven off copies made with a different selector,
-    so their dependencies are driven on the absolute state of the files, not just
-    a timestamp. For example: anything fetched from a web site, or the output of
-    some program. To reduce the amount of checking, when using this task inside
-    a <code>&lt;copy&gt;</code> task, set the <tt>preservelastmodified</tt> to propagate the timestamp
-    from source file to destintaion file.
+    dependency checking properly; even if a predecessor task always creates its
+    output files, followup tasks can be driven off copies made with a different
+    selector, so their dependencies are driven on the absolute state of the
+    files, not just a timestamp. For example: anything fetched from a web site,
+    or the output of some program. To reduce the amount of checking, when using
+    this task inside a <code>&lt;copy&gt;</code> task, set
+    <tt>preservelastmodified</tt> to <i>true</i> to propagate the timestamp
+    from the source file to the destination file.<p>
 
-
-    <p>
-
-    The <code>&lt;different&gt;</code> tag supports the use of a
+    The <code>&lt;different&gt;</code> selector supports the use of a
     contained <a href="mapper.html"><code>&lt;mapper&gt;</code></a> element
     to define the location of the file to be compared against. If no
     <code>&lt;mapper&gt;</code> element is specified, the
@@ -658,6 +660,12 @@
     The comparison, computing of the hashvalue and the store is done by implementation
     of special interfaces. Therefore they may provide additional parameters.</p>
 
+    <p>The <code>&lt;modified&gt;</code> selector can be used as ResourceSelector.
+    In that case it maps simple file resources to files and does its job. If the
+    resource is from another type, the <code>&lt;modified&gt;</code> selector tries
+    to (<b>attention!</b>) copy the content into a local file for computing the
+    hashvalue.</p>
+
     <table border="1" cellpadding="2" cellspacing="0">
       <tr>
         <td valign="top"><b>Attribute</b></td>
@@ -729,6 +737,13 @@
         <td valign="top" align="center"> No, defaults to <i>true</i> </td>
       </tr>
       <tr>
+        <td valign="top"> selres </td>
+        <td valign="top"> Should Resources whithout an InputStream, and
+           therefore without checking, be selected?  (boolean) </td>
+        <td valign="top" align="center"> No, defaults to <i>true</i>. Only relevant
+           when used as ResourceSelector. </td>
+      </tr>
+      <tr>
         <td valign="top"> delayupdate </td>
         <td valign="top"> If set to <i>true</i>, the storage of the cache will be delayed until the
              next finished BuildEvent; task finished, target finished or build finished,
@@ -759,7 +774,7 @@
     </ul></p>
 
     <table border="1" cellpadding="2" cellspacing="0">
-      <tr><td colspan="2"><font size="+1"><b> Algorithm's </b></font></td></tr>
+      <tr><td colspan="2"><font size="+1"><b> Algorithm options</b></font></td></tr>
       <tr>
         <td valign="top"><b>Name</b></td>
         <td valign="top"><b>Description</b></td>
@@ -792,7 +807,7 @@
           </ul>
         </td>
       </tr>
-      <tr><td colspan="2"><font size="+1"><b> Cache's </b></font></td></tr>
+      <tr><td colspan="2"><font size="+1"><b> Cache options </b></font></td></tr>
       <tr>
         <td valign="top"> propertyfile </td>
         <td valign="top"> Use the java.util.Properties class and its possibility
@@ -804,7 +819,7 @@
           </ul>
         </td>
       </tr>
-      <tr><td colspan="2"><font size="+1"><b> Comparator's </b></font></td></tr>
+      <tr><td colspan="2"><font size="+1"><b> Comparator options</b></font></td></tr>
       <tr>
         <td valign="top"> equal </td>
         <td valign="top"> Very simple object comparison. </td>
@@ -927,6 +942,131 @@
         </tr>
       </table>
 
+      <a name="scriptselector"></a>
+      <h4>Script Selector</h4>
+
+      <p>
+        The <code>&lt;scriptselector&gt;</code> element enables you
+        to write a complex selection algorithm in any
+        <a href="http://jakarta.apache.org/bsf" target="_top">Apache BSF</a>
+        supported language.</p>
+        See the <a href="../OptionalTasks/script.html">Script</a> task for
+        an explanation of scripts and dependencies.
+      </p>
+      <p>
+        This selector was added in Apache Ant 1.7.
+      </p>
+      <table border="1" cellpadding="2" cellspacing="0">
+        <tr>
+          <td valign="top"><b>Attribute</b></td>
+          <td valign="top"><b>Description</b></td>
+          <td align="center" valign="top"><b>Required</b></td>
+        </tr>
+        <tr>
+          <td valign="top">language</td>
+          <td valign="top">language of the script.</td>
+          <td valign="top" align="center">yes</td>
+        </tr>
+        <tr>
+          <td valign="top">src</td>
+          <td valign="top">filename of the script</td>
+          <td valign="top" align="center">no</td>
+        </tr>
+      </table>
+      <p>
+      If no <code>src</code> attribute is supplied, the script must be nested
+      inside the selector declaration.
+      </p>
+      <p>The embedded script is invoked for every test, with
+         the bean <code>self</code>
+        is bound to the selector. It has an attribute <code>selected</code>
+        must can be set using <code>setSelected(boolean)</code> to select that
+        file.
+
+      <p>
+
+      The following beans are configured for every script, alongside
+      the classic set of project, properties, and targets.
+
+      <table border="1" cellpadding="2" cellspacing="0">
+        <tr>
+          <td valign="top"><b>Bean</b></td>
+          <td valign="top"><b>Description</b></td>
+          <td valign="top"><b>Type</b></td>
+        </tr>
+        <tr>
+          <td valign="top">self</td>
+          <td valign="top">selector instance</td>
+          <td valign="top">org.apache.tools.ant.types.optional</td>
+        </tr>
+        <tr>
+          <td valign="top">filename</td>
+          <td valign="top">filename of the selection</td>
+          <td valign="top" >String</td>
+        </tr>
+        <tr>
+          <td valign="top">file</td>
+          <td valign="top">file of the selection</td>
+          <td valign="top" >java.io.File</td>
+        </tr>
+        <tr>
+          <td valign="top">basedir</td>
+          <td valign="top">Fileset base directory</td>
+          <td valign="top" >java.io.File</td>
+        </tr>
+
+      </table>
+      <p>
+      The <code>self</code> bean maps to the selector, which has the following
+      attributes. Only the <code>selected</code> flag is writeable, the rest
+      are read only via their getter methods.
+
+            <table border="1" cellpadding="2" cellspacing="0">
+        <tr>
+          <td valign="top"><b>Attribute</b></td>
+          <td valign="top"><b>Description</b></td>
+          <td align="center" valign="top"><b>Type</b></td>
+        </tr>
+        <tr>
+          <td valign="top">selected</td>
+          <td valign="top">writeable flag to select this file</td>
+          <td valign="top" align="center">boolean</td>
+        </tr>
+        <tr>
+          <td valign="top">filename</td>
+          <td valign="top">filename of the selection</td>
+          <td valign="top" >String</td>
+        </tr>
+        <tr>
+          <td valign="top">file</td>
+          <td valign="top">file of the selection</td>
+          <td valign="top" >java.io.File</td>
+        </tr>
+        <tr>
+          <td valign="top">basedir</td>
+          <td valign="top">Fileset base directory</td>
+          <td valign="top" >java.io.File</td>
+        </tr>
+      </table>
+
+      <p>
+      Example
+      </p>
+<pre>
+    &lt;scriptselector language=&quot;javascript&quot;&gt;
+      self.setSelected(true);
+    &lt;/scriptselector&gt;
+</pre>
+    <p>
+    Selects every file.
+    </p>
+
+<pre>
+    &lt;scriptselector language=&quot;javascript&quot;&gt;
+      self.setSelected((filename.length%2)==0);
+    &lt;/scriptselector&gt;
+</pre>
+Select files whose filename length is even.
 
     <a name="selectcontainers"></a>
     <h3>Selector Containers</h3>
@@ -1319,7 +1459,7 @@
     <a href="selectors-program.html">Programming Selectors in Ant</a>.</p>
 
     <hr>
-    <p align="center">Copyright &copy; 2002-2004 The Apache Software
+    <p align="center">Copyright &copy; 2002-2005 The Apache Software
     Foundation. All rights Reserved.</p>
 
   </body>

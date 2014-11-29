@@ -372,8 +372,8 @@ public class TaskTagsHandler extends XDocletTagSupport
             }
 
             if (instance != null && instance instanceof EnumeratedAttribute) {
-                EnumeratedAttribute enum = (EnumeratedAttribute) instance;
-                String[] values = enum.getValues();
+                EnumeratedAttribute enum1 = (EnumeratedAttribute) instance;
+                String[] values = enum1.getValues();
 
                 display = "";
                 for (int i = 0; i < values.length; i++) {
@@ -538,11 +538,11 @@ public class TaskTagsHandler extends XDocletTagSupport
 
         // Regroup the attributes, since IntrospectionHelper
         // doesn't give us the whole data structure directly
-        Enumeration enum = is.getAttributes();
+        Enumeration enum2 = is.getAttributes();
         Properties attributeTypeMap = new Properties();
 
-        while (enum.hasMoreElements()) {
-            String name = (String) enum.nextElement();
+        while (enum2.hasMoreElements()) {
+            String name = (String) enum2.nextElement();
             Class type = is.getAttributeType(name);
 
             attributeTypeMap.setProperty(name, type.getName());
@@ -599,7 +599,7 @@ public class TaskTagsHandler extends XDocletTagSupport
             attributeMethods.add(method);
         }
 
-        return (XMethod[]) attributeMethods.toArray(new XMethod[0]);
+        return (XMethod[]) attributeMethods.toArray(new XMethod[attributeMethods.size()]);
     }
 
     /**
@@ -625,11 +625,11 @@ public class TaskTagsHandler extends XDocletTagSupport
 
         // Regroup the elements, since IntrospectionHelper
         // doesn't give us the whole data structure directly
-        Enumeration enum = is.getNestedElements();
+        Enumeration enum3 = is.getNestedElements();
         Properties elementTypeMap = new Properties();
 
-        while (enum.hasMoreElements()) {
-            String name = (String) enum.nextElement();
+        while (enum3.hasMoreElements()) {
+            String name = (String) enum3.nextElement();
             Class type = is.getElementType(name);
 
             elementTypeMap.setProperty(name, type.getName());
@@ -708,7 +708,7 @@ public class TaskTagsHandler extends XDocletTagSupport
             elementMethods.add(method);
         }
 
-        return (XMethod[]) elementMethods.toArray(new XMethod[0]);
+        return (XMethod[]) elementMethods.toArray(new XMethod[elementMethods.size()]);
     }
 
     /**
@@ -849,7 +849,7 @@ public class TaskTagsHandler extends XDocletTagSupport
                 }
             });
 
-        return (XMethod[]) methods.toArray(new XMethod[0]);
+        return (XMethod[]) methods.toArray(new XMethod[methods.size()]);
     }
 }
 

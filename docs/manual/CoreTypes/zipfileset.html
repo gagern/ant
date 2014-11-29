@@ -2,18 +2,22 @@
 <html>
 <head>
   <meta http-equiv="Content-Language" content="en-us">
-  <title>ZipFileSet Type</title>
+  <link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
+<title>ZipFileSet Type</title>
 </head>
 <body>
 <h2><a name="fileset">ZipFileSet</a></h2>
+
 <p>A <code>&lt;zipfileset&gt;</code> is a special form of a <code>&lt;<a
  href="fileset.html">fileset</a>&gt;</code> which can behave in 2
 different ways : <br>
 </p>
 <ul>
   <li>When the <span style="font-style: italic;">src</span> attribute
-is used, the zipfileset is populated with zip entries found in the file <span
- style="font-style: italic;">src</span>.<br>
+  is used - or a nested resource collection has been specified
+  (<em>since Ant 1.7</em>), the zipfileset is populated with 
+  zip entries found in the file <span style="font-style:
+  italic;">src</span>.<br>
   </li>
   <li>When the <span style="font-style: italic;">dir</span> attribute
 is used, the zipfileset is populated with filesystem files found under <span
@@ -69,14 +73,35 @@ and other modes in the standard Unix fashion.  Only applies to
 directories.  Default is 755. <em>since Ant 1.5.2</em>.</td>
       <td align="center" valign="top">No</td>
     </tr>
+    <tr>
+      <td valign="top">encoding</td>
+      <td valign="top">The character encoding to use for filenames
+      inside the zip file.  For a list of possible values see <a
+      href="http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html">http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html</a>.
+      Defaults to the platform's default character encoding.
+      <b>Only supported by zipfileset.</b></td>
+      <td align="center" valign="top">No</td>
+    </tr>
   </tbody>
 </table>
 <p>The <i>fullpath</i> attribute can only be set for filesets that
 represent a single file. The <i>prefix</i> and <i>fullpath</i>
 attributes cannot both be set on the same fileset.</p>
 <p>When using the <i>src</i> attribute, include and exclude patterns
-may be used to specify a subset of the zip file for inclusion in the
+may be used to specify a subset of the archive for inclusion in the
 archive as with the <i>dir</i> attribute.</p>
+
+<p>Please note that currently only the <a
+href="../CoreTasks/tar.html">tar</a> and <a
+href="../CoreTaks/zip.html">zip</a> tasks use the permission.</p>
+
+<h3>Parameters specified as nested elements</h3>
+
+<h4>any file system based <a href="resources.html">resource</a> or
+single element resource collection</h4>
+
+<p>The specified resource will be used as src.</p>
+
 <h4>Examples</h4>
 <blockquote>
   <pre>  &lt;zip destfile="${dist}/manual.zip"&gt;<br>    &lt;zipfileset dir="htdocs/manual" prefix="docs/user-guide"/&gt;<br>    &lt;zipfileset dir="." includes="ChangeLog27.txt" fullpath="docs/ChangeLog.txt"/&gt;<br>    &lt;zipfileset src="examples.zip" includes="**/*.html" prefix="docs/examples"/&gt;<br>  &lt;/zip&gt;<br></pre>
@@ -89,8 +114,9 @@ The archive might end up containing the files:</p>
 docs/ChangeLog.txt<br>
 docs/examples/index.html<br>
   </code></blockquote>
+
 <hr>
-<p align="center">Copyright &copy; 2003-2004 The Apache Software Foundation. All
+<p align="center">Copyright &copy; 2003-2005 The Apache Software Foundation. All
 rights Reserved.</p>
 </body>
 </html>

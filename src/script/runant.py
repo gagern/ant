@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2001,2003-2004 The Apache Software Foundation
+# Copyright 2001,2003-2005 The Apache Software Foundation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ cmdline = ('%s %s -classpath %s -Dant.home=%s %s ' + \
 
 if debug:
     print '\n%s\n\n' % (cmdline)
+sys.stdout.flush()
 
 # Run the biniou!
 os.system(cmdline)

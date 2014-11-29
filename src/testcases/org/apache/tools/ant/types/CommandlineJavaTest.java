@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 package org.apache.tools.ant.types;
 
 import junit.framework.TestCase;
+
+import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.util.JavaEnvUtils;
 
@@ -39,15 +41,15 @@ public class CommandlineJavaTest extends TestCase {
         project = new Project();
         project.setBasedir(System.getProperty("root"));
         project.setProperty("build.sysclasspath", "ignore");
-        cloneVm = System.getProperty("build.clonevm");
+        cloneVm = System.getProperty("ant.build.clonevm");
         if (cloneVm != null) {
-            System.setProperty("build.clonevm", "false");
+            System.setProperty("ant.build.clonevm", "false");
         }
     }
 
     public void tearDown() {
         if (cloneVm != null) {
-            System.setProperty("build.clonevm", cloneVm);
+            System.setProperty("ant.build.clonevm", cloneVm);
         }
     }
 
@@ -78,7 +80,7 @@ public class CommandlineJavaTest extends TestCase {
 
         c.createClasspath(project).setLocation(project.resolveFile("build.xml"));
         c.createClasspath(project).setLocation(project.resolveFile(
-            System.getProperty("ant.home")+"/lib/ant.jar"));
+            System.getProperty(MagicNames.ANT_HOME)+"/lib/ant.jar"));
         s = c.getCommandline();
         assertEquals("with classpath", 6, s.length);
         //        assertEquals("with classpath", "java", s[0]);

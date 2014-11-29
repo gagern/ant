@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2002,2004 The Apache Software Foundation
+ * Copyright  2001-2002, 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,15 +17,12 @@
 
 package org.apache.tools.ant.types;
 
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.BuildFileTest;
-
-import junit.framework.TestCase;
-import junit.framework.AssertionFailedError;
-
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.Hashtable;
+
+import org.apache.tools.ant.BuildFileTest;
 
 /**
  * FilterSet testing
@@ -99,6 +96,40 @@ public class FilterSetTest extends BuildFileTest {
         assertEquals(result, fs.replaceTokens(line));
     }
 
+    /**
+     * Test to see what happens when the resolving occurs in
+     * what would be an infinite loop, but with recursion disabled.
+     */
+    public void testRecursionDisabled() {
+        String result = "@test1@ line testvalue";
+        String line = "@test@ line @test2@";
+        FilterSet fs = new FilterSet();
+        fs.addFilter("test", "@test1@");
+        fs.addFilter("test1","@test@");
+        fs.addFilter("test2", "testvalue");
+        fs.setBeginToken("@");
+        fs.setEndToken("@");
+        fs.setRecurse(false);
+        assertEquals(result, fs.replaceTokens(line));
+    }
+
+    public void testNonInfiniteRecursiveMultipleOnSingleLine() {
+        FilterSet filters = new FilterSet();
+
+        filters.setBeginToken("<");
+        filters.setEndToken(">");
+
+        filters.addFilter("ul", "<itemizedlist>");
+        filters.addFilter("/ul", "</itemizedList>");
+        filters.addFilter("li", "<listitem>");
+        filters.addFilter("/li", "</listitem>");
+
+        String result = "<itemizedlist><listitem>Item 1</listitem> <listitem>Item 2</listitem></itemizedList>";
+        String line = "<ul><li>Item 1</li> <li>Item 2</li></ul>";
+
+        assertEquals(result, filters.replaceTokens(line));
+    }
+    
     public void testNestedFilterSets() {
         executeTarget("test-nested-filtersets");
 
@@ -122,6 +153,27 @@ public class FilterSetTest extends BuildFileTest {
         filters = fs.getFilterHash();
         assertEquals(1, filters.size());
         assertEquals("value1", filters.get("token1"));
+    }
+
+    public void testFiltersFileElement() {
+        executeTarget("testFiltersFileElement");
+    }
+
+    public void testFiltersFileAttribute() {
+        executeTarget("testFiltersFileAttribute");
+    }
+
+    public void testMultipleFiltersFiles() {
+        executeTarget("testMultipleFiltersFiles");
+    }
+
+    public void testMissingFiltersFile() {
+        expectBuildException("testMissingFiltersFile",
+            "should fail due to missing filtersfile");
+    }
+
+    public void testAllowMissingFiltersFile() {
+        executeTarget("testAllowMissingFiltersFile");
     }
 
     private boolean compareFiles(String name1, String name2) {

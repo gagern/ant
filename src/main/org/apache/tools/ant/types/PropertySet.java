@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,16 +20,18 @@ package org.apache.tools.ant.types;
 
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.Hashtable;
 import java.util.Properties;
-import java.util.Stack;
 import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.PropertyHelper;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.PropertyResource;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.regexp.RegexpMatcher;
 import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
@@ -38,17 +41,17 @@ import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
  *
  * @since Ant 1.6
  */
-public class PropertySet extends DataType {
+public class PropertySet extends DataType implements ResourceCollection {
 
     private boolean dynamic = true;
     private boolean negate = false;
     private Set cachedNames;
     private Vector ptyRefs = new Vector();
     private Vector setRefs = new Vector();
-    private Mapper _mapper;
+    private Mapper mapper;
 
     /**
-     * this is a nested class containing a reference to some properties
+     * This is a nested class containing a reference to some properties
      * and optionally a source of properties.
      */
     public static class PropertyRef {
@@ -59,25 +62,41 @@ public class PropertySet extends DataType {
         private String prefix;
         private String builtin;
 
+        /**
+         * Set the name.
+         * @param name a <code>String</code> value.
+         */
         public void setName(String name) {
             assertValid("name", name);
             this.name = name;
         }
 
+        /**
+         * Set the regular expression to use to filter the properties.
+         * @param regex a regular expression.
+         */
         public void setRegex(String regex) {
             assertValid("regex", regex);
             this.regex = regex;
         }
 
+        /**
+         * Set the prefix to use.
+         * @param prefix a <code>String</code> value.
+         */
         public void setPrefix(String prefix) {
             assertValid("prefix", prefix);
             this.prefix = prefix;
         }
 
+        /**
+         * Builtin property names - all, system or commandline.
+         * @param b an enumerated <code>BuildinPropertySetName</code> value.
+         */
         public void setBuiltin(BuiltinPropertySetName b) {
-            String built_in = b.getValue();
-            assertValid("builtin", built_in);
-            this.builtin = built_in;
+            String pBuiltIn = b.getValue();
+            assertValid("builtin", pBuiltIn);
+            this.builtin = pBuiltIn;
         }
 
         private void assertValid(String attr, String value) {
@@ -91,6 +110,10 @@ public class PropertySet extends DataType {
             }
         }
 
+        /**
+         * A debug toString().
+         * @return a string version of this object.
+         */
         public String toString() {
             return "name=" + name + ", regex=" + regex + ", prefix=" + prefix
                 + ", builtin=" + builtin;
@@ -98,24 +121,40 @@ public class PropertySet extends DataType {
 
     } //end nested class
 
+    /**
+     * Allow properties of a particular name in the set.
+     * @param name the property name to allow.
+     */
     public void appendName(String name) {
         PropertyRef r = new PropertyRef();
         r.setName(name);
         addPropertyref(r);
     }
 
+    /**
+     * Allow properties whose names match a regex in the set.
+     * @param regex the regular expression to use.
+     */
     public void appendRegex(String regex) {
         PropertyRef r = new PropertyRef();
         r.setRegex(regex);
         addPropertyref(r);
     }
 
+    /**
+     * Allow properties whose names start with a prefix in the set.
+     * @param prefix the prefix to use.
+     */
     public void appendPrefix(String prefix) {
         PropertyRef r = new PropertyRef();
         r.setPrefix(prefix);
         addPropertyref(r);
     }
 
+    /**
+     * Allow builtin (all, system or commandline) properties in the set.
+     * @param b the type of builtin properties.
+     */
     public void appendBuiltin(BuiltinPropertySetName b) {
         PropertyRef r = new PropertyRef();
         r.setBuiltin(b);
@@ -123,63 +162,99 @@ public class PropertySet extends DataType {
     }
 
     /**
-     * set a mapper to change property names
-     * @param type mapper type
-     * @param from source pattern
-     * @param to output pattern
+     * Set a mapper to change property names.
+     * @param type mapper type.
+     * @param from source pattern.
+     * @param to output pattern.
      */
     public void setMapper(String type, String from, String to) {
-        Mapper mapper = createMapper();
+        Mapper m = createMapper();
         Mapper.MapperType mapperType = new Mapper.MapperType();
         mapperType.setValue(type);
-        mapper.setFrom(from);
-        mapper.setTo(to);
+        m.setType(mapperType);
+        m.setFrom(from);
+        m.setTo(to);
     }
 
+    /**
+     * Add a property reference (nested element) to the references to be used.
+     * @param ref a property reference.
+     */
     public void addPropertyref(PropertyRef ref) {
         assertNotReference();
         ptyRefs.addElement(ref);
     }
 
+    /**
+     * Add another property set to this set.
+     * @param ref another property set.
+     */
     public void addPropertyset(PropertySet ref) {
         assertNotReference();
         setRefs.addElement(ref);
     }
 
+    /**
+     * Create a mapper to map the property names.
+     * @return a mapper to be configured.
+     */
     public Mapper createMapper() {
         assertNotReference();
-        if (_mapper != null) {
+        if (mapper != null) {
             throw new BuildException("Too many <mapper>s!");
         }
-        _mapper = new Mapper(getProject());
-        return _mapper;
+        mapper = new Mapper(getProject());
+        return mapper;
     }
 
     /**
-     * A nested filenamemapper
-     * @param fileNameMapper the mapper to add
+     * Add a nested FileNameMapper.
+     * @param fileNameMapper the mapper to add.
      * @since Ant 1.6.3
      */
     public void add(FileNameMapper fileNameMapper) {
         createMapper().add(fileNameMapper);
     }
 
+    /**
+     * Set whether to reevaluate the set everytime the set is used.
+     * Default is true.
+     *
+     * @param dynamic if true, reevaluate the property set each time
+     *                the set is used. if false cache the property set
+     *                the first time and use the cached set on subsequent
+     *                occasions.
+     */
     public void setDynamic(boolean dynamic) {
         assertNotReference();
         this.dynamic = dynamic;
     }
 
+    /**
+     * Set whether to negate results.
+     * If "true", all properties not selected by nested elements will be returned.
+     *  Default is "false".
+     * @param negate if true, negate the selection criteria.
+     */
     public void setNegate(boolean negate) {
         assertNotReference();
         this.negate = negate;
     }
 
+    /**
+     * Get the dynamic attribute.
+     * @return true if the property set is to be evalulated each time it is used.
+     */
     public boolean getDynamic() {
         return isReference() ? getRef().dynamic : dynamic;
     }
 
+    /**
+     * Get the mapper attribute.
+     * @return the mapper attribute.
+     */
     public Mapper getMapper() {
-        return isReference() ? getRef()._mapper : _mapper;
+        return isReference() ? getRef().mapper : mapper;
     }
 
     /**
@@ -198,22 +273,27 @@ public class PropertySet extends DataType {
     }
 
     /**
-     * this is the operation to get the existing or recalculated properties.
-     * @return
+     * This is the operation to get the existing or recalculated properties.
+     * @return the properties for this propertyset.
      */
     public Properties getProperties() {
+        if (isReference()) {
+            return getRef().getProperties();
+        }
         Set names = null;
         Project prj = getProject();
         Hashtable props =
             prj == null ? getAllSystemProperties() : prj.getProperties();
 
+        //quick & dirty, to make nested mapped p-sets work:
+        for (Enumeration e = setRefs.elements(); e.hasMoreElements();) {
+            PropertySet set = (PropertySet) e.nextElement();
+            props.putAll(set.getProperties());
+        }
+
         if (getDynamic() || cachedNames == null) {
             names = new HashSet();
-            if (isReference()) {
-                getRef().addPropertyNames(names, props);
-            } else {
-                addPropertyNames(names, props);
-            }
+            addPropertyNames(names, props);
             // Add this PropertySet's nested PropertySets' property names.
             for (Enumeration e = setRefs.elements(); e.hasMoreElements();) {
                 PropertySet set = (PropertySet) e.nextElement();
@@ -231,25 +311,28 @@ public class PropertySet extends DataType {
         } else {
             names = cachedNames;
         }
-
-        FileNameMapper mapper = null;
+        FileNameMapper m = null;
         Mapper myMapper = getMapper();
         if (myMapper != null) {
-            mapper = myMapper.getImplementation();
+            m = myMapper.getImplementation();
         }
         Properties properties = new Properties();
         //iterate through the names, get the matching values
         for (Iterator iter = names.iterator(); iter.hasNext();) {
             String name = (String) iter.next();
             String value = (String) props.get(name);
-            if (mapper != null) {
-                //map the names
-                String[] newname = mapper.mapFileName(name);
-                if (newname != null) {
-                    name = newname[0];
+            if (value != null) {
+                // may be null if a system property has been added
+                // after the project instance has been initialized
+                if (m != null) {
+                    //map the names
+                    String[] newname = m.mapFileName(name);
+                    if (newname != null) {
+                        name = newname[0];
+                    }
                 }
+                properties.setProperty(name, value);
             }
-            properties.setProperty(name, value);
         }
         return properties;
     }
@@ -261,13 +344,11 @@ public class PropertySet extends DataType {
      *         avoid needless duplication of the Hashtable during recursion.
      */
     private void addPropertyNames(Set names, Hashtable properties) {
-        Project prj = getProject();
-
         // Add this PropertySet's property names.
         for (Enumeration e = ptyRefs.elements(); e.hasMoreElements();) {
             PropertyRef r = (PropertyRef) e.nextElement();
             if (r.name != null) {
-                if (prj != null && prj.getProperty(r.name) != null) {
+                if (properties.get(r.name) != null) {
                     names.add(r.name);
                 }
             } else if (r.prefix != null) {
@@ -308,23 +389,11 @@ public class PropertySet extends DataType {
 
     /**
      * Performs the check for circular references and returns the
-     * referenced FileList.
+     * referenced PropertySet.
+     * @return the referenced PropertySet.
      */
     protected PropertySet getRef() {
-        if (!isChecked()) {
-            Stack stk = new Stack();
-            stk.push(this);
-            dieOnCircularReference(stk, getProject());
-        }
-
-        Object o = getRefid().getReferencedObject(getProject());
-        if (!(o instanceof PropertySet)) {
-            String msg = getRefid().getRefId()
-                + " doesn\'t denote a propertyset";
-            throw new BuildException(msg);
-        } else {
-            return (PropertySet) o;
-        }
+        return (PropertySet) getCheckedRef(PropertySet.class, "propertyset");
     }
 
     /**
@@ -359,8 +428,8 @@ public class PropertySet extends DataType {
     }
 
     /**
-     * flag which tracks whether any attribute has been set; used by
-     * {@link #assertNotReference()} and {@link #setRefid(Reference)}
+     * Flag which tracks whether any attribute has been set; used by
+     * {@link #assertNotReference()} and {@link #setRefid(Reference)}.
      */
     private boolean noAttributeSet = true;
 
@@ -371,9 +440,68 @@ public class PropertySet extends DataType {
         static final String ALL = "all";
         static final String SYSTEM = "system";
         static final String COMMANDLINE = "commandline";
+        /** @see EnumeratedAttribute#getValues() */
         public String[] getValues() {
             return new String[] {ALL, SYSTEM, COMMANDLINE};
         }
     }
-} // END class PropertySet
 
+    /**
+     * A debug toString.
+     * This gets a comma separated list of key=value pairs for
+     * the properties in the set.
+     * The output order is sorted according to the keys' <i>natural order</i>.
+     * @return a string rep of this object.
+     */
+    public String toString() {
+        StringBuffer b = new StringBuffer();
+        TreeMap sorted = new TreeMap(getProperties());
+        for (Iterator i = sorted.entrySet().iterator(); i.hasNext();) {
+            Map.Entry e = (Map.Entry) i.next();
+            if (b.length() != 0) {
+                b.append(", ");
+            }
+            b.append(e.getKey().toString());
+            b.append("=");
+            b.append(e.getValue().toString());
+        }
+        return b.toString();
+    }
+
+    /**
+     * Fulfill the ResourceCollection interface.
+     * @return an Iterator of Resources.
+     * @since Ant 1.7
+     */
+    public Iterator iterator() {
+        final Enumeration e = getProperties().propertyNames();
+        return new Iterator() {
+            public boolean hasNext() {
+                return e.hasMoreElements();
+            }
+            public Object next() {
+                return new PropertyResource(getProject(), (String) e.nextElement());
+            }
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    /**
+     * Fulfill the ResourceCollection contract.
+     * @return the size of this ResourceCollection.
+     */
+    public int size() {
+        return isReference() ? getRef().size() : getProperties().size();
+    }
+
+    /**
+     * Fulfill the ResourceCollection contract.
+     * @return whether this is a filesystem-only resource collection.
+     */
+    public boolean isFilesystemOnly() {
+        return isReference() && getRef().isFilesystemOnly();
+    }
+
+}

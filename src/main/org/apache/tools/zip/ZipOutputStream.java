@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -50,9 +51,29 @@ import java.util.zip.ZipException;
  * uncompressed size information is required before {@link
  * #putNextEntry putNextEntry} can be called.</p>
  *
- * @version $Revision$
  */
 public class ZipOutputStream extends FilterOutputStream {
+
+    /**
+     * Compression method for deflated entries.
+     *
+     * @since 1.1
+     */
+    public static final int DEFLATED = java.util.zip.ZipEntry.DEFLATED;
+
+    /**
+     * Default compression level for deflated entries.
+     *
+     * @since Ant 1.7
+     */
+    public static final int DEFAULT_COMPRESSION = Deflater.DEFAULT_COMPRESSION;
+
+    /**
+     * Compression method for stored entries.
+     *
+     * @since 1.1
+     */
+    public static final int STORED = java.util.zip.ZipEntry.STORED;
 
     /**
      * Current entry.
@@ -73,7 +94,7 @@ public class ZipOutputStream extends FilterOutputStream {
      *
      * @since 1.1
      */
-    private int level = Deflater.DEFAULT_COMPRESSION;
+    private int level = DEFAULT_COMPRESSION;
 
     /**
      * Has the compression level changed when compared to the last
@@ -165,7 +186,7 @@ public class ZipOutputStream extends FilterOutputStream {
      * The encoding to use for filenames and the file comment.
      *
      * <p>For a list of possible values see <a
-     * href="http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html">http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html</a>.
+     * href="http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html">http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html</a>.
      * Defaults to the platform's default character encoding.</p>
      *
      * @since 1.3
@@ -182,7 +203,7 @@ public class ZipOutputStream extends FilterOutputStream {
      *
      * @since 1.14
      */
-    protected Deflater def = new Deflater(Deflater.DEFAULT_COMPRESSION, true);
+    protected Deflater def = new Deflater(level, true);
 
     /**
      * This buffer servers as a Deflater.
@@ -202,20 +223,6 @@ public class ZipOutputStream extends FilterOutputStream {
      * @since 1.14
      */
     private RandomAccessFile raf = null;
-
-    /**
-     * Compression method for deflated entries.
-     *
-     * @since 1.1
-     */
-    public static final int DEFLATED = java.util.zip.ZipEntry.DEFLATED;
-
-    /**
-     * Compression method for stored entries.
-     *
-     * @since 1.1
-     */
-    public static final int STORED = java.util.zip.ZipEntry.STORED;
 
     /**
      * Creates a new ZIP OutputStream filtering the underlying stream.
@@ -270,7 +277,7 @@ public class ZipOutputStream extends FilterOutputStream {
      * The encoding to use for filenames and the file comment.
      *
      * <p>For a list of possible values see <a
-     * href="http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html">http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html</a>.
+     * href="http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html">http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html</a>.
      * Defaults to the platform's default character encoding.</p>
      * @param encoding the encoding value
      * @since 1.3
@@ -329,8 +336,8 @@ public class ZipOutputStream extends FilterOutputStream {
                 deflate();
             }
 
-            entry.setSize(def.getTotalIn());
-            entry.setComprSize(def.getTotalOut());
+            entry.setSize(adjustToLong(def.getTotalIn()));
+            entry.setCompressedSize(adjustToLong(def.getTotalOut()));
             entry.setCrc(realCrc);
 
             def.reset();
@@ -356,7 +363,7 @@ public class ZipOutputStream extends FilterOutputStream {
             long size = written - dataStart;
 
             entry.setSize(size);
-            entry.setComprSize(size);
+            entry.setCompressedSize(size);
             entry.setCrc(realCrc);
         }
 
@@ -407,7 +414,7 @@ public class ZipOutputStream extends FilterOutputStream {
                 throw new ZipException("crc checksum is required for STORED"
                                        + " method when not writing to a file");
             }
-            entry.setComprSize(entry.getSize());
+            entry.setCompressedSize(entry.getSize());
         }
 
         if (entry.getMethod() == DEFLATED && hasCompressionLevelChanged) {
@@ -430,10 +437,16 @@ public class ZipOutputStream extends FilterOutputStream {
      * Sets the compression level for subsequent entries.
      *
      * <p>Default is Deflater.DEFAULT_COMPRESSION.</p>
-     * @param level the compression level
+     * @param level the compression level.
+     * @throws IllegalArgumentException if an invalid compression level is specified.
      * @since 1.1
      */
     public void setLevel(int level) {
+        if (level < Deflater.DEFAULT_COMPRESSION
+            || level > Deflater.BEST_COMPRESSION) {
+            throw new IllegalArgumentException(
+                "Invalid compression level: " + level);
+        }
         hasCompressionLevelChanged = (this.level != level);
         this.level = level;
     }
@@ -843,7 +856,7 @@ public class ZipOutputStream extends FilterOutputStream {
      *
      * @since 1.14
      */
-    protected final void writeOut(byte [] data) throws IOException {
+    protected final void writeOut(byte[] data) throws IOException {
         writeOut(data, 0, data.length);
     }
 
@@ -856,7 +869,7 @@ public class ZipOutputStream extends FilterOutputStream {
      *
      * @since 1.14
      */
-    protected final void writeOut(byte [] data, int offset, int length)
+    protected final void writeOut(byte[] data, int offset, int length)
         throws IOException {
         if (raf != null) {
             raf.write(data, offset, length);
@@ -864,4 +877,19 @@ public class ZipOutputStream extends FilterOutputStream {
             out.write(data, offset, length);
         }
     }
+
+    /**
+     * Assumes a negative integer really is a positive integer that
+     * has wrapped around and re-creates the original value.
+     *
+     * @since 1.34
+     */
+    protected static long adjustToLong(int i) {
+        if (i < 0) {
+            return 2 * ((long) Integer.MAX_VALUE) + 2 + i;
+        } else {
+            return i;
+        }
+    }
+
 }

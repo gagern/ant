@@ -2,7 +2,7 @@
 
 REM You will need to specify JAVA_HOME if compiling with 1.2 or later.
 
-REM   Copyright 2000-2004 The Apache Software Foundation
+REM   Copyright 2000-2005 The Apache Software Foundation
 REM
 REM   Licensed under the Apache License, Version 2.0 (the "License");
 REM   you may not use this file except in compliance with the License.
@@ -62,6 +62,8 @@ echo.
 echo ... Compiling Ant Classes
 
 "%JAVAC%" %BOOTJAVAC_OPTS% -d %CLASSDIR% %TOOLS%\bzip2\*.java %TOOLS%\tar\*.java %TOOLS%\zip\*.java %TOOLS%\ant\*.java %TOOLS%\ant\types\*.java %TOOLS%\ant\taskdefs\*.java %TOOLS%\ant\util\regexp\RegexpMatcher.java %TOOLS%\ant\util\regexp\RegexpMatcherFactory.java %TOOLS%\ant\taskdefs\condition\*.java %TOOLS%\ant\taskdefs\compilers\*.java 
+
+if ERRORLEVEL 1 goto mainend
 
 echo.
 echo ... Copying Required Files

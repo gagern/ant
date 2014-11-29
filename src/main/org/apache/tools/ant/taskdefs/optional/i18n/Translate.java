@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -548,20 +549,21 @@ public class Translate extends MatchingTask {
                             while (startIndex >= 0
                                 && (startIndex + startToken.length()) <= line.length()) {
                                 // the new value, this needs to be here
-                                // because it is required to calculate the next position to search from
-                                // at the end of the loop
+                                // because it is required to calculate the next position to
+                                // search from at the end of the loop
                                 String replace = null;
 
                                 // we found a starttoken, is there an endtoken following?
                                 // start at token+tokenlength because start and end
                                 // token may be indentical
-                                int endIndex = line.indexOf(endToken, startIndex + startToken.length());
+                                int endIndex = line.indexOf(
+                                    endToken, startIndex + startToken.length());
                                 if (endIndex < 0) {
                                     startIndex += 1;
                                 } else {
                                     // grab the token
-                                    String token
-                                        = line.substring(startIndex + startToken.length(), endIndex);
+                                    String token = line.substring(
+                                        startIndex + startToken.length(), endIndex);
 
                                     // If there is a white space or = or :, then
                                     // it isn't to be treated as a valid key.

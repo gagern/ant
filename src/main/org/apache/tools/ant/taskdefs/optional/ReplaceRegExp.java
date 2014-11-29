@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -209,7 +210,8 @@ public class ReplaceRegExp extends Task {
      * each line, which is not easy to do when processing the file as a whole.
      * Defaults to <i>false</i>.</td>
      * @param byline the byline attribute as a string
-     * @deprecated - use setByLine(boolean)
+     * @deprecated since 1.6.x. 
+     *             Use setByLine(boolean).
      */
     public void setByLine(String byline) {
         Boolean res = Boolean.valueOf(byline);
@@ -455,21 +457,8 @@ public class ReplaceRegExp extends Task {
                 log("No change made", Project.MSG_DEBUG);
             }
         } finally {
-            try {
-                if (r != null) {
-                    r.close();
-                }
-            } catch (Exception e) {
-                // ignore any secondary exceptions
-            }
-
-            try {
-                if (w != null) {
-                    w.close();
-                }
-            } catch (Exception e) {
-                // ignore any secondary exceptions
-            }
+            FileUtils.close(r);
+            FileUtils.close(w);
             if (temp != null) {
                 temp.delete();
             }

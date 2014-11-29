@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -269,7 +270,7 @@ public class Replace extends MatchingTask {
          * received data.
          */
         void flush() {
-            int pos = replace();
+            replace();
             outputBuffer.append(inputBuffer);
             inputBuffer.delete(0, inputBuffer.length());
         }
@@ -351,6 +352,13 @@ public class Replace extends MatchingTask {
         void close() throws IOException {
             reader.close();
         }
+        
+        /**
+         * Closes file but doesn't throw exception
+         */
+        void closeQuietly() {
+            FileUtils.close(reader);
+        }
 
     }
 
@@ -365,7 +373,7 @@ public class Replace extends MatchingTask {
 
         /**
          * Constructs the output component. Opens the file for writing.
-         * @param source The file to read from.
+         * @param out The file to read to.
          * @throws IOException When the file cannot be read from.
          */
         FileOutput(File out) throws IOException {
@@ -394,6 +402,7 @@ public class Replace extends MatchingTask {
          * @return false to be inline with the Replacefilter.
          * (Yes defining an interface crossed my mind, but would publish the
          * internal behavior.)
+         * @throws IOException when the output cannot be written.
          */
         boolean process() throws IOException {
             writer.write(inputBuffer.toString());
@@ -403,6 +412,7 @@ public class Replace extends MatchingTask {
 
         /**
          * Processes the buffer to the end.
+         * @throws IOException when the output cannot be flushed.
          */
         void flush() throws IOException {
             process();
@@ -415,6 +425,13 @@ public class Replace extends MatchingTask {
          */
         void close() throws IOException {
             writer.close();
+        }
+        
+        /**
+         * Closes file but doesn't throw exception
+         */
+        void closeQuietly() {
+            FileUtils.close(writer);
         }
     }
 
@@ -555,13 +572,7 @@ public class Replace extends MatchingTask {
                 + ") cannot be loaded.";
             throw new BuildException(message);
         } finally {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
+            FileUtils.close(in);
         }
 
         return props;
@@ -621,19 +632,11 @@ public class Replace extends MatchingTask {
                     + ioe.getClass().getName() + ":"
                     + ioe.getMessage(), ioe, getLocation());
         } finally {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    // ignore
-                }
+            if (null != in) {
+                in.closeQuietly();
             }
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {
-                    // ignore
-                }
+            if (null != out) {
+                out.closeQuietly();
             }
             if (temp != null) {
                 if (!temp.delete()) {

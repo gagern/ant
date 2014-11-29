@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2002,2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -54,6 +55,8 @@ public abstract class EnumeratedAttribute {
 
     /**
      * Invoked by {@link org.apache.tools.ant.IntrospectionHelper IntrospectionHelper}.
+     * @param value the <code>String</code> value of the attribute
+     * @throws BuildException if the value is not valid for the attribute
      */
     public final void setValue(String value) throws BuildException {
         int idx = indexOfValue(value);
@@ -66,6 +69,8 @@ public abstract class EnumeratedAttribute {
 
     /**
      * Is this value included in the enumeration?
+     * @param value the <code>String</code> value to look up
+     * @return true if the value is valid
      */
     public final boolean containsValue(String value) {
         return (indexOfValue(value) != -1);

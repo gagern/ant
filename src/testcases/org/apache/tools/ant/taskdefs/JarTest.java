@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -258,8 +258,12 @@ public class JarTest extends BuildFileTest {
         }
     }
     public void testManifestOnlyJar() {
-        executeTarget("testManifestOnlyJar");
+        expectLogContaining("testManifestOnlyJar", "Building MANIFEST-only jar: ");
         File manifestFile = getProject().resolveFile(tempDir + "META-INF" + File.separator + "MANIFEST.MF");
         assertTrue(manifestFile.exists());
+    }
+
+    public void testIndexJarsPlusJarMarker() {
+        executeTarget("testIndexJarsPlusJarMarker");
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
+ * Copyright  2001-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,16 +18,12 @@
 package org.apache.tools.ant.types.optional.depend;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.Date;
-import java.util.Vector;
-import java.util.Enumeration;
 import java.util.Hashtable;
+
 import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.DirectoryScanner;
 
 /**
  * Testcase for the Classfileset optional type.
@@ -50,7 +46,7 @@ public class ClassFileSetTest extends BuildFileTest {
     }
 
     /**
-     * Test basic clasfileset
+     * Test basic classfileset
      */
     public void testBasicSet() {
         Project p = getProject();
@@ -96,7 +92,7 @@ public class ClassFileSetTest extends BuildFileTest {
     }
 
     /**
-     * Test conbo classfileset
+     * Test combo classfileset
      */
     public void testComboSet() {
         Project p = getProject();
@@ -172,4 +168,9 @@ public class ClassFileSetTest extends BuildFileTest {
         assertTrue("Result did not contain test" + File.separator + "ContainsOnlyInner.class",
             files.containsKey("test" + File.separator + "MethodParam.class"));
     }
+
+    public void testResourceCollection() {
+        executeTarget("testresourcecollection");
+    }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 
 package org.apache.tools.ant.filters;
 
-import java.io.File;
 import java.io.Reader;
 import java.io.FileReader;
 import java.io.IOException;
 
-import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.util.FileUtils;
 
@@ -30,6 +28,8 @@ import org.apache.tools.ant.util.FileUtils;
  */
 public class DynamicFilterTest extends BuildFileTest {
 
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+    
     public DynamicFilterTest(String name) {
         super(name);
     }
@@ -51,36 +51,18 @@ public class DynamicFilterTest extends BuildFileTest {
     //   Helper methods
     // -----------------------------------------------------
 
-
-    private void assertStringContains(String string, String contains) {
-        assertTrue("[" + string + "] does not contain [" + contains +"]",
-                   string.indexOf(contains) > -1);
-    }
-
-    private void assertStringNotContains(String string, String contains) {
-        assertTrue("[" + string + "] does contain [" + contains +"]",
-                   string.indexOf(contains) == -1);
-    }
-
     private String getFileString(String filename)
         throws IOException
     {
         Reader r = null;
         try {
-            r = new FileReader(getProject().resolveFile(filename));
+            r = new FileReader(FILE_UTILS.resolveFile(getProject().getBaseDir(), filename));
             return  FileUtils.readFully(r);
         }
         finally {
-            try {r.close();} catch (Throwable ignore) {}
+            FileUtils.close(r);
         }
 
-    }
-
-    private String getFileString(String target, String filename)
-        throws IOException
-    {
-        executeTarget(target);
-        return getFileString(filename);
     }
 
     private void expectFileContains(String name, String contains)

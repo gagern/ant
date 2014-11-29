@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!--
-   Copyright 2001-2004 The Apache Software Foundation
+   Copyright 2001-2005 The Apache Software Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -51,9 +51,8 @@
 
             <menu name="Contributing">
                 <item name="Mailing Lists"         href="/mail.html"/>
-                <item name="CVS Repositories"      href="/cvs.html"/>
-                <item name="Bug Database"          href="http://issues.apache.org/bugzilla/enter_bug.cgi?product=Ant"/>
-                <item name="Enhancement Requests"  href="http://issues.apache.org/bugzilla/enter_bug.cgi?product=Ant&amp;amp;bug_severity=Enhancement"/>
+                <item name="Subversion Repositories"      href="/svn.html"/>
+                <item name="Bug Database"          href="/bugs.html"/>
                 <item name="Donations"             href="http://www.apache.org/foundation/contributing.html"/>
             </menu>
 
@@ -69,11 +68,11 @@
             <menu name="Projects">
                 <item name="Welcome"               href="/projects/index.html"/>
             </menu>
-            <menu name="Antidote">
-                <item name="About Antidote"        href="/projects/antidote/index.html"/>
-                <item name="News"         href="/projects/antidote/news.html"/>
-                <item name="Design Overview"       href="/projects/antidote/design.html"/>
-                <item name="Module HOW-TO"         href="/projects/antidote/module.html"/>
+            <menu name="Ant Libraries">
+                <item name="Introduction"          href="/antlibs/index.html"/>
+                <item name="Charter"               href="/antlibs/charter.html"/>
+                <item name="Ant Libraries"         href="/antlibs/proper.html"/>
+                <item name="Sandbox Ant Libraries" href="/antlibs/sandbox.html"/>
             </menu>
         </menusection>
     </body>

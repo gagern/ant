@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -111,6 +112,14 @@ public class Location implements Serializable {
     }
 
     /**
+     * @return the column number
+     * @since Ant 1.7
+     */
+    public int getColumnNumber() {
+        return columnNumber;
+    }
+
+    /**
      * Returns the file name, line number, a colon and a trailing space.
      * An error message can be appended easily. For unknown locations, an
      * empty string is returned.
@@ -137,4 +146,32 @@ public class Location implements Serializable {
         return buf.toString();
     }
 
+    /**
+     * Equality operation.
+     * @param other the object to compare to.
+     * @return true if the other object contains the same information
+     *              as this object.
+     * @since Ant 1.6.3
+     */
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null) {
+            return false;
+        }
+        if (!(other.getClass() == getClass())) {
+            return false;
+        }
+        return toString().equals(other.toString());
+    }
+
+    /**
+     * Hash operation.
+     * @return a hash code value for this location.
+     * @since Ant 1.6.3
+     */
+    public int hashCode() {
+        return toString().hashCode();
+    }
 }

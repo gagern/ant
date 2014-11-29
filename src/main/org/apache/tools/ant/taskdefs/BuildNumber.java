@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,7 +35,6 @@ import org.apache.tools.ant.util.FileUtils;
  * it will increment the build number by one and write it back out into the
  * file.
  *
- * @version $Revision$ $Date$
  * @since Ant 1.5
  * @ant.task name="buildnumber"
  */
@@ -130,7 +130,6 @@ public class BuildNumber
         } catch (final NumberFormatException nfe) {
             final String message =
                 myFile + " contains a non integer build number: " + buildNumber;
-
             throw new BuildException(message, nfe);
         }
     }
@@ -174,7 +173,7 @@ public class BuildNumber
     private void validate()
          throws BuildException {
         if (null == myFile) {
-            myFile = getProject().resolveFile(DEFAULT_FILENAME);
+            myFile = FILE_UTILS.resolveFile(getProject().getBaseDir(), DEFAULT_FILENAME);
         }
 
         if (!myFile.exists()) {
@@ -183,20 +182,17 @@ public class BuildNumber
             } catch (final IOException ioe) {
                 final String message =
                     myFile + " doesn't exist and new file can't be created.";
-
                 throw new BuildException(message, ioe);
             }
         }
 
         if (!myFile.canRead()) {
             final String message = "Unable to read from " + myFile + ".";
-
             throw new BuildException(message);
         }
 
         if (!myFile.canWrite()) {
             final String message = "Unable to write to " + myFile + ".";
-
             throw new BuildException(message);
         }
     }

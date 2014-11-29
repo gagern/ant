@@ -2,6 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>TStamp Task</title>
 </head>
 
@@ -64,7 +65,7 @@ The format element also allows offsets to be applied to the time to generate dif
   </tr>
   <tr>
     <td valign="top">timezone</td>
-    <td valign="top">The timezone to use for displaying time. The values are as defined by the Java <a href="http://java.sun.com/products/jdk/1.2/docs/api/java/util/TimeZone.html">TimeZone</a> class.</td>
+    <td valign="top">The timezone to use for displaying time. The values are as defined by the Java <a href="http://java.sun.com/j2se/1.4.2/docs/api/java/util/TimeZone.html">TimeZone</a> class.</td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -112,7 +113,7 @@ sets the standard <code>DSTAMP</code>, <code>TSTAMP</code>,
 and <code>TODAY</code> properties according to the default formats.</p>
 <pre>
   &lt;tstamp&gt;
-    &lt;format property=&quot;TODAY_UK&quot; pattern=&quot;d-MMMM-yyyy&quot; locale=&quot;en&quot;/&gt;
+    &lt;format property=&quot;TODAY_UK&quot; pattern=&quot;d-MMMM-yyyy&quot; locale=&quot;en,UK&quot;/&gt;
   &lt;/tstamp&gt;
 </pre>
 <p>
@@ -139,7 +140,7 @@ Sets three properties with the standard formats, prefixed with "start.":
 
 
 <hr>
-<p align="center">Copyright &copy; 2000-2004 The Apache Software Foundation. All rights Reserved.</p>
+<p align="center">Copyright &copy; 2000-2005 The Apache Software Foundation. All rights Reserved.</p>
 
 </body>
 </html>

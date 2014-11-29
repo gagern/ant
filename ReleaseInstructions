@@ -58,6 +58,7 @@ Note: This document was updated in the context of releasing Ant 1.6.
 
         On the branch and on the main trunk (*):
 
+            * WHATSNEW
             * xdocs/antnews.xml (Announcement)
             * xdocs/faq.xml (Ant's history details - not for betas)
             * xdocs/index.xml (Announcement, latest release details, link to
@@ -78,9 +79,16 @@ Note: This document was updated in the context of releasing Ant 1.6.
     on the branch. It is important that this be a clean build. Label this with
     a tag ANT_16_B1.
 
+    C:\dev\asf\ant-core>
+    svn copy https://svn.apache.org/repos/asf/ant/core/trunk \
+    https://svn.apache.org/repos/asf/ant/core/tags/ANT_170_B1 \
+    -m "Tagging version 1.7.0Beta1 of Ant"
+
+    Revision 437509 ?\195?\188bertragen.
+
 8.  Sign the distribution files using the following simple script
     #!/bin/sh
-    for i in distribution/*
+    for i in `/usr/bin/find distribution \( -name "*.bz2" -o -name  "*.zip" -o -name "*.gz" \)`
     do
          echo "Signing " $i
          gpg -a -b --force-v3-sigs $i
@@ -164,7 +172,16 @@ Note: This document was updated in the context of releasing Ant 1.6.
     you'll have to do some house-keeping for the old release:
 
     * upload the new release files to
-      /www/www.apache.org/dist/ant/[source|binary].
+
+      from distribution
+      to   /www/www.apache.org/dist/ant/[source|binaries].
+      
+      and 
+
+      from java-repository/ant/jars
+      to   /www/www.apache.org/dist/java-repository/ant/jars
+
+      this can be done using the target upload of the build.xml
 
     * remove the symbolic links from /www/www.apache.org/dist/ant.
 
@@ -186,11 +203,8 @@ Note: This document was updated in the context of releasing Ant 1.6.
 19. Clean up.
 
     * remove the remaining files of the previous release from
-      /www/www.apache.org/dist/ant/[source|binary].
-
-    * remove all *tar* files of the old release from
-      /www/archive.apache.org/dist/ant/[source|binary] on minotaur,
-      leave the *zip* files alone.
+      /www/www.apache.org/dist/ant/[source|binaries].
+      This includes the old release notes.
 
 20. Now and perhaps during previous betas any changes on the branch must
     be merged back into the tree.
@@ -224,3 +238,10 @@ Note: This document was updated in the context of releasing Ant 1.6.
      or less, the release having been done at midnight on Dec 18th, the
      mirrors had it on Dec 19th at 8 am. The srcdownload/bindownload pages both
      contain a note advising users to be patient immediately after the release.
+
+Related Information
+
+http://www.apache.org/dev/release-publishing.html
+http://jakarta.apache.org/commons/releases/
+http://wiki.apache.org/jakarta-commons/SigningReleases
+

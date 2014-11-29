@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,6 +34,8 @@ import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectHelper;
+import org.apache.tools.ant.MagicNames;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 
 /**
@@ -41,8 +44,16 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * handling is handled by DefBase
  *
  * @since Ant 1.4
+ * @noinspection ParameterHidesMemberVariable
  */
 public abstract class Definer extends DefBase {
+
+    /**
+     * the extension of an antlib file for autoloading.
+     * {@value[
+     */
+    private static final String ANTLIB_XML = "/antlib.xml";
+
     private static class ResourceStack extends ThreadLocal {
         public Object initialValue() {
             return new HashMap();
@@ -74,6 +85,24 @@ public abstract class Definer extends DefBase {
     public static class OnError extends EnumeratedAttribute {
         /** Enumerated values */
         public static final int  FAIL = 0, REPORT = 1, IGNORE = 2, FAIL_ALL = 3;
+
+        /**
+         * text value of onerror option {@value}
+         */
+        public static final String POLICY_FAIL = "fail";
+        /**
+         * text value of onerror option {@value}
+         */
+        public static final String POLICY_REPORT = "report";
+        /**
+         * text value of onerror option {@value}
+         */
+        public static final String POLICY_IGNORE = "ignore";
+        /**
+         * text value of onerror option {@value}
+         */
+        public static final String POLICY_FAILALL = "failall";
+
         /**
          * Constructor
          */
@@ -94,7 +123,7 @@ public abstract class Definer extends DefBase {
          * @return an array of the allowed values for this attribute.
          */
         public String[] getValues() {
-            return new String[] {"fail", "report", "ignore", "failall"};
+            return new String[] {POLICY_FAIL, POLICY_REPORT, POLICY_IGNORE, POLICY_FAILALL};
         }
     }
 
@@ -169,9 +198,26 @@ public abstract class Definer extends DefBase {
         ClassLoader al = createLoader();
 
         if (!definerSet) {
-            throw new BuildException(
-                "name, file or resource attribute of "
-                + getTaskName() + " is undefined", getLocation());
+            //we arent fully defined yet. this is an error unless
+            //we are in an antlib, in which case the resource name is determined
+            //automatically.
+            //NB: URIs in the ant core package will be "" at this point.
+            if (getURI() == null) {
+                throw new BuildException(
+                        "name, file or resource attribute of "
+                                + getTaskName() + " is undefined",
+                        getLocation());
+            }
+
+            if (getURI().startsWith(MagicNames.ANTLIB_PREFIX)) {
+                //convert the URI to a resource
+                String uri1 = getURI();
+                setResource(makeResourceFromURI(uri1));
+            } else {
+                throw new BuildException(
+                        "Only antlib URIs can be located from the URI alone,"
+                                + "not the URI " + getURI());
+            }
         }
 
         if (name != null) {
@@ -243,6 +289,38 @@ public abstract class Definer extends DefBase {
         }
     }
 
+    /**
+     * This is where the logic to map from a URI to an antlib resource
+     * is kept. 
+     * @return the name of a resource. It may not exist
+     */
+
+    public static String makeResourceFromURI(String uri) {
+        String path = uri.substring(MagicNames.ANTLIB_PREFIX.length());
+        String resource;
+        if (path.startsWith("//")) {
+            //handle new style full paths to an antlib, in which 
+            //all but the forward slashes are allowed. 
+            resource = path.substring("//".length());
+            if (!resource.endsWith(".xml")) {
+                //if we haven't already named an XML file, it gets antlib.xml
+                resource = resource + ANTLIB_XML;
+            }
+        } else {
+            //convert from a package to a path
+            resource = path.replace('.', '/') + ANTLIB_XML;
+        }
+        return resource;
+    }
+
+    /**
+     * Convert a file to a file: URL. 
+     * 
+     * @return the URL, or null if it isn't valid and the active error policy
+     * is not to raise a fault
+     * @throws BuildException if the file is missing/not a file and the 
+     * policy requires failure at this point.
+     */
     private URL fileToURL() {
         String message = null;
         if (!(file.exists())) {
@@ -270,7 +348,9 @@ public abstract class Definer extends DefBase {
                 log(message, Project.MSG_WARN);
                 break;
             case OnError.IGNORE:
-                // Fall Through
+                // log at a lower level
+                log(message, Project.MSG_VERBOSE);
+                break;
             default:
                 // Ignore the problem
                 break;
@@ -298,7 +378,8 @@ public abstract class Definer extends DefBase {
                     log(message, Project.MSG_WARN);
                     break;
                 case OnError.IGNORE:
-                    // Fall Through
+                    log(message, Project.MSG_VERBOSE);
+                    break;
                 default:
                     // Ignore the problem
                     break;
@@ -308,7 +389,7 @@ public abstract class Definer extends DefBase {
     }
 
     /**
-     * Load type definitions as properties from a url.
+     * Load type definitions as properties from a URL.
      *
      * @param al the classloader to use
      * @param url the url to get the definitions from
@@ -333,18 +414,12 @@ public abstract class Definer extends DefBase {
         } catch (IOException ex) {
             throw new BuildException(ex, getLocation());
         } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
+            FileUtils.close(is);
         }
     }
 
     /**
-     * Load an antlib from a url.
+     * Load an antlib from a URL.
      *
      * @param classLoader the classloader to use.
      * @param url the url to load the definitions from.
@@ -354,7 +429,7 @@ public abstract class Definer extends DefBase {
             Antlib antlib = Antlib.createAntlib(getProject(), url, getURI());
             antlib.setClassLoader(classLoader);
             antlib.setURI(getURI());
-            antlib.perform();
+            antlib.execute();
         } catch (BuildException ex) {
             throw ProjectHelper.addLocationToBuildException(
                 ex, getLocation());
@@ -529,9 +604,13 @@ public abstract class Definer extends DefBase {
         }
     }
 
+    /**
+     * handle too many definitions by raising an exception.
+     * @throws BuildException always.
+     */
     private void tooManyDefinitions() {
         throw new BuildException(
-            "Only one of the attributes name,file,resource"
+            "Only one of the attributes name, file and resource"
             + " can be set", getLocation());
     }
 }

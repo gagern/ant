@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Hashtable;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
@@ -95,6 +97,9 @@ public class JJDoc extends Task {
         this.javaccHome = javaccHome;
     }
 
+    /**
+     * Constructor
+     */
     public JJDoc() {
         cmdl.setVm(JavaEnvUtils.getJreExecutable("java"));
     }
@@ -161,12 +166,12 @@ public class JJDoc extends Task {
         }
     }
 
-    private String createOutputFileName(File targetFile, String optionalOutputFile,
-                                        boolean plainText) {
+    private String createOutputFileName(File destFile, String optionalOutputFile,
+                                        boolean plain) {
         String suffix = DEFAULT_SUFFIX_HTML;
-        String javaccFile = targetFile.getAbsolutePath().replace('\\', '/');
+        String javaccFile = destFile.getAbsolutePath().replace('\\', '/');
 
-        if (plainText) {
+        if (plain) {
             suffix = DEFAULT_SUFFIX_TEXT;
         }
 

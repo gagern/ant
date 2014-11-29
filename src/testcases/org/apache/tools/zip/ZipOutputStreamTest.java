@@ -1,5 +1,5 @@
 /*
- * Copyright 2004 The Apache Software Foundation
+ * Copyright 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 
 package org.apache.tools.zip;
 
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
-
 import java.util.Calendar;
 import java.util.Date;
+
+import junit.framework.TestCase;
 
 public class ZipOutputStreamTest extends TestCase {
     
@@ -64,6 +62,15 @@ public class ZipOutputStreamTest extends TestCase {
     public void testZipLong() throws Exception {
         ZipLong test = ZipOutputStream.toDosTime(time);
         assertEquals(test.getValue(), zl.getValue());
+    }
+
+    public void testAdjustToLong() {
+        assertEquals((long) Integer.MAX_VALUE,
+                     ZipOutputStream.adjustToLong(Integer.MAX_VALUE));
+        assertEquals(((long) Integer.MAX_VALUE) + 1,
+                     ZipOutputStream.adjustToLong(Integer.MAX_VALUE + 1));
+        assertEquals(2 * ((long) Integer.MAX_VALUE),
+                     ZipOutputStream.adjustToLong(2 * Integer.MAX_VALUE));
     }
 
 }

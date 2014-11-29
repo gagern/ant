@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,9 +17,6 @@
  */
 package org.apache.tools.ant.types;
 
-
-import java.util.Stack;
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.util.regexp.Regexp;
 import org.apache.tools.ant.util.regexp.RegexpFactory;
@@ -138,20 +136,6 @@ public class RegularExpression extends DataType {
      * @return resolved RegularExpression instance
      */
     public RegularExpression getRef(Project p) {
-        if (!isChecked()) {
-            Stack stk = new Stack();
-            stk.push(this);
-            dieOnCircularReference(stk, p);
-        }
-
-
-        Object o = getRefid().getReferencedObject(p);
-        if (!(o instanceof RegularExpression)) {
-            String msg = getRefid().getRefId() + " doesn\'t denote a "
-                    + DATA_TYPE_NAME;
-            throw new BuildException(msg);
-        } else {
-            return (RegularExpression) o;
-        }
+        return (RegularExpression) getCheckedRef(p);
     }
 }

@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,21 +34,24 @@ import java.io.IOException;
 public abstract class Task extends ProjectComponent {
     /**
      * Target this task belongs to, if any.
-     * @deprecated You should not be accessing this variable directly.
-     *   Please use the {@link #getOwningTarget()} method.
+     * @deprecated since 1.6.x.
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getOwningTarget()} method.
      */
     protected Target target;
 
     /**
      * Description of this task, if any.
-     * @deprecated You should not be accessing this variable directly.
+     * @deprecated since 1.6.x. 
+     *             You should not be accessing this variable directly.
      */
     protected String description;
 
     /**
      * Location within the build file of this task definition.
-     * @deprecated You should not be accessing this variable directly.
-     *   Please use the {@link #getLocation()} method.
+     * @deprecated since 1.6.x. 
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getLocation()} method.
      */
     protected Location location = Location.UNKNOWN_LOCATION;
 
@@ -58,24 +62,27 @@ public abstract class Task extends ProjectComponent {
      * isn't terribly descriptive for a task used within
      * another task - the outer task code can probably
      * provide a better one.
-     * @deprecated You should not be accessing this variable directly.
-     *   Please use the {@link #getTaskName()} method.
+     * @deprecated since 1.6.x. 
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getTaskName()} method.
      */
     protected String taskName;
 
     /**
      * Type of this task.
      *
-     * @deprecated You should not be accessing this variable directly.
-     *   Please use the {@link #getTaskType()} method.
+     * @deprecated since 1.6.x. 
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getTaskType()} method.
      */
     protected String taskType;
 
     /**
      * Wrapper for this object, used to configure it at runtime.
      *
-     * @deprecated You should not be accessing this variable directly.
-     *   Please use the {@link #getWrapper()} method.
+     * @deprecated since 1.6.x. 
+     *             You should not be accessing this variable directly.
+     *             Please use the {@link #getWrapper()} method.
      */
     protected RuntimeConfigurable wrapper;
 
@@ -178,7 +185,7 @@ public abstract class Task extends ProjectComponent {
      * if target1 and target2 both depend on target3, then running
      * "ant target1 target2" will run all tasks in target3 twice.
      *
-     * @exception BuildException if something goes wrong with the build
+     * @exception BuildException if something goes wrong with the build.
      */
     public void execute() throws BuildException {
     }
@@ -200,7 +207,7 @@ public abstract class Task extends ProjectComponent {
      * Sets the file/location where this task was defined.
      *
      * @param location The file/location where this task was defined.
-     *                 Should not be <code>null</code> - use
+     *                 Should not be <code>null</code>--use
      *                 Location.UNKNOWN_LOCATION if the location isn't known.
      *
      * @see Location#UNKNOWN_LOCATION
@@ -226,7 +233,7 @@ public abstract class Task extends ProjectComponent {
     /**
      * Sets the wrapper to be used for runtime configuration.
      *
-     * This method should be used only by the ProjectHelper and ant internals.
+     * This method should be used only by the ProjectHelper and Ant internals.
      * It is public to allow helper plugins to operate on tasks, normal tasks
      * should never use it.
      *
@@ -261,8 +268,7 @@ public abstract class Task extends ProjectComponent {
     }
 
     /**
-     * Force the task to be reconfigured from it's RuntimeConfigurable
-     *
+     * Force the task to be reconfigured from its RuntimeConfigurable.
      */
     public void reconfigure() {
         if (wrapper != null) {
@@ -291,15 +297,15 @@ public abstract class Task extends ProjectComponent {
     }
 
     /**
-     * Handle an input request by this task
+     * Handle an input request by this task.
      *
      * @param buffer the buffer into which data is to be read.
      * @param offset the offset into the buffer at which data is stored.
-     * @param length the amount of data to read
+     * @param length the amount of data to read.
      *
-     * @return the number of bytes read
+     * @return the number of bytes read.
      *
-     * @exception IOException if the data cannot be read
+     * @exception IOException if the data cannot be read.
      * @since Ant 1.6
      */
     protected int handleInput(byte[] buffer, int offset, int length)
@@ -345,7 +351,11 @@ public abstract class Task extends ProjectComponent {
      *                 be logged.
      */
     public void log(String msg, int msgLevel) {
-        getProject().log(this, msg, msgLevel);
+        if (getProject() != null) {
+            getProject().log(this, msg, msgLevel);
+        } else {
+            super.log(msg, msgLevel);
+        }
     }
 
     /**
@@ -460,20 +470,41 @@ public abstract class Task extends ProjectComponent {
     }
 
     /**
-     * Return the type of task
+     * Return the type of task.
      *
-     * @return the type of task
+     * @return the type of task.
      */
     public String getTaskType() {
         return taskType;
     }
 
     /**
-     * Return the runtime configurable structure for this task
+     * Return the runtime configurable structure for this task.
      *
-     * @return the runtime structure for this task
+     * @return the runtime structure for this task.
      */
     protected RuntimeConfigurable getWrapper() {
         return wrapper;
+    }
+
+    /**
+     * Bind a task to another; use this when configuring a newly created
+     * task to do work on behalf of another.
+     * Project, OwningTarget, TaskName, Location and Description are all copied
+     *
+     * Important: this method does not call {@link Task#init()}.
+     * If you are creating a task to delegate work to, call {@link Task#init()}
+     * to initialize it.
+     *
+     * @param owner owning target
+     * @since Ant1.7
+     */
+    public final void bindToOwner(Task owner) {
+        setProject(owner.getProject());
+        setOwningTarget(owner.getOwningTarget());
+        setTaskName(owner.getTaskName());
+        setDescription(owner.getDescription());
+        setLocation(owner.getLocation());
+        setTaskType(owner.getTaskType());
     }
 }

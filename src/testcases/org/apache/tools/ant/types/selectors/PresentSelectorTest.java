@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2002,2004 The Apache Software Foundation
+ * Copyright  2000-2002,2004-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,17 +19,10 @@ package org.apache.tools.ant.types.selectors;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.util.*;
-import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.types.Mapper;
-import org.apache.tools.ant.util.FileNameMapper;
-import org.apache.tools.ant.util.IdentityMapper;
-import org.apache.tools.ant.util.GlobPatternMapper;
 
 import java.io.File;
 
-import junit.framework.TestCase;
-import junit.framework.AssertionFailedError;
 
 /**
  * Tests Present Selectors
@@ -113,11 +106,7 @@ public class PresentSelectorTest extends BaseSelectorTest {
             m = s.createMapper();
             m.setType(flatten);
             results = selectionString(s);
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-                assertEquals("TTTTTFFFFFFF", results);
-            } else {
-                assertEquals("TTTTTTTTTTTF", results);
-            }
+            assertEquals("TTTTTTTTTTTF", results);
 
             s = (PresentSelector)getInstance();
             s.setTargetdir(beddir);

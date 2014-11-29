@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,10 +28,10 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 
 /**
- * Command class that encapsulate specific behavior for each
- * Xalan version. The right executor will be instantiated at
- * runtime via class lookup. For instance, it will check first
- * for Xalan2/XSLTC, then for Xalan1.
+ * This class is not used by the framework any more.
+ * We plan to remove it in Ant 1.8
+ * @deprecated since Ant 1.7
+ *
  */
 abstract class XalanExecutor {
     private static final String PACKAGE =
@@ -60,9 +61,8 @@ abstract class XalanExecutor {
     abstract void execute() throws Exception;
 
     /**
-     * Create a valid Xalan executor. It checks first if Xalan2 is
-     * present, if not it checks for xalan1. If none is available, it
-     * fails.
+     * Create a valid Xalan executor. It checks if Xalan2 is
+     * present. If none is available, it fails.
      * @param caller object containing the transformation information.
      * @throws BuildException thrown if it could not find a valid xalan
      * executor.
@@ -75,15 +75,9 @@ abstract class XalanExecutor {
             executor = (XalanExecutor) clazz.newInstance();
         } catch (Exception xsltcApacheMissing) {
             caller.task.log(xsltcApacheMissing.toString());
-            try {
-                Class clazz = Class.forName(PACKAGE + "Xalan1Executor");
-                executor = (XalanExecutor) clazz.newInstance();
-            } catch (Exception xalan1Missing) {
-                caller.task.log(xalan1Missing.toString());
-                throw new BuildException("Could not find xstlc nor xalan2 nor "
-                                         + "xalan1 in the classpath. Check "
+                throw new BuildException("Could not find xstlc nor xalan2 "
+                                         + "in the classpath. Check "
                                          + "http://xml.apache.org/xalan-j");
-            }
         }
         String classNameImpl = executor.getImplementation();
         String version = executor.getProcVersion(classNameImpl);

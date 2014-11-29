@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +21,9 @@ package org.apache.tools.ant.util;
 import java.io.File;
 import java.util.Vector;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceFactory;
+import org.apache.tools.ant.types.resources.FileResource;
 
 /**
  * Utility class that collects the functionality of the various
@@ -40,7 +42,8 @@ public class SourceFileScanner implements ResourceFactory {
     private File destDir;     // base directory of the fileset
 
     /**
-     * @param task The task we should log messages through
+     * Construct a new SourceFileScanner.
+     * @param task The task we should log messages through.
      */
     public SourceFileScanner(Task task) {
         this.task = task;
@@ -50,12 +53,13 @@ public class SourceFileScanner implements ResourceFactory {
      * Restrict the given set of files to those that are newer than
      * their corresponding target files.
      *
-     * @param files   the original set of files
-     * @param srcDir  all files are relative to this directory
+     * @param files   the original set of files.
+     * @param srcDir  all files are relative to this directory.
      * @param destDir target files live here. if null file names
      *                returned by the mapper are assumed to be absolute.
      * @param mapper  knows how to construct a target file names from
      *                source file names.
+     * @return an array of filenames.
      */
     public String[] restrict(String[] files, File srcDir, File destDir,
                              FileNameMapper mapper) {
@@ -67,14 +71,15 @@ public class SourceFileScanner implements ResourceFactory {
      * Restrict the given set of files to those that are newer than
      * their corresponding target files.
      *
-     * @param files   the original set of files
-     * @param srcDir  all files are relative to this directory
-     * @param destDir target files live here. if null file names
+     * @param files   the original set of files.
+     * @param srcDir  all files are relative to this directory.
+     * @param destDir target files live here. If null file names
      *                returned by the mapper are assumed to be absolute.
      * @param mapper  knows how to construct a target file names from
      *                source file names.
      * @param granularity The number of milliseconds leeway to give
      *                    before deciding a target is out of date.
+     * @return an array of filenames.
      *
      * @since Ant 1.6.2
      */
@@ -104,9 +109,16 @@ public class SourceFileScanner implements ResourceFactory {
     }
 
     /**
-     * Convinience layer on top of restrict that returns the source
+     * Convenience layer on top of restrict that returns the source
      * files as File objects (containing absolute paths if srcDir is
      * absolute).
+     * @param files   the original set of files.
+     * @param srcDir  all files are relative to this directory.
+     * @param destDir target files live here. If null file names
+     *                returned by the mapper are assumed to be absolute.
+     * @param mapper  knows how to construct a target file names from
+     *                source file names.
+     * @return an array of files.
      */
     public File[] restrictAsFiles(String[] files, File srcDir, File destDir,
                                   FileNameMapper mapper) {
@@ -115,10 +127,19 @@ public class SourceFileScanner implements ResourceFactory {
     }
 
     /**
-     * Convinience layer on top of restrict that returns the source
+     * Convenience layer on top of restrict that returns the source
      * files as File objects (containing absolute paths if srcDir is
      * absolute).
      *
+     * @param files   the original set of files.
+     * @param srcDir  all files are relative to this directory.
+     * @param destDir target files live here. If null file names
+     *                returned by the mapper are assumed to be absolute.
+     * @param mapper  knows how to construct a target file names from
+     *                source file names.
+     * @param granularity The number of milliseconds leeway to give
+     *                    before deciding a target is out of date.
+     * @return an array of files.
      * @since Ant 1.6.2
      */
     public File[] restrictAsFiles(String[] files, File srcDir, File destDir,
@@ -132,16 +153,15 @@ public class SourceFileScanner implements ResourceFactory {
     }
 
     /**
-     * returns resource information for a file at destination
-     * @param name relative path of file at destination
-     * @return data concerning a file whose relative path to destDir is name
+     * Returns resource information for a file at destination.
+     * @param name relative path of file at destination.
+     * @return data concerning a file whose relative path to destDir is name.
      *
      * @since Ant 1.5.2
      */
     public Resource getResource(String name) {
-        File src = FILE_UTILS.resolveFile(destDir, name);
-        return new Resource(name, src.exists(), src.lastModified(),
-                            src.isDirectory());
+        return new FileResource(destDir, name);
     }
+
 }
 

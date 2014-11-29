@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -58,8 +59,8 @@ public class RuntimeConfigurable implements Serializable {
     private transient IntrospectionHelper.Creator creator;
 
     /**
-     * @deprecated
      * XML attributes for the element.
+     * @deprecated since 1.6.x
      */
     private transient AttributeList attributes;
 
@@ -89,11 +90,10 @@ public class RuntimeConfigurable implements Serializable {
      *
      * @param proxy The element to configure. Must not be <code>null</code>.
      * @param elementTag The tag name generating this element.
-     *                   Should not be <code>null</code>.
      */
     public RuntimeConfigurable(Object proxy, String elementTag) {
         setProxy(proxy);
-        this.elementTag = elementTag;
+        setElementTag(elementTag);
         // Most likely an UnknownElement
         if (proxy instanceof Task) {
             ((Task) proxy).setRuntimeConfigurableWrapper(this);
@@ -105,7 +105,7 @@ public class RuntimeConfigurable implements Serializable {
      *
      * @param proxy The element to configure. Must not be <code>null</code>.
      */
-    public void setProxy(Object proxy) {
+    public synchronized void setProxy(Object proxy) {
         wrappedObject = proxy;
         proxyConfigured = false;
     }
@@ -116,7 +116,7 @@ public class RuntimeConfigurable implements Serializable {
      *
      * @param creator the creator object.
      */
-    void setCreator(IntrospectionHelper.Creator creator) {
+    synchronized void setCreator(IntrospectionHelper.Creator creator) {
         this.creator = creator;
     }
 
@@ -126,7 +126,7 @@ public class RuntimeConfigurable implements Serializable {
      *
      * @return the object whose configure is held by this instance.
      */
-    public Object getProxy() {
+    public synchronized Object getProxy() {
         return wrappedObject;
     }
 
@@ -134,7 +134,7 @@ public class RuntimeConfigurable implements Serializable {
      * Get the polymorphic type for this element.
      * @return the ant component type name, null if not set.
      */
-    public String getPolyType() {
+    public synchronized String getPolyType() {
         return polyType;
     }
 
@@ -142,18 +142,18 @@ public class RuntimeConfigurable implements Serializable {
      * Set the polymorphic type for this element.
      * @param polyType the ant component type name, null if not set.
      */
-    public void setPolyType(String polyType) {
+    public synchronized void setPolyType(String polyType) {
         this.polyType = polyType;
     }
 
     /**
      * Sets the attributes for the wrapped element.
      *
-     * @deprecated
+     * @deprecated since 1.6.x.
      * @param attributes List of attributes defined in the XML for this
      *                   element. May be <code>null</code>.
      */
-    public void setAttributes(AttributeList attributes) {
+    public synchronized void setAttributes(AttributeList attributes) {
         this.attributes = new AttributeListImpl(attributes);
         for (int i = 0; i < attributes.getLength(); i++) {
             setAttribute(attributes.getName(i), attributes.getValue(i));
@@ -166,7 +166,7 @@ public class RuntimeConfigurable implements Serializable {
      * @param name the name of the attribute.
      * @param value the attribute's value.
      */
-    public void setAttribute(String name, String value) {
+    public synchronized void setAttribute(String name, String value) {
         if (name.equalsIgnoreCase(ProjectHelper.ANT_TYPE)) {
             this.polyType = value;
         } else {
@@ -180,12 +180,21 @@ public class RuntimeConfigurable implements Serializable {
     }
 
     /**
+     * Delete an attribute.  Not for the faint of heart.
+     * @param name the name of the attribute to be removed.
+     */
+    public synchronized void removeAttribute(String name) {
+        attributeNames.remove(name);
+        attributeMap.remove(name);
+    }
+
+    /**
      * Return the attribute map.
      *
      * @return Attribute name to attribute value map.
      * @since Ant 1.6
      */
-    public Hashtable getAttributeMap() {
+    public synchronized Hashtable getAttributeMap() {
         return (attributeMap == null)
             ? EMPTY_HASHTABLE : new Hashtable(attributeMap);
     }
@@ -197,7 +206,7 @@ public class RuntimeConfigurable implements Serializable {
      * @return An AttributeList representing the attributes defined in the
      *         XML for this element. May be <code>null</code>.
      */
-    public AttributeList getAttributes() {
+    public synchronized AttributeList getAttributes() {
         return attributes;
     }
 
@@ -207,7 +216,7 @@ public class RuntimeConfigurable implements Serializable {
      * @param child The child element wrapper to add to this one.
      *              Must not be <code>null</code>.
      */
-    public void addChild(RuntimeConfigurable child) {
+    public synchronized void addChild(RuntimeConfigurable child) {
         children = (children == null) ? new ArrayList() : children;
         children.add(child);
     }
@@ -220,7 +229,7 @@ public class RuntimeConfigurable implements Serializable {
      * @return The child wrapper at position <code>index</code> within the
      *         list.
      */
-    RuntimeConfigurable getChild(int index) {
+    synchronized RuntimeConfigurable getChild(int index) {
         return (RuntimeConfigurable) children.get(index);
     }
 
@@ -229,7 +238,7 @@ public class RuntimeConfigurable implements Serializable {
      * @return an enumeration of the child wrappers.
      * @since Ant 1.6
      */
-    public Enumeration getChildren() {
+    public synchronized Enumeration getChildren() {
         return (children == null) ? new CollectionUtils.EmptyEnumeration()
             : Collections.enumeration(children);
     }
@@ -240,7 +249,10 @@ public class RuntimeConfigurable implements Serializable {
      * @param data Text to add to the wrapped element.
      *        Should not be <code>null</code>.
      */
-    public void addText(String data) {
+    public synchronized void addText(String data) {
+        if (data.length() == 0) {
+            return;
+        }
         characters = (characters == null)
             ? new StringBuffer(data) : characters.append(data);
     }
@@ -254,14 +266,12 @@ public class RuntimeConfigurable implements Serializable {
      * @param count The number of characters to read from the array.
      *
      */
-    public void addText(char[] buf, int start, int count) {
+    public synchronized void addText(char[] buf, int start, int count) {
         if (count == 0) {
             return;
         }
-        if (characters == null) {
-            characters = new StringBuffer(count);
-        }
-        characters.append(buf, start, count);
+        characters = ((characters == null)
+            ? new StringBuffer(count) : characters).append(buf, start, count);
     }
 
     /**
@@ -272,12 +282,16 @@ public class RuntimeConfigurable implements Serializable {
      * @return the text content of this element.
      * @since Ant 1.6
      */
-    public StringBuffer getText() {
-        if (characters != null) {
-            return characters;
-        } else {
-            return new StringBuffer(0);
-        }
+    public synchronized StringBuffer getText() {
+        return (characters == null) ? new StringBuffer(0) : characters;
+    }
+
+    /**
+     * Set the element tag.
+     * @param elementTag The tag name generating this element.
+     */
+    public synchronized void setElementTag(String elementTag) {
+        this.elementTag = elementTag;
     }
 
     /**
@@ -286,7 +300,7 @@ public class RuntimeConfigurable implements Serializable {
      * @return The tag name of the wrapped element. This is unlikely
      *         to be <code>null</code>, but may be.
      */
-    public String getElementTag() {
+    public synchronized String getElementTag() {
         return elementTag;
     }
 
@@ -330,7 +344,7 @@ public class RuntimeConfigurable implements Serializable {
      *            to invalid attributes or children, or text being added to
      *            an element which doesn't accept it.
      */
-    public void maybeConfigure(Project p, boolean configureChildren)
+    public synchronized void maybeConfigure(Project p, boolean configureChildren)
         throws BuildException {
         String id = null;
 
@@ -384,27 +398,28 @@ public class RuntimeConfigurable implements Serializable {
         Enumeration e = getChildren();
         while (e.hasMoreElements()) {
             RuntimeConfigurable child = (RuntimeConfigurable) e.nextElement();
-            if (child.wrappedObject instanceof Task) {
-                Task childTask = (Task) child.wrappedObject;
-                childTask.setRuntimeConfigurableWrapper(child);
-            }
-
-            if ((child.creator != null) && configureChildren) {
-                child.maybeConfigure(p);
-                child.creator.store();
-                continue;
-            }
-            /*
-             * backwards compatibility - element names of nested
-             * elements have been all lower-case in Ant, except for
-             * tasks in TaskContainers.
-             *
-             * For TaskContainers, we simply skip configuration here.
-             */
-            String tag = child.getElementTag().toLowerCase(Locale.US);
-            if (configureChildren && ih.supportsNestedElement(tag)) {
-                child.maybeConfigure(p);
-                ProjectHelper.storeChild(p, target, child.wrappedObject, tag);
+            synchronized (child) {
+                if (child.wrappedObject instanceof Task) {
+                    Task childTask = (Task) child.wrappedObject;
+                    childTask.setRuntimeConfigurableWrapper(child);
+                }
+                if ((child.creator != null) && configureChildren) {
+                    child.maybeConfigure(p);
+                    child.creator.store();
+                    continue;
+                }
+                /*
+                 * backwards compatibility - element names of nested
+                 * elements have been all lower-case in Ant, except for
+                 * tasks in TaskContainers.
+                 *
+                 * For TaskContainers, we simply skip configuration here.
+                 */
+                String tag = child.getElementTag().toLowerCase(Locale.US);
+                if (configureChildren && ih.supportsNestedElement(tag)) {
+                    child.maybeConfigure(p);
+                    ProjectHelper.storeChild(p, target, child.wrappedObject, tag);
+                }
             }
         }
 

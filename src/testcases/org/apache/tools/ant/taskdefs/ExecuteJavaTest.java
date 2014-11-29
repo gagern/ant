@@ -1,5 +1,5 @@
 /*
- * Copyright  2002,2004 The Apache Software Foundation
+ * Copyright  2002,2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Commandline;
+import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.util.JavaEnvUtils;
-
-import java.io.File;
 
 import junit.framework.TestCase;
 
@@ -40,6 +40,7 @@ public class ExecuteJavaTest extends TestCase {
 
     private ExecuteJava ej;
     private Project project;
+    private Path cp;
 
     public ExecuteJavaTest(String name) {
         super(name);
@@ -50,7 +51,9 @@ public class ExecuteJavaTest extends TestCase {
         ej.setTimeout(new Long(TIME_OUT));
         project = new Project();
         project.setBasedir(".");
-        ej.setClasspath(new Path(project, getTestClassPath()));
+        project.setProperty(MagicNames.ANT_HOME, System.getProperty(MagicNames.ANT_HOME));
+        cp = new Path(project, getTestClassPath());
+        ej.setClasspath(cp);
     }
 
     private Commandline getCommandline(int timetorun) throws Exception {
@@ -85,6 +88,36 @@ public class ExecuteJavaTest extends TestCase {
     }
 
 
+    public void testNoTimeOutForked() throws Exception {
+        Commandline cmd = getCommandline(TIME_OUT/2);
+        ej.setJavaCommand(cmd);
+        ej.fork(cp);
+        assertTrue("process should not have been killed", !ej.killedProcess());
+    }
+
+    // test that the watchdog ends the process
+    public void testTimeOutForked() throws Exception {
+        //process doesn't die properly under this combination,
+        //thus test fails.  No workaround?
+        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2)
+            && Os.isFamily("dos")) {
+            return;
+        }
+        Commandline cmd = getCommandline(TIME_OUT*2);
+        ej.setJavaCommand(cmd);
+        long now = System.currentTimeMillis();
+        ej.fork(cp);
+        long elapsed = System.currentTimeMillis() - now;
+        assertTrue("process should have been killed", ej.killedProcess());
+
+        assertTrue("elapse time of "+elapsed
+                   +" ms is less than timeout value of "+TIME_OUT_TEST+" ms",
+                   elapsed >= TIME_OUT_TEST);
+        assertTrue("elapse time of "+elapsed
+                   +" ms is greater than run value of "+(TIME_OUT*2)+" ms",
+                   elapsed < TIME_OUT*2);
+    }
+
     /**
      * Dangerous method to obtain the classpath for the test. This is
      * severely tighted to the build.xml properties.
@@ -94,14 +127,6 @@ public class ExecuteJavaTest extends TestCase {
         if (classpath == null) {
             System.err.println("WARNING: 'build.tests' property is not available !");
             classpath = System.getProperty("java.class.path");
-        }
-
-        // JDK 1.1 needs classes.zip in -classpath argument
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            classpath +=   File.pathSeparator
-                + System.getProperty("java.home")
-                + File.separator + "lib"
-                + File.separator + "classes.zip";
         }
 
         return classpath;

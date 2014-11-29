@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,8 +24,9 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.Text;
 
-import org.apache.tools.ant.DynamicConfiguratorNS;
 import org.apache.tools.ant.DynamicElementNS;
+import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.DynamicConfiguratorNS;
 
 /**
  * Use this class as a nested element if you want to get a literal DOM
@@ -37,7 +39,7 @@ import org.apache.tools.ant.DynamicElementNS;
  *
  * @since Ant 1.7
  */
-public class XMLFragment implements DynamicElementNS {
+public class XMLFragment extends ProjectComponent implements DynamicElementNS {
 
     private Document doc;
     private DocumentFragment fragment;
@@ -59,7 +61,7 @@ public class XMLFragment implements DynamicElementNS {
     }
 
     /**
-     * Add nested text.
+     * Add nested text, expanding properties as we go
      * @param s the text to add
      */
     public void addText(String s) {
@@ -74,14 +76,26 @@ public class XMLFragment implements DynamicElementNS {
      * @return an object that the element is applied to
      */
     public Object createDynamicElement(String uri, String name, String qName) {
-        Element e = doc.createElementNS(uri, qName);
+        Element e = null;
+        if (uri.equals("")) {
+            e = doc.createElement(name);
+        } else {
+            e = doc.createElementNS(uri, qName);
+        }
         fragment.appendChild(e);
         return new Child(e);
     }
 
+    /**
+     * Add text to a node. 
+     * @param n node
+     * @param s value
+     */
     private void addText(Node n, String s) {
+        s = getProject().replaceProperties(s);
+        //only text nodes that are non null after property expansion are added
         if (s != null && !s.trim().equals("")) {
-            Text t = doc.createTextNode(s);
+            Text t = doc.createTextNode(s.trim());
             n.appendChild(t);
         }
     }

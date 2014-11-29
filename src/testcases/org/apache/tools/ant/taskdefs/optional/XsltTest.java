@@ -1,5 +1,5 @@
 /*
- * Copyright  2002,2004 The Apache Software Foundation
+ * Copyright  2002,2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.apache.tools.ant.taskdefs.optional;
 import org.apache.tools.ant.BuildFileTest;
 
 /**
- * Tests the style/xslt task.
- *
+ * Tests the {@link XSLTProcess} task.
+ * XXX merge with {@link StyleTest}?
  * @since Ant 1.5
  */
 public class XsltTest extends BuildFileTest {
@@ -84,6 +84,20 @@ public class XsltTest extends BuildFileTest {
 
     public void testAttribute() throws Exception {
         executeTarget("testAttribute");
+    }
+    public void testXMLWithEntitiesInNonAsciiPath() throws Exception {
+        executeTarget("testXMLWithEntitiesInNonAsciiPath");
+    }
+
+    /**
+     * check that the system id gets set properly on stylesheets.
+     * @throws Exception if something goes wrong.
+     */
+    public void testStyleSheetWithInclude() throws Exception {
+        executeTarget("testStyleSheetWithInclude");
+        if (getLog().indexOf("java.io.FileNotFoundException") != -1) {
+            fail("xsl:include was not found");
+        }
     }
 }
 

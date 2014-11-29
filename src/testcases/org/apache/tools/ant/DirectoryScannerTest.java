@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
+ * Copyright  2001-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 package org.apache.tools.ant;
 
 import org.apache.tools.ant.taskdefs.condition.Os;
-import org.apache.tools.ant.types.Resource;
-import org.apache.tools.ant.util.JavaEnvUtils;
+import org.apache.tools.ant.util.FileUtils;
 
-import junit.framework.TestCase;
-import junit.framework.AssertionFailedError;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.Iterator;
 
@@ -219,15 +218,16 @@ public class DirectoryScannerTest extends BuildFileTest {
     }
 
     /**
-     * Test case for setFollowLinks() and associated funtionality.
-     * Only supports test on linux, at the moment because Java has
+     * Test case for setFollowLinks() and associated functionality.
+     * Only supports test on Linux at the moment because Java has
      * no real notion of symlinks built in, so an os-specfic call
      * to Runtime.exec() must be made to create a link to test against.
      */
-
-    public void testSetFollowLinks() {
+    public void testSetFollowLinks() throws IOException {
         if (supportsSymlinks) {
             File linkFile = new File(System.getProperty("root"), "src/main/org/apache/tools/ThisIsALink");
+            System.err.println("link exists pre-test? " + linkFile.exists());
+            
             try {
                 // add conditions and more commands as soon as the need arises
                 String[] command = new String[] {
@@ -245,6 +245,9 @@ public class DirectoryScannerTest extends BuildFileTest {
                 }
 
                 File dir = new File(System.getProperty("root"), "src/main/org/apache/tools");
+                System.err.println("link exists after exec? " + linkFile.exists());
+                System.err.println("Ant knows it is a link? " + FileUtils.getFileUtils().isSymbolicLink(dir, "ThisIsALink"));
+
                 DirectoryScanner ds = new DirectoryScanner();
 
                 // followLinks should be true by default, but if this ever
@@ -301,12 +304,15 @@ public class DirectoryScannerTest extends BuildFileTest {
                            !haveTaskdefsPackage);
 
             } finally {
+                System.err.println("link exists pre-delete? " + linkFile.exists());
                 if (!linkFile.delete()) {
                     throw new RuntimeException("Failed to delete " + linkFile);
                 }
+                System.err.println("link exists post-delete? " + linkFile.exists());
             }
         }
     }
+
     public void testExcludeOneFile() {
         DirectoryScanner ds = new DirectoryScanner();
         ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
@@ -320,6 +326,7 @@ public class DirectoryScannerTest extends BuildFileTest {
         compareFiles(ds, new String[] {"alpha/beta/gamma/gamma.xml"},
                      new String[] {});
     }
+
     public void testExcludeHasPrecedence() {
         DirectoryScanner ds = new DirectoryScanner();
         ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
@@ -334,6 +341,7 @@ public class DirectoryScannerTest extends BuildFileTest {
                      new String[] {});
 
     }
+
     public void testAlternateIncludeExclude() {
         DirectoryScanner ds = new DirectoryScanner();
         ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
@@ -349,6 +357,7 @@ public class DirectoryScannerTest extends BuildFileTest {
                      new String[] {"alpha"});
 
     }
+
     public void testAlternateExcludeInclude() {
         DirectoryScanner ds = new DirectoryScanner();
         ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
@@ -364,6 +373,7 @@ public class DirectoryScannerTest extends BuildFileTest {
                      new String[] {});
 
     }
+
     /**
      * Test inspired by Bug#1415.
      */
@@ -387,6 +397,88 @@ public class DirectoryScannerTest extends BuildFileTest {
                                         "delta/delta.xml"},
                      new String[] {"", "alpha/beta", "alpha/beta/gamma", "delta"});
 
+    }
+
+    public void testIsExcludedDirectoryScanned() {
+        getProject().executeTarget("children-of-excluded-dir-setup");
+        DirectoryScanner ds = new DirectoryScanner();
+        ds.setBasedir(new File(getProject().getBaseDir(), "tmp"));
+        ds.setExcludes(new String[] {"**/gamma/**"});
+        ds.setFollowSymlinks(false);
+        ds.scan();
+        Set set = ds.getScannedDirs();
+        assertFalse("empty set", set.isEmpty());
+        String s = "alpha/beta/gamma/".replace('/', File.separatorChar);
+        assertFalse("scanned " + s, set.contains(s));
+    }
+
+    public void testAbsolute1() {
+        getProject().executeTarget("extended-setup");
+        DirectoryScanner ds = new DirectoryScanner();
+        String tmpdir = getProject().getBaseDir().getAbsolutePath().replace(
+            File.separatorChar, '/') + "/tmp";
+        ds.setIncludes(new String[] {tmpdir + "/**/*"});
+        ds.scan();
+        compareFiles(ds, new String[] {tmpdir + "/alpha/beta/beta.xml",
+                                       tmpdir + "/alpha/beta/gamma/gamma.xml",
+                                       tmpdir + "/delta/delta.xml"},
+                     new String[] {tmpdir + "/alpha",
+                                   tmpdir + "/alpha/beta",
+                                   tmpdir + "/alpha/beta/gamma",
+                                   tmpdir + "/delta"});
+    }
+
+    public void testAbsolute2() {
+        getProject().executeTarget("setup");
+        DirectoryScanner ds = new DirectoryScanner();
+        ds.setIncludes(new String[] {"alpha/**", "alpha/beta/gamma/**"});
+        ds.scan();
+        String[] mt = new String[0];
+        compareFiles(ds, mt, mt);
+    }
+
+    public void testAbsolute3() {
+        getProject().executeTarget("extended-setup");
+        DirectoryScanner ds = new DirectoryScanner();
+        String tmpdir = getProject().getBaseDir().getAbsolutePath().replace(
+            File.separatorChar, '/') + "/tmp";
+        ds.setIncludes(new String[] {tmpdir + "/**/*"});
+        ds.setExcludes(new String[] {"**/alpha",
+                                     "**/delta/*"});
+        ds.scan();
+        compareFiles(ds, new String[] {tmpdir + "/alpha/beta/beta.xml",
+                                       tmpdir + "/alpha/beta/gamma/gamma.xml"},
+                     new String[] {tmpdir + "/alpha/beta",
+                                   tmpdir + "/alpha/beta/gamma",
+                                   tmpdir + "/delta"});
+    }
+
+    public void testAbsolute4() {
+        getProject().executeTarget("extended-setup");
+        DirectoryScanner ds = new DirectoryScanner();
+        String tmpdir = getProject().getBaseDir().getAbsolutePath().replace(
+            File.separatorChar, '/') + "/tmp";
+        ds.setIncludes(new String[] {tmpdir + "/alpha/beta/**/*",
+                                     tmpdir + "/delta/*"});
+        ds.setExcludes(new String[] {"**/beta.xml"});
+        ds.scan();
+        compareFiles(ds, new String[] {tmpdir + "/alpha/beta/gamma/gamma.xml",
+                                       tmpdir + "/delta/delta.xml"},
+                     new String[] {tmpdir + "/alpha/beta/gamma"});
+    }
+
+    public void testAbsolute5() {
+        //testing drive letter search from root:
+        if (!(Os.isFamily("dos") || Os.isFamily("netware"))) {
+            return;
+        }
+        DirectoryScanner ds = new DirectoryScanner();
+        String pattern = new File(File.separator).getAbsolutePath().toUpperCase() + "*";
+        ds.setIncludes(new String[] {pattern});
+        ds.scan();
+        //if this is our context we assume there must be something here:
+        assertTrue("should have at least one resident file",
+            ds.getIncludedFilesCount() + ds.getIncludedDirsCount() > 0);
     }
 
     private void compareFiles(DirectoryScanner ds, String[] expectedFiles,

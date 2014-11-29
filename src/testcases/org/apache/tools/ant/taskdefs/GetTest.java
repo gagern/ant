@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2001,2004 The Apache Software Foundation
+ * Copyright 2000-2001, 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 package org.apache.tools.ant.taskdefs;
 
-import java.io.File;
 import org.apache.tools.ant.BuildFileTest;
 
 /**
@@ -30,6 +29,10 @@ public class GetTest extends BuildFileTest {
 
     public void setUp() {
         configureProject("src/etc/testcases/taskdefs/get.xml");
+    }
+
+    public void tearDown() {
+        executeTarget("cleanup");
     }
 
     public void test1() {
@@ -54,13 +57,14 @@ public class GetTest extends BuildFileTest {
 
     public void test6() {
         executeTarget("test6");
-        java.io.File f = new File(getProjectDir(), "get.tmp");
-        if (!f.exists()) {
-            fail("get failed");
-        } else {
-            f.delete();
-        }
+    }
 
+    public void testUseTimestamp() {
+        executeTarget("testUseTimestamp");
+    }
+
+    public void testUseTomorrow() {
+        executeTarget("testUseTomorrow");
     }
 
 }

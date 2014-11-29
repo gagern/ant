@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
+ * Copyright  2001-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ package org.apache.tools.ant.taskdefs;
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.util.FileUtils;
 
-import java.io.IOException;
 
 /**
- * @version $Revision$
  */
 public class BUnzip2Test extends BuildFileTest {
 
@@ -43,10 +41,22 @@ public class BUnzip2Test extends BuildFileTest {
         executeTarget("cleanup");
     }
 
-    public void testRealTest() throws IOException {
-        executeTarget("realTest");
+    public void testRealTest() throws java.io.IOException {
+        testRealTest("realTest");
+    }
+
+    public void testRealTestWithResource() throws java.io.IOException {
+        testRealTest("realTestWithResource");
+    }
+
+    private void testRealTest(String target) throws java.io.IOException {
+        executeTarget(target);
         assertTrue("File content mismatch after bunzip2",
             FILE_UTILS.contentEquals(project.resolveFile("expected/asf-logo-huge.tar"),
                                     project.resolveFile("asf-logo-huge.tar")));
+    }
+
+    public void testDocumentationClaimsOnCopy() throws java.io.IOException {
+        testRealTest("testDocumentationClaimsOnCopy");
     }
 }

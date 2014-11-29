@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -105,6 +105,24 @@ public class UnzipTest extends BuildFileTest {
     }
 
     /*
+     * PR 38973
+     */
+    public void testTwoPatternSets() {
+        executeTarget("testTwoPatternSets");
+        assertFileMissing("1/foo is not included", "unziptestout/1/foo");
+        assertFileExists("2/bar is included", "unziptestout/2/bar");
+    }
+
+    /*
+     * PR 38973
+     */
+    public void testTwoPatternSetsWithExcludes() {
+        executeTarget("testTwoPatternSetsWithExcludes");
+        assertFileMissing("1/foo is not included", "unziptestout/1/foo");
+        assertFileMissing("2/bar is excluded", "unziptestout/2/bar");
+    }
+
+    /*
      * PR 16213
      */
     public void testSelfExtractingArchive() {
@@ -173,4 +191,15 @@ public class UnzipTest extends BuildFileTest {
         expectBuildException("testTwoMappers",Expand.ERROR_MULTIPLE_MAPPERS);
     }
 
+    public void testResourceCollections() {
+        executeTarget("testResourceCollection");
+        assertFileExists("junit.jar has been extracted",
+                         "unziptestout/junit/framework/Assert.class");
+    }
+
+    public void testDocumentationClaimsOnCopy() {
+        executeTarget("testDocumentationClaimsOnCopy");
+        assertFileMissing("1/foo is excluded", "unziptestout/1/foo");
+        assertFileExists("2/bar is not excluded", "unziptestout/2/bar");
+    }
 }

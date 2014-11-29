@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +19,7 @@
 package org.apache.tools.ant.taskdefs.optional.dotnet;
 
 import org.apache.tools.ant.taskdefs.MatchingTask;
+import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.DirectoryScanner;
@@ -45,6 +47,13 @@ public class DotnetBaseMatchingTask extends MatchingTask {
      *  source directory upon which the search pattern is applied
      */
     protected File srcDir;
+
+    /**
+     * Are we running on Windows?
+     *
+     * @since Ant 1.6.3
+     */
+    protected static final boolean isWindows = Os.isFamily("windows");
 
     /**
     * Overridden because we need to be able to set the srcDir.
@@ -130,7 +139,8 @@ public class DotnetBaseMatchingTask extends MatchingTask {
      */
     protected void addFilesToCommand(Hashtable filesToBuild, NetCommand command) {
         int count = filesToBuild.size();
-        log("compiling " + count + " file" + ((count == 1) ? "" : "s"));
+        log("compiling " + count + " file" + ((count == 1) ? "" : "s"),
+                Project.MSG_VERBOSE);
         Enumeration files = filesToBuild.elements();
         while (files.hasMoreElements()) {
             File file = (File) files.nextElement();

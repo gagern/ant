@@ -35,6 +35,43 @@
     </sync>
   </target>
 
+  <target name="copyandremove-with-filelist" depends="setup">
+    <mkdir dir="${src}/a/b/c"/>
+    <touch file="${src}/a/b/c/d"/>
+    <mkdir dir="${dest}/e"/>
+    <touch file="${dest}/e/f"/>
+    <sync todir="${dest}">
+      <filelist dir="${src}">
+        <file name="a/b/c/d"/>
+        <file name="not-there"/>
+      </filelist>
+    </sync>
+  </target>
+
+  <target name="copyandremove-with-zipfileset" depends="setup">
+    <mkdir dir="${src}/a/b/c"/>
+    <touch file="${src}/a/b/c/d"/>
+    <mkdir dir="${dest}/e"/>
+    <touch file="${dest}/e/f"/>
+    <zip destfile="${src}/test.zip">
+      <fileset dir="${src}" excludes="*.zip"/>
+    </zip>
+    <sync todir="${dest}">
+      <zipfileset src="${src}/test.zip"/>
+    </sync>
+  </target>
+
+  <target name="copyandremove-emptypreserve" depends="setup">
+    <mkdir dir="${src}/a/b/c"/>
+    <touch file="${src}/a/b/c/d"/>
+    <mkdir dir="${dest}/e"/>
+    <touch file="${dest}/e/f"/>
+    <sync todir="${dest}">
+      <fileset dir="${src}"/>
+      <preserveintarget/>
+    </sync>
+  </target>
+
   <target name="emptycopy" depends="setup">
     <mkdir dir="${src}/a/b/c"/>
     <touch file="${src}/a/b/c/d"/>
@@ -61,4 +98,31 @@
       <fileset dir="${src}" excludes="**/d"/>
     </sync>
   </target>
+
+  <target name="copynoremove" depends="setup">
+    <mkdir dir="${src}/a/b/c"/>
+    <touch file="${src}/a/b/c/d"/>
+    <mkdir dir="${dest}/e"/>
+    <touch file="${dest}/e/f"/>
+    <sync todir="${dest}">
+      <fileset dir="${src}"/>
+      <preserveintarget>
+        <include name="e/f"/>
+      </preserveintarget>
+    </sync>
+  </target>
+
+  <target name="copynoremove-selectors" depends="setup">
+    <mkdir dir="${src}/a/b/c"/>
+    <touch file="${src}/a/b/c/d"/>
+    <mkdir dir="${dest}/e"/>
+    <touch file="${dest}/e/f"/>
+    <sync todir="${dest}">
+      <fileset dir="${src}"/>
+      <preserveintarget>
+        <filename name="e/f"/>
+      </preserveintarget>
+    </sync>
+  </target>
+
 </project>

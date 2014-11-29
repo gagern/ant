@@ -1,5 +1,5 @@
 /*
- * Copyright  2004 The Apache Software Foundation
+ * Copyright  2004-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -35,6 +35,11 @@ public class MapperResult extends Task {
     private String input;
     private String output;
     private FileNameMapper fileNameMapper;
+
+    /**
+     * The output on an empty string array
+     */
+    private static final String NULL_MAPPER_RESULT = "<NULL>";
 
     public void setFailMessage(String failMessage) {
         this.failMessage = failMessage;
@@ -72,7 +77,7 @@ public class MapperResult extends Task {
         String[] result = fileNameMapper.mapFileName(input);
         String flattened;
         if (result == null) {
-            flattened = "<NULL>";
+            flattened = NULL_MAPPER_RESULT;
         } else {
             StringBuffer b = new StringBuffer();
             for (int i = 0; i < result.length; ++i) {

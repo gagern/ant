@@ -383,6 +383,18 @@ public class ExecTaskTest extends BuildFileTest {
         assertTrue("log file found after spawn", logFile.exists());
     }
 
+    public void testExecUnknownOS() {
+        executeTarget("testExecUnknownOS");
+    }
+
+    public void testExecOSFamily() {
+        executeTarget("testExecOSFamily");
+    }
+
+    public void testExecInconsistentSettings() {
+        executeTarget("testExecInconsistentSettings");
+    }
+    
     private static class MonitoredBuild implements Runnable {
         private Thread worker;
         private File myBuildFile = null;
@@ -470,12 +482,7 @@ public class ExecTaskTest extends BuildFileTest {
             result = FileUtils.readFully(reader);
         } catch (IOException eyeOhEx) {
         } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (Throwable ignore) {
-                }
-            }
+            FileUtils.close(reader);
         }
         return result;
     }

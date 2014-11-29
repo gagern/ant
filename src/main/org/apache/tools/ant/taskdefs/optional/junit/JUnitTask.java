@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,13 +18,16 @@
 
 package org.apache.tools.ant.taskdefs.optional.junit;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -34,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
+
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -41,7 +46,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Execute;
 import org.apache.tools.ant.taskdefs.ExecuteWatchdog;
 import org.apache.tools.ant.taskdefs.LogOutputStream;
-import org.apache.tools.ant.taskdefs.LogStreamHandler;
+import org.apache.tools.ant.taskdefs.PumpStreamHandler;
 import org.apache.tools.ant.types.Assertions;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.CommandlineJava;
@@ -52,14 +57,11 @@ import org.apache.tools.ant.types.Permissions;
 import org.apache.tools.ant.types.PropertySet;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.LoaderUtils;
-import junit.framework.AssertionFailedError;
-import junit.framework.Test;
-import junit.framework.TestResult;
 
 /**
  * Runs JUnit tests.
  *
- * <p> JUnit is a framework to create unit test. It has been initially
+ * <p> JUnit is a framework to create unit tests. It has been initially
  * created by Erich Gamma and Kent Beck.  JUnit can be found at <a
  * href="http://www.junit.org">http://www.junit.org</a>.
  *
@@ -116,7 +118,6 @@ import junit.framework.TestResult;
  * number of attributes and elements allow you to set up how this JVM
  * runs.
  *
- * @version $Revision$
  *
  * @since Ant 1.2
  *
@@ -125,6 +126,7 @@ import junit.framework.TestResult;
  */
 public class JUnitTask extends Task {
 
+    private static final String CLASSPATH = "CLASSPATH=";
     private CommandlineJava commandline;
     private Vector tests = new Vector();
     private Vector batchTests = new Vector();
@@ -135,7 +137,7 @@ public class JUnitTask extends Task {
     private boolean summary = false;
     private boolean reloading = true;
     private String summaryValue = "";
-    private JUnitTestRunner runner = null;
+    private JUnitTaskMirror.JUnitTestRunnerMirror runner = null;
 
     private boolean newEnvironment = false;
     private Environment env = new Environment();
@@ -149,7 +151,15 @@ public class JUnitTask extends Task {
     private Permissions perm = null;
     private ForkMode forkMode = new ForkMode("perTest");
 
+    private boolean splitJunit = false;
+    private JUnitTaskMirror delegate;
+
     private static final int STRING_BUFFER_SIZE = 128;
+    /**
+     * @since Ant 1.7
+     */
+    public static final String TESTLISTENER_PREFIX =
+        "junit.framework.TestListener: ";
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
@@ -628,10 +638,81 @@ public class JUnitTask extends Task {
      */
     public void init() {
         antRuntimeClasses = new Path(getProject());
-        addClasspathEntry("/junit/framework/TestCase.class");
+        splitJunit = !addClasspathEntry("/junit/framework/TestCase.class");
         addClasspathEntry("/org/apache/tools/ant/launch/AntMain.class");
         addClasspathEntry("/org/apache/tools/ant/Task.class");
         addClasspathEntry("/org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner.class");
+    }
+
+    private static JUnitTaskMirror createMirror(JUnitTask task, ClassLoader loader) {
+        try {
+            loader.loadClass("junit.framework.Test"); // sanity check
+        } catch (ClassNotFoundException e) {
+            throw new BuildException(
+                    "The <classpath> for <junit> must include junit.jar "
+                    + "if not in Ant's own classpath",
+                    e, task.getLocation());
+        }
+        try {
+            Class c = loader.loadClass(JUnitTaskMirror.class.getName() + "Impl");
+            if (c.getClassLoader() != loader) {
+                throw new BuildException("Overdelegating loader", task.getLocation());
+            }
+            Constructor cons = c.getConstructor(new Class[] {JUnitTask.class});
+            return (JUnitTaskMirror) cons.newInstance(new Object[] {task});
+        } catch (Exception e) {
+            throw new BuildException(e, task.getLocation());
+        }
+    }
+
+    private final class SplitLoader extends AntClassLoader {
+
+        public SplitLoader(ClassLoader parent, Path path) {
+            super(parent, getProject(), path, true);
+        }
+
+        // forceLoadClass is not convenient here since it would not
+        // properly deal with inner classes of these classes.
+        protected synchronized Class loadClass(String classname, boolean resolve)
+        throws ClassNotFoundException {
+            Class theClass = findLoadedClass(classname);
+            if (theClass != null) {
+                return theClass;
+            }
+            if (isSplit(classname)) {
+                theClass = findClass(classname);
+                if (resolve) {
+                    resolveClass(theClass);
+                }
+                return theClass;
+            } else {
+                return super.loadClass(classname, resolve);
+            }
+        }
+
+        private final String[] splitClasses = {
+            "BriefJUnitResultFormatter",
+            "JUnitResultFormatter",
+            "JUnitTaskMirrorImpl",
+            "JUnitTestRunner",
+            "JUnitVersionHelper",
+            "OutErrSummaryJUnitResultFormatter",
+            "PlainJUnitResultFormatter",
+            "SummaryJUnitResultFormatter",
+            "XMLJUnitResultFormatter",
+        };
+
+        private boolean isSplit(String classname) {
+            String simplename = classname.substring(classname.lastIndexOf('.') + 1);
+            for (int i = 0; i < splitClasses.length; i++) {
+                if (simplename.equals(splitClasses[i])
+                        || simplename.startsWith(splitClasses[i] + '$')) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     }
 
     /**
@@ -641,6 +722,18 @@ public class JUnitTask extends Task {
      * @since Ant 1.2
      */
     public void execute() throws BuildException {
+        ClassLoader myLoader = JUnitTask.class.getClassLoader();
+        ClassLoader mirrorLoader;
+        if (splitJunit) {
+            Path path = new Path(getProject());
+            path.add(antRuntimeClasses);
+            path.add(getCommandline().getClasspath());
+            mirrorLoader = new SplitLoader(myLoader, path);
+        } else {
+            mirrorLoader = myLoader;
+        }
+        delegate = createMirror(this, mirrorLoader);
+
         List testLists = new ArrayList();
 
         boolean forkPerTest = forkMode.getValue().equals(ForkMode.PER_TEST);
@@ -667,10 +760,11 @@ public class JUnitTask extends Task {
                 }
             }
         } finally {
-            if (classLoader != null && reloading) {
-                classLoader.cleanup();
+            deleteClassLoader();
+            if (mirrorLoader instanceof SplitLoader) {
+                ((SplitLoader) mirrorLoader).cleanup();
             }
-            classLoader = null;
+            delegate = null;
         }
     }
 
@@ -765,8 +859,8 @@ public class JUnitTask extends Task {
      * @param  watchdog   the watchdog in charge of cancelling the test if it
      * exceeds a certain amount of time. Can be <tt>null</tt>, in this case
      * the test could probably hang forever.
-     * @param ForkedVMState will hold information about the forked
-     * VM's sanity.
+     * @param casesFile list of test cases to execute. Can be <tt>null</tt>,
+     * in this case only one test is executed.
      * @throws BuildException in case of error creating a temporary property file,
      * or if the junit process can not be forked
      */
@@ -791,22 +885,22 @@ public class JUnitTask extends Task {
             cmd.createArgument().setValue(test.getName());
         } else {
             log("Running multiple tests in the same VM", Project.MSG_VERBOSE);
-            cmd.createArgument().setValue("testsfile=" + casesFile);
+            cmd.createArgument().setValue(Constants.TESTSFILE + casesFile);
         }
 
-        cmd.createArgument().setValue("filtertrace=" + test.getFiltertrace());
-        cmd.createArgument().setValue("haltOnError=" + test.getHaltonerror());
-        cmd.createArgument().setValue("haltOnFailure="
+        cmd.createArgument().setValue(Constants.FILTERTRACE + test.getFiltertrace());
+        cmd.createArgument().setValue(Constants.HALT_ON_ERROR + test.getHaltonerror());
+        cmd.createArgument().setValue(Constants.HALT_ON_FAILURE
                                       + test.getHaltonfailure());
         if (includeAntRuntime) {
             Vector v = Execute.getProcEnvironment();
             Enumeration e = v.elements();
             while (e.hasMoreElements()) {
                 String s = (String) e.nextElement();
-                if (s.startsWith("CLASSPATH=")) {
+                if (s.startsWith(CLASSPATH)) {
                     cmd.createClasspath(getProject()).createPath()
                         .append(new Path(getProject(),
-                                         s.substring(10 // "CLASSPATH=".length()
+                                         s.substring(CLASSPATH.length()
                                                      )));
                 }
             }
@@ -817,26 +911,26 @@ public class JUnitTask extends Task {
         }
 
         if (summary) {
-            log("Running " + test.getName(), Project.MSG_INFO);
             String prefix = "";
             if ("withoutanderr".equalsIgnoreCase(summaryValue)) {
                 prefix = "OutErr";
             }
             cmd.createArgument()
-                .setValue("formatter"
-                          + "=org.apache.tools.ant.taskdefs.optional.junit."
+                .setValue(Constants.FORMATTER
+                          + "org.apache.tools.ant.taskdefs.optional.junit."
                           + prefix + "SummaryJUnitResultFormatter");
         }
 
-        cmd.createArgument().setValue("showoutput="
+        cmd.createArgument().setValue(Constants.SHOWOUTPUT
                                       + String.valueOf(showOutput));
+        cmd.createArgument().setValue(Constants.LOGTESTLISTENEREVENTS+"true"); // #31885
 
         StringBuffer formatterArg = new StringBuffer(STRING_BUFFER_SIZE);
         final FormatterElement[] feArray = mergeFormatters(test);
         for (int i = 0; i < feArray.length; i++) {
             FormatterElement fe = feArray[i];
             if (fe.shouldUse(this)) {
-                formatterArg.append("formatter=");
+                formatterArg.append(Constants.FORMATTER);
                 formatterArg.append(fe.getClassname());
                 File outFile = getOutput(fe, test);
                 if (outFile != null) {
@@ -849,12 +943,10 @@ public class JUnitTask extends Task {
         }
 
         File vmWatcher = createTempPropertiesFile("junitvmwatcher");
-        formatterArg.append("nocrashfile=");
-        formatterArg.append(vmWatcher);
-        cmd.createArgument().setValue(formatterArg.toString());
-
+        cmd.createArgument().setValue(Constants.CRASHFILE
+                                      + vmWatcher.getAbsolutePath());
         File propsFile = createTempPropertiesFile("junit");
-        cmd.createArgument().setValue("propsfile="
+        cmd.createArgument().setValue(Constants.PROPSFILE
                                       + propsFile.getAbsolutePath());
         Hashtable p = getProject().getProperties();
         Properties props = new Properties();
@@ -872,9 +964,9 @@ public class JUnitTask extends Task {
                                      + "file.", e, getLocation());
         }
 
-        Execute execute = new Execute(new LogStreamHandler(this,
-                                                           Project.MSG_INFO,
-                                                           Project.MSG_WARN),
+        Execute execute = new Execute(new JUnitLogStreamHandler(this,
+                                                                Project.MSG_INFO,
+                                                                Project.MSG_WARN),
                                       watchdog);
         execute.setCommandline(cmd.getCommandline());
         execute.setAntRun(getProject());
@@ -899,12 +991,20 @@ public class JUnitTask extends Task {
         } catch (IOException e) {
             throw new BuildException("Process fork failed.", e, getLocation());
         } finally {
+            String vmCrashString = "unknown";
+            try {
+                BufferedReader br = new BufferedReader(new FileReader(vmWatcher));
+                vmCrashString = br.readLine();
+            } catch (Exception e) {
+                e.printStackTrace();
+                // ignored.
+            }
             if (watchdog != null && watchdog.killedProcess()) {
                 result.timedOut = true;
-                logTimeout(feArray, test);
-            } else if (vmWatcher.length() == 0) {
+                logTimeout(feArray, test, vmCrashString);
+            } else if (!Constants.TERMINATED_SUCCESSFULLY.equals(vmCrashString)) {
                 result.crashed = true;
-                logVmCrash(feArray, test);
+                logVmCrash(feArray, test, vmCrashString);
             }
             vmWatcher.delete();
 
@@ -923,13 +1023,12 @@ public class JUnitTask extends Task {
      * The file will be in the project basedir unless tmpDir declares
      * something else.
      * @param prefix
-     * @return
+     * @return created file
      */
     private File createTempPropertiesFile(String prefix) {
         File propsFile =
             FILE_UTILS.createTempFile(prefix, ".properties",
-                tmpDir != null ? tmpDir : getProject().getBaseDir());
-        propsFile.deleteOnExit();
+                tmpDir != null ? tmpDir : getProject().getBaseDir(), true);
         return propsFile;
     }
 
@@ -942,7 +1041,9 @@ public class JUnitTask extends Task {
      * @since Ant 1.5
      */
     protected void handleOutput(String output) {
-        if (runner != null) {
+        if (output.startsWith(TESTLISTENER_PREFIX)) {
+            log(output, Project.MSG_VERBOSE);
+        } else if (runner != null) {
             runner.handleOutput(output);
             if (showOutput) {
                 super.handleOutput(output);
@@ -1058,18 +1159,22 @@ public class JUnitTask extends Task {
         try {
             log("Using System properties " + System.getProperties(),
                 Project.MSG_VERBOSE);
-            createClassLoader();
+            if (splitJunit) {
+                classLoader = (AntClassLoader) delegate.getClass().getClassLoader();
+            } else {
+                createClassLoader();
+            }
             if (classLoader != null) {
                 classLoader.setThreadContextLoader();
             }
-            runner = new JUnitTestRunner(test, test.getHaltonerror(),
+            runner = delegate.newJUnitTestRunner(test, test.getHaltonerror(),
                                          test.getFiltertrace(),
-                                         test.getHaltonfailure(), classLoader);
+                                         test.getHaltonfailure(), false,
+                                         true, classLoader);
             if (summary) {
-                log("Running " + test.getName(), Project.MSG_INFO);
 
-                SummaryJUnitResultFormatter f =
-                    new SummaryJUnitResultFormatter();
+                JUnitTaskMirror.SummaryJUnitResultFormatterMirror f =
+                    delegate.newSummaryJUnitResultFormatter();
                 f.setWithOutAndErr("withoutanderr"
                                    .equalsIgnoreCase(summaryValue));
                 f.setOutput(getDefaultOutput());
@@ -1102,9 +1207,6 @@ public class JUnitTask extends Task {
             }
             if (classLoader != null) {
                 classLoader.resetThreadContextLoader();
-                if (!reloading) {
-                    classLoader.cleanup();
-                }
             }
         }
     }
@@ -1184,7 +1286,11 @@ public class JUnitTask extends Task {
      */
     protected File getOutput(FormatterElement fe, JUnitTest test) {
         if (fe.getUseFile()) {
-            String filename = test.getOutfile() + fe.getExtension();
+            String base = test.getOutfile();
+            if (base == null) {
+                base = JUnitTaskMirror.JUnitTestRunnerMirror.IGNORED_FILE_NAME;
+            }
+            String filename = base + fe.getExtension();
             File destFile = new File(test.getTodir(), filename);
             String absFilename = destFile.getAbsolutePath();
             return getProject().resolveFile(absFilename);
@@ -1200,9 +1306,10 @@ public class JUnitTask extends Task {
      * getResource doesn't contain the name of the archive.</p>
      *
      * @param resource resource that one wants to lookup
+     * @return true if something was in fact added
      * @since Ant 1.4
      */
-    protected void addClasspathEntry(String resource) {
+    protected boolean addClasspathEntry(String resource) {
         /*
          * pre Ant 1.6 this method used to call getClass().getResource
          * while Ant 1.6 will call ClassLoader.getResource().
@@ -1224,8 +1331,10 @@ public class JUnitTask extends Task {
         if (f != null) {
             log("Found " + f.getAbsolutePath(), Project.MSG_DEBUG);
             antRuntimeClasses.createPath().setLocation(f);
+            return true;
         } else {
             log("Couldn\'t find " + resource, Project.MSG_DEBUG);
+            return false;
         }
     }
 
@@ -1236,8 +1345,8 @@ public class JUnitTask extends Task {
      * @since Ant 1.5.2
      */
 
-    private void logTimeout(FormatterElement[] feArray, JUnitTest test) {
-        logVmExit(feArray, test, "Timeout occurred");
+    private void logTimeout(FormatterElement[] feArray, JUnitTest test, String testCase) {
+        logVmExit(feArray, test, "Timeout occurred. Please note the time in the report does not reflect the time until the timeout.", testCase);
     }
 
     /**
@@ -1247,63 +1356,57 @@ public class JUnitTask extends Task {
      *
      * @since Ant 1.7
      */
-    private void logVmCrash(FormatterElement[] feArray, JUnitTest test) {
-        logVmExit(feArray, test, "forked Java VM exited abnormally");
+    private void logVmCrash(FormatterElement[] feArray, JUnitTest test, String testCase) {
+        logVmExit(feArray, test, "Forked Java VM exited abnormally. Please note the time in the report does not reflect the time until the VM exit.", testCase);
     }
 
     /**
      * Take care that some output is produced in report files if the
-     * forked machine existed before the test suite finished
+     * forked machine terminated before the test suite finished
      *
      * @since Ant 1.7
      */
     private void logVmExit(FormatterElement[] feArray, JUnitTest test,
-                           String message) {
-        createClassLoader();
-        test.setCounts(1, 0, 1);
-        test.setProperties(getProject().getProperties());
-        for (int i = 0; i < feArray.length; i++) {
-            FormatterElement fe = feArray[i];
-            File outFile = getOutput(fe, test);
-            JUnitResultFormatter formatter = fe.createFormatter(classLoader);
-            if (outFile != null && formatter != null) {
-                try {
-                    OutputStream out = new FileOutputStream(outFile);
-                    addVmExit(test, formatter, out, message);
-                } catch (IOException e) {
-                    // ignore
+                           String message, String testCase) {
+        try {
+            log("Using System properties " + System.getProperties(),
+                Project.MSG_VERBOSE);
+            if (splitJunit) {
+                classLoader = (AntClassLoader) delegate.getClass().getClassLoader();
+            } else {
+                createClassLoader();
+            }
+            if (classLoader != null) {
+                classLoader.setThreadContextLoader();
+            }
+
+            test.setCounts(1, 0, 1);
+            test.setProperties(getProject().getProperties());
+            for (int i = 0; i < feArray.length; i++) {
+                FormatterElement fe = feArray[i];
+                File outFile = getOutput(fe, test);
+                JUnitTaskMirror.JUnitResultFormatterMirror formatter =
+                    fe.createFormatter(classLoader);
+                if (outFile != null && formatter != null) {
+                    try {
+                        OutputStream out = new FileOutputStream(outFile);
+                        delegate.addVmExit(test, formatter, out, message, testCase);
+                    } catch (IOException e) {
+                        // ignore
+                    }
                 }
             }
-        }
-        if (summary) {
-            SummaryJUnitResultFormatter f = new SummaryJUnitResultFormatter();
-            f.setWithOutAndErr("withoutanderr".equalsIgnoreCase(summaryValue));
-            addVmExit(test, f, getDefaultOutput(), message);
-        }
-    }
-
-    /**
-     * Adds the actual error message to the formatter.
-     * Only used from the logVmExit method.
-     * @since Ant 1.7
-     */
-    private void addVmExit(JUnitTest test, JUnitResultFormatter formatter,
-                           OutputStream out, final String message) {
-        formatter.setOutput(out);
-        formatter.startTestSuite(test);
-
-        //the trick to integrating test output to the formatter, is to
-        //create a special test class that asserts an error
-        //and tell the formatter that it raised.
-        Test t = new Test() {
-            public int countTestCases() { return 1; }
-            public void run(TestResult r) {
-                throw new AssertionFailedError(message);
+            if (summary) {
+                JUnitTaskMirror.SummaryJUnitResultFormatterMirror f =
+                    delegate.newSummaryJUnitResultFormatter();
+                f.setWithOutAndErr("withoutanderr".equalsIgnoreCase(summaryValue));
+                delegate.addVmExit(test, f, getDefaultOutput(), message, testCase);
             }
-        };
-        formatter.startTest(t);
-        formatter.addError(t, new AssertionFailedError(message));
-        formatter.endTestSuite(test);
+        } finally {
+            if (classLoader != null) {
+                classLoader.resetThreadContextLoader();
+            }
+        }
     }
 
     /**
@@ -1316,6 +1419,7 @@ public class JUnitTask extends Task {
         Path userClasspath = getCommandline().getClasspath();
         if (userClasspath != null) {
             if (reloading || classLoader == null) {
+                deleteClassLoader();
                 Path classpath = (Path) userClasspath.clone();
                 if (includeAntRuntime) {
                     log("Implicitly adding " + antRuntimeClasses
@@ -1340,6 +1444,17 @@ public class JUnitTask extends Task {
     }
 
     /**
+     * Removes a classloader if needed.
+     * @since Ant 1.7
+     */
+    private void deleteClassLoader() {
+        if (classLoader != null) {
+            classLoader.cleanup();
+            classLoader = null;
+        }
+    }
+
+    /**
      * @since Ant 1.6.2
      */
     protected CommandlineJava getCommandline() {
@@ -1353,7 +1468,7 @@ public class JUnitTask extends Task {
      * Forked test support
      * @since Ant 1.6.2
      */
-    private final class ForkedTestConfiguration {
+    private static final class ForkedTestConfiguration {
         private boolean filterTrace;
         private boolean haltOnError;
         private boolean haltOnFailure;
@@ -1417,7 +1532,7 @@ public class JUnitTask extends Task {
         /**
          * hashcode is based only on the boolean members, and returns a value
          * in the range 0-7.
-         * @return
+         * @return hash code value
          */
         public int hashCode() {
             return (filterTrace ? 1 : 0)
@@ -1493,7 +1608,7 @@ public class JUnitTask extends Task {
     /**
      * Logs information about failed tests, potentially stops
      * processing (by throwing a BuildException) if a failure/error
-     * occured or sets a property.
+     * occurred or sets a property.
      *
      * @since Ant 1.6.2
      */
@@ -1508,7 +1623,7 @@ public class JUnitTask extends Task {
     /**
      * Logs information about failed tests, potentially stops
      * processing (by throwing a BuildException) if a failure/error
-     * occured or sets a property.
+     * occurred or sets a property.
      *
      * @since Ant 1.7
      */
@@ -1518,9 +1633,9 @@ public class JUnitTask extends Task {
         // everything otherwise just log a statement
         boolean fatal = result.timedOut || result.crashed;
         boolean errorOccurredHere =
-            result.exitCode == JUnitTestRunner.ERRORS || fatal;
+            result.exitCode == JUnitTaskMirror.JUnitTestRunnerMirror.ERRORS || fatal;
         boolean failureOccurredHere =
-            result.exitCode != JUnitTestRunner.SUCCESS || fatal;
+            result.exitCode != JUnitTaskMirror.JUnitTestRunnerMirror.SUCCESS || fatal;
         if (errorOccurredHere || failureOccurredHere) {
             if ((errorOccurredHere && test.getHaltonerror())
                 || (failureOccurredHere && test.getHaltonfailure())) {
@@ -1542,8 +1657,38 @@ public class JUnitTask extends Task {
     }
 
     protected class TestResultHolder {
-        public int exitCode = JUnitTestRunner.ERRORS;
+        public int exitCode = JUnitTaskMirror.JUnitTestRunnerMirror.ERRORS;
         public boolean timedOut = false;
         public boolean crashed = false;
+    }
+
+    /**
+     * @since Ant 1.7
+     */
+    protected static class JUnitLogOutputStream extends LogOutputStream {
+        private Task task; // local copy since LogOutputStream.task is private
+
+        public JUnitLogOutputStream(Task task, int level) {
+            super(task, level);
+            this.task = task;
+        }
+
+        protected void processLine(String line, int level) {
+            if (line.startsWith(TESTLISTENER_PREFIX)) {
+                task.log(line, Project.MSG_VERBOSE);
+            } else {
+                super.processLine(line, level);
+            }
+        }
+    }
+
+    /**
+     * @since Ant 1.7
+     */
+    protected static class JUnitLogStreamHandler extends PumpStreamHandler {
+        public JUnitLogStreamHandler(Task task, int outlevel, int errlevel) {
+            super(new JUnitLogOutputStream(task, outlevel),
+                  new LogOutputStream(task, errlevel));
+        }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2000,2002,2004 The Apache Software Foundation
+ * Copyright 2000, 2002, 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -42,8 +42,41 @@ public class DeleteTest extends BuildFileTest {
     public void test2() {
         executeTarget("test2");
     }
-
+//where oh where has my test case 3 gone?
     public void test4() {
         executeTarget("test4");
+    }
+    public void test5() {
+        executeTarget("test5");
+    }
+    public void test6() {
+        executeTarget("test6");
+    }
+    public void test7() {
+        executeTarget("test7");
+    }
+    public void test8() {
+        executeTarget("test8");
+    }
+    public void test9() {
+        executeTarget("test9");
+    }
+    public void test10() {
+        executeTarget("test10");
+    }
+    public void test11() {
+        executeTarget("test11");
+    }
+    public void test12() {
+        executeTarget("test12");
+    }
+    public void test13() {
+        executeTarget("test13");
+    }
+    public void test14() {
+        executeTarget("test14");
+    }
+    public void test15() {
+        executeTarget("test15");
     }
 }

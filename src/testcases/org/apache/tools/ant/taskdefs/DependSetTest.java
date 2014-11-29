@@ -55,10 +55,15 @@ public class DependSetTest extends BuildFileTest {
 
     public void test5() {
         executeTarget("test5");
-        java.io.File f = new java.io.File(getProjectDir(), "older.tmp");
-        if (f.exists()) {
-           fail("dependset failed to remove out of date file " + f.toString());
-        }
     }
 
+    public void test6() {
+        executeTarget("test6");
+    }
+    public void test7() {
+        executeTarget("test7");
+    }
+    public void test8() {
+        executeTarget("test8");
+    }
 }

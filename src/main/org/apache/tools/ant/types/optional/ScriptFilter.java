@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -60,14 +61,7 @@ public class ScriptFilter extends TokenFilter.ChainableReaderFilter {
             return;
         }
         initialized = true;
-
-        runner.addBeans(getProject().getProperties());
-        runner.addBeans(getProject().getUserProperties());
-        runner.addBeans(getProject().getTargets());
-        runner.addBeans(getProject().getReferences());
-
-        runner.addBean("project", getProject());
-        runner.addBean("self", this);
+        runner.bindToComponent(this);
     }
 
     /**
@@ -99,7 +93,7 @@ public class ScriptFilter extends TokenFilter.ChainableReaderFilter {
     public String filter(String token) {
         init();
         setToken(token);
-        runner.executeScript("<ANT-Filter>");
+        runner.executeScript("ant_filter");
         return getToken();
     }
 

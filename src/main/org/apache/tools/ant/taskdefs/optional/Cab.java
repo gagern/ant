@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -122,11 +123,7 @@ public class Cab extends MatchingTask {
      * it appears in the logs to be the same task as this one.
      */
     protected ExecTask createExec() throws BuildException {
-        ExecTask exec = (ExecTask) getProject().createTask("exec");
-        exec.setOwningTarget(this.getOwningTarget());
-        exec.setTaskName(this.getTaskName());
-        exec.setDescription(this.getDescription());
-
+        ExecTask exec = new ExecTask(this);
         return exec;
     }
 
@@ -149,6 +146,9 @@ public class Cab extends MatchingTask {
     /**
      * Creates a list file.  This temporary file contains a list of all files
      * to be included in the cab, one file per line.
+     *
+     * <p>This method expects to only be called on Windows and thus
+     * quotes the file names.</p>
      */
     protected File createListFile(Vector files)
         throws IOException {
@@ -157,8 +157,9 @@ public class Cab extends MatchingTask {
 
         PrintWriter writer = new PrintWriter(new FileOutputStream(listFile));
 
-        for (int i = 0; i < files.size(); i++) {
-            writer.println(files.elementAt(i).toString());
+        int size = files.size();
+        for (int i = 0; i < size; i++) {
+            writer.println('\"' + files.elementAt(i).toString() + '\"');
         }
         writer.close();
 

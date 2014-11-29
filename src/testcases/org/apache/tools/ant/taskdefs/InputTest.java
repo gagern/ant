@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2002,2004 The Apache Software Foundation
+ * Copyright  2001-2002,2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,21 +17,16 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.FileInputStream;
+
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.input.PropertyFileInputHandler;
-import org.apache.tools.ant.util.JavaEnvUtils;
 
-/**
- */
+
 public class InputTest extends BuildFileTest {
-
-    private String targetPostfix = "";
 
     public InputTest(String name) {
         super(name);
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            targetPostfix = ".1";
-        }
     }
 
     public void setUp() {
@@ -44,15 +39,15 @@ public class InputTest extends BuildFileTest {
     }
 
     public void test1() {
-        executeTarget("test1" + targetPostfix);
+        executeTarget("test1");
     }
 
     public void test2() {
-        executeTarget("test2" + targetPostfix);
+        executeTarget("test2");
     }
 
     public void test3() {
-        expectSpecificBuildException("test3" + targetPostfix, "invalid input",
+        expectSpecificBuildException("test3", "invalid input",
                                      "Found invalid input test for \'"
                                      + getKey("All data is"
                                               + " going to be deleted from DB"
@@ -61,19 +56,50 @@ public class InputTest extends BuildFileTest {
     }
 
     public void test5() {
-        executeTarget("test5" + targetPostfix);
+        executeTarget("test5");
     }
 
     public void test6() {
-        executeTarget("test6" + targetPostfix);
+        executeTarget("test6");
         assertEquals("scott", project.getProperty("db.user"));
     }
 
-    private String getKey(String key) {
-        if (JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1)) {
-            key = key.replace(' ', '_');
+    public void testPropertyFileInlineHandler() {
+        executeTarget("testPropertyFileInlineHandler");
+    }
+
+    public void testDefaultInlineHandler() {
+        stdin();
+        executeTarget("testDefaultInlineHandler");
+    }
+
+    public void testGreedyInlineHandler() {
+        stdin();
+        executeTarget("testGreedyInlineHandler");
+    }
+
+    public void testGreedyInlineHandlerClassname() {
+        stdin();
+        executeTarget("testGreedyInlineHandlerClassname");
+    }
+
+    public void testGreedyInlineHandlerRefid() {
+        stdin();
+        executeTarget("testGreedyInlineHandlerRefid");
+    }
+
+    private void stdin() {
+        try {
+            System.setIn(new FileInputStream(
+                getProject().resolveFile("input.stdin")));
+        } catch (Exception e) {
+            throw e instanceof RuntimeException
+                ? (RuntimeException) e : new RuntimeException(e.getMessage());
         }
-        return key;
+    }
+
+    private String getKey(String key) {
+        return key; // XXX what is this for?
     }
 
 }

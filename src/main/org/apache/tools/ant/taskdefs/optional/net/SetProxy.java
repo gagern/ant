@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,15 +17,13 @@
  */
 package org.apache.tools.ant.taskdefs.optional.net;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.util.Properties;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.util.JavaEnvUtils;
+import org.apache.tools.ant.util.ProxySetup;
 
 /**
  * Sets Java's web proxy properties, so that tasks and code run in
@@ -51,8 +50,8 @@ import org.apache.tools.ant.util.JavaEnvUtils;
  * and <tt>proxyPassword</tt> attributes. On Java1.4 and above these can also be
  * used against SOCKS5 servers.
  * </p>
- * @see <a href="http://java.sun.com/j2se/1.4/docs/guide/net/properties.html">
- *  java 1.4 network property list</a>
+ * @see <a href="http://java.sun.com/j2se/1.5.0/docs/guide/net/properties.html">
+ *  java 1.5 network property list</a>
   *@since       Ant 1.5
  * @ant.task category="network"
  */
@@ -181,32 +180,32 @@ public class SetProxy extends Task {
             if (proxyHost.length() != 0) {
                 traceSettingInfo();
                 enablingProxy = true;
-                sysprops.put("http.proxyHost", proxyHost);
+                sysprops.put(ProxySetup.HTTP_PROXY_HOST, proxyHost);
                 String portString = Integer.toString(proxyPort);
-                sysprops.put("http.proxyPort", portString);
-                sysprops.put("https.proxyHost", proxyHost);
-                sysprops.put("https.proxyPort", portString);
-                sysprops.put("ftp.proxyHost", proxyHost);
-                sysprops.put("ftp.proxyPort", portString);
+                sysprops.put(ProxySetup.HTTP_PROXY_PORT, portString);
+                sysprops.put(ProxySetup.HTTPS_PROXY_HOST, proxyHost);
+                sysprops.put(ProxySetup.HTTPS_PROXY_PORT, portString);
+                sysprops.put(ProxySetup.FTP_PROXY_HOST, proxyHost);
+                sysprops.put(ProxySetup.FTP_PROXY_PORT, portString);
                 if (nonProxyHosts != null) {
-                    sysprops.put("http.nonProxyHosts", nonProxyHosts);
-                    sysprops.put("https.nonProxyHosts", nonProxyHosts);
-                    sysprops.put("ftp.nonProxyHosts", nonProxyHosts);
+                    sysprops.put(ProxySetup.HTTP_NON_PROXY_HOSTS, nonProxyHosts);
+                    sysprops.put(ProxySetup.HTTPS_NON_PROXY_HOSTS, nonProxyHosts);
+                    sysprops.put(ProxySetup.FTP_NON_PROXY_HOSTS, nonProxyHosts);
                 }
                 if (proxyUser != null) {
-                    sysprops.put("http.proxyUser", proxyUser);
-                    sysprops.put("http.proxyPassword", proxyPassword);
+                    sysprops.put(ProxySetup.HTTP_PROXY_USERNAME, proxyUser);
+                    sysprops.put(ProxySetup.HTTP_PROXY_PASSWORD, proxyPassword);
                 }
             } else {
                 log("resetting http proxy", Project.MSG_VERBOSE);
-                sysprops.remove("http.proxyHost");
-                sysprops.remove("http.proxyPort");
-                sysprops.remove("http.proxyUser");
-                sysprops.remove("http.proxyPassword");
-                sysprops.remove("https.proxyHost");
-                sysprops.remove("https.proxyPort");
-                sysprops.remove("ftp.proxyHost");
-                sysprops.remove("ftp.proxyPort");
+                sysprops.remove(ProxySetup.HTTP_PROXY_HOST);
+                sysprops.remove(ProxySetup.HTTP_PROXY_PORT);
+                sysprops.remove(ProxySetup.HTTP_PROXY_USERNAME);
+                sysprops.remove(ProxySetup.HTTP_PROXY_PASSWORD);
+                sysprops.remove(ProxySetup.HTTPS_PROXY_HOST);
+                sysprops.remove(ProxySetup.HTTPS_PROXY_PORT);
+                sysprops.remove(ProxySetup.FTP_PROXY_HOST);
+                sysprops.remove(ProxySetup.FTP_PROXY_PORT);
             }
         }
 
@@ -215,20 +214,20 @@ public class SetProxy extends Task {
             settingsChanged = true;
             if (socksProxyHost.length() != 0) {
                 enablingProxy = true;
-                sysprops.put("socksProxyHost", socksProxyHost);
-                sysprops.put("socksProxyPort", Integer.toString(socksProxyPort));
+                sysprops.put(ProxySetup.SOCKS_PROXY_HOST, socksProxyHost);
+                sysprops.put(ProxySetup.SOCKS_PROXY_PORT, Integer.toString(socksProxyPort));
                 if (proxyUser != null) {
                     //this may be a java1.4 thingy only
-                    sysprops.put("java.net.socks.username", proxyUser);
-                    sysprops.put("java.net.socks.password", proxyPassword);
+                    sysprops.put(ProxySetup.SOCKS_PROXY_USERNAME, proxyUser);
+                    sysprops.put(ProxySetup.SOCKS_PROXY_PASSWORD, proxyPassword);
                 }
 
             } else {
                 log("resetting socks proxy", Project.MSG_VERBOSE);
-                sysprops.remove("socksProxyHost");
-                sysprops.remove("socksProxyPort");
-                sysprops.remove("java.net.socks.username");
-                sysprops.remove("java.net.socks.password");
+                sysprops.remove(ProxySetup.SOCKS_PROXY_HOST);
+                sysprops.remove(ProxySetup.SOCKS_PROXY_PORT);
+                sysprops.remove(ProxySetup.SOCKS_PROXY_USERNAME);
+                sysprops.remove(ProxySetup.SOCKS_PROXY_PASSWORD);
             }
         }
 

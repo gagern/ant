@@ -1,5 +1,5 @@
 /*
- * Copyright  2001,2003-2005 The Apache Software Foundation
+ * Copyright  2001,2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ package org.apache.tools.ant.taskdefs;
 import org.apache.tools.ant.BuildFileTest;
 
 import java.io.IOException;
-import java.io.File;
 
 /**
- * @version $Revision$
  */
 public class ChecksumTest extends BuildFileTest {
 
@@ -57,58 +55,38 @@ public class ChecksumTest extends BuildFileTest {
 
     public void testSetProperty() {
         executeTarget("setProperty");
-        assertEquals("0541d3df42520911f268abc730f3afe0",
-                     project.getProperty("logo.MD5"));
-        assertTrue(!project.resolveFile("../asf-logo.gif.MD5").exists());
     }
 
     public void testVerifyTotal() {
         executeTarget("verifyTotal");
-        assertEquals("ef8f1477fcc9bf93832c1a74f629c626",
-                     project.getProperty("total"));
+    }
+
+    public void testVerifyTotalRC() {
+        executeTarget("verifyTotalRC");
     }
 
     public void testVerifyChecksumdir() {
         executeTarget("verifyChecksumdir");
-        assertEquals("ef8f1477fcc9bf93832c1a74f629c626",
-                     project.getProperty("total"));
-        File shouldExist = project.resolveFile("checksum/checksums/foo/zap/Eenie.MD5");
-        File shouldNotExist = project.resolveFile("checksum/foo/zap/Eenie.MD5");
-        assertTrue( "Checksums should be written to " + shouldExist.getAbsolutePath(), shouldExist.exists());
-        assertTrue( "Checksums should not be written to " + shouldNotExist.getAbsolutePath(), !shouldNotExist.exists());
     }
 
     public void testVerifyAsTask() {
-        testVerify("verifyAsTask");
-        assertNotNull(project.getProperty("no.logo.MD5"));
-        assertEquals("false", project.getProperty("no.logo.MD5"));
+        executeTarget("verifyAsTask");
     }
 
     public void testVerifyMD5SUMAsTask() {
-        testVerify("verifyMD5SUMAsTask");
-        assertNotNull(project.getProperty("no.logo.MD5"));
-        assertEquals("false", project.getProperty("no.logo.MD5"));
+        executeTarget("verifyMD5SUMAsTask");
     }
 
     public void testVerifyAsCondition() {
-        testVerify("verifyAsCondition");
-        assertNull(project.getProperty("no.logo.MD5"));
+        executeTarget("verifyAsCondition");
     }
 
     public void testVerifyFromProperty() {
-        assertNull(getProject().getProperty("verify"));
-        expectPropertySet("verifyFromProperty", "verify", "true");
+        executeTarget("verifyFromProperty");
     }
 
     public void testVerifyChecksumdirNoTotal() {
         executeTarget("verifyChecksumdirNoTotal");
-    }
-    private void testVerify(String target) {
-        assertNull(project.getProperty("logo.MD5"));
-        assertNull(project.getProperty("no.logo.MD5"));
-        executeTarget(target);
-        assertNotNull(project.getProperty("logo.MD5"));
-        assertEquals("true", project.getProperty("logo.MD5"));
     }
 
 }

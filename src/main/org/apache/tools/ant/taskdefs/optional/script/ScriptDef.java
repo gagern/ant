@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,6 +35,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.io.File;
 
+import org.apache.tools.ant.util.ClasspathUtils;
 import org.apache.tools.ant.util.ScriptRunner;
 
 /**
@@ -272,27 +274,13 @@ public class ScriptDef extends DefBase {
             */
             ClassLoader loader = createLoader();
 
-            Class instanceClass = null;
-            try {
-                instanceClass = Class.forName(classname, true, loader);
-            } catch (Throwable e) {
-                // try normal method
-                try {
-                    instanceClass = Class.forName(classname);
-                } catch (Throwable e2) {
-                    throw new BuildException("scriptdef: Unable to load "
-                        + "class " + classname + " for nested element <"
-                        + elementName + ">", e2);
-                }
+            try
+            {
+                instance = ClasspathUtils.newInstance(classname, loader);
+            } catch (BuildException e) {
+                instance = ClasspathUtils.newInstance(classname, ScriptDef.class.getClassLoader());
             }
 
-            try {
-                instance = instanceClass.newInstance();
-            } catch (Throwable e) {
-                throw new BuildException("scriptdef: Unable to create "
-                    + "element of class " + classname + " for nested "
-                    + "element <" + elementName + ">", e);
-            }
             getProject().setProjectReference(instance);
         }
 
@@ -308,13 +296,11 @@ public class ScriptDef extends DefBase {
      *
      * @param attributes collection of attributes
      * @param elements a list of nested element values.
-     * @deprecated use executeScript(attribute, elements, instance) instead
+     * @deprecated since 1.7. 
+     *             Use executeScript(attribute, elements, instance) instead.
      */
     public void executeScript(Map attributes, Map elements) {
-        runner.addBean("attributes", attributes);
-        runner.addBean("elements", elements);
-        runner.addBean("project", getProject());
-        runner.executeScript("scriptdef_" + name);
+        executeScript(attributes, elements,null);
     }
 
     /**
@@ -324,13 +310,15 @@ public class ScriptDef extends DefBase {
      *
      * @param attributes collection of attributes
      * @param elements   a list of nested element values.
-     * @param instance   the script instance
+     * @param instance   the script instance; can be null
      */
     public void executeScript(Map attributes, Map elements, ScriptDefBase instance) {
         runner.addBean("attributes", attributes);
         runner.addBean("elements", elements);
         runner.addBean("project", getProject());
-        runner.addBean("self", instance);
+        if(instance!=null) {
+            runner.addBean("self", instance);
+        }
         runner.executeScript("scriptdef_" + name);
     }
 

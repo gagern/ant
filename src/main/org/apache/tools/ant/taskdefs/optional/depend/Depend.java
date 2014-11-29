@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -35,6 +36,7 @@ import org.apache.tools.ant.taskdefs.rmic.DefaultRmicAdapter;
 import org.apache.tools.ant.taskdefs.rmic.WLRmic;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.depend.DependencyAnalyzer;
 
 /**
@@ -162,9 +164,9 @@ public class Depend extends MatchingTask {
     }
 
     /**
-     * flag to set to true if you want dependency issues with RMI
+     * Flag to set to true if you want dependency issues with RMI
      * stubs to appear at warning level.
-     * @param warnOnRmiStubs
+     * @param warnOnRmiStubs if true set dependency issues to appear at warning level.
      * @since Ant1.7
      */
     public void setWarnOnRmiStubs(boolean warnOnRmiStubs) {
@@ -393,14 +395,15 @@ public class Depend extends MatchingTask {
                             if (classURL != null) {
                                 if (classURL.getProtocol().equals("jar")) {
                                     String jarFilePath = classURL.getFile();
+                                    int classMarker = jarFilePath.indexOf('!');
+                                    jarFilePath = jarFilePath.substring(0, classMarker);
                                     if (jarFilePath.startsWith("file:")) {
-                                        int classMarker = jarFilePath.indexOf('!');
-                                        jarFilePath = jarFilePath.substring(5, classMarker);
+                                        classpathFileObject = new File(FileUtils.getFileUtils().fromURI(jarFilePath));
+                                    } else {
+                                        throw new IOException("Bizarre nested path in jar: protocol: " + jarFilePath);
                                     }
-                                    classpathFileObject = new File(jarFilePath);
                                 } else if (classURL.getProtocol().equals("file")) {
-                                    String classFilePath = classURL.getFile();
-                                    classpathFileObject = new File(classFilePath);
+                                    classpathFileObject = new File(FileUtils.getFileUtils().fromURI(classURL.toExternalForm()));
                                 }
                                 log("Class " + className
                                     + " depends on " + classpathFileObject
@@ -544,9 +547,9 @@ public class Depend extends MatchingTask {
 
     /**
      * test for being an RMI stub
-     * @param affectedClass
-     * @param className
-     * @return
+     * @param affectedClass  class being tested
+     * @param className      possible origin of the RMI stub
+     * @return whether the class affectedClass is a RMI stub
      */
     private boolean isRmiStub(String affectedClass, String className) {
         return isStub(affectedClass, className, DefaultRmicAdapter.RMI_STUB_SUFFIX)
@@ -710,7 +713,7 @@ public class Depend extends MatchingTask {
      * @param files the names of the files in the source dir which are to be
      *      checked.
      */
-    protected void scanDir(File srcDir, String files[]) {
+    protected void scanDir(File srcDir, String[] files) {
 
         for (int i = 0; i < files.length; i++) {
             File srcFile = new File(srcDir, files[i]);

@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.tools.ant.BuildFileTest;
-import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * JUnit Testcases for ConcatReader
@@ -30,8 +30,7 @@ import org.apache.tools.ant.util.FileUtils;
 public class ConcatFilterTest extends BuildFileTest {
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
-    private static final String lSep = 
-        Os.isFamily("mac") ? "\r" : System.getProperty("line.separator");
+    private static final String lSep = StringUtils.LINE_SEP;
 
     private static final String FILE_PREPEND_WITH =
           "this-should-be-the-first-line" + lSep
@@ -80,8 +79,8 @@ public class ConcatFilterTest extends BuildFileTest {
 
     public void testFilterReaderNoArgs() throws IOException {
         executeTarget("testFilterReaderNoArgs");
-        File expected = getProject().resolveFile("input/concatfilter.test");
-        File result = getProject().resolveFile("result/concat.FilterReaderNoArgs.test");
+        File expected = FILE_UTILS.resolveFile(getProject().getBaseDir(),"input/concatfilter.test");
+        File result = FILE_UTILS.resolveFile(getProject().getBaseDir(), "result/concat.FilterReaderNoArgs.test");
         assertTrue("testFilterReaderNoArgs: Result not like expected", FILE_UTILS.contentEquals(expected, result));
     }
 
@@ -140,7 +139,7 @@ public class ConcatFilterTest extends BuildFileTest {
     protected String read(String filename) {
         String content = null;
         try {
-            File file = getProject().resolveFile(filename);
+            File file = FILE_UTILS.resolveFile(getProject().getBaseDir(), filename);
             java.io.FileReader rdr = new java.io.FileReader(file);
             content = FileUtils.readFully(rdr);
             rdr.close();

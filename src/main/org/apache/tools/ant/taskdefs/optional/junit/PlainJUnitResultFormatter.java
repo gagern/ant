@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,9 +24,13 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.NumberFormat;
 import java.util.Hashtable;
+
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
+
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 
 /**
@@ -89,10 +94,9 @@ public class PlainJUnitResultFormatter implements JUnitResultFormatter {
         if (out == null) {
             return; // Quick return - no output do nothing.
         }
-        String newLine = System.getProperty("line.separator");
         StringBuffer sb = new StringBuffer("Testsuite: ");
         sb.append(suite.getName());
-        sb.append(newLine);
+        sb.append(StringUtils.LINE_SEP);
         try {
             out.write(sb.toString().getBytes());
             out.flush();
@@ -107,7 +111,6 @@ public class PlainJUnitResultFormatter implements JUnitResultFormatter {
      * @throws BuildException if unable to write the output
      */
     public void endTestSuite(JUnitTest suite) throws BuildException {
-        String newLine = System.getProperty("line.separator");
         StringBuffer sb = new StringBuffer("Tests run: ");
         sb.append(suite.runCount());
         sb.append(", Failures: ");
@@ -117,26 +120,26 @@ public class PlainJUnitResultFormatter implements JUnitResultFormatter {
         sb.append(", Time elapsed: ");
         sb.append(nf.format(suite.getRunTime() / 1000.0));
         sb.append(" sec");
-        sb.append(newLine);
+        sb.append(StringUtils.LINE_SEP);
 
         // append the err and output streams to the log
         if (systemOutput != null && systemOutput.length() > 0) {
             sb.append("------------- Standard Output ---------------")
-                .append(newLine)
+                .append(StringUtils.LINE_SEP)
                 .append(systemOutput)
                 .append("------------- ---------------- ---------------")
-                .append(newLine);
+                .append(StringUtils.LINE_SEP);
         }
 
         if (systemError != null && systemError.length() > 0) {
             sb.append("------------- Standard Error -----------------")
-                .append(newLine)
+                .append(StringUtils.LINE_SEP)
                 .append(systemError)
                 .append("------------- ---------------- ---------------")
-                .append(newLine);
+                .append(StringUtils.LINE_SEP);
         }
 
-        sb.append(newLine);
+        sb.append(StringUtils.LINE_SEP);
 
         if (out != null) {
             try {
@@ -148,11 +151,7 @@ public class PlainJUnitResultFormatter implements JUnitResultFormatter {
                 throw new BuildException("Unable to write output", ioex);
             } finally {
                 if (out != System.out && out != System.err) {
-                    try {
-                        out.close();
-                    } catch (IOException e) {
-                        // ignore
-                    }
+                    FileUtils.close(out);
                 }
             }
         }

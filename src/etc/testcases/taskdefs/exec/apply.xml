@@ -31,6 +31,17 @@
                 <isset property="echo.exe.executable"/>
             </or>
         </condition>
+
+        <!-- UNIX -->
+        <available file="ls" filepath="${env.PATH}" property="ls.executable"/>
+        <!-- CYGWIN -->
+        <available file="ls.exe" filepath="${env.PATH}" property="ls.exe.executable"/>
+        <condition property="ls.can.run">
+            <or>
+                <isset property="ls.executable"/>
+                <isset property="ls.exe.executable"/>
+            </or>
+        </condition>
     </target>
 
     <target name="xyz">
@@ -394,6 +405,7 @@
 
         <ekko outputproperty="foo" />
         <ekko outputproperty="bar" force="true" />
+
         <fail>
             <condition>
                 <not>
@@ -404,6 +416,48 @@
                 </not>
             </condition>
         </fail>
+    </target>
+
+    <target name="testNoDest" depends="init,xyz" if="echo.can.run">
+      <presetdef name="ekko">
+        <apply executable="echo" addsourcefile="false" force="true">
+          <filelist dir="${basedir}" files="x" />
+          <globmapper from="*" to="${basedir}/*" />
+          <targetfile />
+        </apply>
+      </presetdef>
+      <ekko outputproperty="dest" dest="${basedir}" />
+      <ekko outputproperty="nodest" />
+      <fail>
+        <condition>
+          <or>
+            <available file="${dest}" />
+            <not>
+              <available file="${nodest}" />
+            </not>
+          </or>
+        </condition>
+      </fail>
+    </target>
+
+    <target name="lsPath" depends="init" if="ls.can.run">
+      <apply executable="ls" parallel="false" outputproperty="foo"
+             force="true" dest="${basedir}" append="true" type="both">
+        <path>
+          <pathelement path="${env.PATH}"/>
+        </path>
+        <identitymapper/>
+      </apply>
+    </target>
+
+    <target name="lsPathParallel" depends="init" if="ls.can.run">
+      <apply executable="ls" parallel="true" outputproperty="foo"
+             force="true" dest="${basedir}" append="true" type="both">
+        <path>
+          <pathelement path="${env.PATH}"/>
+        </path>
+        <identitymapper/>
+      </apply>
     </target>
 
     <target name="cleanup">

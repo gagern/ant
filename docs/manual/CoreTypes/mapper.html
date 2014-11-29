@@ -2,6 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>Mapper Type</title>
 </head>
 
@@ -39,7 +40,7 @@ with the following attributes:</p>
     <td valign="top">specifies the implementation by class name.</td>
   </tr>
   <tr>
-    <td valign="top">classpath</td> 
+    <td valign="top">classpath</td>
     <td valign="top">the classpath to use when looking up
       <code>classname</code>.</td>
     <td align="center" valign="top">No</td>
@@ -51,13 +52,13 @@ with the following attributes:</p>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
-    <td valign="top">from</td> 
+    <td valign="top">from</td>
     <td valign="top">the <code>from</code> attribute for the given
       implementation.</td>
     <td align="center" valign="top">Depends on implementation.</td>
   </tr>
   <tr>
-    <td valign="top">to</td> 
+    <td valign="top">to</td>
     <td valign="top">the <code>to</code> attribute for the given
       implementation.</td>
     <td align="center" valign="top">Depends on implementation.</td>
@@ -69,7 +70,7 @@ directory separator of your current platform.  If you need to specify
 this separator, use <code>${file.separator}</code> instead.
   For the regexpmapper, <code>${file.separator}</code> will not work,
 as on windows it is the '\' character, and this is an escape character
-for regular expressions, one should use the <code>handledirchar</code> attribute
+for regular expressions, one should use the <code>handledirsep</code> attribute
 instead.
 </p>
 <h3>Parameters specified as nested elements</h3>
@@ -83,13 +84,13 @@ implementations of <CODE>org.apache.tools.ant.util.FileNameMapper</CODE>.
 If nested File Mappers are specified by either means, the mapper will be
 implicitly configured as a <a href="#composite-mapper">composite mapper</a>.
 </p>
-<hr/>
+<hr>
 <h3>The built-in mapper types are:</h3>
 <p>All built-in mappers are case-sensitive.</p>
 <p><b>As of Ant 1.6.2,</b> each of the built-in mapper implementation
   types is directly accessible using a specific tagname. This makes it
   possible for filename mappers to support attributes in addition to
-  the generally available <i>to</i> and <i>from</i>.<br/>
+  the generally available <i>to</i> and <i>from</i>.<br>
   The <code>&lt;mapper type|classname=&quot;...&quot;&gt;</code> usage
   form remains valid for reasons of backward compatibility.</p>
 <h4><a name="identity-mapper">identity</a></h4>
@@ -254,22 +255,22 @@ that don't match the <code>from</code> pattern will be ignored.</p>
       <td align="center" valign="top"><b>Required</b></td>
     </tr>
     <tr>
-      <td valign="top">casesensitice</td>
+      <td valign="top">casesensitive</td>
       <td valign="top">
         If this is false, the mapper will ignore case when matching the glob pattern.
         This attribute can be true or false, the default is true.
-      <em>Since ant 1.6.3.</em>
+      <em>Since Ant 1.6.3.</em>
       </td>
       <td align="center" valign="top">No</td>
     </tr>
     <tr>
-      <td valign="top">handledirchar</td>
+      <td valign="top">handledirsep</td>
       <td valign="top">
         If this is specified, the mapper will ignore the difference between the normal
         directory separator characters - \ and /.
         This attribute can be true or false, the default is false.
         This attribute is useful for cross-platform build files.
-        <em>Since ant 1.6.3.</em>
+        <em>Since Ant 1.6.3.</em>
         <td align="center" valign="top">No</td>
       </tr>
     </table>
@@ -473,18 +474,18 @@ jakarta-ORO and finally try jakarta-regexp.</li>
       <td valign="top">
         If this is false, the mapper will ignore case when matching the pattern.
         This attribute can be true or false, the default is true.
-      <em>Since ant 1.6.3.</em>
+      <em>Since Ant 1.6.3.</em>
       </td>
       <td align="center" valign="top">No</td>
     </tr>
     <tr>
-      <td valign="top">handledirchar</td>
+      <td valign="top">handledirsep</td>
       <td valign="top">
         If this is specified, the mapper will treat a \ character in a filename
         as a / for the purposes of matching.
         This attribute can be true or false, the default is false.
         This attribute is useful for cross-platform build files.
-        <em>Since ant 1.6.3.</em>
+        <em>Since Ant 1.6.3.</em>
         <td align="center" valign="top">No</td>
       </tr>
     </table>
@@ -496,7 +497,7 @@ jakarta-ORO and finally try jakarta-regexp.</li>
         &lt;path path="Aj.Java"/&gt;
         &lt;chainedmapper&gt;
           &lt;flattenmapper/&gt;
-          &lt;globmapper from="a(*.)java" to="\1.java.bak" casesensitive="no"/&gt;
+          &lt;regexpmapper from="a(.*)\.java" to="\1.java.bak" casesensitive="no"/&gt;
         &lt;/chainedmapper&gt;
       &lt;/pathconvert&gt;
       &lt;echo&gt;x is ${x}&lt;/echo&gt;
@@ -511,7 +512,7 @@ jakarta-ORO and finally try jakarta-regexp.</li>
     &lt;pathconvert property="hd.prop" targetos="windows"&gt;
       &lt;path path="d\e/f\j.java"/&gt;
       &lt;chainedmapper&gt;
-        &lt;regexpmapper from="${basedir}/d/e/(.*)" to="\1" handledirchar="yes"/&gt;
+        &lt;regexpmapper from="${basedir}/d/e/(.*)" to="\1" handledirsep="yes"/&gt;
       &lt;/chainedmapper&gt;
     &lt;/pathconvert&gt;
     </pre>
@@ -543,7 +544,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <td valign="top">ignored</td>
   </tr>
 </table>
-<h4><a name="unpackage-mapper">unpackage (since ant 1.6.0)</a></h4>
+<h4><a name="unpackage-mapper">unpackage (since Ant 1.6.0)</a></h4>
   <p>This mapper is the inverse of the <a href="#package-mapper">package</a> mapper.
     It replaces the dots in a package name with directory separators. This
     is useful for matching XML formatter results against their JUnit test
@@ -565,7 +566,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <td valign="top"><code>${test.src.dir}/org/acme/AcmeTest.java</code></td>
   </tr>
 </table>
-<h4><a name="composite-mapper">composite (since ant 1.6.2)</a></h4>
+<h4><a name="composite-mapper">composite (since Ant 1.6.2)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to each nested
     <code>&lt;mapper&gt;</code> in turn, returning all results.
@@ -593,7 +594,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
   <p>The composite mapper has no corresponding
     <code>&lt;mapper <b>type</b>&gt;</code> attribute.
   </p>
-<h4><a name="chained-mapper">chained (since ant 1.6.2)</a></h4>
+<h4><a name="chained-mapper">chained (since Ant 1.6.2)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to the first
     nested mapper, its results to the second, and so on.  The target filenames
@@ -638,7 +639,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <!--             Filter Mapper              -->
     <!--                                        -->
 
-<h4><a name="filter-mapper">filtermapper (since ant 1.6.3)</a></h4>
+<h4><a name="filter-mapper">filtermapper (since Ant 1.6.3)</a></h4>
     <p>
       This mapper implementation applies a <a href="filterchain.html">filterchain</a>
       to the source file name.
@@ -682,10 +683,109 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
   <p>The filtermapper has no corresponding
     <code>&lt;mapper <b>type</b>&gt;</code> attribute.
   </p>
+
+    <!--                                        -->
+    <!--             Script Mapper              -->
+    <!--                                        -->
+
+<h4><a name="script-mapper">scriptmapper (since Ant 1.7)</a></h4>
+<p>
+This mapper executes a script written in <a href="http://jakarta.apache.org/bsf" target="_top">Apache BSF</a>
+supported language, once per file to map.</p>
+The script can be declared inline or in a specified file.
+</p>
+<p>
+See the <a href="../OptionalTasks/script.html">Script</a> task for
+an explanation of scripts and dependencies.
+</p>
+
+  <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+      <td valign="top"><b>Attribute</b></td>
+      <td valign="top"><b>Description</b></td>
+      <td align="center" valign="top"><b>Required</b></td>
+    </tr>
+    <tr>
+      <td valign="top">language</td>
+      <td valign="top">
+        Scripting language
+      </td>
+      <td align="center" valign="top">Yes</td>
+    </tr>
+    <tr>
+      <td valign="top">src</td>
+      <td valign="top">
+        File containing the script
+      </td>
+      <td align="center" valign="top">No</td>
+    </tr>
+    </table>
+
+<p>
+Example
+</p>
+<blockquote><pre>
+&lt;scriptmapper language="javascript"&gt;
+  self.addMappedName(source.toUpperCase());
+  self.addMappedName(source.toLowerCase());
+&lt;/scriptmapper&gt;
+</pre></blockquote>
+
+<table border="1" cellpadding="2" cellspacing="0">
+  <tr>
+    <td valign="top"><b>Source file name</b></td>
+    <td valign="top"><b>Target file names</b></td>
+  </tr>
+  <tr>
+    <td valign="center"><code>foo\bar\A.java</code></td>
+    <td valign="top"><code>FOO\BAR\A.JAVA foo\bar\a.java</code></td>
+  </tr>
+</table>
+
+<p>
+To use this mapper, the scripts need access to the source file,
+and the ability to return multiple mappings. Here are the relevant beans and
+their methods. The script is called once for every source file, with the
+list of mapped names reset after every invocation.
+
+  <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+      <td valign="top"><b>Script bean</b></td>
+      <td valign="top"><b>Description</b></td>
+    </tr>
+    <tr>
+      <td valign="top"><code>source: String</code></td>
+      <td valign="top">
+        The file/path to map
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">self</td>
+      <td valign="top">
+        the scriptmapper itself
+      </td>
+    </tr>
+    <tr>
+      <td valign="top"><code>self.addMappedName(String name)</code></td>
+      <td valign="top">
+        Add a new mapping
+      </td>
+    </tr>
+    <tr>
+      <td valign="top"><code>self.clear()</code></td>
+      <td valign="top">
+        Reset the list of files.
+      </td>
+    </tr>
+    </table>
+
+  <p>The scriptmapper has no corresponding
+    <code>&lt;mapper <b>type</b>&gt;</code> attribute.
+  </p>
+
 <hr>
-<p align="center">Copyright &copy; 2000-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2000-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 
 </body>
 </html>
-

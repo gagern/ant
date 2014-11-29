@@ -2,6 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>Java Task</title>
 </head>
 
@@ -15,10 +16,9 @@ specified.</p>
 If odd things go wrong when you run this task, set fork="true" to use a new
 JVM.
 
-<p>Note that you cannot interact with a forked VM, the only way to
-send input to it is via the input and inputstring attributes. Also note that
-in Ant 1.6, any attempt to read input in the forked VM will receive an
-EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
+<p>As of Ant 1.6.3, you can interact with a forked VM, as well as
+sending input to it via the <code>input</code> and <code>inputstring</code>
+attributes.</p>
 
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
@@ -30,13 +30,15 @@ EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
   <tr>
     <td valign="top">classname</td>
     <td valign="top">the Java class to execute.</td>
-    <td align="center" valign="top">Either jar or classname</td>
+    <td align="center" valign="top">Either <tt>jar</tt> or <tt>classname</tt></td>
   </tr>
   <tr>
     <td valign="top">jar</td>
     <td valign="top">the location of the jar file to execute (must have a
-    Main-Class entry in the manifest). Fork must be set to true if this option is selected.</td>
-    <td align="center" valign="top">Either jar or classname</td>
+    Main-Class entry in the manifest). Fork must be set to true if this option is selected.
+    See notes below for more details.
+    </td>
+    <td align="center" valign="top">Either <tt>jar</tt> or <tt>classname</tt></td>
   </tr>
   <tr>
     <td valign="top">args</td>
@@ -64,9 +66,9 @@ EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
   </tr>
   <tr>
     <td valign="top">spawn</td>
-    <td valign="top">if enabled allows to start a process which will outlive ant.<br/>
+    <td valign="top">if enabled allows to start a process which will outlive ant.<br>
     Requires fork=true, and not compatible
-    with timeout, input, output, error, result attributes.<br/>
+    with timeout, input, output, error, result attributes.<br>
       (disabled by default)</td>
     <td align="center" valign="top">No</td>
   </tr>
@@ -155,14 +157,16 @@ EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
     <td valign="top">A file from which the executed command's standard input
                      is taken. This attribute is mutually exclusive with the
                      inputstring attribute</td>
-    <td align="center" valign="top">No</td>
+    <td align="center" valign="top">No; default is to take standard input from console
+        (unless <code>spawn="true"</code>)</td>
   </tr>
   <tr>
     <td valign="top">inputstring</td>
     <td valign="top">A string which serves as the input stream for the
                      executed command. This attribute is mutually exclusive with the
                      input attribute.</td>
-    <td align="center" valign="top">No</td>
+    <td align="center" valign="top">No; default is to take standard input from console
+        (unless <code>spawn="true"</code>)</td>
   </tr>
   <tr>
     <td valign="top">newenvironment</td>
@@ -235,10 +239,13 @@ see <a href="../CoreTypes/permissions.html">permissions</a></p>
 <p>When the permission RuntimePermission exitVM has not been granted (or has
 been revoked) the System.exit() call will be intercepted
 and treated like indicated in <i>failonerror</i>.</p>
-<p><a name="failonerror">Note:</a>
-if you specify <code>failonerror=&quot;true&quot;</code> and you do not specify permissions,
-a set of default permissions will be added to your Java invocation to make sure that
-a non-zero return code will lead to a <code>BuildException</code>.
+<p>Note:<br>
+If you do not specify permissions,
+a set of default permissions will be added to your Java invocation to make
+sure that the ant run will continue or terminated as indicated by
+<i>failonerror</i>. All permissions not granted per default will be
+checked by whatever security manager was already in place. exitVM will be
+disallowed.
 </p>
 <p>Settings will be ignored if fork is enabled.</p>
 
@@ -249,7 +256,7 @@ a non-zero return code will lead to a <code>BuildException</code>.
 <p>You can control enablement of Java 1.4 assertions with an
 <a href="../CoreTypes/assertions.html"><tt>&lt;assertions&gt;</tt></a>
 subelement.</p>
- 
+
 <p>Assertion statements are currently ignored in non-forked mode.</p>
 
 <p><em>since Ant 1.6.</em></p>
@@ -259,7 +266,7 @@ subelement.</p>
 <p>A nested <a href="../CoreTypes/redirector.html">I/O Redirector</a>
 can be specified.  In general, the attributes of the redirector behave
 as the corresponding attributes available at the task level.  The most
-notable peculiarity stems from the retention of the &lt;java&gt;
+notable peculiarity stems from the retention of the <code>&lt;java&gt;</code>
 attributes for backwards compatibility.  Any file mapping is done
 using a <CODE>null</CODE> sourcefile; therefore not all
 <a href="../CoreTypes/mapper.html">Mapper</a> types will return
@@ -268,13 +275,29 @@ will fall back to the task level attributes.  In practice this means that
 defaults can be specified for input, output, and error output files.
 </p>
 <h3>Errors and return codes</h3>
-By default the return code of a <code>&lt;java&gt;</code> is ignored. Alternatively, you can set <code>resultproperty</code> to the name
+By default the return code of a <code>&lt;java&gt;</code> is ignored.
+Alternatively, you can set <code>resultproperty</code> to the name
 of a property and have it assigned to the result code (barring immutability,
 of course).
-When you set <code>failonerror="true"</code>, the only possible value for <code>resultproperty</code> is 0. Any non zero response is treated as an
+When you set <code>failonerror="true"</code>, the only possible value for
+<code>resultproperty</code> is 0. Any non-zero response is treated as an
 error and would mean the build exits.
 <p> Similarly, if <code>failonerror="false"</code> and <code>fork="false"</code>
-, then <code>&lt;java&gt;</code> <b>must</b> return 0 otherwise the build will exit, as the class was run by the build jvm.</p>
+, then <code>&lt;java&gt;</code> <b>must</b> return 0 otherwise the build will
+exit, as the class was run by the build JVM.</p>
+
+<h3>JAR file execution</h3>
+
+<p>The parameter of the <tt>jar</tt> attribute is of type <tt>File</tt>;
+that is, the parameter is resolved to an absolute file relative to the
+base directory of the project, <i>not</i> the directory in which the Java
+task is run. If you need to locate a JAR file relative to the directory
+the task will be run in, you need to explicitly create the full path
+to the JAR file.</p>
+<p>When using the <tt>jar</tt> attribute, all classpath settings are 
+ignored according to <a href="http://java.sun.com/j2se/1.5.0/docs/tooldocs/windows/java.html#-jar">Sun's
+specification</a>. 
+
 
 <h3>Examples</h3>
 <pre>
@@ -288,7 +311,8 @@ error and would mean the build exits.
 </pre>
 Run a class in this JVM with a new jar on the classpath
 
-<pre>        &lt;java jar=&quot;dist/test.jar&quot;
+<pre>
+       &lt;java jar=&quot;dist/test.jar&quot;
            fork="true"
            failonerror="true"
            maxmemory="128m"
@@ -300,24 +324,58 @@ Run a class in this JVM with a new jar on the classpath
          &lt;/classpath&gt;
        &lt;/java&gt;
 </pre>
-Run the jar using the manifest supplied entry point, forking (as required),
+Run the JAR test.jar in this project's dist/lib directory.
+using the manifest supplied entry point, forking (as required),
 and with a maximum memory of 128MB. Any non zero return code breaks the build.
 
+<pre>
+       &lt;java
+           dir="${exec.dir}"
+           jar=&quot;${exec.dir}/dist/test.jar&quot;
+           fork="true"
+           failonerror="true"
+           maxmemory="128m"
+           &gt;
+         &lt;arg value=&quot;-h&quot;/&gt;
+         &lt;classpath&gt;
+           &lt;pathelement location=&quot;dist/test.jar&quot;/&gt;
+           &lt;pathelement path=&quot;${java.class.path}&quot;/&gt;
+         &lt;/classpath&gt;
+       &lt;/java&gt;
+</pre>
+Run the JAR dist/test.jar relative to the directory
+<tt>${exec.dir}</tt>, this being the same directory into which the JVM
+is to start up.
+
 <pre>  &lt;java classname=&quot;test.Main&quot;/&gt;</pre>
-<pre>  &lt;java classname=&quot;test.Main&quot;
+Runs a given class with the current classpath.
+
+<pre>
+  &lt;java classname=&quot;test.Main&quot;
         fork=&quot;yes&quot; &gt;
     &lt;sysproperty key=&quot;DEBUG&quot; value=&quot;true&quot;/&gt;
     &lt;arg value=&quot;-h&quot;/&gt;
     &lt;jvmarg value=&quot;-Xrunhprof:cpu=samples,file=log.txt,depth=3&quot;/&gt;
   &lt;/java&gt;
 </pre>
-<strong>Note</strong>: you can not specify the (highly deprecated) MSJVM, "jview.exe" as the
+Add system properties and JVM-properties to the JVM as in
+<code>java ="-Xrunhprof:cpu=samples,file=log.txt,depth=3 -DDEBUG=true test.Main</code>
+
+<pre>  &lt;java classname=&quot;ShowJavaVersion&quot; classpath=&quot;.&quot;
+        jvm=&quot;path-to-java14-home/bin/java&quot; fork=&quot;true&quot;
+        taskname=&quot;java1.4&quot; &gt;
+</pre>
+Use a given Java implementation (another the one Ant is currently using) to run the class.
+For documentation in the log <code>taskname</code> is used to change the <code>[java]</code>
+log-prefix to <code>[java1.4]</code>.
+
+
+<p><strong>Note</strong>: you can not specify the (highly deprecated) MSJVM, "jview.exe" as the
 JVM, as it takes different parameters for other JVMs,
-That JVM can be started from <code>&lt;exec&gt;</code> if required.
+That JVM can be started from <code>&lt;exec&gt;</code> if required.</p>
 <hr>
-<p align="center">Copyright &copy; 2000-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2000-2006 The Apache Software Foundation. All rights
 Reserved.</p>
 
 </body>
 </html>
-

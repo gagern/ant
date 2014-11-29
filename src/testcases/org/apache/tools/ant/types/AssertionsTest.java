@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2004,2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -85,6 +85,9 @@ public class AssertionsTest extends BuildFileTest {
     }
 
     public void testNofork() {
+        if (AssertionsTest.class.desiredAssertionStatus()) {
+            return; // ran Ant tests with -ea and this would fail spuriously
+        }
         expectLogContaining("test-nofork",
                 "Assertion statements are currently ignored in non-forked mode");
     }

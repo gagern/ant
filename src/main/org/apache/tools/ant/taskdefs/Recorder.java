@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2002,2004-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +18,10 @@
 package org.apache.tools.ant.taskdefs;
 
 import java.util.Hashtable;
+import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.SubBuildListener;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 
@@ -40,7 +43,7 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * @since Ant 1.4
  * @ant.task name="record" category="utility"
  */
-public class Recorder extends Task {
+public class Recorder extends Task implements SubBuildListener {
 
     //////////////////////////////////////////////////////////////////////
     // ATTRIBUTES
@@ -65,6 +68,15 @@ public class Recorder extends Task {
 
     //////////////////////////////////////////////////////////////////////
     // CONSTRUCTORS / INITIALIZERS
+
+    /**
+     * Overridden so we can add the task as build listener.
+     *
+     * @since Ant 1.7
+     */
+    public void init() {
+        getProject().addBuildListener(this);
+    }
 
     //////////////////////////////////////////////////////////////////////
     // ACCESSOR METHODS
@@ -153,6 +165,7 @@ public class Recorder extends Task {
         RecorderEntry recorder = getRecorder(filename, getProject());
         // set the values on the recorder
         recorder.setMessageOutputLevel(loglevel);
+        recorder.setEmacsMode(emacsMode);
         if (start != null) {
             if (start.booleanValue()) {
                 recorder.reopenFile();
@@ -162,7 +175,6 @@ public class Recorder extends Task {
                 recorder.closeFile();
             }
         }
-        recorder.setEmacsMode(emacsMode);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -231,5 +243,91 @@ public class Recorder extends Task {
         return entry;
     }
 
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void buildStarted(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void subBuildStarted(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void targetStarted(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void targetFinished(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void taskStarted(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void taskFinished(BuildEvent event) {
+    }
+
+    /**
+     * Empty implementation required by SubBuildListener interface.
+     *
+     * @since Ant 1.7
+     */
+    public void messageLogged(BuildEvent event) {
+    }
+
+    /**
+     * Cleans recorder registry.
+     *
+     * @since Ant 1.7
+     */
+    public void buildFinished(BuildEvent event) {
+        cleanup();
+    }
+
+    /**
+     * Cleans recorder registry, if this is the subbuild the task has
+     * been created in.
+     *
+     * @since Ant 1.7
+     */
+    public void subBuildFinished(BuildEvent event) {
+        if (event.getProject() == getProject()) {
+            cleanup();
+        }
+    }
+
+    /**
+     * cleans recorder registry and removes itself from BuildListener list.
+     *
+     * @since Ant 1.7
+     */
+    private void cleanup() {
+        recorderEntries.clear();
+        getProject().removeBuildListener(this);
+    }
 }
 

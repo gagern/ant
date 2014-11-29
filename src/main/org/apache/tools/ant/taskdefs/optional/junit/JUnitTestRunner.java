@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,8 +22,9 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
@@ -35,6 +37,7 @@ import java.util.StringTokenizer;
 import java.util.Vector;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
+import junit.framework.TestFailure;
 import junit.framework.TestListener;
 import junit.framework.TestResult;
 import junit.framework.TestSuite;
@@ -62,22 +65,7 @@ import org.apache.tools.ant.util.TeeOutputStream;
  * @since Ant 1.2
  */
 
-public class JUnitTestRunner implements TestListener {
-
-    /**
-     * No problems with this test.
-     */
-    public static final int SUCCESS = 0;
-
-    /**
-     * Some tests failed.
-     */
-    public static final int FAILURES = 1;
-
-    /**
-     * An error occurred.
-     */
-    public static final int ERRORS = 2;
+public class JUnitTestRunner implements TestListener, JUnitTaskMirror.JUnitTestRunnerMirror {
 
     /**
      * Holds the registered formatters.
@@ -113,7 +101,14 @@ public class JUnitTestRunner implements TestListener {
                 "junit.awtui.TestRunner",
                 "junit.textui.TestRunner",
                 "java.lang.reflect.Method.invoke(",
-                "org.apache.tools.ant."
+                "sun.reflect.",
+                "org.apache.tools.ant.",
+                // JUnit 4 support:
+                "org.junit.",
+                "junit.framework.JUnit4TestAdapter",
+                // See wrapListener for reason:
+                "Caused by: java.lang.AssertionError",
+                " more",
         };
 
 
@@ -152,6 +147,18 @@ public class JUnitTestRunner implements TestListener {
     /** ClassLoader passed in in non-forked mode. */
     private ClassLoader loader;
 
+    /** Do we print TestListener events? */
+    private boolean logTestListenerEvents = false;
+
+    /** Turned on if we are using JUnit 4 for this test suite. see #38811 */
+    private boolean junit4;
+
+    /**
+     * The file used to indicate that the build crashed.
+     * File will be empty in case the build did not crash.
+     */
+    private static String crashFile = null;
+
     /**
      * Constructor for fork=true or when the user hasn't specified a
      * classpath.
@@ -168,7 +175,19 @@ public class JUnitTestRunner implements TestListener {
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
                            boolean showOutput) {
-        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, null);
+        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, false);
+    }
+
+    /**
+     * Constructor for fork=true or when the user hasn't specified a
+     * classpath.
+     * @since Ant 1.7
+     */
+    public JUnitTestRunner(JUnitTest test, boolean haltOnError,
+                           boolean filtertrace, boolean haltOnFailure,
+                           boolean showOutput, boolean logTestListenerEvents) {
+        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, 
+             logTestListenerEvents, null);
     }
 
     /**
@@ -186,19 +205,34 @@ public class JUnitTestRunner implements TestListener {
     public JUnitTestRunner(JUnitTest test, boolean haltOnError,
                            boolean filtertrace, boolean haltOnFailure,
                            boolean showOutput, ClassLoader loader) {
+        this(test, haltOnError, filtertrace, haltOnFailure, showOutput, 
+             false, loader);
+    }
+
+    /**
+     * Constructor to use when the user has specified a classpath.
+     * @since Ant 1.7
+     */
+    public JUnitTestRunner(JUnitTest test, boolean haltOnError,
+                           boolean filtertrace, boolean haltOnFailure,
+                           boolean showOutput, boolean logTestListenerEvents,
+                           ClassLoader loader) {
         JUnitTestRunner.filtertrace = filtertrace;
         this.junitTest = test;
         this.haltOnError = haltOnError;
         this.haltOnFailure = haltOnFailure;
         this.showOutput = showOutput;
+        this.logTestListenerEvents = logTestListenerEvents;
         this.loader = loader;
     }
 
+    private PrintStream savedOut = null;
+
     public void run() {
         res = new TestResult();
-        res.addListener(this);
+        res.addListener(wrapListener(this));
         for (int i = 0; i < formatters.size(); i++) {
-            res.addListener((TestListener) formatters.elementAt(i));
+            res.addListener(wrapListener((TestListener) formatters.elementAt(i)));
         }
 
         ByteArrayOutputStream errStrm = new ByteArrayOutputStream();
@@ -207,7 +241,6 @@ public class JUnitTestRunner implements TestListener {
         ByteArrayOutputStream outStrm = new ByteArrayOutputStream();
         systemOut = new PrintStream(outStrm);
 
-        PrintStream savedOut = null;
         PrintStream savedErr = null;
 
         if (forked) {
@@ -248,6 +281,8 @@ public class JUnitTestRunner implements TestListener {
                                               loader);
                 }
 
+                // check for a static suite method first, even when using
+                // JUnit 4
                 Method suiteMethod = null;
                 try {
                     // check if there is a suite method
@@ -256,16 +291,54 @@ public class JUnitTestRunner implements TestListener {
                     // no appropriate suite method found. We don't report any
                     // error here since it might be perfectly normal.
                 }
+
                 if (suiteMethod != null) {
                     // if there is a suite method available, then try
                     // to extract the suite from it. If there is an error
                     // here it will be caught below and reported.
                     suite = (Test) suiteMethod.invoke(null, new Class[0]);
+
                 } else {
-                    // try to extract a test suite automatically this
-                    // will generate warnings if the class is no
-                    // suitable Test
-                    suite = new TestSuite(testClass);
+                    Class junit4TestAdapterClass = null;
+
+                    // Check for JDK 5 first. Will *not* help on JDK 1.4
+                    // if only junit-4.0.jar in CP because in that case
+                    // linkage of whole task will already have failed! But
+                    // will help if CP has junit-3.8.2.jar:junit-4.0.jar.
+
+                    // In that case first C.fN will fail with CNFE and we
+                    // will avoid UnsupportedClassVersionError.
+
+                    try {
+                        Class.forName("java.lang.annotation.Annotation");
+                        if (loader == null) {
+                            junit4TestAdapterClass =
+                                Class.forName("junit.framework.JUnit4TestAdapter");
+                        } else {
+                            junit4TestAdapterClass =
+                                Class.forName("junit.framework.JUnit4TestAdapter",
+                                              true, loader);
+                        }
+                    } catch (ClassNotFoundException e) {
+                        // OK, fall back to JUnit 3.
+                    }
+                    junit4 = junit4TestAdapterClass != null;
+
+                    if (junit4) {
+                        // Let's use it!
+                        suite =
+                            (Test) junit4TestAdapterClass
+                            .getConstructor(new Class[] {Class.class}).
+                            newInstance(new Object[] {testClass});
+                    } else {
+                        // Use JUnit 3.
+
+                        // try to extract a test suite automatically this
+                        // will generate warnings if the class is no
+                        // suitable Test
+                        suite = new TestSuite(testClass);
+                    }
+
                 }
 
             } catch (Throwable e) {
@@ -285,10 +358,16 @@ public class JUnitTestRunner implements TestListener {
                 junitTest.setRunTime(0);
             } else {
                 try {
+                    logTestListenerEvent("tests to run: " + suite.countTestCases());
                     suite.run(res);
                 } finally {
-                    junitTest.setCounts(res.runCount(), res.failureCount(),
-                                        res.errorCount());
+                    if (junit4) {
+                        int[] cnts = findJUnit4FailureErrorCount(res);
+                        junitTest.setCounts(res.runCount(), cnts[0], cnts[1]);
+                    } else {
+                        junitTest.setCounts(res.runCount(), res.failureCount(),
+                                res.errorCount());
+                    }
                     junitTest.setRunTime(System.currentTimeMillis() - start);
                 }
             }
@@ -334,6 +413,8 @@ public class JUnitTestRunner implements TestListener {
      * <p>A new Test is started.
      */
     public void startTest(Test t) {
+        String testName = JUnitVersionHelper.getTestCaseName(t);
+        logTestListenerEvent("startTest(" + testName + ")");
     }
 
     /**
@@ -342,6 +423,17 @@ public class JUnitTestRunner implements TestListener {
      * <p>A Test is finished.
      */
     public void endTest(Test test) {
+        String testName = JUnitVersionHelper.getTestCaseName(test);
+        logTestListenerEvent("endTest(" + testName + ")");
+    }
+
+    private void logTestListenerEvent(String msg) {
+        PrintStream out = forked ? savedOut : System.out;
+        if (logTestListenerEvents) {
+            out.flush();
+            out.println(JUnitTask.TESTLISTENER_PREFIX + msg);
+            out.flush();
+        }
     }
 
     /**
@@ -350,6 +442,8 @@ public class JUnitTestRunner implements TestListener {
      * <p>A Test failed.
      */
     public void addFailure(Test test, Throwable t) {
+        String testName = JUnitVersionHelper.getTestCaseName(test);
+        logTestListenerEvent("addFailure(" + testName + ", " + t.getMessage() + ")");
         if (haltOnFailure) {
             res.stop();
         }
@@ -370,6 +464,8 @@ public class JUnitTestRunner implements TestListener {
      * <p>An error occurred while running the test.
      */
     public void addError(Test test, Throwable t) {
+        String testName = JUnitVersionHelper.getTestCaseName(test);
+        logTestListenerEvent("addError(" + testName + ", " + t.getMessage() + ")");
         if (haltOnError) {
             res.stop();
         }
@@ -384,8 +480,10 @@ public class JUnitTestRunner implements TestListener {
         perm = permissions;
     }
 
-    protected void handleOutput(String output) {
-        if (systemOut != null) {
+    public void handleOutput(String output) {
+        if (!logTestListenerEvents && output.startsWith(JUnitTask.TESTLISTENER_PREFIX)) {
+            // ignore
+        } else if (systemOut != null) {
             systemOut.print(output);
         }
     }
@@ -395,24 +493,24 @@ public class JUnitTestRunner implements TestListener {
      *
      * @since Ant 1.6
      */
-    protected int handleInput(byte[] buffer, int offset, int length)
+    public int handleInput(byte[] buffer, int offset, int length)
         throws IOException {
         return -1;
     }
 
-    protected void handleErrorOutput(String output) {
+    public void handleErrorOutput(String output) {
         if (systemError != null) {
             systemError.print(output);
         }
     }
 
-    protected void handleFlush(String output) {
+    public void handleFlush(String output) {
         if (systemOut != null) {
             systemOut.print(output);
         }
     }
 
-    protected void handleErrorFlush(String output) {
+    public void handleErrorFlush(String output) {
         if (systemError != null) {
             systemError.print(output);
         }
@@ -446,6 +544,10 @@ public class JUnitTestRunner implements TestListener {
         formatters.addElement(f);
     }
 
+    public void addFormatter(JUnitTaskMirror.JUnitResultFormatterMirror f) {
+        formatters.addElement((JUnitResultFormatter) f);
+    }
+
     /**
      * Entry point for standalone (forked) mode.
      *
@@ -468,6 +570,9 @@ public class JUnitTestRunner implements TestListener {
      * <tr><td>showoutput</td><td>send output to System.err/.out as
      * well as to the formatters?</td><td>false</td></tr>
      *
+     * <tr><td>logtestlistenerevents</td><td>log TestListener events to
+     * System.out.</td><td>false</td></tr>
+     *
      * </table>
      */
     public static void main(String[] args) throws IOException {
@@ -476,41 +581,45 @@ public class JUnitTestRunner implements TestListener {
         boolean stackfilter = true;
         Properties props = new Properties();
         boolean showOut = false;
-        String noCrashFile = null;
+        boolean logTestListenerEvents = false;
+
 
         if (args.length == 0) {
             System.err.println("required argument TestClassName missing");
             System.exit(ERRORS);
         }
 
-        if (args[0].startsWith("testsfile=")) {
+        if (args[0].startsWith(Constants.TESTSFILE)) {
             multipleTests = true;
-            args[0] = args[0].substring(10 /* "testsfile=".length() */);
+            args[0] = args[0].substring(Constants.TESTSFILE.length());
         }
 
         for (int i = 1; i < args.length; i++) {
-            if (args[i].startsWith("haltOnError=")) {
-                haltError = Project.toBoolean(args[i].substring(12));
-            } else if (args[i].startsWith("haltOnFailure=")) {
-                haltFail = Project.toBoolean(args[i].substring(14));
-            } else if (args[i].startsWith("filtertrace=")) {
-                stackfilter = Project.toBoolean(args[i].substring(12));
-            } else if (args[i].startsWith("nocrashfile=")) {
-                noCrashFile = args[i].substring(12);
-            } else if (args[i].startsWith("formatter=")) {
+            if (args[i].startsWith(Constants.HALT_ON_ERROR)) {
+                haltError = Project.toBoolean(args[i].substring(Constants.HALT_ON_ERROR.length()));
+            } else if (args[i].startsWith(Constants.HALT_ON_FAILURE)) {
+                haltFail = Project.toBoolean(args[i].substring(Constants.HALT_ON_FAILURE.length()));
+            } else if (args[i].startsWith(Constants.FILTERTRACE)) {
+                stackfilter = Project.toBoolean(args[i].substring(Constants.FILTERTRACE.length()));
+            } else if (args[i].startsWith(Constants.CRASHFILE)) {
+                crashFile = args[i].substring(Constants.CRASHFILE.length());
+                registerTestCase(Constants.BEFORE_FIRST_TEST);
+            } else if (args[i].startsWith(Constants.FORMATTER)) {
                 try {
-                    createAndStoreFormatter(args[i].substring(10));
+                    createAndStoreFormatter(args[i].substring(Constants.FORMATTER.length()));
                 } catch (BuildException be) {
                     System.err.println(be.getMessage());
                     System.exit(ERRORS);
                 }
-            } else if (args[i].startsWith("propsfile=")) {
+            } else if (args[i].startsWith(Constants.PROPSFILE)) {
                 FileInputStream in = new FileInputStream(args[i]
-                                                         .substring(10));
+                                                         .substring(Constants.PROPSFILE.length()));
                 props.load(in);
                 in.close();
-            } else if (args[i].startsWith("showoutput=")) {
-                showOut = Project.toBoolean(args[i].substring(11));
+            } else if (args[i].startsWith(Constants.SHOWOUTPUT)) {
+                showOut = Project.toBoolean(args[i].substring(Constants.SHOWOUTPUT.length()));
+            } else if (args[i].startsWith(Constants.LOGTESTLISTENEREVENTS)) {
+                logTestListenerEvents = Project.toBoolean(args[i].substring(Constants.LOGTESTLISTENEREVENTS.length()));
             }
         }
 
@@ -528,8 +637,8 @@ public class JUnitTestRunner implements TestListener {
                     new java.io.BufferedReader(new java.io.FileReader(args[0]));
                 String testCaseName;
                 int code = 0;
-                boolean errorOccured = false;
-                boolean failureOccured = false;
+                boolean errorOccurred = false;
+                boolean failureOccurred = false;
                 String line = null;
                 while ((line = reader.readLine()) != null) {
                     StringTokenizer st = new StringTokenizer(line, ",");
@@ -538,13 +647,13 @@ public class JUnitTestRunner implements TestListener {
                     t.setTodir(new File(st.nextToken()));
                     t.setOutfile(st.nextToken());
                     code = launch(t, haltError, stackfilter, haltFail,
-                                  showOut, props);
-                    errorOccured = (code == ERRORS);
-                    failureOccured = (code != SUCCESS);
-                    if (errorOccured || failureOccured) {
-                        if ((errorOccured && haltError)
-                            || (failureOccured && haltFail)) {
-                            registerNonCrash(noCrashFile);
+                                  showOut, logTestListenerEvents, props);
+                    errorOccurred = (code == ERRORS);
+                    failureOccurred = (code != SUCCESS);
+                    if (errorOccurred || failureOccurred) {
+                        if ((errorOccurred && haltError)
+                            || (failureOccurred && haltFail)) {
+                            registerNonCrash();
                             System.exit(code);
                         } else {
                             if (code > returnCode) {
@@ -560,10 +669,11 @@ public class JUnitTestRunner implements TestListener {
             }
         } else {
             returnCode = launch(new JUnitTest(args[0]), haltError,
-                                stackfilter, haltFail, showOut, props);
+                                stackfilter, haltFail, showOut,
+                                logTestListenerEvents, props);
         }
 
-        registerNonCrash(noCrashFile);
+        registerNonCrash();
         System.exit(returnCode);
     }
 
@@ -571,6 +681,36 @@ public class JUnitTestRunner implements TestListener {
 
     private static void transferFormatters(JUnitTestRunner runner,
                                            JUnitTest test) {
+        runner.addFormatter(new JUnitResultFormatter() {
+
+            public void startTestSuite(JUnitTest suite) throws BuildException {
+            }
+
+            public void endTestSuite(JUnitTest suite) throws BuildException {
+            }
+
+            public void setOutput(OutputStream out) {
+            }
+
+            public void setSystemOutput(String out) {
+            }
+
+            public void setSystemError(String err) {
+            }
+
+            public void addError(Test arg0, Throwable arg1) {
+            }
+
+            public void addFailure(Test arg0, AssertionFailedError arg1) {
+            }
+
+            public void endTest(Test arg0) {
+            }
+
+            public void startTest(Test arg0) {
+                registerTestCase(JUnitVersionHelper.getTestCaseName(arg0));
+            }
+        });
         for (int i = 0; i < fromCmdLine.size(); i++) {
             FormatterElement fe = (FormatterElement) fromCmdLine.elementAt(i);
             if (multipleTests && fe.getUseFile()) {
@@ -579,7 +719,7 @@ public class JUnitTestRunner implements TestListener {
                              test.getOutfile() + fe.getExtension());
                 fe.setOutfile(destFile);
             }
-            runner.addFormatter(fe.createFormatter());
+            runner.addFormatter((JUnitResultFormatter) fe.createFormatter());
         }
     }
 
@@ -598,6 +738,13 @@ public class JUnitTestRunner implements TestListener {
             fe.setUseFile(true);
             if (!multipleTests) {
                 fe.setOutfile(new File(line.substring(pos + 1)));
+            } else {
+                int fName = line.indexOf(IGNORED_FILE_NAME);
+                if (fName > -1) {
+                    fe.setExtension(line
+                                    .substring(fName
+                                               + IGNORED_FILE_NAME.length()));
+                }
             }
         }
         fromCmdLine.addElement(fe);
@@ -631,7 +778,7 @@ public class JUnitTestRunner implements TestListener {
                     pw.println(line);
                 }
             }
-        } catch (Exception IOException) {
+        } catch (Exception e) {
             return stack; // return the stack unfiltered
         }
         return sw.toString();
@@ -639,7 +786,7 @@ public class JUnitTestRunner implements TestListener {
 
     private static boolean filterLine(String line) {
         for (int i = 0; i < DEFAULT_TRACE_FILTERS.length; i++) {
-            if (line.indexOf(DEFAULT_TRACE_FILTERS[i]) > 0) {
+            if (line.indexOf(DEFAULT_TRACE_FILTERS[i]) != -1) {
                 return true;
             }
         }
@@ -651,10 +798,12 @@ public class JUnitTestRunner implements TestListener {
      */
     private static int launch(JUnitTest t, boolean haltError,
                               boolean stackfilter, boolean haltFail,
-                              boolean showOut, Properties props) {
+                              boolean showOut, boolean logTestListenerEvents,
+                              Properties props) {
         t.setProperties(props);
         JUnitTestRunner runner =
-            new JUnitTestRunner(t, haltError, stackfilter, haltFail, showOut);
+            new JUnitTestRunner(t, haltError, stackfilter, haltFail, showOut,
+                                logTestListenerEvents);
         runner.forked = true;
         transferFormatters(runner, t);
 
@@ -665,17 +814,118 @@ public class JUnitTestRunner implements TestListener {
     /**
      * @since Ant 1.7
      */
-    private static void registerNonCrash(String noCrashFile)
-        throws IOException {
-        if (noCrashFile != null) {
-            FileOutputStream out = null;
+    private static void registerNonCrash()
+            throws IOException {
+        if (crashFile != null) {
+            FileWriter out = null;
             try {
-                out = new FileOutputStream(noCrashFile);
-                out.write(0);
+                out = new FileWriter(crashFile);
+                out.write(Constants.TERMINATED_SUCCESSFULLY + "\n");
                 out.flush();
             } finally {
-                out.close();
+                if (out != null) {
+                    out.close();
+                }
             }
         }
     }
+
+    private static void registerTestCase(String testCase) {
+        if (crashFile != null) {
+            try {
+                FileWriter out = null;
+                try {
+                    out = new FileWriter(crashFile);
+                    out.write(testCase + "\n");
+                    out.flush();
+                } finally {
+                    if (out != null) {
+                        out.close();
+                    }
+                }
+            } catch (IOException e) {
+                // ignored.
+            }
+        }
+    }
+
+    /**
+     * Modifies a TestListener when running JUnit 4: treats AssertionFailedError
+     * as a failure not an error.
+     *
+     * @since Ant 1.7
+     */
+    private TestListener wrapListener(final TestListener testListener) {
+        return new TestListener() {
+            public void addError(Test test, Throwable t) {
+                if (junit4 && t instanceof AssertionFailedError) {
+                    // JUnit 4 does not distinguish between errors and failures even in the JUnit 3 adapter.
+                    // So we need to help it a bit to retain compatibility for JUnit 3 tests.
+                    testListener.addFailure(test, (AssertionFailedError) t);
+                } else if (junit4 && t.getClass().getName().equals("java.lang.AssertionError")) {
+                    // Not strictly necessary but probably desirable.
+                    // JUnit 4-specific test GUIs will show just "failures".
+                    // But Ant's output shows "failures" vs. "errors".
+                    // We would prefer to show "failure" for things that logically are.
+                    try {
+                        String msg = t.getMessage();
+                        AssertionFailedError failure = msg != null 
+                            ? new AssertionFailedError(msg) : new AssertionFailedError();
+                        // To compile on pre-JDK 4 (even though this should always succeed):
+                        Method initCause = Throwable.class.getMethod("initCause", new Class[] {Throwable.class});
+                        initCause.invoke(failure, new Object[] {t});
+                        testListener.addFailure(test, failure);
+                    } catch (Exception e) {
+                        // Rats.
+                        e.printStackTrace(); // should not happen
+                        testListener.addError(test, t);
+                    }
+                } else {
+                    testListener.addError(test, t);
+                }
+            }
+            public void addFailure(Test test, AssertionFailedError t) {
+                testListener.addFailure(test, t);
+            }
+            public void addFailure(Test test, Throwable t) { // pre-3.4
+                if (t instanceof AssertionFailedError) {
+                    testListener.addFailure(test, (AssertionFailedError) t);
+                } else {
+                    testListener.addError(test, t);
+                }
+            }
+            public void endTest(Test test) {
+                testListener.endTest(test);
+            }
+            public void startTest(Test test) {
+                testListener.startTest(test);
+            }
+        };
+    }
+
+    /**
+     * Use instead of TestResult.get{Failure,Error}Count on JUnit 4,
+     * since the adapter claims that all failures are errors.
+     * @since Ant 1.7
+     */
+    private int[] findJUnit4FailureErrorCount(TestResult res) {
+        int failures = 0;
+        int errors = 0;
+        Enumeration e = res.failures();
+        while (e.hasMoreElements()) {
+            e.nextElement();
+            failures++;
+        }
+        e = res.errors();
+        while (e.hasMoreElements()) {
+            Throwable t = ((TestFailure) e.nextElement()).thrownException();
+            if (t instanceof AssertionFailedError || t.getClass().getName().equals("java.lang.AssertionError")) {
+                failures++;
+            } else {
+                errors++;
+            }
+        }
+        return new int[] {failures, errors};
+    }
+
 } // JUnitTestRunner

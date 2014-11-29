@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,9 +38,9 @@ import org.apache.tools.ant.taskdefs.condition.ConditionBase;
  * are true. i.e.
  * <pre>fail := defined(ifProperty) && !defined(unlessProperty)</pre>
  *
- * A single nested<CODE>&lt;condition&gt;</CODE> element can be specified
- * instead of using <CODE>if</CODE>/<CODE>unless</CODE> (a combined
- * effect can be achieved using <CODE>isset</CODE> conditions).
+ * A single nested<code>&lt;condition&gt;</code> element can be specified
+ * instead of using <code>if</code>/<code>unless</code> (a combined
+ * effect can be achieved using <code>isset</code> conditions).
  *
  * @since Ant 1.2
  *
@@ -47,7 +48,7 @@ import org.apache.tools.ant.taskdefs.condition.ConditionBase;
  */
 public class Exit extends Task {
 
-    private class NestedCondition extends ConditionBase implements Condition {
+    private static class NestedCondition extends ConditionBase implements Condition {
         public boolean eval() {
             if (countConditions() != 1) {
                 throw new BuildException(
@@ -90,17 +91,17 @@ public class Exit extends Task {
 
     /**
      * Set the status code to associate with the thrown Exception.
-     * @param i   the <CODE>int</CODE> status
+     * @param i   the <code>int</code> status
      */
     public void setStatus(int i) {
         status = new Integer(i);
     }
 
     /**
-     * Throw a <CODE>BuildException</CODE> to exit (fail) the build.
+     * Throw a <code>BuildException</code> to exit (fail) the build.
      * If specified, evaluate conditions:
      * A single nested condition is accepted, but requires that the
-     * <CODE>if</CODE>/<code>unless</code> attributes be omitted.
+     * <code>if</code>/<code>unless</code> attributes be omitted.
      * If the nested condition evaluates to true, or the
      * ifCondition is true or unlessCondition is false, the build will exit.
      * The error message is constructed from the text fields, from
@@ -156,7 +157,7 @@ public class Exit extends Task {
 
     /**
      * Add a condition element.
-     * @return <CODE>ConditionBase</CODE>.
+     * @return <code>ConditionBase</code>.
      * @since Ant 1.6.2
      */
     public ConditionBase createCondition() {
@@ -207,7 +208,7 @@ public class Exit extends Task {
 
     /**
      * test whether there is a nested condition.
-     * @return <CODE>boolean</CODE>.
+     * @return <code>boolean</code>.
      */
     private boolean nestedConditionPresent() {
         return (nestedCondition != null);

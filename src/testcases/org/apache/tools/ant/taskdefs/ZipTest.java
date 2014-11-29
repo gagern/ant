@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,13 +16,15 @@
  */
 
 package org.apache.tools.ant.taskdefs;
-import org.apache.tools.ant.BuildFileTest;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
-import java.util.Enumeration;
+
+import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.zip.UnixStat;
 
 /**
  */
@@ -49,9 +51,9 @@ public class ZipTest extends BuildFileTest {
         expectBuildException("test3", "zip cannot include itself");
     }
 
-//    public void test4() {
-//        expectBuildException("test4", "zip cannot include itself");
-//    }
+    //    public void test4() {
+    //        expectBuildException("test4", "zip cannot include itself");
+    //    }
 
     public void tearDown() {
         try {
@@ -130,19 +132,59 @@ public class ZipTest extends BuildFileTest {
     // Bugzilla Report 22865
     public void testEmptySkip() {
         executeTarget("testEmptySkip");
-        assertTrue("archive should get skipped",
-                   !getProject().resolveFile("test3.zip").exists());
     }
     // Bugzilla Report 30365
     public void testZipEmptyDir() {
         executeTarget("zipEmptyDir");
-        assertTrue("archive should be created",
-                   getProject().resolveFile("test3.zip").exists());
+    }
+    // Bugzilla Report 40258
+    public void testZipEmptyDirFilesOnly() {
+        executeTarget("zipEmptyDirFilesOnly");
     }
     public void testZipEmptyCreate() {
-        executeTarget("zipEmptyCreate");
-        assertTrue("archive should be created",
-                   getProject().resolveFile("test3.zip").exists());
+        expectLogContaining("zipEmptyCreate", "Note: creating empty");
+    }
+    // Bugzilla Report 25513
+    public void testCompressionLevel() {
+        executeTarget("testCompressionLevel");
+    }
 
+    // Bugzilla Report 33412
+    public void testDefaultExcludesAndUpdate() 
+        throws ZipException, IOException {
+        executeTarget("testDefaultExcludesAndUpdate");
+        ZipFile f = null;
+        try {
+            f = new ZipFile(getProject().resolveFile("test3.zip"));
+            assertNotNull("ziptest~ should be included",
+                          f.getEntry("ziptest~"));
+        } finally {
+            if (f != null) {
+                f.close();
+            }
+        }
+    }
+
+    public void testFileResource() {
+        executeTarget("testFileResource");
+    }
+
+    public void testNonFileResource() {
+        executeTarget("testNonFileResource");
+    }
+
+    public void testTarFileSet() throws IOException {
+        executeTarget("testTarFileSet");
+        org.apache.tools.zip.ZipFile zf = null;
+        try {
+            zf = new org.apache.tools.zip.ZipFile(getProject()
+                                                  .resolveFile("test3.zip"));
+            org.apache.tools.zip.ZipEntry ze = zf.getEntry("asf-logo.gif");
+            assertEquals(UnixStat.FILE_FLAG | 0446, ze.getUnixMode());
+        } finally {
+            if (zf != null) {
+                zf.close();
+            }
+        }
     }
 }

@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,6 +33,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Execute;
 import org.apache.tools.ant.taskdefs.LogStreamHandler;
 import org.apache.tools.ant.types.Commandline;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * A base class for creating tasks for executing commands on Visual SourceSafe.
@@ -112,7 +114,7 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
      * @param  dir  The directory containing ss.exe.
      */
     public final void setSsdir(String dir) {
-        this.ssDir = Project.translatePath(dir);
+        this.ssDir = FileUtils.translatePath(dir);
     }
 
     /**
@@ -322,23 +324,25 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
      * @return An empty string if label is not set.
      */
     protected String getLabel() {
-    	String shortLabel="";
+        String shortLabel = "";
         if (label != null && label.length() > 0) {
                 shortLabel = FLAG_LABEL + getShortLabel();
-        } 
+        }
         return shortLabel;
     }
     /**
-     * Return at most the 30 first chars of the label, logging a warning message about the truncation
+     * Return at most the 30 first chars of the label,
+     * logging a warning message about the truncation
      * @return at most the 30 first chars of the label
      */
     private String getShortLabel() {
-    	String shortLabel;
+        String shortLabel;
         if (label !=  null && label.length() > 31) {
-        	shortLabel = this.label.substring(0, 30);
-            log("Label is longer than 31 characters, truncated to: " + shortLabel, Project.MSG_WARN);
+            shortLabel = this.label.substring(0, 30);
+            log("Label is longer than 31 characters, truncated to: " + shortLabel,
+                Project.MSG_WARN);
         } else {
-        	shortLabel = label;
+            shortLabel = label;
         }
         return shortLabel;
     }
@@ -356,17 +360,17 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
      * @return An empty string if a version, date and label are not set.
      */
     protected String getVersionDateLabel() {
-    	String versionDateLabel = "";
+        String versionDateLabel = "";
         if (version != null) {
-        	versionDateLabel = FLAG_VERSION + version;
+            versionDateLabel = FLAG_VERSION + version;
         } else if (date != null) {
-        	versionDateLabel = FLAG_VERSION_DATE + date;
+            versionDateLabel = FLAG_VERSION_DATE + date;
         } else {
             // Use getShortLabel() so labels longer then 30 char are truncated
             // and the user is warned
             String shortLabel = getShortLabel();
             if (shortLabel != null && !shortLabel.equals("")) {
-            	versionDateLabel = FLAG_VERSION_LABEL + shortLabel;
+                versionDateLabel = FLAG_VERSION_LABEL + shortLabel;
             }
         }
         return versionDateLabel;
@@ -386,9 +390,9 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
      * @return An empty string if localpath is not set.
      */
     protected String getLocalpath() {
-    	String lclPath = ""; //set to empty str if no local path return
-    	if (localPath != null) {
-    		//make sure m_LocalDir exists, create it if it doesn't
+        String lclPath = ""; //set to empty str if no local path return
+        if (localPath != null) {
+            //make sure m_LocalDir exists, create it if it doesn't
             File dir = getProject().resolveFile(localPath);
             if (!dir.exists()) {
                 boolean done = dir.mkdirs();
@@ -400,7 +404,7 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
                 getProject().log("Created dir: " + dir.getAbsolutePath());
             }
             lclPath = FLAG_OVERRIDE_WORKING_DIR + localPath;
-    	}
+        }
         return lclPath;
     }
 
@@ -603,9 +607,7 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
                     env = new String[0];
                 }
                 String[] newEnv = new String[env.length + 1];
-                for (int i = 0; i < env.length; i++) {
-                    newEnv[i] = env[i];
-                }
+                System.arraycopy(env, 0, newEnv, 0, env.length);
                 newEnv[env.length] = "SSDIR=" + serverPath;
 
                 exe.setEnvironment(newEnv);
@@ -632,9 +634,8 @@ public abstract class MSVSS extends Task implements MSVSSConstants {
      * @throws ParseException
      */
     private String calcDate(String startDate, int daysToAdd) throws ParseException {
-        Date currentDate = new Date();
         Calendar calendar = new GregorianCalendar();
-        currentDate = dateFormat.parse(startDate);
+        Date currentDate = dateFormat.parse(startDate);
         calendar.setTime(currentDate);
         calendar.add(Calendar.DATE, daysToAdd);
         return dateFormat.format(calendar.getTime());

@@ -1,9 +1,10 @@
 /*
- * Copyright 2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,30 +22,55 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 
+import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
 
 /**
- * Special <CODE>PipedInputStream</CODE> that will not die
- * when the writing <CODE>Thread</CODE> is no longer alive.
+ * Special <code>PipedInputStream</code> that will not die
+ * when the writing <code>Thread</code> is no longer alive.
+ * @since Ant 1.6.2
  */
 public class LeadPipeInputStream extends PipedInputStream {
-    private Task managingTask;
+    private ProjectComponent managingPc;
 
     /**
-     * Construct a new <CODE>LeadPipeInputStream</CODE>.
+     * Construct a new <code>LeadPipeInputStream</code>.
      */
     public LeadPipeInputStream() {
         super();
     }
 
     /**
-     * Construct a new <CODE>LeadPipeInputStream</CODE> to pull
-     * from the specified <CODE>PipedOutputStream</CODE>.
-     * @param src   the <CODE>PipedOutputStream</CODE> source.
+     * Construct a new <code>LeadPipeInputStream</code>
+     * with the specified buffer size.
+     * @param size   the size of the circular buffer.
+     */
+    public LeadPipeInputStream(int size) {
+        super();
+        setBufferSize(size);
+    }
+
+    /**
+     * Construct a new <code>LeadPipeInputStream</code> to pull
+     * from the specified <code>PipedOutputStream</code>.
+     * @param src   the <code>PipedOutputStream</code> source.
+     * @throws IOException if unable to construct the stream.
      */
     public LeadPipeInputStream(PipedOutputStream src) throws IOException {
         super(src);
+    }
+
+    /**
+     * Construct a new <code>LeadPipeInputStream</code> to pull
+     * from the specified <code>PipedOutputStream</code>, using a
+     * circular buffer of the specified size.
+     * @param src    the <code>PipedOutputStream</code> source.
+     * @param size   the size of the circular buffer.
+     */
+    public LeadPipeInputStream(PipedOutputStream src, int size) throws IOException {
+        super(src);
+        setBufferSize(size);
     }
 
     //inherit doc
@@ -67,22 +93,53 @@ public class LeadPipeInputStream extends PipedInputStream {
     }
 
     /**
-     * Set a managing <CODE>Task</CODE> for
-     * this <CODE>LeadPipeInputStream</CODE>.
-     * @param task   the managing <CODE>Task</CODE>.
+     * Set the size of the buffer.
+     * @param size   the new buffer size.  Ignored if <= current size.
+     */
+    public synchronized void setBufferSize(int size) {
+        if (size > buffer.length) {
+            byte[] newBuffer = new byte[size];
+            if (in >= 0) {
+                if (in > out) {
+                    System.arraycopy(buffer, out, newBuffer, out, in - out);
+                } else {
+                    int outlen = buffer.length - out;
+                    System.arraycopy(buffer, out, newBuffer, 0, outlen);
+                    System.arraycopy(buffer, 0, newBuffer, outlen, in);
+                    in+= outlen;
+                    out = 0;
+                }
+            }
+            buffer = newBuffer;
+        }
+    }
+
+    /**
+     * Set a managing <code>Task</code> for
+     * this <code>LeadPipeInputStream</code>.
+     * @param task   the managing <code>Task</code>.
      */
     public void setManagingTask(Task task) {
-        this.managingTask = task;
+        setManagingComponent(task);
+    }
+
+    /**
+     * Set a managing <code>ProjectComponent</code> for
+     * this <code>LeadPipeInputStream</code>.
+     * @param pc   the managing <code>ProjectComponent</code>.
+     */
+    public void setManagingComponent(ProjectComponent pc) {
+        this.managingPc = pc;
     }
 
     /**
      * Log a message with the specified logging level.
-     * @param message    the <CODE>String</CODE> message.
-     * @param loglevel   the <CODE>int</CODE> logging level.
+     * @param message    the <code>String</code> message.
+     * @param loglevel   the <code>int</code> logging level.
      */
     public void log(String message, int loglevel) {
-        if (managingTask != null) {
-            managingTask.log(message, loglevel);
+        if (managingPc != null) {
+            managingPc.log(message, loglevel);
         } else {
             if (loglevel > Project.MSG_WARN) {
                 System.out.println(message);

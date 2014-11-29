@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,13 +19,13 @@ package org.apache.tools.ant.util.regexp;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.util.JavaEnvUtils;
 
 /***
  * Regular expression factory, which will create Regexp objects.  The
  * actual implementation class depends on the System or Ant Property:
  * <code>ant.regexp.regexpimpl</code>.
  *
- * @version $Revision$
  */
 public class RegexpFactory extends RegexpMatcherFactory {
 
@@ -62,28 +63,31 @@ public class RegexpFactory extends RegexpMatcherFactory {
             //         load a different implementation?
         }
 
+        Throwable cause = null;
+
         try {
             testAvailability("java.util.regex.Matcher");
             return createRegexpInstance("org.apache.tools.ant.util.regexp.Jdk14RegexpRegexp");
         } catch (BuildException be) {
-            // ignore
+            cause = orCause(cause, be, JavaEnvUtils.getJavaVersionNumber() < 14);
         }
 
         try {
             testAvailability("org.apache.oro.text.regex.Pattern");
             return createRegexpInstance("org.apache.tools.ant.util.regexp.JakartaOroRegexp");
         } catch (BuildException be) {
-            // ignore
+            cause = orCause(cause, be, true);
         }
 
         try {
             testAvailability("org.apache.regexp.RE");
             return createRegexpInstance("org.apache.tools.ant.util.regexp.JakartaRegexpRegexp");
         } catch (BuildException be) {
-            // ignore
+            cause = orCause(cause, be, true);
         }
 
-        throw new BuildException("No supported regular expression matcher found");
+        throw new BuildException("No supported regular expression matcher found" +
+                (cause != null ? ": " + cause : ""), cause);
     }
 
     /**

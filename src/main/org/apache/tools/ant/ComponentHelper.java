@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,10 +29,17 @@ import java.util.Stack;
 import java.util.Vector;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.File;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.InvocationTargetException;
 
 import org.apache.tools.ant.taskdefs.Typedef;
+import org.apache.tools.ant.taskdefs.Definer;
+import org.apache.tools.ant.launch.Launcher;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Component creation and configuration.
@@ -81,8 +89,41 @@ public class ComponentHelper  {
      */
     private Hashtable createdTasks = new Hashtable();
 
+    /**
+     * this does not appear to be used anywhere in the Ant codebase
+     * even via its accessors
+     */
     private ComponentHelper next;
+
+    /**
+     * Project that owns a component helper
+     */
     private Project project;
+
+    /**
+     * Error string when the file taskdefs/defaults.properties cannot be found
+     */
+    private static final String ERROR_NO_TASK_LIST_LOAD = "Can't load default task list";
+    /**
+     * Error string when the typedefs/defaults.properties cannot be found
+     */
+    private static final String ERROR_NO_TYPE_LIST_LOAD = "Can't load default type list";
+
+    /**
+     * reference under which we register ourselves with a project -{@value}
+     */
+    public static final String COMPONENT_HELPER_REFERENCE = "ant.ComponentHelper";
+
+    /**
+     * string used to control build.syspath policy {@value}
+     */
+    private static final String BUILD_SYSCLASSPATH_ONLY = "only";
+
+    /**
+     * special name of ant's property task -{@value}. There is some
+     * contrived work here to enable this early.
+     */
+    private static final String ANT_PROPERTY_TASK = "property";
 
     /**
      * Find a project component for a specific project, creating
@@ -93,14 +134,14 @@ public class ComponentHelper  {
     public static ComponentHelper getComponentHelper(Project project) {
         // Singleton for now, it may change ( per/classloader )
         ComponentHelper ph = (ComponentHelper) project.getReference(
-            "ant.ComponentHelper");
+                COMPONENT_HELPER_REFERENCE);
         if (ph != null) {
             return ph;
         }
         ph = new ComponentHelper();
         ph.setProject(project);
 
-        project.addReference("ant.ComponentHelper", ph);
+        project.addReference(COMPONENT_HELPER_REFERENCE, ph);
         return ph;
     }
 
@@ -317,8 +358,7 @@ public class ComponentHelper  {
                     for (Iterator i = antTypeTable.keySet().iterator();
                          i.hasNext();) {
                         String name = (String) i.next();
-                        Class clazz =
-                            (Class) antTypeTable.getExposedClass(name);
+                        Class clazz = antTypeTable.getExposedClass(name);
                         if (clazz == null) {
                             continue;
                         }
@@ -350,8 +390,7 @@ public class ComponentHelper  {
                     for (Iterator i = antTypeTable.keySet().iterator();
                          i.hasNext();) {
                         String name = (String) i.next();
-                        Class clazz =
-                            (Class) antTypeTable.getExposedClass(name);
+                        Class clazz = antTypeTable.getExposedClass(name);
                         if (clazz == null) {
                             continue;
                         }
@@ -428,10 +467,10 @@ public class ComponentHelper  {
      */
     public Task createTask(String taskType) throws BuildException {
         Task task = createNewTask(taskType);
-        if (task == null && taskType.equals("property")) {
+        if (task == null && taskType.equals(ANT_PROPERTY_TASK)) {
             // quick fix for Ant.java use of property before
             // initializing the project
-            addTaskDefinition("property",
+            addTaskDefinition(ANT_PROPERTY_TASK,
                               org.apache.tools.ant.taskdefs.Property.class);
             task = createNewTask(taskType);
         }
@@ -459,10 +498,14 @@ public class ComponentHelper  {
         if (c == null || !(Task.class.isAssignableFrom(c))) {
             return null;
         }
-        Task task = (Task) createComponent(taskType);
-        if (task == null) {
+        Object _task = createComponent(taskType);
+        if (_task == null) {
             return null;
         }
+        if (!(_task instanceof Task)) {
+            throw new BuildException("Expected a Task from '" + taskType + "' but got an instance of " + _task.getClass().getName() + " instead");
+        }
+        Task task = (Task) _task;
         task.setTaskType(taskType);
 
         // set default value, can be changed by the user
@@ -548,24 +591,42 @@ public class ComponentHelper  {
      * @since Ant 1.6
      */
     public String getElementName(Object element) {
+        return getElementName(element, false);
+    }
+
+    /**
+     * Returns a description of the type of the given element.
+     * <p>
+     * This is useful for logging purposes.
+     *
+     * @param element The element to describe.
+     *                Must not be <code>null</code>.
+     * @param brief   whether to use a brief description.
+     * @return a description of the element type.
+     *
+     * @since Ant 1.7
+     */
+    public String getElementName(Object element, boolean brief) {
         //  PR: I do not know what to do if the object class
         //      has multiple defines
         //      but this is for logging only...
+        String name = null;
         Class elementClass = element.getClass();
         for (Iterator i = antTypeTable.values().iterator(); i.hasNext();) {
             AntTypeDefinition def = (AntTypeDefinition) i.next();
             if (elementClass == def.getExposedClass(project)) {
-                return "The <" + def.getName() + "> type";
+                name = def.getName();
+                return brief ? name : "The <" + name + "> type";
             }
         }
-        return "Class " + elementClass.getName();
+        name = elementClass.getName();
+        return brief
+            ? name.substring(name.lastIndexOf('.') + 1) : "Class " + name;
     }
 
-
     /**
-     * Check if definition is a valid definition - it
-     * may be a definition of an optional task that
-     * does not exist.
+     * Check if definition is a valid definition--it may be a
+     * definition of an optional task that does not exist.
      * @param def the definition to test.
      * @return true if exposed type of definition is present.
      */
@@ -583,7 +644,8 @@ public class ComponentHelper  {
     private boolean sameDefinition(
         AntTypeDefinition def, AntTypeDefinition old) {
         boolean defValid = validDefinition(def);
-        boolean sameValidity = !(defValid | validDefinition(old));
+        boolean sameValidity = (defValid == validDefinition(old));
+        //must have same validity; then if they are valid they must also be the same:
         return sameValidity && (!defValid || def.sameDefinition(old, project));
     }
 
@@ -605,7 +667,7 @@ public class ComponentHelper  {
                 Class oldClass = antTypeTable.getExposedClass(name);
                 boolean isTask =
                     (oldClass != null && Task.class.isAssignableFrom(oldClass));
-                project.log( "Trying to override old definition of "
+                project.log("Trying to override old definition of "
                     + (isTask ? "task " : "datatype ") + name,
                     (def.similarDefinition(old, project))
                     ? Project.MSG_VERBOSE : Project.MSG_WARN);
@@ -649,18 +711,15 @@ public class ComponentHelper  {
      */
     private void initTasks() {
         ClassLoader classLoader = null;
-        if (project.getCoreLoader() != null
-            && !("only".equals(project.getProperty("build.sysclasspath")))) {
-            classLoader = project.getCoreLoader();
-        }
-        String dataDefs = "/org/apache/tools/ant/taskdefs/defaults.properties";
+        classLoader = getClassLoader(classLoader);
+        String dataDefs = MagicNames.TASKDEF_PROPERTIES_RESOURCE;
 
         InputStream in = null;
         try {
             Properties props = new Properties();
             in = this.getClass().getResourceAsStream(dataDefs);
             if (in == null) {
-                throw new BuildException("Can't load default task list");
+                throw new BuildException(ERROR_NO_TASK_LIST_LOAD);
             }
             props.load(in);
 
@@ -677,16 +736,19 @@ public class ComponentHelper  {
                 antTypeTable.put(name, def);
             }
         } catch (IOException ex) {
-            throw new BuildException("Can't load default type list");
+            throw new BuildException(ERROR_NO_TASK_LIST_LOAD);
         } finally {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (Exception ignore) {
-                    // Ignore
-                }
-            }
+            FileUtils.close(in);
         }
+    }
+
+    private ClassLoader getClassLoader(ClassLoader classLoader) {
+        String buildSysclasspath = project.getProperty(MagicNames.BUILD_SYSCLASSPATH);
+        if (project.getCoreLoader() != null
+            && !(BUILD_SYSCLASSPATH_ONLY.equals(buildSysclasspath))) {
+            classLoader = project.getCoreLoader();
+        }
+        return classLoader;
     }
 
     /**
@@ -694,18 +756,15 @@ public class ComponentHelper  {
      */
     private void initTypes() {
         ClassLoader classLoader = null;
-        if (project.getCoreLoader() != null
-            && !("only".equals(project.getProperty("build.sysclasspath")))) {
-            classLoader = project.getCoreLoader();
-        }
-        String dataDefs = "/org/apache/tools/ant/types/defaults.properties";
+        classLoader = getClassLoader(classLoader);
+        String dataDefs = MagicNames.TYPEDEFS_PROPERTIES_RESOURCE;
 
         InputStream in = null;
         try {
             Properties props = new Properties();
             in = this.getClass().getResourceAsStream(dataDefs);
             if (in == null) {
-                throw new BuildException("Can't load default datatype list");
+                throw new BuildException(ERROR_NO_TYPE_LIST_LOAD);
             }
             props.load(in);
 
@@ -720,7 +779,7 @@ public class ComponentHelper  {
                 antTypeTable.put(name, def);
             }
         } catch (IOException ex) {
-            throw new BuildException("Can't load default type list");
+            throw new BuildException(ERROR_NO_TYPE_LIST_LOAD);
         } finally {
             if (in != null) {
                 try {
@@ -750,14 +809,183 @@ public class ComponentHelper  {
         checkedNamespaces.add(uri);
         Typedef definer = new Typedef();
         definer.setProject(project);
-        definer.setURI(uri);
-        definer.setResource(
-            uri.substring("antlib:".length()).replace('.', '/')
-            + "/antlib.xml");
-        // a fishing expedition :- ignore errors if antlib not present
-        definer.setOnError(new Typedef.OnError("ignore"));
         definer.init();
+        definer.setURI(uri);
+        //there to stop error messages being "null"
+        definer.setTaskName(uri);
+        //if this is left out, bad things happen. like all build files break
+        //on the first element encountered.
+        definer.setResource(Definer.makeResourceFromURI(uri));
+        // a fishing expedition :- ignore errors if antlib not present
+        definer.setOnError(new Typedef.OnError(Typedef.OnError.POLICY_IGNORE));
         definer.execute();
+    }
+
+    /**
+     * Handler called to do decent diagnosis on instantiation failure.
+     * @param componentName component name.
+     * @param type component type, used in error messages
+     * @return a string containing as much diagnostics info as possible.
+     */
+    public String diagnoseCreationFailure(String componentName, String type) {
+        StringWriter errorText = new StringWriter();
+        PrintWriter out = new PrintWriter(errorText);
+        out.println("Problem: failed to create " + type + " " + componentName);
+        //class of problem
+        boolean lowlevel = false;
+        boolean jars = false;
+        boolean definitions = false;
+        boolean antTask;
+        String home = System.getProperty(Launcher.USER_HOMEDIR);
+        File libDir = new File(home, Launcher.USER_LIBDIR);
+        String antHomeLib;
+        boolean probablyIDE=false;
+        String anthome = System.getProperty(MagicNames.ANT_HOME);
+        if(anthome!=null) {
+            File antHomeLibDir = new File(anthome,"lib");
+            antHomeLib=antHomeLibDir.getAbsolutePath();
+        } else {
+            //running under an IDE that doesn't set ANT_HOME
+            probablyIDE=true;
+            antHomeLib = "ANT_HOME" +File.separatorChar +"lib";
+        }
+        StringBuffer dirListingText = new StringBuffer();
+        final String tab = "        -";
+        dirListingText.append(tab);
+        dirListingText.append(antHomeLib);
+        dirListingText.append('\n');
+        if(probablyIDE) {
+            dirListingText.append(tab);
+            dirListingText.append("the IDE Ant configuration dialogs");
+        } else {
+            dirListingText.append(tab);
+            dirListingText.append(libDir);
+            dirListingText.append('\n');
+            dirListingText.append(tab);
+            dirListingText.append(
+                    "a directory added on the command line with the -lib argument");
+        }
+
+        String dirListing=dirListingText.toString();
+        
+        //look up the name
+        AntTypeDefinition def = getDefinition(componentName);
+        if (def == null) {
+            //not a known type
+            boolean isAntlib = componentName.indexOf(MagicNames.ANTLIB_PREFIX) == 0;
+            out.println("Cause: The name is undefined.");
+            out.println("Action: Check the spelling.");
+            out.println("Action: Check that any custom tasks/types have been declared.");
+            out.println("Action: Check that any <presetdef>/<macrodef> declarations have taken place.");
+            if (isAntlib) {
+                out.println();
+                out.println("This appears to be an antlib declaration. ");
+                out.println("Action: Check that the implementing library exists in one of:");
+                out.println(dirListing);
+            }
+            definitions = true;
+        } else {
+            //we are defined, so it is an instantiation problem
+            final String classname = def.getClassName();
+            antTask = classname.startsWith("org.apache.tools.ant.");
+            boolean optional = classname.startsWith("org.apache.tools.ant.taskdefs.optional");
+            optional |= classname.startsWith("org.apache.tools.ant.types.optional");
+
+            //start with instantiating the class.
+            Class clazz = null;
+            try {
+                clazz = def.innerGetTypeClass();
+            } catch (ClassNotFoundException e) {
+                out.println("Cause: the class " + classname + " was not found.");
+                jars = true;
+                if (optional) {
+                    out.println("        This looks like one of Ant's optional components.");
+                    out.println("Action: Check that the appropriate optional JAR exists in");
+                    out.println(dirListing);
+                } else {
+                    out.println("Action: Check that the component has been correctly declared");
+                    out.println("        and that the implementing JAR is in one of:");
+                    out.println(dirListing);
+                    definitions = true;
+                }
+            } catch (NoClassDefFoundError ncdfe) {
+                jars = true;
+                out.println("Cause: Could not load a dependent class "
+                        +  ncdfe.getMessage());
+                if (optional) {
+                    out.println("       It is not enough to have Ant's optional JARs");
+                    out.println("       you need the JAR files that the optional tasks depend upon.");
+                    out.println("       Ant's optional task dependencies are listed in the manual.");
+                } else {
+                    out.println("       This class may be in a separate JAR that is not installed.");
+                }
+                out.println("Action: Determine what extra JAR files are needed, and place them in one of:");
+                out.println(dirListing);
+            }
+            //here we successfully loaded the class or failed.
+            if (clazz != null) {
+                //success: proceed with more steps
+                try {
+                    def.innerCreateAndSet(clazz, project);
+                    //hey, there is nothing wrong with us
+                    out.println("The component could be instantiated.");
+                } catch (NoSuchMethodException e) {
+                    lowlevel = true;
+                    out.println("Cause: The class " + classname
+                            + " has no compatible constructor.");
+
+                } catch (InstantiationException e) {
+                    lowlevel = true;
+                    out.println("Cause: The class " + classname
+                            + " is abstract and cannot be instantiated.");
+                } catch (IllegalAccessException e) {
+                    lowlevel = true;
+                    out.println("Cause: The constructor for " + classname
+                            + " is private and cannot be invoked.");
+                } catch (InvocationTargetException ex) {
+                    lowlevel = true;
+                    Throwable t = ex.getTargetException();
+                    out.println("Cause: The constructor threw the exception");
+                    out.println(t.toString());
+                    t.printStackTrace(out);
+                }  catch (NoClassDefFoundError ncdfe) {
+                    jars = true;
+                    out.println("Cause:  A class needed by class "
+                            + classname + " cannot be found: ");
+                    out.println("       " + ncdfe.getMessage());
+                    out.println("Action: Determine what extra JAR files are needed, and place them in:");
+                    out.println(dirListing);
+                }
+            }
+            out.println();
+            out.println("Do not panic, this is a common problem.");
+            if (definitions) {
+                out.println("It may just be a typographical error in the build file "
+                        + "or the task/type declaration.");
+            }
+            if (jars) {
+                out.println("The commonest cause is a missing JAR.");
+            }
+            if (lowlevel) {
+                out.println("This is quite a low level problem, which may need "
+                        + "consultation with the author of the task.");
+                if (antTask) {
+                    out.println("This may be the Ant team. Please file a "
+                            + "defect or contact the developer team.");
+                } else {
+                    out.println("This does not appear to be a task bundled with Ant.");
+                    out.println("Please take it up with the supplier of the third-party "
+                            + type + ".");
+                    out.println("If you have written it yourself, you probably have a bug to fix.");
+                }
+            } else {
+                out.println();
+                out.println("This is not a bug; it is a configuration problem");
+            }
+        }
+        out.flush();
+        out.close();
+        return errorText.toString();
     }
 
     /**
@@ -766,30 +994,29 @@ public class ComponentHelper  {
     private static class AntTypeTable extends Hashtable {
         private Project project;
 
-        public AntTypeTable(Project project) {
+        AntTypeTable(Project project) {
             this.project = project;
         }
 
-        public AntTypeDefinition getDefinition(String key) {
+        AntTypeDefinition getDefinition(String key) {
             return (AntTypeDefinition) (super.get(key));
         }
 
-        /** Equivalent to getTypeType */
         public Object get(Object key) {
             return getTypeClass((String) key);
         }
 
-        public Object create(String name) {
+        Object create(String name) {
             AntTypeDefinition def = getDefinition(name);
             return (def == null) ? null : def.create(project);
         }
 
-        public Class getTypeClass(String name) {
+        Class getTypeClass(String name) {
             AntTypeDefinition def = getDefinition(name);
             return (def == null) ? null : def.getTypeClass(project);
         }
 
-        public Class getExposedClass(String name) {
+        Class getExposedClass(String name) {
             AntTypeDefinition def = getDefinition(name);
             return (def == null) ? null : def.getExposedClass(project);
         }

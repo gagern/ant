@@ -1,5 +1,6 @@
 <html>
 <head>
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>Perforce Tasks</title>
 </head>
 <body>
@@ -27,8 +28,9 @@ However, the addition of new p4 commands is a pretty simple task (see the source
 Although it is possible to use these commands on the desktop, 
 they were primarily intended to be used by automated build systems.</p>
 
-<p><b>Note:</b> These tasks require the <a href="http://jakarta.apache.org/oro" target="_top">oro 2.0.XXX</a> regular
-expression package. Simply download this package and copy the jakarta-oro-2.0.XXX.jar file into Ant's lib directory.
+<p><b>Note:</b> These tasks require the <a href="http://jakarta.apache.org/oro" target="_top">oro</a> regular
+expression package. See <a href="../install.html#librarydependencies">library dependencies</a> for the precise
+version required.
 You will also need the Perforce client executable (p4 or p4.exe but not p4win.exe) in your path.
 </p>
 
@@ -37,6 +39,10 @@ You will also need the Perforce client executable (p4 or p4.exe but not p4win.ex
 <h2><a name="tasks">The Tasks</a></h2>
 
 <table border="0" cellspacing="0" cellpadding="3">
+    <tr>
+      <td><b>Task</b></td>
+      <td><b>Description</b></td>
+    </tr>
     <tr>
         <td><a href="#p4sync">P4Sync</a></td>
         <td>Synchronise a workspace to a depot</td>
@@ -397,7 +403,7 @@ is not the latest any more.
   </tr>
   <tr>
     <td valign="top">view</td>
-    <td valign="top">client view to use for label<br/>
+    <td valign="top">client view to use for label<br>
     The view can contain multiple lines separated by ; or :</td>
     <td valign="top" align="center">No</td>
   </tr>
@@ -980,7 +986,7 @@ Changed p4submit, needsresolveproperty and changeproperty added</td>
 </tr>
 </table>
 <hr>
-<p align="center">Copyright &copy; 2001-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2001-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 </body>
 </html>

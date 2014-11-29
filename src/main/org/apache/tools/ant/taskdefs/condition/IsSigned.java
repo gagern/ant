@@ -1,9 +1,10 @@
 /*
- * Copyright  2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,14 +17,15 @@
  */
 package org.apache.tools.ant.taskdefs.condition;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Enumeration;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.DataType;
-import java.io.File;
-import java.io.IOException;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.Enumeration;
+import org.apache.tools.zip.ZipEntry;
+import org.apache.tools.zip.ZipFile;
 
 /**
  * Checks whether a jarfile is signed: if the name of the
@@ -37,12 +39,11 @@ public class IsSigned extends DataType implements Condition {
     private static final String SIG_END = ".SF";
 
     private String name;
-    private File   file;
-
+    private File file;
+    
    /**
      * The jarfile that is to be tested for the presence
      * of a signature.
-     *
      * @param file jarfile to be tested.
      */
     public void setFile(File file) {
@@ -51,7 +52,6 @@ public class IsSigned extends DataType implements Condition {
 
    /**
      * The signature name to check jarfile for.
-     *
      * @param name signature to look for.
      */
     public void setName(String name) {
@@ -59,10 +59,13 @@ public class IsSigned extends DataType implements Condition {
     }
 
     /**
-     * Returns <CODE>true</code> if the file exists and is signed with
-     * the signature specified, or, if <CODE>name</code> wasn't
+     * Returns <code>true</code> if the file exists and is signed with
+     * the signature specified, or, if <code>name</code> wasn't
      * specified, if the file contains a signature.
+     * @param zipFile the zipfile to check
+     * @param name the signature to check (may be killed)
      * @return true if the file is signed.
+     * @throws IOException on error
      */
     public static boolean isSigned(File zipFile, String name)
         throws IOException {
@@ -70,7 +73,7 @@ public class IsSigned extends DataType implements Condition {
         try {
             jarFile = new ZipFile(zipFile);
             if (null == name) {
-                Enumeration entries = jarFile.entries();
+                Enumeration entries = jarFile.getEntries();
                 while (entries.hasMoreElements()) {
                     String eName = ((ZipEntry) entries.nextElement()).getName();
                     if (eName.startsWith(SIG_START)
@@ -79,34 +82,27 @@ public class IsSigned extends DataType implements Condition {
                     }
                 }
                 return false;
-            } else {
-                boolean shortSig = jarFile.getEntry(SIG_START
-                                                    + name.toUpperCase()
-                                                    + SIG_END) != null;
-                boolean longSig = false;
-                if (name.length() > 8) {
-                    longSig =
+            } 
+            boolean shortSig = jarFile.getEntry(SIG_START
+                        + name.toUpperCase()
+                        + SIG_END) != null;
+            boolean longSig = false;
+            if (name.length() > 8) {
+                longSig =
                         jarFile.getEntry(SIG_START
-                                         + name.substring(0, 8).toUpperCase()
-                                         + SIG_END) != null;
-                }
-
-                return shortSig || longSig;
+                                        + name.substring(0, 8).toUpperCase()
+                                        + SIG_END) != null;
             }
+            
+            return shortSig || longSig;
         } finally {
-            if (jarFile != null) {
-                try {
-                    jarFile.close();
-                } catch (IOException e) {
-                    // Ignored
-                }
-            }
+            ZipFile.closeQuietly(jarFile);
         }
     }
 
     /**
-     * Returns <CODE>true</code> if the file exists and is signed with
-     * the signature specified, or, if <CODE>name</code> wasn't
+     * Returns <code>true</code> if the file exists and is signed with
+     * the signature specified, or, if <code>name</code> wasn't
      * specified, if the file contains a signature.
      * @return true if the file is signed.
      */

@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,6 +24,8 @@ import java.util.StringTokenizer;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
+import org.apache.tools.ant.util.StringUtils;
+
 /**
  * <p>Utility class that represents either an available "Optional Package"
  * (formerly known as "Standard Extension") as described in the manifest
@@ -33,7 +36,6 @@ import java.util.jar.Manifest;
  * Java2 Standard Edition package, in file
  * <code>guide/extensions/versioning.html</code>.</p>
  *
- * @version $Revision$ $Date$
  */
 public final class Extension {
     /**
@@ -208,7 +210,7 @@ public final class Extension {
             }
         }
 
-        return (Extension[]) results.toArray(new Extension[0]);
+        return (Extension[]) results.toArray(new Extension[results.size()]);
     }
 
     /**
@@ -489,54 +491,53 @@ public final class Extension {
      * @return string representation of object.
      */
     public String toString() {
-        final String lineSeparator = System.getProperty("line.separator");
         final String brace = ": ";
 
         final StringBuffer sb = new StringBuffer(EXTENSION_NAME.toString());
         sb.append(brace);
         sb.append(extensionName);
-        sb.append(lineSeparator);
+        sb.append(StringUtils.LINE_SEP);
 
         if (null != specificationVersion) {
             sb.append(SPECIFICATION_VERSION);
             sb.append(brace);
             sb.append(specificationVersion);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         if (null != specificationVendor) {
             sb.append(SPECIFICATION_VENDOR);
             sb.append(brace);
             sb.append(specificationVendor);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         if (null != implementationVersion) {
             sb.append(IMPLEMENTATION_VERSION);
             sb.append(brace);
             sb.append(implementationVersion);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         if (null != implementationVendorID) {
             sb.append(IMPLEMENTATION_VENDOR_ID);
             sb.append(brace);
             sb.append(implementationVendorID);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         if (null != implementationVendor) {
             sb.append(IMPLEMENTATION_VENDOR);
             sb.append(brace);
             sb.append(implementationVendor);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         if (null != implementationURL) {
             sb.append(IMPLEMENTATION_URL);
             sb.append(brace);
             sb.append(implementationURL);
-            sb.append(lineSeparator);
+            sb.append(StringUtils.LINE_SEP);
         }
 
         return sb.toString();
@@ -580,7 +581,7 @@ public final class Extension {
             getExtension(attributes, results, listKey);
         }
 
-        return (Extension[]) results.toArray(new Extension[ 0 ]);
+        return (Extension[]) results.toArray(new Extension[results.size()]);
     }
 
     /**
@@ -683,10 +684,6 @@ public final class Extension {
      * @return the trimmed string or null
      */
     private static String getTrimmedString(final String value) {
-        if (null == value) {
-            return null;
-        } else {
-            return value.trim();
-        }
+        return null == value ? null : value.trim();
     }
 }

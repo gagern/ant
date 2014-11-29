@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,6 +35,10 @@ public class Watchdog implements Runnable {
     private long timeout = -1;
     private boolean stopped = false;
 
+    /**
+     * Constructor for Watchdog.
+     * @param timeout the timeout to use in milliseconds (must be >= 1).
+     */
     public Watchdog(long timeout) {
         if (timeout < 1) {
             throw new IllegalArgumentException("timeout less than 1.");
@@ -41,14 +46,25 @@ public class Watchdog implements Runnable {
         this.timeout = timeout;
     }
 
+    /**
+     * Add a timeout observer.
+     * @param to the timeout observer to add.
+     */
     public void addTimeoutObserver(TimeoutObserver to) {
         observers.addElement(to);
     }
 
+    /**
+     * Remove a timeout observer.
+     * @param to the timeout observer to remove.
+     */
     public void removeTimeoutObserver(TimeoutObserver to) {
         observers.removeElement(to);
     }
 
+    /**
+     * Inform the observers that a timeout has occurred.
+     */
     protected final void fireTimeoutOccured() {
         Enumeration e = observers.elements();
         while (e.hasMoreElements()) {
@@ -56,6 +72,9 @@ public class Watchdog implements Runnable {
         }
     }
 
+    /**
+     * Start the watch dog.
+     */
     public synchronized void start() {
         stopped = false;
         Thread t = new Thread(this, "WATCHDOG");
@@ -63,11 +82,20 @@ public class Watchdog implements Runnable {
         t.start();
     }
 
+    /**
+     * Stop the watch dog.
+     */
     public synchronized void stop() {
         stopped = true;
         notifyAll();
     }
 
+    /**
+     * The run method of the watch dog thread.
+     * This simply does a wait for the timeout time, and
+     * if the stop flag has not been set when the wait has returned or
+     * has been interrupted, the watch dog listeners are informed.
+     */
     public synchronized void run() {
         final long until = System.currentTimeMillis() + timeout;
         long now;
@@ -75,6 +103,7 @@ public class Watchdog implements Runnable {
             try {
                 wait(until - now);
             } catch (InterruptedException e) {
+                // Ignore exception
             }
         }
         if (!stopped) {

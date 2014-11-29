@@ -1,5 +1,5 @@
 /*
- * Copyright  2004 The Apache Software Foundation
+ * Copyright 2004-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.BuildFileTest;
-import java.io.File;
 
 public class SyncTest extends BuildFileTest {
 
@@ -60,7 +59,30 @@ public class SyncTest extends BuildFileTest {
     }
 
     public void testCopyAndRemove() {
-        executeTarget("copyandremove");
+        testCopyAndRemove("copyandremove");
+    }
+
+    public void testCopyAndRemoveWithFileList() {
+        testCopyAndRemove("copyandremove-with-filelist");
+    }
+
+    public void testCopyAndRemoveWithZipfileset() {
+        testCopyAndRemove("copyandremove-with-zipfileset");
+    }
+
+    private void testCopyAndRemove(String target) {
+        executeTarget(target);
+        String d = getProject().getProperty("dest") + "/a/b/c/d";
+        assertFileIsPresent(d);
+        String f = getProject().getProperty("dest") + "/e/f";
+        assertFileIsNotPresent(f);
+        assertTrue(getFullLog().indexOf("Removing orphan file:") > -1);
+        assertDebuglogContaining("Removed 1 dangling file from");
+        assertDebuglogContaining("Removed 1 dangling directory from");
+    }
+
+    public void testCopyAndRemoveEmptyPreserve() {
+        executeTarget("copyandremove-emptypreserve");
         String d = getProject().getProperty("dest") + "/a/b/c/d";
         assertFileIsPresent(d);
         String f = getProject().getProperty("dest") + "/e/f";
@@ -81,6 +103,24 @@ public class SyncTest extends BuildFileTest {
         assertTrue(getFullLog().indexOf("Removing orphan directory:") > -1);
         assertDebuglogContaining("NO dangling file to remove from");
         assertDebuglogContaining("Removed 2 dangling directories from");
+    }
+
+    public void testCopyNoRemove() {
+        executeTarget("copynoremove");
+        String d = getProject().getProperty("dest") + "/a/b/c/d";
+        assertFileIsPresent(d);
+        String f = getProject().getProperty("dest") + "/e/f";
+        assertFileIsPresent(f);
+        assertTrue(getFullLog().indexOf("Removing orphan file:") == -1);
+    }
+
+    public void testCopyNoRemoveSelectors() {
+        executeTarget("copynoremove-selectors");
+        String d = getProject().getProperty("dest") + "/a/b/c/d";
+        assertFileIsPresent(d);
+        String f = getProject().getProperty("dest") + "/e/f";
+        assertFileIsPresent(f);
+        assertTrue(getFullLog().indexOf("Removing orphan file:") == -1);
     }
 
     public void assertFileIsPresent(String f) {

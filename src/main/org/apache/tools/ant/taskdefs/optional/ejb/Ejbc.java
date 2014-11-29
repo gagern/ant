@@ -1,9 +1,10 @@
 /*
- * Copyright  2000,2002,2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +20,12 @@ package org.apache.tools.ant.taskdefs.optional.ejb;
 import java.io.File;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Java;
 import org.apache.tools.ant.taskdefs.MatchingTask;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Builds EJB support classes using WebLogic's ejbc tool from a directory containing
@@ -93,15 +96,14 @@ public class Ejbc extends MatchingTask {
 
         String systemClassPath = System.getProperty("java.class.path");
         String execClassPath
-            = getProject().translatePath(systemClassPath + ":" + classpath
+            = FileUtils.translatePath(systemClassPath + ":" + classpath
                                          + ":" + generatedFilesDirectory);
         // get all the files in the descriptor directory
         DirectoryScanner ds = super.getDirectoryScanner(descriptorDirectory);
 
         String[] files = ds.getIncludedFiles();
 
-        Java helperTask = (Java) getProject().createTask("java");
-        helperTask.setTaskName(getTaskName());
+        Java helperTask = new Java(this);
         helperTask.setFork(true);
         helperTask.setClassname("org.apache.tools.ant.taskdefs.optional.ejb.EjbcHelper");
         String args = "";
@@ -172,7 +174,7 @@ public class Ejbc extends MatchingTask {
      * Set the classpath to be used for this compilation.
      */
     public void setClasspath(String s) {
-        this.classpath = getProject().translatePath(s);
+        this.classpath = FileUtils.translatePath(s);
     }
 
     /**

@@ -1,9 +1,10 @@
 /*
- * Copyright 2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,11 +24,12 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.FileInputStream;
 
-import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.Task;
 
 /**
- * Special <CODE>InputStream</CODE> that will
+ * Special <code>InputStream</code> that will
  * concatenate the contents of an array of files.
  */
 public class ConcatFileInputStream extends InputStream {
@@ -37,12 +39,12 @@ public class ConcatFileInputStream extends InputStream {
     private boolean eof = false;
     private File[] file;
     private InputStream currentStream;
-    private Task managingTask;
+    private ProjectComponent managingPc;
 
   /**
-   * Construct a new <CODE>ConcatFileInputStream</CODE>
-   * with the specified <CODE>File[]</CODE>.
-   * @param file   <CODE>File[]</CODE>.
+   * Construct a new <code>ConcatFileInputStream</code>
+   * with the specified <code>File[]</code>.
+   * @param file   <code>File[]</code>.
    * @throws IOException if I/O errors occur.
    */
     public ConcatFileInputStream(File[] file) throws IOException {
@@ -66,22 +68,31 @@ public class ConcatFileInputStream extends InputStream {
     }
 
     /**
-     * Set a managing <CODE>Task</CODE> for
-     * this <CODE>ConcatFileInputStream</CODE>.
-     * @param task   the managing <CODE>Task</CODE>.
+     * Set a managing <code>Task</code> for
+     * this <code>ConcatFileInputStream</code>.
+     * @param task   the managing <code>Task</code>.
      */
     public void setManagingTask(Task task) {
-        this.managingTask = task;
+        setManagingComponent(task);
+    }
+
+    /**
+     * Set a managing <code>Task</code> for
+     * this <code>ConcatFileInputStream</code>.
+     * @param pc the managing <code>Task</code>.
+     */
+    public void setManagingComponent(ProjectComponent pc) {
+        this.managingPc = pc;
     }
 
     /**
      * Log a message with the specified logging level.
-     * @param message    the <CODE>String</CODE> message.
-     * @param loglevel   the <CODE>int</CODE> logging level.
+     * @param message    the <code>String</code> message.
+     * @param loglevel   the <code>int</code> logging level.
      */
     public void log(String message, int loglevel) {
-        if (managingTask != null) {
-            managingTask.log(message, loglevel);
+        if (managingPc != null) {
+            managingPc.log(message, loglevel);
         } else {
             if (loglevel > Project.MSG_WARN) {
                 System.out.println(message);
@@ -112,13 +123,7 @@ public class ConcatFileInputStream extends InputStream {
     }
 
     private void closeCurrent() {
-        if (currentStream != null) {
-            try {
-                currentStream.close();
-            } catch (IOException eyeOhEx) {
-            }
-            currentStream = null;
-        }
+        FileUtils.close(currentStream);
+        currentStream = null;
     }
 }
-

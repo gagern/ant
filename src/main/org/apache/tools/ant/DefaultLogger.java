@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
+
 import org.apache.tools.ant.util.DateUtils;
 import org.apache.tools.ant.util.StringUtils;
 
@@ -131,24 +133,19 @@ public class DefaultLogger implements BuildLogger {
     public void buildFinished(BuildEvent event) {
         Throwable error = event.getException();
         StringBuffer message = new StringBuffer();
-
         if (error == null) {
             message.append(StringUtils.LINE_SEP);
-            message.append("BUILD SUCCESSFUL");
+            message.append(getBuildSuccessfulMessage());
         } else {
             message.append(StringUtils.LINE_SEP);
-            message.append("BUILD FAILED");
+            message.append(getBuildFailedMessage());
             message.append(StringUtils.LINE_SEP);
 
             if (Project.MSG_VERBOSE <= msgOutputLevel
                 || !(error instanceof BuildException)) {
                 message.append(StringUtils.getStackTrace(error));
             } else {
-                if (error instanceof BuildException) {
-                    message.append(error.toString()).append(lSep);
-                } else {
-                    message.append(error.getMessage()).append(lSep);
-                }
+                message.append(error.toString()).append(lSep);
             }
         }
         message.append(StringUtils.LINE_SEP);
@@ -162,6 +159,24 @@ public class DefaultLogger implements BuildLogger {
             printMessage(msg, err, Project.MSG_ERR);
         }
         log(msg);
+    }
+
+    /**
+     * This is an override point: the message that indicates whether a build failed.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD FAILED"
+     */
+    protected String getBuildFailedMessage() {
+        return "BUILD FAILED";
+    }
+
+    /**
+     * This is an override point: the message that indicates that a build succeeded.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD SUCCESSFUL"
+     */
+    protected String getBuildSuccessfulMessage() {
+        return "BUILD SUCCESSFUL";
     }
 
     /**

@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,12 +42,18 @@ public class JasperC extends DefaultJspCompilerAdapter {
      */
     JspMangler mangler;
 
+    /**
+     * Constructor for JasperC.
+     * @param mangler a filename converter
+     */
     public JasperC(JspMangler mangler) {
         this.mangler = mangler;
     }
 
     /**
-     * our execute method
+     * Our execute method.
+     * @return true if successful
+     * @throws BuildException on error
      */
     public boolean execute()
         throws BuildException {
@@ -56,7 +63,7 @@ public class JasperC extends DefaultJspCompilerAdapter {
         try {
             // Create an instance of the compiler, redirecting output to
             // the project log
-            Java java = (Java) (getProject().createTask("java"));
+            Java java = new Java(owner);
             Path p = getClasspath();
             if (getJspc().getClasspath() != null) {
                 getProject().log("using user supplied classpath: " + p,
@@ -69,7 +76,7 @@ public class JasperC extends DefaultJspCompilerAdapter {
             java.setDir(getProject().getBaseDir());
             java.setClassname("org.apache.jasper.JspC");
             //this is really irritating; we need a way to set stuff
-            String args[] = cmd.getJavaCommand().getArguments();
+            String []args = cmd.getJavaCommand().getArguments();
             for (int i = 0; i < args.length; i++) {
                 java.createArg().setValue(args[i]);
             }

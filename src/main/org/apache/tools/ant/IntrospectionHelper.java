@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -40,11 +41,37 @@ import org.apache.tools.ant.taskdefs.PreSetDef;
 public final class IntrospectionHelper implements BuildListener {
 
     /**
-     * EMPTY_MAP was added in java 1.3 (EMTPY_SET and EMPTY_LIST
+     * EMPTY_MAP was added in java 1.3 (EMPTY_SET and EMPTY_LIST
      * is in java 1.2!)
      */
     private static final Map EMPTY_MAP
         = Collections.unmodifiableMap(new HashMap(0));
+
+    /**
+     * Helper instances we've already created (Class to IntrospectionHelper).
+     */
+    private static final Hashtable HELPERS = new Hashtable();
+
+    /**
+     * Map from primitive types to wrapper classes for use in
+     * createAttributeSetter (Class to Class). Note that char
+     * and boolean are in here even though they get special treatment
+     * - this way we only need to test for the wrapper class.
+     */
+    private static final Map PRIMITIVE_TYPE_MAP = new HashMap(8);
+
+    // Set up PRIMITIVE_TYPE_MAP
+    static {
+        Class[] primitives = {Boolean.TYPE, Byte.TYPE, Character.TYPE,
+                              Short.TYPE, Integer.TYPE, Long.TYPE,
+                              Float.TYPE, Double.TYPE};
+        Class[] wrappers = {Boolean.class, Byte.class, Character.class,
+                            Short.class, Integer.class, Long.class,
+                            Float.class, Double.class};
+        for (int i = 0; i < primitives.length; i++) {
+            PRIMITIVE_TYPE_MAP.put (primitives[i], wrappers[i]);
+        }
+    }
 
     /**
      * Map from attribute names to attribute types
@@ -84,32 +111,6 @@ public final class IntrospectionHelper implements BuildListener {
      * The class introspected by this instance.
      */
     private Class bean;
-
-    /**
-     * Helper instances we've already created (Class to IntrospectionHelper).
-     */
-    private static Hashtable helpers = new Hashtable();
-
-    /**
-     * Map from primitive types to wrapper classes for use in
-     * createAttributeSetter (Class to Class). Note that char
-     * and boolean are in here even though they get special treatment
-     * - this way we only need to test for the wrapper class.
-     */
-    private static final Hashtable PRIMITIVE_TYPE_MAP = new Hashtable(8);
-
-    // Set up PRIMITIVE_TYPE_MAP
-    static {
-        Class[] primitives = {Boolean.TYPE, Byte.TYPE, Character.TYPE,
-                              Short.TYPE, Integer.TYPE, Long.TYPE,
-                              Float.TYPE, Double.TYPE};
-        Class[] wrappers = {Boolean.class, Byte.class, Character.class,
-                            Short.class, Integer.class, Long.class,
-                            Float.class, Double.class};
-        for (int i = 0; i < primitives.length; i++) {
-            PRIMITIVE_TYPE_MAP.put (primitives[i], wrappers[i]);
-        }
-    }
 
     // XXX: (Jon Skeet) The documentation below doesn't draw a clear
     // distinction between addConfigured and add. It's obvious what the
@@ -267,7 +268,16 @@ public final class IntrospectionHelper implements BuildListener {
                         constructor =
                             args[0].getConstructor(new Class[] {Project.class});
                     }
+
                     String propName = getPropertyName(name, "add");
+                    if (nestedTypes.get(propName) != null) {
+                        /*
+                         *  Ignore this method as there is an addConfigured
+                         *  form of this method that has a higher
+                         *  priority
+                         */
+                        continue;
+                    }
                     nestedTypes.put(propName, args[0]);
                     nestedCreators.put(propName, new AddNestedCreator(m,
                         constructor, AddNestedCreator.ADD));
@@ -310,12 +320,7 @@ public final class IntrospectionHelper implements BuildListener {
      * @return a helper for the specified class
      */
     public static synchronized IntrospectionHelper getHelper(Class c) {
-        IntrospectionHelper ih = (IntrospectionHelper) helpers.get(c);
-        if (ih == null) {
-            ih = new IntrospectionHelper(c);
-            helpers.put(c, ih);
-        }
-        return ih;
+        return getHelper(null, c);
     }
 
     /**
@@ -332,9 +337,19 @@ public final class IntrospectionHelper implements BuildListener {
      * @return a helper for the specified class
      */
     public static IntrospectionHelper getHelper(Project p, Class c) {
-        IntrospectionHelper ih = getHelper(c);
-        // Cleanup at end of project
-        p.addBuildListener(ih);
+        IntrospectionHelper ih = (IntrospectionHelper) HELPERS.get(c);
+        if (ih == null) {
+            ih = new IntrospectionHelper(c);
+            if (p != null) {
+                // #30162: do *not* cache this if there is no project, as we
+                // cannot guarantee that the cache will be cleared.
+                HELPERS.put(c, ih);
+            }
+        }
+        if (p != null) {
+            // Cleanup at end of project
+            p.addBuildListener(ih);
+        }
         return ih;
     }
 
@@ -535,7 +550,8 @@ public final class IntrospectionHelper implements BuildListener {
      *                    Must not be <code>null</code>.
      *
      * @return an instance of the specified element type
-     * @deprecated This is not a namespace aware method.
+     * @deprecated since 1.6.x.
+     *             This is not a namespace aware method.
      *
      * @exception BuildException if no method is available to create the
      *                           element instance, or if the creating method
@@ -1132,7 +1148,6 @@ public final class IntrospectionHelper implements BuildListener {
                         "Not allowed to use the polymorphic form"
                         + " for this element");
                 }
-                Class elementClass = nestedCreator.getElementClass();
                 ComponentHelper helper =
                     ComponentHelper.getComponentHelper(project);
                 nestedObject = helper.createComponent(polyType);
@@ -1216,9 +1231,6 @@ public final class IntrospectionHelper implements BuildListener {
         boolean isPolyMorphic() {
             return false;
         }
-        Class getElementClass() {
-            return null;
-        }
         Object getRealObject() {
             return null;
         }
@@ -1262,10 +1274,6 @@ public final class IntrospectionHelper implements BuildListener {
 
         boolean isPolyMorphic() {
             return true;
-        }
-
-        Class getElementClass() {
-            return constructor.getDeclaringClass();
         }
 
         Object create(Project project, Object parent, Object child)
@@ -1330,7 +1338,7 @@ public final class IntrospectionHelper implements BuildListener {
         nestedTypes.clear();
         nestedCreators.clear();
         addText = null;
-        helpers.clear();
+        HELPERS.clear();
     }
 
     /**
@@ -1441,6 +1449,8 @@ public final class IntrospectionHelper implements BuildListener {
      * the addTypeMethods array. The array is
      * ordered so that the more derived classes
      * are first.
+     * If both add and addConfigured are present, the addConfigured
+     * will take priority.
      * @param method the <code>Method</code> to insert.
      */
     private void insertAddTypeMethod(Method method) {
@@ -1448,6 +1458,10 @@ public final class IntrospectionHelper implements BuildListener {
         for (int c = 0; c < addTypeMethods.size(); ++c) {
             Method current = (Method) addTypeMethods.get(c);
             if (current.getParameterTypes()[0].equals(argClass)) {
+                if (method.getName().equals("addConfigured")) {
+                    // add configured replaces the add method
+                    addTypeMethods.set(c, method);
+                }
                 return; // Already present
             }
             if (current.getParameterTypes()[0].isAssignableFrom(

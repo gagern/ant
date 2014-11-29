@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +23,9 @@ import java.io.IOException;
 import org.apache.bsf.BSFException;
 import org.apache.bsf.BSFManager;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.Project;
+
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -170,13 +174,14 @@ public class ScriptRunner {
 
         int count = (int) file.length();
         byte[] data = new byte[count];
-
+        FileInputStream inStream = null;
         try {
-            FileInputStream inStream = new FileInputStream(file);
+            inStream = new FileInputStream(file);
             inStream.read(data);
-            inStream.close();
         } catch (IOException e) {
             throw new BuildException(e);
+        } finally {
+            FileUtils.close(inStream);
         }
 
         script += new String(data);
@@ -189,5 +194,21 @@ public class ScriptRunner {
      */
     public void addText(String text) {
         this.script += text;
+    }
+
+    /**
+     * Bind the runner to a project component.
+     * Properties, targets and references are all added as beans;
+     * project is bound to project, and self to the component.
+     * @param component to become <code>self</code>
+     */
+    public void bindToComponent(ProjectComponent component) {
+        Project project = component.getProject();
+        addBeans(project.getProperties());
+        addBeans(project.getUserProperties());
+        addBeans(project.getTargets());
+        addBeans(project.getReferences());
+        addBean("project", project);
+        addBean("self", component);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.BuildFileTest;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.Task;
 
 /**
  */
@@ -108,6 +107,11 @@ public class MacroDefTest extends BuildFileTest {
             "attribute.description",
             "description is hello world");
     }
+    public void testOverrideDefault() {
+        expectLog(
+            "override.default",
+            "value is new");
+    }
     public void testImplicit() {
         expectLog(
             "implicit", "Before implicitIn implicitAfter implicit");
@@ -127,6 +131,23 @@ public class MacroDefTest extends BuildFileTest {
             "implicit.explicit",
             "Only one element allowed when using implicit elements",
             "Only one element allowed when using implicit elements");
+    }
+
+    public void testBackTraceOff() {
+        try {
+            executeTarget("backtraceoff");
+        } catch (BuildException ex) {
+            if (ex.getMessage().indexOf("following error occurred") != -1) {
+                fail("error message contained backtrace - " + ex.getMessage());
+            }
+        }
+    }
+
+    public void testBackTrace() {
+        expectBuildExceptionContaining(
+            "backtraceon",
+            "Checking if a back trace is created",
+            "following error occurred");
     }
 }
 

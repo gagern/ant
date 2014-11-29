@@ -22,19 +22,15 @@ import org.apache.tools.ant.input.InputHandler;
 import org.apache.tools.ant.input.PropertyFileInputHandler;
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.*;
-import org.apache.tools.ant.util.JavaEnvUtils;
 
 import java.io.File;
-
-import junit.framework.AssertionFailedError;
-import junit.framework.Test;
 import junit.framework.TestCase;
-import junit.framework.TestSuite;
+
 
 /**
  * Very limited test class for Project. Waiting to be extended.
  *
-*/
+ */
 public class ProjectTest extends TestCase {
 
     private Project p;
@@ -48,7 +44,7 @@ public class ProjectTest extends TestCase {
     public void setUp() {
         p = new Project();
         p.init();
-        root = new File(File.separator).getAbsolutePath();
+        root = new File(File.separator).getAbsolutePath().toUpperCase();
         mbl = new MockBuildListener(p);
     }
 
@@ -67,15 +63,11 @@ public class ProjectTest extends TestCase {
      * This test has been a starting point for moving the code to FileUtils.
      */
     public void testResolveFile() {
-        /*
-         * Start with simple absolute file names.
-         */
-        assertEquals(File.separator,
-                     p.resolveFile("/", null).getPath());
-        assertEquals(File.separator,
-                     p.resolveFile("\\", null).getPath());
-
         if (Os.isFamily("netware") || Os.isFamily("dos")) {
+            assertEqualsIgnoreDriveCase(localize(File.separator),
+                p.resolveFile("/", null).getPath());
+            assertEqualsIgnoreDriveCase(localize(File.separator),
+                p.resolveFile("\\", null).getPath());
             /*
              * throw in drive letters
              */
@@ -98,18 +90,26 @@ public class ProjectTest extends TestCase {
                          p.resolveFile(driveSpec + "\\\\\\\\\\\\", null).getPath());
         } else {
             /*
+             * Start with simple absolute file names.
+             */
+            assertEquals(File.separator,
+                         p.resolveFile("/", null).getPath());
+            assertEquals(File.separator,
+                         p.resolveFile("\\", null).getPath());
+            /*
              * drive letters are not used, just to be considered as normal
              * part of a name
              */
             String driveSpec = "C:";
-            assertEquals(driveSpec,
+            String udir = System.getProperty("user.dir") + File.separatorChar;
+            assertEquals(udir + driveSpec,
                          p.resolveFile(driveSpec + "/", null).getPath());
-            assertEquals(driveSpec,
+            assertEquals(udir + driveSpec,
                          p.resolveFile(driveSpec + "\\", null).getPath());
             String driveSpecLower = "c:";
-            assertEquals(driveSpecLower,
+            assertEquals(udir + driveSpecLower,
                          p.resolveFile(driveSpecLower + "/", null).getPath());
-            assertEquals(driveSpecLower,
+            assertEquals(udir + driveSpecLower,
                          p.resolveFile(driveSpecLower + "\\", null).getPath());
         }
         /*
@@ -142,6 +142,24 @@ public class ProjectTest extends TestCase {
         return path.replace('\\', File.separatorChar).replace('/', File.separatorChar);
     }
 
+    /**
+     * convenience method
+     * the drive letter is in lower case under cygwin
+     * calling this method allows tests where FileUtils.normalize
+     * is called via resolveFile to pass under cygwin
+     */
+    private void assertEqualsIgnoreDriveCase(String s1, String s2) {
+        if ((Os.isFamily("dos") || Os.isFamily("netware"))
+            && s1.length() >= 1 && s2.length() >= 1) {
+            StringBuffer sb1 = new StringBuffer(s1);
+            StringBuffer sb2 = new StringBuffer(s2);
+            sb1.setCharAt(0, Character.toUpperCase(s1.charAt(0)));
+            sb2.setCharAt(0, Character.toUpperCase(s2.charAt(0)));
+            assertEquals(sb1.toString(), sb2.toString());
+        } else {
+            assertEquals(s1, s2);
+        }
+    }
 
     private void assertTaskDefFails(final Class taskClass,
                                        final String message) {
@@ -169,21 +187,8 @@ public class ProjectTest extends TestCase {
 
         assertTaskDefFails(DummyTaskPrivate.class,   DummyTaskPrivate.class   + " is not public");
 
-        try {
-            assertTaskDefFails(DummyTaskProtected.class,
-                               DummyTaskProtected.class + " is not public");
-        } catch (AssertionFailedError e) {
-            /*
-             * I don't understand this, but this is what happens with
-             * > java -fullversion
-             * java full version "Linux_JDK_1.1.8_v3_green_threads"
-             * from time to time
-             */
-            assertTrue(JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_1));
-            assertTaskDefFails(DummyTaskProtected.class,
-                               "No public no-arg constructor in "
-                               + DummyTaskProtected.class);
-        }
+        assertTaskDefFails(DummyTaskProtected.class,
+                           DummyTaskProtected.class + " is not public");
 
         assertTaskDefFails(DummyTaskPackage.class,   DummyTaskPackage.class   + " is not public");
 

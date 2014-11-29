@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -56,7 +57,6 @@ import java.util.zip.ZipException;
  *   <li>close is allowed to throw IOException.</li>
  * </ul>
  *
- * @version $Revision$
  */
 public class ZipFile {
 
@@ -80,7 +80,7 @@ public class ZipFile {
      * The encoding to use for filenames and the file comment.
      *
      * <p>For a list of possible values see <a
-     * href="http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html">http://java.sun.com/products/jdk/1.2/docs/guide/internat/encoding.doc.html</a>.
+     * href="http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html">http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html</a>.
      * Defaults to the platform's default character encoding.</p>
      */
     private String encoding = null;
@@ -139,8 +139,17 @@ public class ZipFile {
     public ZipFile(File f, String encoding) throws IOException {
         this.encoding = encoding;
         archive = new RandomAccessFile(f, "r");
-        populateFromCentralDirectory();
-        resolveLocalFileHeaderData();
+        try {
+            populateFromCentralDirectory();
+            resolveLocalFileHeaderData();
+        } catch (IOException e) {
+            try {
+                archive.close();
+            } catch (IOException e2) {
+                // swallow, throw the original exception instead
+            }
+            throw e;
+        }
     }
 
     /**
@@ -362,27 +371,29 @@ public class ZipFile {
      */
     private void positionAtCentralDirectory()
         throws IOException {
-        long off = archive.length() - MIN_EOCD_SIZE;
-        archive.seek(off);
-        byte[] sig = ZipOutputStream.EOCD_SIG;
-        int curr = archive.read();
         boolean found = false;
-        while (curr != -1) {
-            if (curr == sig[0]) {
-                curr = archive.read();
-                if (curr == sig[1]) {
+        long off = archive.length() - MIN_EOCD_SIZE;
+        if (off >= 0) {
+            archive.seek(off);
+            byte[] sig = ZipOutputStream.EOCD_SIG;
+            int curr = archive.read();
+            while (curr != -1) {
+                if (curr == sig[0]) {
                     curr = archive.read();
-                    if (curr == sig[2]) {
+                    if (curr == sig[1]) {
                         curr = archive.read();
-                        if (curr == sig[3]) {
-                            found = true;
-                            break;
+                        if (curr == sig[2]) {
+                            curr = archive.read();
+                            if (curr == sig[3]) {
+                                found = true;
+                                break;
+                            }
                         }
                     }
                 }
+                archive.seek(--off);
+                curr = archive.read();
             }
-            archive.seek(--off);
-            curr = archive.read();
         }
         if (!found) {
             throw new ZipException("archive is not a ZIP archive");

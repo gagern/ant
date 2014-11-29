@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -91,7 +92,14 @@ public class ImportTask extends Task {
         }
 
         ProjectHelper helper =
-                (ProjectHelper) getProject().getReference("ant.projectHelper");
+                (ProjectHelper) getProject().
+                    getReference(ProjectHelper.PROJECTHELPER_REFERENCE);
+        
+        if (helper == null) {
+            // this happens if the projecthelper was not registered with the project.
+            throw new BuildException("import requires support in ProjectHelper");
+        }
+        
         Vector importStack = helper.getImportStack();
 
         if (importStack.size() == 0) {
@@ -104,17 +112,16 @@ public class ImportTask extends Task {
             throw new BuildException("Unable to get location of import task");
         }
 
-        File buildFile = new File(getLocation().getFileName());
-        buildFile = new File(buildFile.getAbsolutePath());
-
-        getProject().log("Importing file " + file + " from "
-                         + buildFile.getAbsolutePath(), Project.MSG_VERBOSE);
+        File buildFile = new File(getLocation().getFileName()).getAbsoluteFile();
 
         // Paths are relative to the build file they're imported from,
         // *not* the current directory (same as entity includes).
 
         File buildFileParent = new File(buildFile.getParent());
-        File importedFile = FILE_UTILS.resolveFile(buildFileParent,  file);
+        File importedFile = FILE_UTILS.resolveFile(buildFileParent, file);
+
+        getProject().log("Importing file " + importedFile + " from "
+                         + buildFile.getAbsolutePath(), Project.MSG_VERBOSE);
 
         if (!importedFile.exists()) {
             String message =

@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,13 +37,19 @@ public class JavacExternal extends DefaultCompilerAdapter {
 
     /**
      * Performs a compile using the Javac externally.
+     * @return true if the compilation succeeded
+     * @throws BuildException on error
      */
     public boolean execute() throws BuildException {
         attributes.log("Using external javac compiler", Project.MSG_VERBOSE);
 
         Commandline cmd = new Commandline();
         cmd.setExecutable(getJavac().getJavacExecutable());
-        setupModernJavacCommandlineSwitches(cmd);
+        if (!assumeJava11() && !assumeJava12()) {
+            setupModernJavacCommandlineSwitches(cmd);
+        } else {
+            setupJavacCommandlineSwitches(cmd, true);
+        }
         int firstFileName = assumeJava11() ? -1 : cmd.size();
         logAndAddFilesToCompile(cmd);
         //On VMS platform, we need to create a special java options file

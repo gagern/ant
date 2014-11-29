@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,9 +27,10 @@ public abstract class ProjectComponent {
 
     /**
      * Project object of this component.
-     * @deprecated You should not be directly accessing this variable
-     *   directly. You should access project object via the getProject()
-     *   or setProject() accessor/mutators.
+     * @deprecated since 1.6.x. 
+     *             You should not be directly accessing this variable directly. 
+     *             You should access project object via the getProject()
+     *             or setProject() accessor/mutators.
      */
     protected Project project;
 
@@ -75,8 +77,8 @@ public abstract class ProjectComponent {
      *                 to be logged.
      */
     public void log(String msg, int msgLevel) {
-        if (project != null) {
-            project.log(msg, msgLevel);
+        if (getProject() != null) {
+            getProject().log(msg, msgLevel);
         } else {
             // 'reasonable' default, if the component is used without
             // a Project ( for example as a standalone Bean ).

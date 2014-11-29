@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +23,7 @@ import java.util.Iterator;
 import java.net.MalformedURLException;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.taskdefs.condition.Os;
@@ -202,7 +204,7 @@ public class WsdlToDotnet extends Task  {
     }
 
     /**
-     * Should errors be machine parseable?
+     * Defines wether errors are machine parseable.
      * Optional, default=true
      *
      * @since Ant 1.7
@@ -275,6 +277,11 @@ public class WsdlToDotnet extends Task  {
      */
     public void execute()
              throws BuildException {
+        log("This task is deprecated and will be removed in a future version\n"
+            + "of Ant.  It is now part of the .NET Antlib:\n"
+            + "http://ant.apache.org/antlibs/dotnet/index.html",
+            Project.MSG_WARN);
+
         if (compiler == null) {
             compiler = Compiler.createDefaultCompiler();
         }
@@ -386,8 +393,8 @@ public class WsdlToDotnet extends Task  {
         }
 
         /**
-         * validate our settings then return either the url or the full file path.
-         * @return
+         * Validate our settings.
+         * @return either the URL or the full file path
          */
         public String evaluate() {
             validate();
@@ -443,8 +450,8 @@ public class WsdlToDotnet extends Task  {
         }
 
         /**
-         * return the timestamp of a file, or -1 for a url (meaning we do not know its age)
-         * @return
+         * Gets the file timestamp.
+         * @return the timestamp of a file, or -1 for a URL (meaning we do not know its age)
          */
         public long getTimestamp() {
             if (file != null) {
@@ -508,8 +515,8 @@ public class WsdlToDotnet extends Task  {
         }
 
         /**
-         * create the default compiler for this platform
-         * @return
+         * Create the default compiler for this platform.
+         * @return the default compiler
          */
         public static Compiler createDefaultCompiler() {
             Compiler c = new Compiler();
@@ -521,7 +528,7 @@ public class WsdlToDotnet extends Task  {
 
         /**
          * return the command to run
-         * @return
+         * @return the command
          */
         public String getCommand() {
             return compilerExecutables[getIndex()];
@@ -529,7 +536,7 @@ public class WsdlToDotnet extends Task  {
 
         /**
          * return any extra arguments for the compiler
-         * @return
+         * @return extra compiler arguments
          */
         public String[] getExtraArgs() {
             return extraCompilerArgs[getIndex()];
@@ -553,4 +560,3 @@ public class WsdlToDotnet extends Task  {
     }
 
 }
-

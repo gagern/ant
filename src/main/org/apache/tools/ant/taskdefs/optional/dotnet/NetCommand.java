@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -202,6 +203,20 @@ public class NetCommand {
     }
 
     /**
+     *  add an argument to a command line; do nothing if the arg is null or
+     *  empty string
+     *
+     *@param  arguments  The features to be added to the Argument attribute
+     */
+    public void addArguments(String[] arguments) {
+        if (arguments != null && arguments.length != 0) {
+            for (int i = 0; i < arguments.length; i++) {
+                addArgument(arguments[i]);
+            }
+        }
+    }
+
+    /**
      *  concatenate two strings together and add them as a single argument,
      *  but only if argument2 is non-null and non-zero length
      *
@@ -329,7 +344,7 @@ public class NetCommand {
             FileOutputStream fos = null;
 
             temporaryCommandFile = FILE_UTILS.createTempFile("cmd", ".txt", null);
-            owner.log("Using response file" + temporaryCommandFile, Project.MSG_VERBOSE);
+            owner.log("Using response file " + temporaryCommandFile, Project.MSG_VERBOSE);
 
             try {
                 fos = new FileOutputStream(temporaryCommandFile);
@@ -347,6 +362,7 @@ public class NetCommand {
             String newCommandLine[] = new String[2];
             newCommandLine[0] = commands[0];
             newCommandLine[1] = "@" + temporaryCommandFile.getAbsolutePath();
+            logVerbose(Commandline.describeCommand(newCommandLine));
             executable.setCommandline(newCommandLine);
         }
     }
@@ -383,4 +399,3 @@ public class NetCommand {
         return filesOutOfDate;
     }
 }
-

@@ -130,13 +130,10 @@
                                     <a href="./mail.html">Mailing Lists</a>
                                 </li>
                             <li>
-                                    <a href="./cvs.html">CVS Repositories</a>
+                                    <a href="./svn.html">Subversion Repositories</a>
                                 </li>
                             <li>
-                                    <a href="http://issues.apache.org/bugzilla/enter_bug.cgi?product=Ant">Bug Database</a>
-                                </li>
-                            <li>
-                                    <a href="http://issues.apache.org/bugzilla/enter_bug.cgi?product=Ant&amp;bug_severity=Enhancement">Enhancement Requests</a>
+                                    <a href="./bugs.html">Bug Database</a>
                                 </li>
                             <li>
                                     <a href="http://www.apache.org/foundation/contributing.html">Donations</a>
@@ -173,7 +170,7 @@
       Downloading Ant
     </h3>
                         <p>Use the links below to download a source distribution of Ant from
-one of our mirrors.  It is good practice to 
+one of our mirrors.  It is good practice to
 <a href="[location]#Verify Releases">verify the integrity</a>
 of the distribution files, especially if you are using one of our
 mirror sites.  In order to do this you must use the signatures from
@@ -189,6 +186,12 @@ Thus they must be untarred with a GNU compatible version of
 the <a href="http://www.apache.org/dist/ant/">master distribution
 directory</a> or, preferably, its <a href="[preferred]/ant/">mirror</a>.</p>
                         <h3 class="section">
+      <a name="Downloading Ant 1.7.0Beta1"></a>
+      Downloading Ant 1.7.0Beta1
+    </h3>
+                        <p>Beta releases are not mirrored, you can find our latest beta
+release at <a href="http://cvs.apache.org/dist/ant/">http://cvs.apache.org/dist/ant/</a>.</p>
+                        <h3 class="section">
       <a name="Mirror"></a>
       Mirror
     </h3>
@@ -200,7 +203,7 @@ the mirrors list) that should be available.</p>
 Other mirrors: <select name="Preferred">
 [if-any http]
   [for http]<option value="[http]">[http]</option>[end]
-[end]  
+[end]
 [if-any ftp]
   [for ftp]<option value="[ftp]">[ftp]</option>[end]
 [end]
@@ -208,17 +211,17 @@ Other mirrors: <select name="Preferred">
   [for backup]<option value="[backup]">[backup] (backup)</option>[end]
 [end]
 </select>
-<input type="submit" value="Change" />     
+<input type="submit" value="Change" />
 </form>
                         <h3 class="section">
       <a name="Current Release of Ant"></a>
       Current Release of Ant
     </h3>
-                        <p>Currently, Apache Ant 1.6.2 is the best available version, see the
+                        <p>Currently, Apache Ant 1.6.5 is the best available version, see the
 <a href="[preferred]/ant/README.html">release notes</a>.</p>
                                 <div class="warning">
 <div class="label">Note</div>
-<div class="content">Ant 1.6.2 has been released on 16-July-2004 and
+<div class="content">Ant 1.6.5 has been released on 02-Jun-2005 and
 may not be available on all mirrors for a few days.</div>
 </div>
                                 <br />
@@ -228,28 +231,30 @@ may not be available on all mirrors for a few days.</div>
  require gnu tar to do the extraction.</div>
 </div>
                                 <ul>
-<li><code>.zip</code> archive: 
-<a href="[preferred]/ant/source/apache-ant-1.6.2-src.zip">apache-ant-1.6.2-src.zip</a>
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.zip.asc">PGP</a>]
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.zip.md5">MD5</a>]</li>
+<li><code>.zip</code> archive:
+<a href="[preferred]/ant/source/apache-ant-1.6.5-src.zip">apache-ant-1.6.5-src.zip</a>
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.zip.asc">PGP</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.zip.sha1">SHA1</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.zip.md5">MD5</a>]</li>
 
-<li><code>.tar.gz</code> archive: 
-<a href="[preferred]/ant/source/apache-ant-1.6.2-src.tar.gz">apache-ant-1.6.2-src.tar.gz</a>
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.tar.gz.asc">PGP</a>]
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.tar.gz.md5">MD5</a>]</li>
+<li><code>.tar.gz</code> archive:
+<a href="[preferred]/ant/source/apache-ant-1.6.5-src.tar.gz">apache-ant-1.6.5-src.tar.gz</a>
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.gz.asc">PGP</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.gz.sha1">SHA1</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.gz.md5">MD5</a>]</li>
 
-<li><code>.tar.bz2</code> archive: 
-<a href="[preferred]/ant/source/apache-ant-1.6.2-src.tar.bz2">apache-ant-1.6.2-src.tar.bz2</a>
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.tar.bz2.asc">PGP</a>]
-[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.2-src.tar.bz2.md5">MD5</a>]</li>
+<li><code>.tar.bz2</code> archive:
+<a href="[preferred]/ant/source/apache-ant-1.6.5-src.tar.bz2">apache-ant-1.6.5-src.tar.bz2</a>
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.bz2.asc">PGP</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.bz2.sha1">SHA1</a>]
+[<a href="http://www.apache.org/dist/ant/source/apache-ant-1.6.5-src.tar.bz2.md5">MD5</a>]</li>
 </ul>
                         <h3 class="section">
       <a name="Nightly Builds"></a>
       Nightly Builds
     </h3>
-                        <p>If you wish to use the latest Ant features, you can try downloading a
-<a href="http://brutus.apache.org/~nightlybuild/builds/ant/">nightly build</a>.
-</p>
+                        <p>Are currently not available, we hope to restore that service soon.</p>
+                                <p>If you want to build Ant from sources, you can use a <a href="http://svn.apache.org/snapshots/ant/">SVN snapshot</a>.</p>
                         <h3 class="section">
       <a name="Old Ant Releases"></a>
       Old Ant Releases
@@ -263,7 +268,8 @@ recommend to not use those releases but upgrade to Ant's <a href="[location]#Cur
       Verify Releases
     </h3>
                         <p>It is essential that you verify the integrity of the downloaded
-files using the PGP or MD5 signatures.</p>
+files using the PGP signature or the SHA1 or MD5 checksums.  The
+checksums are not as strong indicators as the PGP signature.</p>
                                 <p>The PGP signatures can be verified using PGP or GPG.  First
 download the <a href="http://www.apache.org/dist/ant/KEYS">KEYS</a>
 as well as the <code>asc</code> signature file for the particular
@@ -272,31 +278,31 @@ directory</a>, rather than from a mirror. Then verify the signatures
 using</p>
                                 <p><code>
 % pgpk -a KEYS<br />
-% pgpv apache-ant-1.6.2-src.tar.gz.asc<br />
+% pgpv apache-ant-1.6.5-src.tar.gz.asc<br />
 </code>
 <em>or</em><br />
 <code>
 % pgp -ka KEYS<br />
-% pgp apache-ant-1.6.2-src.tar.gz.asc<br />
+% pgp apache-ant-1.6.5-src.tar.gz.asc<br />
 </code>
 <em>or</em><br />
 <code>
 % gpg --import KEYS<br />
-% gpg --verify apache-ant-1.6.2-src.tar.gz.asc
+% gpg --verify apache-ant-1.6.5-src.tar.gz.asc
 </code></p>
-                                <p>Alternatively, you can verify the MD5 signature on the files.  A
-unix program called <code>md5</code> or <code>md5sum</code> is
-included in many unix distributions.  It is also available as part of
-<a href="http://www.gnu.org/software/textutils/textutils.html">GNU
-Textutils</a>.  Windows users can get binary md5 programs from <a href="http://www.fourmilab.ch/md5/">here</a>, <a href="http://www.pc-tools.net/win32/freeware/console/">here</a>, or
-<a href="http://www.slavasoft.com/fsum/">here</a>.</p>
+                                <p>Alternatively, you can verify the checksums on the files.  Unix
+programs called <code>md5</code>/<code>sha1</code> or
+<code>md5sum</code>/<code>sha1sum</code> are included in many unix
+distributions.  <code>*sum</code> is also available as part of <a href="http://www.gnu.org/software/textutils/textutils.html">GNU
+Textutils</a>.  Windows users can get binary md5 programs from <a href="http://www.fourmilab.ch/md5/">here</a>, <a href="http://www.pc-tools.net/win32/freeware/console/">here</a>.  <a href="http://www.slavasoft.com/fsum/">fsum</a> supports MD5 and
+SHA1.</p>
                                 <p>We highly recommend to verify the PGP signature, though.</p>
                 
     </div>
   </div>
 
         <p class="copyright">
-        Copyright &copy; 2000-2004&nbsp;The Apache Software Foundation. All rights reserved.
+        Copyright &copy; 2000-2006&nbsp;The Apache Software Foundation. All rights reserved.
         <script type="text/javascript" language="JavaScript"><!--
                 document.write(" - "+"Last Published: " + document.lastModified);
               //  -->
@@ -304,6 +310,7 @@ Textutils</a>.  Windows users can get binary md5 programs from <a href="http://w
       </p>
     </body>
   </html>
+
 
 
 

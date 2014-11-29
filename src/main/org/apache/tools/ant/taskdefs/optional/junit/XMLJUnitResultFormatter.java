@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -48,6 +49,9 @@ import org.w3c.dom.Text;
  */
 
 public class XMLJUnitResultFormatter implements JUnitResultFormatter, XMLConstants {
+
+    /** constant for unnnamed testsuites/cases */
+    private static final String UNKNOWN = "unknown";
 
     private static DocumentBuilder getDocumentBuilder() {
         try {
@@ -103,7 +107,8 @@ public class XMLJUnitResultFormatter implements JUnitResultFormatter, XMLConstan
     public void startTestSuite(JUnitTest suite) {
         doc = getDocumentBuilder().newDocument();
         rootElement = doc.createElement(TESTSUITE);
-        rootElement.setAttribute(ATTR_NAME, suite.getName());
+        String n = suite.getName();
+        rootElement.setAttribute(ATTR_NAME, n == null ? UNKNOWN : n);
 
         //add the timestamp
         final String timestamp = DateUtils.format(new Date(),
@@ -190,12 +195,13 @@ public class XMLJUnitResultFormatter implements JUnitResultFormatter, XMLConstan
         Element currentTest = null;
         if (!failedTests.containsKey(test)) {
             currentTest = doc.createElement(TESTCASE);
+            String n = JUnitVersionHelper.getTestCaseName(test);
             currentTest.setAttribute(ATTR_NAME,
-                                     JUnitVersionHelper.getTestCaseName(test));
+                                     n == null ? UNKNOWN : n);
             // a TestSuite can contain Tests from multiple classes,
             // even tests with the same name - disambiguate them.
             currentTest.setAttribute(ATTR_CLASSNAME,
-                                     test.getClass().getName());
+                    JUnitVersionHelper.getTestCaseClassName(test));
             rootElement.appendChild(currentTest);
             testElements.put(test, currentTest);
         } else {

@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,8 +32,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.Vector;
 
-import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.ProjectComponent;
+import org.apache.tools.ant.Task;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.filters.util.ChainReaderHelper;
 import org.apache.tools.ant.util.StringUtils;
@@ -46,7 +48,7 @@ import org.apache.tools.ant.util.KeepAliveOutputStream;
 
 /**
  * The Redirector class manages the setup and connection of
- * input and output redirection for an Ant task.
+ * input and output redirection for an Ant project component.
  *
  * @since Ant 1.6
  */
@@ -125,7 +127,7 @@ public class Redirector {
     private boolean createEmptyFiles = true;
 
     /** The task for which this redirector is working */
-    private Task managingTask;
+    private ProjectComponent managingTask;
 
     /** The stream for output data */
     private OutputStream outputStream = null;
@@ -166,12 +168,26 @@ public class Redirector {
     /** The thread group used for starting <code>StreamPumper</code> threads */
     private ThreadGroup threadGroup = new ThreadGroup("redirector");
 
+    /** whether to log the inputstring */
+    private boolean logInputString = true;
+
     /**
      * Create a redirector instance for the given task
      *
      * @param managingTask the task for which the redirector is to work
      */
     public Redirector(Task managingTask) {
+        this((ProjectComponent) managingTask);
+    }
+
+    /**
+     * Create a redirector instance for the given task
+     *
+     * @param managingTask the project component for which the
+     * redirector is to work
+     * @since Ant 1.6.3
+     */
+    public Redirector(ProjectComponent managingTask) {
         this.managingTask = managingTask;
     }
 
@@ -202,6 +218,25 @@ public class Redirector {
         this.inputString = inputString;
     }
 
+    /**
+     * Set whether to include the value of the input string in log messages.
+     * Defaults to true.
+     * @param logInputString true or false.
+     * @since Ant 1.7
+     */
+    public void setLogInputString(boolean logInputString) {
+        this.logInputString = logInputString;
+    }
+
+    /**
+     * Set a stream to use as input.
+     *
+     * @param inputStream the stream from which input will be read
+     * @since Ant 1.6.3
+     */
+    /*public*/ void setInputStream(InputStream inputStream) {
+        this.inputStream = inputStream;
+    }
 
     /**
      * File the output of the process is redirected to. If error is not
@@ -226,7 +261,7 @@ public class Redirector {
     /**
      * Set the output encoding.
      *
-     * @param outputEncoding   <CODE>String</CODE>.
+     * @param outputEncoding   <code>String</code>.
      */
     public synchronized void setOutputEncoding(String outputEncoding) {
         if (outputEncoding == null) {
@@ -240,7 +275,7 @@ public class Redirector {
     /**
      * Set the error encoding.
      *
-     * @param errorEncoding   <CODE>String</CODE>.
+     * @param errorEncoding   <code>String</code>.
      */
     public synchronized void setErrorEncoding(String errorEncoding) {
         if (errorEncoding == null) {
@@ -254,7 +289,7 @@ public class Redirector {
     /**
      * Set the input encoding.
      *
-     * @param inputEncoding   <CODE>String</CODE>.
+     * @param inputEncoding   <code>String</code>.
      */
     public synchronized void setInputEncoding(String inputEncoding) {
         if (inputEncoding == null) {
@@ -278,9 +313,9 @@ public class Redirector {
     }
 
     /**
-     * This <CODE>Redirector</CODE>'s subordinate
-     * <CODE>PropertyOutputStream</CODE>s will not set their respective
-     * properties <CODE>while (appendProperties && append)</CODE>.
+     * This <code>Redirector</code>'s subordinate
+     * <code>PropertyOutputStream</code>s will not set their respective
+     * properties <code>while (appendProperties && append)</code>.
      *
      * @param appendProperties whether to append properties.
      */
@@ -346,7 +381,7 @@ public class Redirector {
     /**
      * Whether output and error files should be created even when empty.
      * Defaults to true.
-     * @param createEmptyFiles <CODE>boolean</CODE>.
+     * @param createEmptyFiles <code>boolean</code>.
      */
     public synchronized void setCreateEmptyFiles(boolean createEmptyFiles) {
         this.createEmptyFiles = createEmptyFiles;
@@ -368,27 +403,27 @@ public class Redirector {
     }
 
     /**
-     * Set the input <CODE>FilterChain</CODE>s.
+     * Set the input <code>FilterChain</code>s.
      *
-     * @param inputFilterChains <CODE>Vector</CODE> containing <CODE>FilterChain</CODE>.
+     * @param inputFilterChains <code>Vector</code> containing <code>FilterChain</code>.
      */
     public synchronized void setInputFilterChains(Vector inputFilterChains) {
         this.inputFilterChains = inputFilterChains;
     }
 
     /**
-     * Set the output <CODE>FilterChain</CODE>s.
+     * Set the output <code>FilterChain</code>s.
      *
-     * @param outputFilterChains <CODE>Vector</CODE> containing <CODE>FilterChain</CODE>.
+     * @param outputFilterChains <code>Vector</code> containing <code>FilterChain</code>.
      */
     public synchronized void setOutputFilterChains(Vector outputFilterChains) {
         this.outputFilterChains = outputFilterChains;
     }
 
     /**
-     * Set the error <CODE>FilterChain</CODE>s.
+     * Set the error <code>FilterChain</code>s.
      *
-     * @param errorFilterChains <CODE>Vector</CODE> containing <CODE>FilterChain</CODE>.
+     * @param errorFilterChains <code>Vector</code> containing <code>FilterChain</code>.
      */
     public synchronized void setErrorFilterChains(Vector errorFilterChains) {
         this.errorFilterChains = errorFilterChains;
@@ -489,7 +524,7 @@ public class Redirector {
             || !(outputEncoding.equalsIgnoreCase(inputEncoding))) {
             try {
                 LeadPipeInputStream snk = new LeadPipeInputStream();
-                snk.setManagingTask(managingTask);
+                snk.setManagingComponent(managingTask);
 
                 InputStream outPumpIn = snk;
 
@@ -497,6 +532,7 @@ public class Redirector {
 
                 if (outputFilterChains != null && outputFilterChains.size() > 0) {
                     ChainReaderHelper helper = new ChainReaderHelper();
+                    helper.setProject(managingTask.getProject());
                     helper.setPrimaryReader(reader);
                     helper.setFilterChains(outputFilterChains);
                     reader = helper.getAssembledReader();
@@ -518,7 +554,7 @@ public class Redirector {
             || !(errorEncoding.equalsIgnoreCase(inputEncoding))) {
             try {
                 LeadPipeInputStream snk = new LeadPipeInputStream();
-                snk.setManagingTask(managingTask);
+                snk.setManagingComponent(managingTask);
 
                 InputStream errPumpIn = snk;
 
@@ -526,6 +562,7 @@ public class Redirector {
 
                 if (errorFilterChains != null && errorFilterChains.size() > 0) {
                     ChainReaderHelper helper = new ChainReaderHelper();
+                    helper.setProject(managingTask.getProject());
                     helper.setPrimaryReader(reader);
                     helper.setFilterChains(errorFilterChains);
                     reader = helper.getAssembledReader();
@@ -543,7 +580,7 @@ public class Redirector {
             }
         }
 
-        // if input files are specified, inputString is ignored;
+        // if input files are specified, inputString and inputStream are ignored;
         // classes that work with redirector attributes can enforce
         // whatever warnings are needed
         if (input != null && input.length > 0) {
@@ -554,16 +591,22 @@ public class Redirector {
             } catch (IOException eyeOhEx) {
                 throw new BuildException(eyeOhEx);
             }
-            ((ConcatFileInputStream) inputStream).setManagingTask(managingTask);
+            ((ConcatFileInputStream) inputStream).setManagingComponent(managingTask);
         } else if (inputString != null) {
-            managingTask.log("Using input \"" + inputString + "\"",
-                Project.MSG_VERBOSE);
+            StringBuffer buf = new StringBuffer("Using input ");
+            if (logInputString) {
+                buf.append('"').append(inputString).append('"');
+            } else {
+                buf.append("string");
+            }
+            managingTask.log(buf.toString(), Project.MSG_VERBOSE);
             inputStream = new ByteArrayInputStream(inputString.getBytes());
         }
 
         if (inputStream != null
             && inputFilterChains != null && inputFilterChains.size() > 0) {
             ChainReaderHelper helper = new ChainReaderHelper();
+            helper.setProject(managingTask.getProject());
             try {
                 helper.setPrimaryReader(
                     new InputStreamReader(inputStream, inputEncoding));
@@ -728,7 +771,7 @@ public class Redirector {
                         // Ignore exception
                     }
                 }
-                Thread.sleep(1000);
+                wait(1000);
             } catch (InterruptedException eyeEx) {
                 // Ignore exception
             }
@@ -744,7 +787,7 @@ public class Redirector {
    }
 
     /**
-     * Notify the <CODE>Redirector</CODE> that it is now okay
+     * Notify the <code>Redirector</code> that it is now okay
      * to set any output and/or error properties.
      */
     public synchronized void setProperties() {

@@ -1,9 +1,10 @@
 /*
- * Copyright  2000,2002,2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -62,17 +63,17 @@ public class GlobPatternMapper implements FileNameMapper {
      */
     protected String toPostfix = null;
 
-    private boolean handleDirChar = false;
+    private boolean handleDirSep = false;
     private boolean caseSensitive = true;
 
     /**
      * Attribute specifing whether to ignore the difference
      * between / and \ (the two common directory characters).
-     * @param handleDirChar a boolean, default is false.
+     * @param handleDirSep a boolean, default is false.
      * @since Ant 1.6.3
      */
-    public void setHandleDirChar(boolean handleDirChar) {
-        this.handleDirChar = handleDirChar;
+    public void setHandleDirSep(boolean handleDirSep) {
+        this.handleDirSep = handleDirSep;
     }
 
     /**
@@ -147,7 +148,6 @@ public class GlobPatternMapper implements FileNameMapper {
                               name.length() - postfixLength);
     }
 
-
     /**
      * modify string based on dir char mapping and case sensitivity
      * @param name the name to convert
@@ -157,7 +157,7 @@ public class GlobPatternMapper implements FileNameMapper {
         if (!caseSensitive) {
             name = name.toLowerCase();
         }
-        if (handleDirChar) {
+        if (handleDirSep) {
             if (name.indexOf('\\') != -1) {
                 name = name.replace('\\', '/');
             }

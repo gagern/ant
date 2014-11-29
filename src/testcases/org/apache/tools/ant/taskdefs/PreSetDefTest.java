@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2004,2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.Project;
+import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
 
@@ -80,6 +79,10 @@ public class PreSetDefTest extends BuildFileTest {
             "correct_taskname_badel", "element message", "javac doesn't support the");
     }
     
+    public void testPresetdefWithNestedElementTwice() { // #38056
+        executeTarget("presetdef-with-nested-element-twice");
+        executeTarget("presetdef-with-nested-element-twice");
+    }
     
     /**
      * A test class to check default properties

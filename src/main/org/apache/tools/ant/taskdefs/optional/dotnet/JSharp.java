@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,6 +27,12 @@ import org.apache.tools.ant.BuildException;
  * This task compiles jsharp source (.java files), and
  * generates a .NET managed exe or dll.
  * <p>
+ *
+ * <p>For historical reasons the pattern
+ * <code>**</code><code>/*.java</code> is preset as includes list and
+ * you can not override it with an explicit includes attribute.  Use
+ * nested <code>&lt;src&gt;</code> elements instead of the basedir
+ * attribute if you need more control.</p>
  *
  * @see <A=ref="http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dv_vjsharp/html/vjoriMicrosoftVisualJ.asp">
  * Visual J++ online documentation</a>
@@ -107,14 +114,8 @@ public class JSharp extends DotnetCompile {
         }
     }
 
-    /**
-     * from a resource, get the resource param
-     * @param resource
-     * @return a string containing the resource param, or a null string
-     * to conditionally exclude a resource.
-     */
-    protected String createResourceParameter(DotnetResource resource) {
-        return resource.getCSharpStyleParameter();
+    protected void createResourceParameter(NetCommand command, DotnetResource resource) {
+        resource.getParameters(getProject(), command, true);
     }
 
     /**

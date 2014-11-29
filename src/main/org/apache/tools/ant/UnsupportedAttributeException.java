@@ -1,9 +1,10 @@
 /*
- * Copyright  2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,16 +20,16 @@ package org.apache.tools.ant;
 /**
  * Used to report attempts to set an unsupported attribute
  *
- * @since Ant 1.7
+ * @since Ant 1.6.3
  */
 public class UnsupportedAttributeException extends BuildException {
 
     private String attribute;
 
     /**
-     * Constructs an unsupport attribute exception
-     * @param msg       The string containing the message
-     * @param attribute The unsupported attribute
+     * Constructs an unsupported attribute exception.
+     * @param msg       The string containing the message.
+     * @param attribute The unsupported attribute.
      */
     public UnsupportedAttributeException(String msg, String attribute) {
         super(msg);
@@ -36,9 +37,9 @@ public class UnsupportedAttributeException extends BuildException {
     }
 
     /**
-     * The attribute that is wrong
+     * Get the attribute that is wrong.
      *
-     * @return the attribute name
+     * @return the attribute name.
      */
     public String getAttribute() {
         return attribute;

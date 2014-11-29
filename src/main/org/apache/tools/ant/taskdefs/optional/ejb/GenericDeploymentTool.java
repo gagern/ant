@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,15 +22,17 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Set;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
+
 import javax.xml.parsers.SAXParser;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Location;
@@ -108,9 +111,9 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
     private ClassLoader classpathLoader = null;
 
      /**
-     * List of files have been loaded into the EJB jar
+     * Set of files have been loaded into the EJB jar
      */
-    private List addedfiles;
+    private Set addedfiles;
 
     /**
      * Handler used to parse the EJB XML descriptor
@@ -448,7 +451,7 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
 
         } catch (SAXException se) {
             String msg = "SAXException while parsing '"
-                + descriptorFileName.toString()
+                + descriptorFileName
                 + "'. This probably indicates badly-formed XML."
                 + "  Details: "
                 + se.getMessage();
@@ -736,8 +739,12 @@ public class GenericDeploymentTool implements EJBDeploymentTool {
 
         JarOutputStream jarStream = null;
         try {
-            // clean the addedfiles Vector
-            addedfiles = new ArrayList();
+            // clean the addedfiles set
+            if (addedfiles == null) {
+                addedfiles = new HashSet();
+            } else {
+                addedfiles.clear();
+            }
 
             /* If the jarfile already exists then whack it and recreate it.
              * Should probably think of a more elegant way to handle this

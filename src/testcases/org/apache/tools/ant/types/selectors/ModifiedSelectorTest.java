@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,30 +20,30 @@ package org.apache.tools.ant.types.selectors;
 
 // Java
 import java.io.File;
+import java.text.RuleBasedCollator;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.text.RuleBasedCollator;
 
-// Ant
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.types.Parameter;
-import org.apache.tools.ant.types.Path;
-
-// inside MockProject
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Target;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.BuildEvent;
-
-// The classes to test
-import org.apache.tools.ant.types.selectors.modifiedselector.*;
+import org.apache.tools.ant.types.Parameter;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.selectors.modifiedselector.Algorithm;
+import org.apache.tools.ant.types.selectors.modifiedselector.Cache;
+import org.apache.tools.ant.types.selectors.modifiedselector.ChecksumAlgorithm;
+import org.apache.tools.ant.types.selectors.modifiedselector.DigestAlgorithm;
+import org.apache.tools.ant.types.selectors.modifiedselector.EqualComparator;
+import org.apache.tools.ant.types.selectors.modifiedselector.HashvalueAlgorithm;
+import org.apache.tools.ant.types.selectors.modifiedselector.ModifiedSelector;
+import org.apache.tools.ant.types.selectors.modifiedselector.PropertiesfileCache;
 import org.apache.tools.ant.util.FileUtils;
 
 
 /**
  * Unit tests for ModifiedSelector.
  *
- * @version 2004-07-12
  * @since  Ant 1.6
  */
 public class ModifiedSelectorTest extends BaseSelectorTest {
@@ -595,6 +595,29 @@ public class ModifiedSelectorTest extends BaseSelectorTest {
     }
 
 
+    public void testResourceSelectorSimple() {
+        BFT bft = new BFT("modifiedselector");
+        bft.doTarget("modifiedselectortest-ResourceSimple");
+        bft.deleteCachefile();
+        //new File("src/etc/testcases/types/resources/selectors/cache.properties").delete();
+    }
+    public void testResourceSelectorSelresTrue() {
+        BFT bft = new BFT("modifiedselector");
+        bft.doTarget("modifiedselectortest-ResourceSelresTrue");
+        bft.assertLogContaining("does not provide an InputStream");
+        bft.deleteCachefile();
+    }
+    public void testResourceSelectorSelresFalse() {
+        BFT bft = new BFT("modifiedselector");
+        bft.doTarget("modifiedselectortest-ResourceSelresFalse");
+        bft.deleteCachefile();
+    }
+    public void testResourceSelectorScenarioSimple() {
+        BFT bft = new BFT("modifiedselector");
+        bft.doTarget("modifiedselectortest-scenario-resourceSimple");
+        bft.doTarget("modifiedselectortest-scenario-clean");
+        bft.deleteCachefile();
+    }
     /**
      * Test the interface semantic of Comparators.
      * This method does some common test for comparator implementations.
@@ -874,20 +897,34 @@ public class ModifiedSelectorTest extends BaseSelectorTest {
      * and property transfer to that project.
      */
     private class BFT extends org.apache.tools.ant.BuildFileTest {
+        String buildfile = "src/etc/testcases/types/selectors.xml";
+
         BFT() { super("nothing"); }
         BFT(String name) {
             super(name);
         }
+
         String propfile = "ModifiedSelectorTest.properties";
 
         boolean isConfigured = false;
 
         public void setUp() {
-            configureProject("src/etc/testcases/types/selectors.xml");
+            configureProject(buildfile);
             isConfigured = true;
         }
 
-        public void tearDown() { }
+
+        /**
+         * This stub teardown is here because the outer class needs to call the
+         * tearDown method, and in the superclass it is protected.
+         */
+        public void tearDown() {
+            try {
+                super.tearDown();
+            } catch (Exception e) {
+                // ignore
+            }
+        }
 
         public void doTarget(String target) {
             if (!isConfigured) setUp();
@@ -919,8 +956,17 @@ public class ModifiedSelectorTest extends BaseSelectorTest {
             new File(getProject().getBaseDir(), propfile).delete();
         }
 
-        public org.apache.tools.ant.Project getProject() {
-            return super.getProject();
+        public void deleteCachefile() {
+            File basedir = new File(buildfile).getParentFile();
+            File cacheFile = new File(basedir, "cache.properties");
+            cacheFile.delete();
+        }
+
+        public String getBuildfile() {
+            return buildfile;
+        }
+        public void setBuildfile(String buildfile) {
+            this.buildfile = buildfile;
         }
     }//class-BFT
 
@@ -946,14 +992,8 @@ public class ModifiedSelectorTest extends BaseSelectorTest {
             task.setOwningTarget(target);
         }
 
-        public void fireBuildStarted() {
-            super.fireBuildStarted();
-        }
         public void fireBuildFinished() {
             super.fireBuildFinished(null);
-        }
-        public void fireSubBuildStarted() {
-            super.fireSubBuildStarted();
         }
         public void fireSubBuildFinished() {
             super.fireSubBuildFinished(null);
@@ -969,17 +1009,6 @@ public class ModifiedSelectorTest extends BaseSelectorTest {
         }
         public void fireTaskFinished() {
             super.fireTaskFinished(task, null);
-        }
-        private void fireMessageLoggedEvent(BuildEvent event, String message, int priority) {
-        }
-        private void fireMessageLoggedProject(String message) {
-            super.fireMessageLogged(this, message, Project.MSG_INFO);
-        }
-        private void fireMessageLoggedTarget(String message) {
-            super.fireMessageLogged(target, message, Project.MSG_INFO);
-        }
-        private void fireMessageLoggedTask(String message) {
-            super.fireMessageLogged(task, message, Project.MSG_INFO);
         }
     }//class-MockProject
 

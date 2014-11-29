@@ -101,15 +101,19 @@ public class FileUtilsTest extends TestCase {
     }
 
     public void testResolveFile() {
-        /*
-         * Start with simple absolute file names.
-         */
-        assertEquals(File.separator,
-                     FILE_UTILS.resolveFile(null, "/").getPath());
-        assertEquals(File.separator,
-                     FILE_UTILS.resolveFile(null, "\\").getPath());
-
-        if (Os.isFamily("dos")) {
+        if (!(Os.isFamily("dos") || Os.isFamily("netware"))) {
+            /*
+             * Start with simple absolute file names.
+             */
+            assertEquals(File.separator,
+                         FILE_UTILS.resolveFile(null, "/").getPath());
+            assertEquals(File.separator,
+                         FILE_UTILS.resolveFile(null, "\\").getPath());
+        } else {
+            assertEqualsIgnoreDriveCase(localize(File.separator),
+                FILE_UTILS.resolveFile(null, "/").getPath());
+            assertEqualsIgnoreDriveCase(localize(File.separator),
+                FILE_UTILS.resolveFile(null, "\\").getPath());
             /*
              * throw in drive letters
              */
@@ -130,7 +134,8 @@ public class FileUtilsTest extends TestCase {
                          FILE_UTILS.resolveFile(null, driveSpec + "/////").getPath());
             assertEquals(driveSpec + "\\",
                          FILE_UTILS.resolveFile(null, driveSpec + "\\\\\\\\\\\\").getPath());
-        } else if (Os.isFamily("netware")) {
+        }
+        if (Os.isFamily("netware")) {
             /*
              * throw in NetWare volume names
              */
@@ -151,19 +156,20 @@ public class FileUtilsTest extends TestCase {
                          FILE_UTILS.resolveFile(null, driveSpec + "/////").getPath());
             assertEquals(driveSpec,
                          FILE_UTILS.resolveFile(null, driveSpec + "\\\\\\\\\\\\").getPath());
-        } else {
+        } else if (!(Os.isFamily("dos"))) {
             /*
              * drive letters must be considered just normal filenames.
              */
             String driveSpec = "C:";
-            assertEquals(driveSpec,
+            String udir = System.getProperty("user.dir");
+            assertEquals(udir + File.separator + driveSpec,
                          FILE_UTILS.resolveFile(null, driveSpec + "/").getPath());
-            assertEquals(driveSpec,
+            assertEquals(udir + File.separator + driveSpec,
                          FILE_UTILS.resolveFile(null, driveSpec + "\\").getPath());
             String driveSpecLower = "c:";
-            assertEquals(driveSpecLower,
+            assertEquals(udir + File.separator + driveSpecLower,
                          FILE_UTILS.resolveFile(null, driveSpecLower + "/").getPath());
-            assertEquals(driveSpecLower,
+            assertEquals(udir + File.separator + driveSpecLower,
                          FILE_UTILS.resolveFile(null, driveSpecLower + "\\").getPath());
         }
 
@@ -187,31 +193,44 @@ public class FileUtilsTest extends TestCase {
         assertEquals(localize("/1/2/3/4"),
                      FILE_UTILS.resolveFile(new File(localize("/1/2/3")), "..\\../5/..\\./2/./3/6\\../4").getPath());
 
-        try {
-            FILE_UTILS.resolveFile(new File(localize("/1")), "../../b");
-            fail("successfully crawled beyond the filesystem root");
-        } catch (BuildException e) {
-            // Expected Exception caught
-        }
+        assertEquals("meaningless result but no exception",
+                new File(localize("/1/../../b")),
+                FILE_UTILS.resolveFile(new File(localize("/1")), "../../b"));
 
     }
 
     public void testNormalize() {
-        /*
-         * Start with simple absolute file names.
-         */
-        assertEquals(File.separator,
-                     FILE_UTILS.normalize("/").getPath());
-        assertEquals(File.separator,
-                     FILE_UTILS.normalize("\\").getPath());
+        if (!(Os.isFamily("dos") || Os.isFamily("netware"))) {
+            /*
+             * Start with simple absolute file names.
+             */
+            assertEquals(File.separator,
+                         FILE_UTILS.normalize("/").getPath());
+            assertEquals(File.separator,
+                         FILE_UTILS.normalize("\\").getPath());
+        } else {
+            try {
+                 FILE_UTILS.normalize("/").getPath();
+                 fail("normalized \"/\" on dos or netware");
+            } catch (Exception e) {
+            }
+            try {
+                 FILE_UTILS.normalize("\\").getPath();
+                 fail("normalized \"\\\" on dos or netware");
+            } catch (Exception e) {
+            }
+        }
 
         if (Os.isFamily("dos")) {
             /*
              * throw in drive letters
              */
             String driveSpec = "C:";
-            assertEquals(driveSpec,
-                         FILE_UTILS.normalize(driveSpec).getPath());
+            try {
+                 FILE_UTILS.normalize(driveSpec).getPath();
+                 fail(driveSpec + " is not an absolute path");
+            } catch (Exception e) {
+            }
             assertEquals(driveSpec + "\\",
                          FILE_UTILS.normalize(driveSpec + "/").getPath());
             assertEquals(driveSpec + "\\",
@@ -293,12 +312,9 @@ public class FileUtilsTest extends TestCase {
             // Expected exception caught
         }
 
-        try {
-            FILE_UTILS.normalize(localize("/1/../../b"));
-            fail("successfully crawled beyond the filesystem root");
-        } catch (BuildException e) {
-            // Expected exception caught
-        }
+        assertEquals("will not go outside FS root (but will not throw an exception either)",
+                new File(localize("/1/../../b")),
+                FILE_UTILS.normalize(localize("/1/../../b")));
     }
 
     /**
@@ -313,7 +329,7 @@ public class FileUtilsTest extends TestCase {
         }
 
         File f = FILE_UTILS.resolveFile(null, "a");
-        assertEquals(f, new File("a"));
+        assertEquals(f, new File("a").getAbsoluteFile());
     }
 
     /**
@@ -390,10 +406,12 @@ public class FileUtilsTest extends TestCase {
                                                  new File("c:\\foo\\bar")));
         assertEquals("bar", FILE_UTILS.removeLeadingPath(new File("c:\\foo\\"),
                                                  new File("c:\\foo\\bar")));
-        assertEqualsIgnoreDriveCase(FILE_UTILS.normalize("/bar").getAbsolutePath(),
-                     FILE_UTILS.removeLeadingPath(new File("/foo"), new File("/bar")));
-        assertEqualsIgnoreDriveCase(FILE_UTILS.normalize("/foobar").getAbsolutePath(),
-                     FILE_UTILS.removeLeadingPath(new File("/foo"), new File("/foobar")));
+        if (!(Os.isFamily("dos") || Os.isFamily("netware"))) {
+            assertEquals(FILE_UTILS.normalize("/bar").getAbsolutePath(),
+                         FILE_UTILS.removeLeadingPath(new File("/foo"), new File("/bar")));
+            assertEquals(FILE_UTILS.normalize("/foobar").getAbsolutePath(),
+                         FILE_UTILS.removeLeadingPath(new File("/foo"), new File("/foobar")));
+        }
         // bugzilla report 19979
         assertEquals("", FILE_UTILS.removeLeadingPath(new File("/foo/bar"),
                                               new File("/foo/bar")));
@@ -419,49 +437,84 @@ public class FileUtilsTest extends TestCase {
      */
     public void testToURI() {
         String dosRoot = null;
-        if (Os.isFamily("dos")) {
-            dosRoot = System.getProperty("user.dir").charAt(0) + ":/";
+        if (Os.isFamily("dos") || Os.isFamily("netware")) {
+            dosRoot = System.getProperty("user.dir")
+                .substring(0, 3).replace(File.separatorChar, '/');
+
+            //preserve case on Cygwin when using 1.4 toURI:
+            Class uriClazz = null;
+            try {
+                uriClazz = Class.forName("java.net.URI");
+            } catch (ClassNotFoundException e) {
+                // OK, Java 1.3.
+                dosRoot = dosRoot.toUpperCase();
+            }
         }
         else
         {
             dosRoot = "";
         }
         if (Os.isFamily("dos")) {
-            assertEquals("file:///C:/foo", FILE_UTILS.toURI("c:\\foo"));
+            assertEquals("file:/c:/foo", removeExtraneousAuthority(FILE_UTILS.toURI("c:\\foo")));
         }
         if (Os.isFamily("netware")) {
-            assertEquals("file:///SYS:/foo", FILE_UTILS.toURI("sys:\\foo"));
+            assertEquals("file:/SYS:/foo", removeExtraneousAuthority(FILE_UTILS.toURI("sys:\\foo")));
         }
-        assertEquals("file:///" + dosRoot + "foo", FILE_UTILS.toURI("/foo"));
-        /* May fail if the directory ${user.dir}/foo/ exists
-         * (and anyway is the tested behavior actually desirable?):
-        assertEquals("file:./foo",  fu.toURI("./foo"));
-         */
-        assertEquals("file:///" + dosRoot + "foo", FILE_UTILS.toURI("\\foo"));
-        /* See above:
-        assertEquals("file:./foo",  fu.toURI(".\\foo"));
-         */
-        assertEquals("file:///" + dosRoot + "foo%20bar", FILE_UTILS.toURI("/foo bar"));
-        assertEquals("file:///" + dosRoot + "foo%20bar", FILE_UTILS.toURI("\\foo bar"));
-        assertEquals("file:///" + dosRoot + "foo%23bar", FILE_UTILS.toURI("/foo#bar"));
-        assertEquals("file:///" + dosRoot + "foo%23bar", FILE_UTILS.toURI("\\foo#bar"));
+        if (File.pathSeparatorChar == '/') {
+            assertEquals("file:/foo", removeExtraneousAuthority(FILE_UTILS.toURI("/foo")));
+            assertTrue("file: URIs must name absolute paths", FILE_UTILS.toURI("./foo").startsWith("file:/"));
+            assertTrue(FILE_UTILS.toURI("./foo").endsWith("/foo"));
+            assertEquals("file:/" + dosRoot + "foo%20bar", removeExtraneousAuthority(FILE_UTILS.toURI("/foo bar")));
+            assertEquals("file:/" + dosRoot + "foo%23bar", removeExtraneousAuthority(FILE_UTILS.toURI("/foo#bar")));
+        } else if (File.pathSeparatorChar == '\\') {
+            assertEquals("file:/" + dosRoot + "foo", removeExtraneousAuthority(FILE_UTILS.toURI("\\foo")));
+            assertTrue("file: URIs must name absolute paths", FILE_UTILS.toURI(".\\foo").startsWith("file:/"));
+            assertTrue(FILE_UTILS.toURI(".\\foo").endsWith("/foo"));
+            assertEquals("file:/" + dosRoot + "foo%20bar", removeExtraneousAuthority(FILE_UTILS.toURI("\\foo bar")));
+            assertEquals("file:/" + dosRoot + "foo%23bar", removeExtraneousAuthority(FILE_UTILS.toURI("\\foo#bar")));
+        }
+        // a test with ant for germans
+        // the escaped character used for the test is the "a umlaut"
+        // this is the fix for the bug 37348
+        assertEquals("file:/" + dosRoot + "%C3%A4nt", removeExtraneousAuthority(FILE_UTILS.toURI("/\u00E4nt")));
     }
 
+    /**
+     * Authority field is unnecessary, but harmless, in file: URIs.
+     * Java 1.4 does not produce it when using File.toURI.
+     */
+    private static String removeExtraneousAuthority(String uri) {
+        String prefix = "file:///";
+        if (uri.startsWith(prefix)) {
+            return "file:/" + uri.substring(prefix.length());
+        } else {
+            return uri;
+        }
+    }
     /**
      * test fromUri
      */
     public void testFromURI() {
+        String dosRoot = null;
+        if (Os.isFamily("dos") || Os.isFamily("netware")) {
+            dosRoot = Character.toUpperCase(
+                System.getProperty("user.dir").charAt(0)) + ":";
+        }
+        else
+        {
+            dosRoot = "";
+        }
         if (Os.isFamily("netware")) {
             assertEqualsIgnoreDriveCase("SYS:\\foo", FILE_UTILS.fromURI("file:///sys:/foo"));
         }
         if (Os.isFamily("dos")) {
             assertEqualsIgnoreDriveCase("C:\\foo", FILE_UTILS.fromURI("file:///c:/foo"));
         }
-        assertEqualsIgnoreDriveCase(localize("/foo"), FILE_UTILS.fromURI("file:///foo"));
+        assertEqualsIgnoreDriveCase(dosRoot + File.separator + "foo", FILE_UTILS.fromURI("file:///foo"));
         assertEquals("." + File.separator + "foo",
                      FILE_UTILS.fromURI("file:./foo"));
-        assertEqualsIgnoreDriveCase(localize("/foo bar"), FILE_UTILS.fromURI("file:///foo%20bar"));
-        assertEqualsIgnoreDriveCase(localize("/foo#bar"), FILE_UTILS.fromURI("file:///foo%23bar"));
+        assertEquals(dosRoot + File.separator + "foo bar", FILE_UTILS.fromURI("file:///foo%20bar"));
+        assertEquals(dosRoot + File.separator + "foo#bar", FILE_UTILS.fromURI("file:///foo%23bar"));
     }
 
     public void testModificationTests() {
@@ -493,6 +546,7 @@ public class FileUtilsTest extends TestCase {
         path = root + path.substring(1);
         return path.replace('\\', File.separatorChar).replace('/', File.separatorChar);
     }
+
     /**
      * convenience method
      * normalize brings the drive in uppercase
@@ -500,14 +554,15 @@ public class FileUtilsTest extends TestCase {
      * calling this method allows tests where normalize is called to pass under cygwin
      */
     private void assertEqualsIgnoreDriveCase(String s1, String s2) {
-        if (Os.isFamily("dos") && s1.length()>=1 && s2.length()>=1) {
-            StringBuffer sb1= new StringBuffer(s1);
-            StringBuffer sb2= new StringBuffer(s2);
-            sb1.setCharAt(0,Character.toUpperCase(s1.charAt(0)));
-            sb2.setCharAt(0,Character.toUpperCase(s2.charAt(0)));
-            assertEquals(sb1.toString(),sb2.toString());
-        }   else {
-            assertEquals(s1,s2);
+        if ((Os.isFamily("dos") || Os.isFamily("netware"))
+            && s1.length() > 0 && s2.length() > 0) {
+            StringBuffer sb1 = new StringBuffer(s1);
+            StringBuffer sb2 = new StringBuffer(s2);
+            sb1.setCharAt(0, Character.toUpperCase(s1.charAt(0)));
+            sb2.setCharAt(0, Character.toUpperCase(s2.charAt(0)));
+            assertEquals(sb1.toString(), sb2.toString());
+        } else {
+            assertEquals(s1, s2);
         }
     }
 }

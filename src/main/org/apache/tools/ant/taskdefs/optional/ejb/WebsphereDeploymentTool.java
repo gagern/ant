@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -541,7 +542,7 @@ public class WebsphereDeploymentTool extends GenericDeploymentTool {
     private void buildWebsphereJar(File sourceJar, File destJar) {
         try {
             if (ejbdeploy) {
-                Java javaTask = (Java) getTask().getProject().createTask("java");
+                Java javaTask = new Java(getTask());
                 // Set the JvmArgs
                 javaTask.createJvmarg().setValue("-Xms64m");
                 javaTask.createJvmarg().setValue("-Xmx128m");

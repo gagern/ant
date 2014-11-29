@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -49,7 +50,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
     private Map      map = new HashMap();
     private Map      nsElements = null;
     private Map      presentElements;
-    private Hashtable localProperties;
+    private Hashtable localAttributes;
     private String    text = null;
     private String    implicitTag =     null;
     private List      unknownElements = new ArrayList();
@@ -84,7 +85,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
      * Method present for BC purposes.
      * @param name not used
      * @return nothing
-     * @deprecated
+     * @deprecated since 1.6.x.
      * @throws BuildException always
      */
     public Object createDynamicElement(String name) throws BuildException {
@@ -169,7 +170,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         }
         StringBuffer ret = new StringBuffer();
         StringBuffer macroName = null;
-        boolean inMacro = false;
+
         int state = STATE_NORMAL;
         for (int i = 0; i < s.length(); ++i) {
             char ch = s.charAt(i);
@@ -200,7 +201,9 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                         String name = macroName.toString().toLowerCase(Locale.US);
                         String value = (String) macroMapping.get(name);
                         if (value == null) {
-                            ret.append("@{" + name + "}");
+                            ret.append("@{");
+                            ret.append(name);
+                            ret.append("}");
                         } else {
                             ret.append(value);
                         }
@@ -262,10 +265,10 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             Map.Entry entry = (Map.Entry) i.next();
             rc.setAttribute(
                 (String) entry.getKey(),
-                macroSubs((String) entry.getValue(), localProperties));
+                macroSubs((String) entry.getValue(), localAttributes));
         }
         rc.addText(macroSubs(ue.getWrapper().getText().toString(),
-                             localProperties));
+                             localAttributes));
 
         Enumeration e = ue.getWrapper().getChildren();
         while (e.hasMoreElements()) {
@@ -289,7 +292,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                 }
                 for (Iterator i = unknownElements.iterator();
                      i.hasNext();) {
-                    UnknownElement child = (UnknownElement) i.next();
+                    UnknownElement child = copy((UnknownElement) i.next());
                     rc.addChild(child.getWrapper());
                     ret.addChild(child);
                 }
@@ -305,7 +308,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                 }
                 for (Iterator i = list.iterator();
                      i.hasNext();) {
-                    UnknownElement child = (UnknownElement) i.next();
+                    UnknownElement child = copy((UnknownElement) i.next());
                     rc.addChild(child.getWrapper());
                     ret.addChild(child);
                 }
@@ -324,7 +327,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         presentElements = new HashMap();
         getNsElements();
         processTasks();
-        localProperties = new Hashtable();
+        localAttributes = new Hashtable();
         Set copyKeys = new HashSet(map.keySet());
         for (Iterator i = macroDef.getAttributes().iterator(); i.hasNext();) {
             MacroDef.Attribute attribute = (MacroDef.Attribute) i.next();
@@ -334,13 +337,16 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             }
             if (value == null) {
                 value = attribute.getDefault();
-                value = macroSubs(value, localProperties);
+                value = macroSubs(value, localAttributes);
+            } else if (attribute instanceof MacroDef.DefineAttribute) {
+                // Do not process given value, will fail as unknown attribute
+                continue;
             }
             if (value == null) {
                 throw new BuildException(
                     "required attribute " + attribute.getName() + " not set");
             }
-            localProperties.put(attribute.getName(), value);
+            localAttributes.put(attribute.getName(), value);
             copyKeys.remove(attribute.getName());
         }
         if (copyKeys.contains("id")) {
@@ -357,7 +363,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             if (macroDef.getText().getTrim()) {
                 text = text.trim();
             }
-            localProperties.put(macroDef.getText().getName(), text);
+            localAttributes.put(macroDef.getText().getName(), text);
         } else {
             if (text != null && !text.trim().equals("")) {
                 throw new BuildException(
@@ -377,10 +383,16 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         try {
             c.perform();
         } catch (BuildException ex) {
-            throw ProjectHelper.addLocationToBuildException(
-                ex, getLocation());
+            if (macroDef.getBackTrace()) {
+                throw ProjectHelper.addLocationToBuildException(
+                    ex, getLocation());
+            } else {
+                ex.setLocation(getLocation());
+                throw ex;
+            }
+        } finally {
+            presentElements = null;
+            localAttributes = null;
         }
-        presentElements = null;
-        localProperties = null;
     }
 }

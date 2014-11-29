@@ -246,7 +246,7 @@ public class ConcatTest
             return  FileUtils.readFully(r);
         }
         finally {
-            try {r.close();} catch (Throwable ignore) {}
+            FileUtils.close(r);
         }
 
     }
@@ -275,4 +275,9 @@ public class ConcatTest
         File f2 = getProject().resolveFile("concat.utf8");
         assertTrue(FILE_UTILS.contentEquals(f1, f2));
     }
+
+    public void testResources() {
+        executeTarget("testResources");
+    }
+
 }

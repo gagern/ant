@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 package org.apache.tools.ant.filters;
 
-import java.io.File;
 import java.io.Reader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -29,6 +28,8 @@ import org.apache.tools.ant.util.FileUtils;
  */
 public class TokenFilterTest extends BuildFileTest {
 
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+    
     public TokenFilterTest(String name) {
         super(name);
     }
@@ -247,11 +248,11 @@ public class TokenFilterTest extends BuildFileTest {
     {
         Reader r = null;
         try {
-            r = new FileReader(getProject().resolveFile(filename));
+            r = new FileReader(FILE_UTILS.resolveFile(getProject().getBaseDir(),filename));
             return  FileUtils.readFully(r);
         }
         finally {
-            try {r.close();} catch (Throwable ignore) {}
+            FileUtils.close(r);
         }
 
     }

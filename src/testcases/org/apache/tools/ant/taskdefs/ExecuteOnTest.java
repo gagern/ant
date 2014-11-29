@@ -1,5 +1,5 @@
 /*
- * Copyright 2004 The Apache Software Foundation.
+ * Copyright 2004-2006 The Apache Software Foundation.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@
 
 package org.apache.tools.ant.taskdefs;
 
-import org.apache.tools.ant.BuildFileTest;
-import org.apache.tools.ant.util.FileUtils;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.OutputStream;
+
+import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Unit test for the &lt;apply&gt; task.
@@ -31,6 +30,7 @@ import java.io.OutputStream;
 public class ExecuteOnTest extends BuildFileTest {
     private static final String BUILD_PATH = "src/etc/testcases/taskdefs/exec/";
     private static final String BUILD_FILE = BUILD_PATH + "apply.xml";
+    private static final String LINE_SEP = System.getProperty("line.separator");
     
     public ExecuteOnTest(String name) {
         super(name);
@@ -558,6 +558,30 @@ public class ExecuteOnTest extends BuildFileTest {
         executeTarget("force");
     }
 
+    public void testNoDest() {
+        executeTarget("testNoDest");
+    }
+
+    public void testLsPath() {
+        testLsPath("lsPath");
+    }
+
+    public void testLsPathParallel() {
+        testLsPath("lsPathParallel");
+    }
+
+    private void testLsPath(String target) {
+        executeTarget(target);
+        if (getProject().getProperty("ls.can.run") == null) {
+            return;
+        }
+        String foo = getProject().getProperty("foo");
+        assertNotNull(foo);
+        int indNoExt = foo.indexOf("ls" + LINE_SEP);
+        int indExe = foo.indexOf("ls.exe" + LINE_SEP);
+        assertTrue(indNoExt >= 0 || indExe >= 0);
+    }
+
     //borrowed from TokenFilterTest
     private String getFileString(String filename) throws IOException {
         String result = null;
@@ -566,12 +590,7 @@ public class ExecuteOnTest extends BuildFileTest {
             reader = new FileReader(getProject().resolveFile(filename));
             result = FileUtils.readFully(reader);
         } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (Throwable ignore) {
-                }
-            }
+            FileUtils.close(reader);
         }
         return result;
     }

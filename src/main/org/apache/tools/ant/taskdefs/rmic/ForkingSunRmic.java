@@ -1,21 +1,19 @@
-/** (C) Copyright 2004 Hewlett-Packard Development Company, LP
-
- This library is free software; you can redistribute it and/or
- modify it under the terms of the GNU Lesser General Public
- License as published by the Free Software Foundation; either
- version 2.1 of the License, or (at your option) any later version.
-
- This library is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- Lesser General Public License for more details.
-
- You should have received a copy of the GNU Lesser General Public
- License along with this library; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
- For more information: www.smartfrog.org
-
+/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
  */
 
 
@@ -37,6 +35,7 @@ import java.io.IOException;
  * compiler you can have multiple copies compiling different bits of your project
  * at the same time. Which, on a multi-cpu system results in significant speedups.
  *
+ * Also, Java1.6 behaves oddly with -XNew, so we switch it on here if needed.
  * @since ant1.7
  */
 public class ForkingSunRmic extends DefaultRmicAdapter {
@@ -48,15 +47,15 @@ public class ForkingSunRmic extends DefaultRmicAdapter {
 
     /**
      * exec by creating a new command
-     * @return
-     * @throws BuildException
+     * @return true if the command ran successfully
+     * @throws BuildException on error
      */
     public boolean execute() throws BuildException {
         Rmic owner = getRmic();
         Commandline cmd = setupRmicCommand();
         Project project = owner.getProject();
         //rely on RMIC being on the path
-        cmd.setExecutable(JavaEnvUtils.getJdkExecutable(SunRmic.RMIC_EXECUTABLE));
+        cmd.setExecutable(JavaEnvUtils.getJdkExecutable(getExecutableName()));
 
         //set up the args
         String[] args = cmd.getCommandline();
@@ -68,12 +67,19 @@ public class ForkingSunRmic extends DefaultRmicAdapter {
             exe.setAntRun(project);
             exe.setWorkingDirectory(project.getBaseDir());
             exe.setCommandline(args);
-
             exe.execute();
-            return exe.getExitValue() == 0;
+            return !exe.isFailure();
         } catch (IOException exception) {
-            throw new BuildException("Error running " + SunRmic.RMIC_EXECUTABLE
+            throw new BuildException("Error running " + getExecutableName()
                     + " -maybe it is not on the path", exception);
         }
+    }
+
+    /**
+     * Override point.
+     * @return
+     */
+    protected String getExecutableName() {
+        return SunRmic.RMIC_EXECUTABLE;
     }
 }

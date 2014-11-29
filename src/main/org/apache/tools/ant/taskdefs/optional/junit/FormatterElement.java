@@ -1,9 +1,10 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -188,14 +189,14 @@ public class FormatterElement {
     /**
      * @since Ant 1.2
      */
-    JUnitResultFormatter createFormatter() throws BuildException {
+    JUnitTaskMirror.JUnitResultFormatterMirror createFormatter() throws BuildException {
         return createFormatter(null);
     }
 
     /**
      * @since Ant 1.6
      */
-    JUnitResultFormatter createFormatter(ClassLoader loader)
+    JUnitTaskMirror.JUnitResultFormatterMirror createFormatter(ClassLoader loader)
         throws BuildException {
 
         if (classname == null) {
@@ -210,7 +211,9 @@ public class FormatterElement {
                 f = Class.forName(classname, true, loader);
             }
         } catch (ClassNotFoundException e) {
-            throw new BuildException(e);
+            throw new BuildException("Using loader " + loader + " on class " + classname + ": " + e, e);
+        } catch (NoClassDefFoundError e) {
+            throw new BuildException("Using loader " + loader + " on class " + classname + ": " + e, e);
         }
 
         Object o = null;
@@ -222,12 +225,11 @@ public class FormatterElement {
             throw new BuildException(e);
         }
 
-        if (!(o instanceof JUnitResultFormatter)) {
+        if (!(o instanceof JUnitTaskMirror.JUnitResultFormatterMirror)) {
             throw new BuildException(classname
                 + " is not a JUnitResultFormatter");
         }
-
-        JUnitResultFormatter r = (JUnitResultFormatter) o;
+        JUnitTaskMirror.JUnitResultFormatterMirror r = (JUnitTaskMirror.JUnitResultFormatterMirror) o;
 
         if (useFile && outFile != null) {
             try {

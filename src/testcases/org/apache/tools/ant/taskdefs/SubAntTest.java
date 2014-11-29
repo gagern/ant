@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,12 +24,8 @@ import junit.framework.AssertionFailedError;
 import org.apache.tools.ant.BuildEvent;
 import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.BuildListener;
-import org.apache.tools.ant.input.InputHandler;
-import org.apache.tools.ant.types.Path;
 
-/**
- * @version $Revision$
- */
+
 public class SubAntTest extends BuildFileTest {
 
     public SubAntTest(String name) {
@@ -38,10 +34,6 @@ public class SubAntTest extends BuildFileTest {
 
     public void setUp() {
         configureProject("src/etc/testcases/taskdefs/subant.xml");
-    }
-
-    public void tearDown() {
-        executeTarget("cleanup");
     }
 
     public void testnodirs() {
@@ -79,6 +71,25 @@ public class SubAntTest extends BuildFileTest {
 
                      });
 
+    }
+    
+    public void testMultipleTargets() {
+        executeTarget("multipleTargets");
+        assertLogContaining("test1-one");
+        assertLogContaining("test1-two");
+        assertLogContaining("test2-one");
+        assertLogContaining("test2-two");
+    }
+    
+    public void testMultipleTargetsOneDoesntExist_FOEfalse() {
+        executeTarget("multipleTargetsOneDoesntExist_FOEfalse");
+        assertLogContaining("Target \"three\" does not exist in the project \"subant\"");
+    }
+    
+    public void testMultipleTargetsOneDoesntExist_FOEtrue() {
+        expectBuildExceptionContaining("multipleTargetsOneDoesntExist_FOEtrue", 
+                                       "Calling not existent target", 
+                                       "Target \"three\" does not exist in the project \"subant\"");
     }
 
     protected void testBaseDirs(String target, String[] dirs) {

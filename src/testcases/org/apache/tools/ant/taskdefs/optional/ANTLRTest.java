@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2004,2006 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -57,9 +57,6 @@ public class ANTLRTest extends BuildFileTest {
 
     public void test3() {
         executeTarget("test3");
-        File outputDirectory = new File(System.getProperty("root"), TASKDEFS_DIR + "antlr.tmp");
-        String[] calcFiles = outputDirectory.list(new CalcFileFilter());
-        assertEquals(5, calcFiles.length);
     }
 
     public void test4() {

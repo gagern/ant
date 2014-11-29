@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -74,6 +75,11 @@ public class ProjectHelper {
         "META-INF/services/org.apache.tools.ant.ProjectHelper";
 
     /**
+     * name of project helper reference that we add to a project
+     */
+    public static final String PROJECTHELPER_REFERENCE = "ant.projectHelper";
+
+    /**
      * Configures the project with the contents of the specified XML file.
      *
      * @param project The project to configure. Must not be <code>null</code>.
@@ -86,7 +92,7 @@ public class ProjectHelper {
     public static void configureProject(Project project, File buildFile)
         throws BuildException {
         ProjectHelper helper = ProjectHelper.getProjectHelper();
-        project.addReference("ant.projectHelper", helper);
+        project.addReference(PROJECTHELPER_REFERENCE, helper);
         helper.parse(project, buildFile);
     }
 
@@ -219,15 +225,7 @@ public class ProjectHelper {
         if (helper != null) {
             return helper;
         } else {
-            try {
-                // Default
-                // return new ProjectHelperImpl();
-                return new ProjectHelper2();
-            } catch (Throwable e) {
-                String message = "Unable to load default ProjectHelper due to "
-                    + e.getClass().getName() + ": " + e.getMessage();
-                throw new BuildException(message, e);
-            }
+            return new ProjectHelper2();
         }
     }
 
@@ -269,7 +267,9 @@ public class ProjectHelper {
      * JDK1.1 compatible access to the context class loader.
      * Cut&paste from JAXP.
      *
-     * @deprecated Use LoaderUtils.getContextClassLoader()
+     * @deprecated since 1.6.x. 
+     *             Use LoaderUtils.getContextClassLoader()
+     *
      * @return the current context class loader, or <code>null</code>
      * if the context class loader is unavailable.
      */
@@ -293,7 +293,9 @@ public class ProjectHelper {
      * @param project The project containing the target.
      *                Must not be <code>null</code>.
      *
-     * @deprecated Use IntrospectionHelper for each property
+     * @deprecated since 1.6.x. 
+     *             Use IntrospectionHelper for each property.
+     *
      * @exception BuildException if any of the attributes can't be handled by
      *                           the target
      */
@@ -304,9 +306,7 @@ public class ProjectHelper {
         }
 
         IntrospectionHelper ih =
-            IntrospectionHelper.getHelper(target.getClass());
-
-        project.addBuildListener(ih);
+            IntrospectionHelper.getHelper(project, target.getClass());
 
         for (int i = 0; i < attrs.getLength(); i++) {
             // reflect these into the target
@@ -368,7 +368,7 @@ public class ProjectHelper {
             target = ((TypeAdapter) target).getProxy();
         }
 
-        IntrospectionHelper.getHelper(target.getClass()).addText(project,
+        IntrospectionHelper.getHelper(project, target.getClass()).addText(project,
             target, text);
     }
 
@@ -388,7 +388,7 @@ public class ProjectHelper {
     public static void storeChild(Project project, Object parent,
          Object child, String tag) {
         IntrospectionHelper ih
-            = IntrospectionHelper.getHelper(parent.getClass());
+            = IntrospectionHelper.getHelper(project, parent.getClass());
         ih.storeElement(project, parent, child, tag);
     }
 
@@ -408,7 +408,8 @@ public class ProjectHelper {
      * @return the original string with the properties replaced, or
      *         <code>null</code> if the original string is <code>null</code>.
      *
-     * @deprecated Use project.replaceProperties()
+     * @deprecated since 1.6.x.
+     *             Use project.replaceProperties().
      * @since 1.5
      */
      public static String replaceProperties(Project project, String value)
@@ -434,7 +435,8 @@ public class ProjectHelper {
      *                           <code>}</code>
      * @return the original string with the properties replaced, or
      *         <code>null</code> if the original string is <code>null</code>.
-     * @deprecated Use PropertyHelper
+     * @deprecated since 1.6.x. 
+     *             Use PropertyHelper.
      */
      public static String replaceProperties(Project project, String value,
          Hashtable keys) throws BuildException {
@@ -455,7 +457,8 @@ public class ProjectHelper {
      * @param propertyRefs List to add property names to.
      *                     Must not be <code>null</code>.
      *
-     * @deprecated Use PropertyHelper
+     * @deprecated since 1.6.x.
+     *             Use PropertyHelper.
      * @exception BuildException if the string contains an opening
      *                           <code>${</code> without a closing
      *                           <code>}</code>

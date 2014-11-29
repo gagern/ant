@@ -1,9 +1,10 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,10 +19,15 @@
 package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.Union;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -31,10 +37,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.BufferedReader;
 import java.io.StringReader;
-import java.io.FileReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.FileInputStream;
 import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
@@ -85,8 +91,6 @@ public class SQLExec extends JDBCTask {
         }
     }
 
-
-
     private int goodSql = 0;
 
     private int totalSql = 0;
@@ -99,7 +103,7 @@ public class SQLExec extends JDBCTask {
     /**
      * files to load
      */
-    private Vector filesets = new Vector();
+    private Union resources = new Union();
 
     /**
      * SQL statement
@@ -143,6 +147,11 @@ public class SQLExec extends JDBCTask {
     private boolean showheaders = true;
 
     /**
+     * Print SQL stats (rows affected)
+     */
+    private boolean showtrailers = true;
+    
+    /**
      * Results Output file.
      */
     private File output = null;
@@ -176,6 +185,14 @@ public class SQLExec extends JDBCTask {
     private boolean escapeProcessing = true;
 
     /**
+     * should properties be expanded in text?
+     * false for backwards compatibility
+     *
+     * @since Ant 1.7
+     */
+    private boolean expandProperties = false;
+
+    /**
      * Set the name of the SQL file to be run.
      * Required unless statements are enclosed in the build file
      * @param srcFile the file containing the SQL command.
@@ -185,11 +202,34 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
+     * Enable property expansion inside nested text
+     *
+     * @param expandProperties
+     * @since Ant 1.7
+     */
+    public void setExpandProperties(boolean expandProperties) {
+        this.expandProperties = expandProperties;
+    }
+
+    /**
+     * is property expansion inside inline text enabled?
+     *
+     * @return true if properties are to be expanded.
+     * @since Ant 1.7
+     */
+    public boolean getExpandProperties() {
+        return expandProperties;
+    }
+
+    /**
      * Set an inline SQL command to execute.
-     * NB: Properties are not expanded in this text.
-     * @param sql a inline string containing the SQL command.
+     * NB: Properties are not expanded in this text unless {@link #expandProperties}
+     * is set.
+     * @param sql an inline string containing the SQL command.
      */
     public void addText(String sql) {
+        //there is no need to expand properties here as that happens when Transaction.addText is
+        //called; to do so here would be an error.
         this.sqlCommand += sql;
     }
 
@@ -199,9 +239,18 @@ public class SQLExec extends JDBCTask {
      *            a separate transaction.
      */
     public void addFileset(FileSet set) {
-        filesets.addElement(set);
+        add(set);
     }
 
+    /**
+     * Adds a collection of resources (nested element).
+     * @param rc a collection of resources containing SQL commands,
+     * each resource is run in a separate transaction.
+     * @since Ant 1.7
+     */
+    public void add(ResourceCollection rc) {
+        resources.add(rc);
+    }
 
     /**
      * Add a SQL transaction to execute
@@ -266,6 +315,16 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
+     * Print trailing info (rows affected) for the SQL
+     * Addresses Bug/Request #27446
+     * @param showtrailers if true prints the SQL rows affected
+     * @since Ant 1.7
+     */
+    public void setShowtrailers(boolean showtrailers) {
+        this.showtrailers = showtrailers;
+    }
+    
+    /**
      * Set the output file;
      * optional, defaults to the Ant log.
      * @param output the output file to use for logging messages.
@@ -326,9 +385,10 @@ public class SQLExec extends JDBCTask {
 
         try {
             if (srcFile == null && sqlCommand.length() == 0
-                && filesets.isEmpty()) {
+                && resources.size() == 0) {
                 if (transactions.size() == 0) {
-                    throw new BuildException("Source file or fileset, "
+                    throw new BuildException("Source file or resource "
+                                             + "collection, "
                                              + "transactions or sql statement "
                                              + "must be set!", getLocation());
                 }
@@ -338,19 +398,13 @@ public class SQLExec extends JDBCTask {
                 throw new BuildException("Source file does not exist!", getLocation());
             }
 
-            // deal with the filesets
-            for (int i = 0; i < filesets.size(); i++) {
-                FileSet fs = (FileSet) filesets.elementAt(i);
-                DirectoryScanner ds = fs.getDirectoryScanner(getProject());
-                File srcDir = fs.getDir(getProject());
-
-                String[] srcFiles = ds.getIncludedFiles();
-
-                // Make a transaction for each file
-                for (int j = 0; j < srcFiles.length; j++) {
-                    Transaction t = createTransaction();
-                    t.setSrc(new File(srcDir, srcFiles[j]));
-                }
+            // deal with the resources
+            Iterator iter = resources.iterator();
+            while (iter.hasNext()) {
+                Resource r = (Resource) iter.next();
+                // Make a transaction for each resource
+                Transaction t = createTransaction();
+                t.setSrcResource(r);
             }
 
             // Make a transaction group for the outer command
@@ -393,22 +447,10 @@ public class SQLExec extends JDBCTask {
                     }
                 }
             } catch (IOException e) {
-                if (!isAutocommit() && conn != null && onError.equals("abort")) {
-                    try {
-                        conn.rollback();
-                    } catch (SQLException ex) {
-                        // ignore
-                    }
-                }
+                closeQuietly();
                 throw new BuildException(e, getLocation());
             } catch (SQLException e) {
-                if (!isAutocommit() && conn != null && onError.equals("abort")) {
-                    try {
-                        conn.rollback();
-                    } catch (SQLException ex) {
-                        // ignore
-                    }
-                }
+                closeQuietly();
                 throw new BuildException(e, getLocation());
             } finally {
                 try {
@@ -441,7 +483,7 @@ public class SQLExec extends JDBCTask {
     protected void runStatements(Reader reader, PrintStream out)
         throws SQLException, IOException {
         StringBuffer sql = new StringBuffer();
-        String line = "";
+        String line;
 
         BufferedReader in = new BufferedReader(reader);
 
@@ -467,9 +509,11 @@ public class SQLExec extends JDBCTask {
             }
 
             if (!keepformat) {
-                sql.append(" " + line);
+                sql.append(" ");
+                sql.append(line);
             } else {
-                sql.append("\n" + line);
+                sql.append("\n");
+                sql.append(line);
             }
 
             // SQL defines "--" as a comment to EOL
@@ -481,7 +525,7 @@ public class SQLExec extends JDBCTask {
                 }
             }
             if ((delimiterType.equals(DelimiterType.NORMAL)
-                 && sql.toString().endsWith(delimiter))
+                 && StringUtils.endsWith(sql, delimiter))
                 ||
                 (delimiterType.equals(DelimiterType.ROW)
                  && line.equals(delimiter))) {
@@ -491,7 +535,7 @@ public class SQLExec extends JDBCTask {
             }
         }
         // Catch any statements not followed by ;
-        if (!sql.equals("")) {
+        if (sql.length() > 0) {
             execSQL(sql.toString(), out);
         }
     }
@@ -540,10 +584,8 @@ public class SQLExec extends JDBCTask {
             log(updateCountTotal + " rows affected",
                 Project.MSG_VERBOSE);
 
-            if (print) {
-                StringBuffer line = new StringBuffer();
-                line.append(updateCountTotal + " rows affected");
-                out.println(line);
+            if (print && showtrailers) {
+                out.println(updateCountTotal + " rows affected");
             }
 
             SQLWarning warning = conn.getWarnings();
@@ -568,13 +610,14 @@ public class SQLExec extends JDBCTask {
 
     /**
      * print any results in the statement
-     * @deprecated use {@link #printResults(java.sql.ResultSet, java.io.PrintStream) the two arg version} instead.
+     * @deprecated since 1.6.x.
+     *             Use {@link #printResults(java.sql.ResultSet, java.io.PrintStream)
+     *             the two arg version} instead.
      * @param out the place to print results
      * @throws SQLException on SQL problems.
      */
     protected void printResults(PrintStream out) throws SQLException {
-        ResultSet rs = null;
-        rs = statement.getResultSet();
+        ResultSet rs = statement.getResultSet();
         try {
             printResults(rs, out);
         } finally {
@@ -589,9 +632,10 @@ public class SQLExec extends JDBCTask {
      * @param rs the resultset to print information about
      * @param out the place to print results
      * @throws SQLException on SQL problems.
-     * @since Ant 1.7
+     * @since Ant 1.6.3
      */
-    protected void printResults(ResultSet rs, PrintStream out) throws SQLException {
+    protected void printResults(ResultSet rs, PrintStream out)
+        throws SQLException {
         if (rs != null) {
             log("Processing new result set.", Project.MSG_VERBOSE);
             ResultSetMetaData md = rs.getMetaData();
@@ -628,6 +672,21 @@ public class SQLExec extends JDBCTask {
         out.println();
     }
 
+    /*
+     * Closes an unused connection after an error and doesn't rethrow 
+     * a possible SQLException
+     * @since Ant 1.7
+     */
+    private void closeQuietly() {
+        if (!isAutocommit() && conn != null && onError.equals("abort")) {
+            try {
+                conn.rollback();
+            } catch (SQLException ex) {
+                // ignore
+            }
+        }
+    }
+    
     /**
      * The action a task should perform on an error,
      * one of "continue", "stop" and "abort"
@@ -646,7 +705,7 @@ public class SQLExec extends JDBCTask {
      * operation in between.
      */
     public class Transaction {
-        private File tSrcFile = null;
+        private Resource tSrcResource = null;
         private String tSqlCommand = "";
 
         /**
@@ -654,7 +713,23 @@ public class SQLExec extends JDBCTask {
          * @param src the source file
          */
         public void setSrc(File src) {
-            this.tSrcFile = src;
+            //there are places (in this file, and perhaps elsewhere, where it is assumed
+            //that null is an acceptable parameter.
+            if(src!=null) {
+                setSrcResource(new FileResource(src));
+            }
+        }
+
+        /**
+         * Set the source resource attribute.
+         * @param src the source file
+         * @since Ant 1.7
+         */
+        public void setSrcResource(Resource src) {
+            if (tSrcResource != null) {
+                throw new BuildException("only one resource per transaction");
+            }
+            tSrcResource = src;
         }
 
         /**
@@ -662,7 +737,24 @@ public class SQLExec extends JDBCTask {
          * @param sql the inline text
          */
         public void addText(String sql) {
-            this.tSqlCommand += sql;
+            if (sql != null) {
+                if (getExpandProperties()) {
+                    sql = getProject().replaceProperties(sql);
+                }
+                this.tSqlCommand += sql;
+            }
+        }
+
+        /**
+         * Set the source resource.
+         * @since Ant 1.7
+         */
+        public void addConfigured(ResourceCollection a) {
+            if (a.size() != 1) {
+                throw new BuildException("only single argument resource "
+                                         + "collections are supported.");
+            }
+            setSrcResource((Resource) a.iterator().next());
         }
 
         /**
@@ -675,21 +767,22 @@ public class SQLExec extends JDBCTask {
                 runStatements(new StringReader(tSqlCommand), out);
             }
 
-            if (tSrcFile != null) {
-                log("Executing file: " + tSrcFile.getAbsolutePath(),
+            if (tSrcResource != null) {
+                log("Executing resource: " + tSrcResource.toString(),
                     Project.MSG_INFO);
-                Reader reader =
-                    (encoding == null) ? new FileReader(tSrcFile)
-                                       : new InputStreamReader(
-                                             new FileInputStream(tSrcFile),
-                                             encoding);
+                InputStream is = null;
+                Reader reader = null;
                 try {
+                    is = tSrcResource.getInputStream();
+                    reader =
+                        (encoding == null) ? new InputStreamReader(is)
+                        : new InputStreamReader(is, encoding);
                     runStatements(reader, out);
                 } finally {
-                    reader.close();
+                    FileUtils.close(is);
+                    FileUtils.close(reader);
                 }
             }
         }
     }
-
 }

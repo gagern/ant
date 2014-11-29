@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
 <title>InputHandler</title>
 </head>
 
@@ -41,7 +42,7 @@ this method must not return unless the <code>request</code> considers
 the user input valid, it is allowed to throw an exception in this
 situation.</p>
 
-<p>Ant comes with two built-in implementations of this interface:</p>
+<p>Ant comes with three built-in implementations of this interface:</p>
 
 <h3><a name="defaulthandler">DefaultInputHandler</a></h3>
 
@@ -71,6 +72,12 @@ be a Java system property, not an Ant property.  I.e. you cannot
 define it as a simple parameter to <code>ant</code>, but you can
 define it inside the <code>ANT_OPTS</code> environment variable.</p>
 
+<h3>GreedyInputHandler</h3>
+
+<p>Like the default implementation, this InputHandler reads from standard
+input. However, it consumes <i>all</i> available input. This behavior is
+useful for sending Ant input via an OS pipe. <b>Since Ant 1.7</b>.</p>
+
 <h2>InputRequest</h2>
 
 <p>Instances of <code>org.apache.tools.ant.input.InputRequest</code>
@@ -84,6 +91,6 @@ should be used if the user input must be part of a predefined set of
 choices.</p>
 
 <hr>
-<p align="center">Copyright &copy; 2002,2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2002,2004-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 </html>

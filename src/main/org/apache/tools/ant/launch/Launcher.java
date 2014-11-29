@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,54 +26,110 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+import org.apache.tools.ant.MagicNames;
+
 
 /**
- *  This is a launcher for Ant.
+ * This is a launcher for Ant.
  *
  * @since Ant 1.6
  */
 public class Launcher {
-    /** The Ant Home property */
-    public static final String ANTHOME_PROPERTY = "ant.home";
 
-    /** The Ant Library Directory property */
+    /**
+     * The Ant Home (installation) Directory property.
+     * {@value}
+     * @deprecated since 1.7
+     */
+    public static final String ANTHOME_PROPERTY = MagicNames.ANT_HOME;
+
+    /**
+     * The Ant Library Directory property.
+     * {@value}
+     */
     public static final String ANTLIBDIR_PROPERTY = "ant.library.dir";
 
-    /** The location of a per-user library directory */
-    public static final String USER_LIBDIR = ".ant/lib";
+    /**
+     * The directory name of the per-user ant directory.
+     * {@value}
+     */
+    public static final String ANT_PRIVATEDIR = ".ant";
 
-    /** The startup class that is to be run */
+    /**
+     * The name of a per-user library directory.
+     * {@value}
+     */
+    public static final String ANT_PRIVATELIB = "lib";
+
+    /**
+     * The location of a per-user library directory.
+     * <p>
+     * It's value is the concatenation of {@link #ANT_PRIVATEDIR}
+     * with {@link #ANT_PRIVATELIB}, with an appropriate file separator
+     * in between. For example, on Unix, it's <code>.ant/lib</code>.
+     */
+    public static final String USER_LIBDIR =
+        ANT_PRIVATEDIR + File.separatorChar + ANT_PRIVATELIB;
+
+    /**
+     * The startup class that is to be run.
+     * {@value}
+     */
     public static final String MAIN_CLASS = "org.apache.tools.ant.Main";
 
     /**
-     *  Entry point for starting command line Ant
+     * System property with user home directory.
+     * {@value}
+     */
+    public static final String USER_HOMEDIR = "user.home";
+
+    /**
+     * System property with application classpath.
+     * {@value}
+     */
+    private static final String JAVA_CLASS_PATH = "java.class.path";
+
+    /**
+     * Exit code on trouble
+     */
+    protected static final int EXIT_CODE_ERROR = 2;
+
+    /**
+     * Entry point for starting command line Ant.
      *
      * @param  args commandline arguments
      */
     public static void main(String[] args) {
+        int exitCode;
         try {
             Launcher launcher = new Launcher();
-            launcher.run(args);
+            exitCode = launcher.run(args);
         } catch (LaunchException e) {
+            exitCode = EXIT_CODE_ERROR;
             System.err.println(e.getMessage());
         } catch (Throwable t) {
-            t.printStackTrace();
+            exitCode = EXIT_CODE_ERROR;
+            t.printStackTrace(System.err);
+        }
+        if (exitCode != 0) {
+            System.exit(exitCode);
         }
     }
 
+
     /**
-      * Add a CLASSPATH or -lib to lib path urls.
-      * @param path        the classpath or lib path to add to the libPathULRLs
-      * @param getJars     if true and a path is a directory, add the jars in
-      *                    the directory to the path urls
-      * @param libPathURLs the list of paths to add to
-      */
+     * Add a CLASSPATH or -lib to lib path urls.
+     *
+     * @param path        the classpath or lib path to add to the libPathULRLs
+     * @param getJars     if true and a path is a directory, add the jars in
+     *                    the directory to the path urls
+     * @param libPathURLs the list of paths to add to
+     */
     private void addPath(String path, boolean getJars, List libPathURLs)
-        throws MalformedURLException {
-        StringTokenizer myTokenizer
-            = new StringTokenizer(path, System.getProperty("path.separator"));
-        while (myTokenizer.hasMoreElements()) {
-            String elementName = myTokenizer.nextToken();
+            throws MalformedURLException {
+        StringTokenizer tokenizer = new StringTokenizer(path, File.pathSeparator);
+        while(tokenizer.hasMoreElements()) {
+            String elementName = tokenizer.nextToken();
             File element = new File(elementName);
             if (elementName.indexOf("%") != -1 && !element.exists()) {
                 continue;
@@ -85,24 +142,27 @@ public class Launcher {
                 }
             }
 
-            libPathURLs.add(element.toURL());
+            libPathURLs.add(Locator.fileToURL(element));
         }
     }
 
     /**
-     * Run the launcher to launch Ant
+     * Run the launcher to launch Ant.
      *
      * @param args the command line arguments
-     *
+     * @return an exit code. As the normal ant main calls exit when it ends,
+     *         this is for handling failures at bind-time
      * @exception MalformedURLException if the URLs required for the classloader
      *            cannot be created.
      */
-    private void run(String[] args) throws LaunchException, MalformedURLException {
-        String antHomeProperty = System.getProperty(ANTHOME_PROPERTY);
+    private int run(String[] args)
+            throws LaunchException, MalformedURLException {
+        String antHomeProperty = System.getProperty(MagicNames.ANT_HOME);
         File antHome = null;
 
         File sourceJar = Locator.getClassSource(getClass());
         File jarDir = sourceJar.getParentFile();
+        String mainClassname = MAIN_CLASS;
 
         if (antHomeProperty != null) {
             antHome = new File(antHomeProperty);
@@ -110,7 +170,7 @@ public class Launcher {
 
         if (antHome == null || !antHome.exists()) {
             antHome = jarDir.getParentFile();
-            System.setProperty(ANTHOME_PROPERTY, antHome.getAbsolutePath());
+            System.setProperty(MagicNames.ANT_HOME, antHome.getAbsolutePath());
         }
 
         if (!antHome.exists()) {
@@ -146,19 +206,24 @@ public class Launcher {
                 noUserLib = true;
             } else if (args[i].equals("--noclasspath") || args[i].equals("-noclasspath")) {
                 noClassPath = true;
+            } else if (args[i].equals("-main")) {
+                if (i == args.length - 1) {
+                    throw new LaunchException("The -main argument must "
+                            + "be followed by a library location");
+                }
+                mainClassname = args[++i];
             } else {
                 argList.add(args[i]);
             }
         }
-        
+
         //decide whether to copy the existing arg set, or
         //build a new one from the list of all args excluding the special
         //operations that only we handle
-
-        if (libPaths.size() == 0 && cpString == null) {
+        if (argList.size() == args.length) {
             newArgs = args;
         } else {
-            newArgs = (String[]) argList.toArray(new String[0]);
+            newArgs = (String[]) argList.toArray(new String[argList.size()]);
         }
 
         List libPathURLs = new ArrayList();
@@ -172,7 +237,7 @@ public class Launcher {
             addPath(libPath, true, libPathURLs);
         }
 
-        URL[] libJars = (URL[]) libPathURLs.toArray(new URL[0]);
+        URL[] libJars = (URL[]) libPathURLs.toArray(new URL[libPathURLs.size()]);
 
         // Now try and find JAVA_HOME
         File toolsJar = Locator.getToolsJar();
@@ -191,7 +256,7 @@ public class Launcher {
         URL[] systemJars = Locator.getLocationURLs(antLibDir);
 
         File userLibDir
-            = new File(System.getProperty("user.home"), USER_LIBDIR);
+            = new File(System.getProperty(USER_HOMEDIR), USER_LIBDIR);
 
         URL[] userJars = noUserLib ? new URL[0] : Locator.getLocationURLs(userLibDir);
 
@@ -206,13 +271,13 @@ public class Launcher {
             systemJars.length);
 
         if (toolsJar != null) {
-            jars[jars.length - 1] = toolsJar.toURL();
+            jars[jars.length - 1] = Locator.fileToURL(toolsJar);
         }
 
 
         // now update the class.path property
         StringBuffer baseClassPath
-            = new StringBuffer(System.getProperty("java.class.path"));
+            = new StringBuffer(System.getProperty(JAVA_CLASS_PATH));
         if (baseClassPath.charAt(baseClassPath.length() - 1)
                 == File.pathSeparatorChar) {
             baseClassPath.setLength(baseClassPath.length() - 1);
@@ -223,17 +288,29 @@ public class Launcher {
             baseClassPath.append(Locator.fromURI(jars[i].toString()));
         }
 
-        System.setProperty("java.class.path", baseClassPath.toString());
+        System.setProperty(JAVA_CLASS_PATH, baseClassPath.toString());
 
         URLClassLoader loader = new URLClassLoader(jars);
         Thread.currentThread().setContextClassLoader(loader);
+        Class mainClass = null;
+        int exitCode=0;
         try {
-            Class mainClass = loader.loadClass(MAIN_CLASS);
+            mainClass = loader.loadClass(mainClassname);
             AntMain main = (AntMain) mainClass.newInstance();
             main.startAnt(newArgs, null, null);
+        } catch (InstantiationException ex) {
+            System.err.println(
+                "Incompatible version of "+mainClassname+" detected");
+            File mainJar = Locator.getClassSource(mainClass);
+            System.err.println(
+                "Location of this class " + mainJar);
+            exitCode = EXIT_CODE_ERROR;
         } catch (Throwable t) {
-            t.printStackTrace();
+            t.printStackTrace(System.err);
+            exitCode = EXIT_CODE_ERROR;
         }
+        return exitCode;
+        
     }
-}
 
+}

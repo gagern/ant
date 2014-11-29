@@ -1,9 +1,10 @@
 /*
- * Copyright  2003-2005 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,24 +16,26 @@
  *
  */
 
-/*
- * This code is based on code Copyright (c) 2002, Landmark Graphics
- * Corp that has been kindly donated to the Apache Software
- * Foundation.
- */
-
 package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.types.AbstractFileSet;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.PatternSet;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.selectors.FileSelector;
+import org.apache.tools.ant.types.selectors.NoneSelector;
 
 /**
  * Synchronize a local target directory from the files defined
@@ -42,7 +45,6 @@ import org.apache.tools.ant.types.FileSet;
  * mappers and filter chains. Files of the destination directory not
  * present in any of the source fileset are removed.</p>
  *
- * @version $Revision$
  * @since Ant 1.6
  *
  * revised by <a href="mailto:daniel.armbrust@mayo.edu">Dan Armbrust</a>
@@ -54,6 +56,9 @@ public class Sync extends Task {
 
     // Same as regular <copy> task... see at end-of-file!
     private MyCopy myCopy;
+
+    // Similar to a fileset, but doesn't allow dir attribute to be set
+    private SyncTarget syncTarget;
 
     // Override Task#init
     /**
@@ -152,13 +157,44 @@ public class Sync extends Task {
      */
     private int[] removeOrphanFiles(Set nonOrphans, File toDir) {
         int[] removedCount = new int[] {0, 0};
-        DirectoryScanner ds = new DirectoryScanner();
-        ds.setBasedir(toDir);
         String[] excls =
             (String[]) nonOrphans.toArray(new String[nonOrphans.size() + 1]);
         // want to keep toDir itself
         excls[nonOrphans.size()] = "";
-        ds.setExcludes(excls);
+
+        DirectoryScanner ds = null;
+        if (syncTarget != null) {
+            FileSet fs = new FileSet();
+            fs.setDir(toDir);
+            fs.setCaseSensitive(syncTarget.isCaseSensitive());
+            fs.setFollowSymlinks(syncTarget.isFollowSymlinks());
+
+            // preserveInTarget would find all files we want to keep,
+            // but we need to find all that we want to delete - so the
+            // meaning of all patterns and selectors must be inverted
+            PatternSet ps = syncTarget.mergePatterns(getProject());
+            fs.appendExcludes(ps.getIncludePatterns(getProject()));
+            fs.appendIncludes(ps.getExcludePatterns(getProject()));
+            fs.setDefaultexcludes(!syncTarget.getDefaultexcludes());
+
+            // selectors are implicitly ANDed in DirectoryScanner.  To
+            // revert their logic we wrap them into a <none> selector
+            // instead.
+            FileSelector[] s = syncTarget.getSelectors(getProject());
+            if (s.length > 0) {
+                NoneSelector ns = new NoneSelector();
+                for (int i = 0; i < s.length; i++) {
+                    ns.appendSelector(s[i]);
+                }
+                fs.appendSelector(ns);
+            }
+            ds = fs.getDirectoryScanner(getProject());
+        } else {
+            ds = new DirectoryScanner();
+            ds.setBasedir(toDir);
+        }
+        ds.addExcludes(excls);
+
         ds.scan();
         String[] files = ds.getIncludedFiles();
         for (int i = 0; i < files.length; i++) {
@@ -168,16 +204,18 @@ public class Sync extends Task {
             ++removedCount[1];
         }
         String[] dirs = ds.getIncludedDirectories();
-        // ds returns the directories as it has visited them.
+        // ds returns the directories in lexicographic order.
         // iterating through the array backwards means we are deleting
         // leaves before their parent nodes - thus making sure (well,
         // more likely) that the directories are empty when we try to
         // delete them.
         for (int i = dirs.length - 1; i >= 0; --i) {
             File f = new File(toDir, dirs[i]);
+            if (f.list().length < 1) {
             log("Removing orphan directory: " + f, Project.MSG_DEBUG);
             f.delete();
             ++removedCount[0];
+            }
         }
         return removedCount;
     }
@@ -273,7 +311,16 @@ public class Sync extends Task {
      * @param set a fileset
      */
     public void addFileset(FileSet set) {
-        myCopy.addFileset(set);
+        add(set);
+    }
+
+    /**
+     * Adds a collection of filesystem resources to copy.
+     * @param rc a resource collection
+     * @since Ant 1.7
+     */
+    public void add(ResourceCollection rc) {
+        myCopy.add(rc);
     }
 
     /**
@@ -286,6 +333,23 @@ public class Sync extends Task {
      */
     public void setGranularity(long granularity) {
         myCopy.setGranularity(granularity);
+    }
+
+    /**
+     * A container for patterns and selectors that can be used to
+     * specify files that should be kept in the target even if they
+     * are not present in any source directory.
+     *
+     * <p>You must not invoke this method more than once.</p>
+     * @param s a preserveintarget nested element
+     * @since Ant 1.7
+     */
+    public void addPreserveInTarget(SyncTarget s) {
+        if (syncTarget != null) {
+            throw new BuildException("you must not specify multiple "
+                                     + "preserveintarget elements.");
+        }
+        syncTarget = s;
     }
 
     /**
@@ -319,6 +383,21 @@ public class Sync extends Task {
         }
 
         /**
+         * @see Copy#scan(Resource[], File)
+         */
+        protected Map scan(Resource[] resources, File toDir) {
+            assertTrue("No mapper", mapperElement == null);
+
+            Map m = super.scan(resources, toDir);
+
+            Iterator iter = m.keySet().iterator();
+            while (iter.hasNext()) {
+                nonOrphans.add(((Resource) iter.next()).getName());
+            }
+            return m;
+        }
+
+        /**
          * Get the destination directory.
          * @return the destination directory
          */
@@ -332,6 +411,44 @@ public class Sync extends Task {
          */
         public boolean getIncludeEmptyDirs() {
             return includeEmpty;
+        }
+
+        /**
+         * Yes, we can.
+         * @since Ant 1.7
+         */
+        protected boolean supportsNonFileResources() {
+            return true;
+        }
+    }
+
+    /**
+     * Inner class used to hold exclude patterns and selectors to save
+     * stuff that happens to live in the target directory but should
+     * not get removed.
+     *
+     * @since Ant 1.7
+     */
+    public static class SyncTarget extends AbstractFileSet {
+
+        /**
+         * Constructor for SyncTarget.
+         * This just changes the default value of "defaultexcludes" from
+         * true to false.
+         */
+        public SyncTarget() {
+            super();
+        }
+
+        /**
+         * Override AbstractFileSet#setDir(File) to disallow
+         * setting the directory.
+         * @param dir ignored
+         * @throws BuildException always
+         */
+        public void setDir(File dir) throws BuildException {
+            throw new BuildException("preserveintarget doesn't support the dir "
+                                     + "attribute");
         }
 
     }

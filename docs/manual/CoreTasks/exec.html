@@ -1,8 +1,10 @@
-html>
+<html>
 
 <head>
 <meta http-equiv="Content-Language" content="en-us">
+<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
 <title>Exec Task</title>
+<link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
 </head>
 
 <body>
@@ -15,7 +17,7 @@ systems.</p>
 
 <p>Note that you cannot interact with the forked program, the only way
 to send input to it is via the input and inputstring attributes. Also note that
-in Ant 1.6, any attempt to read input in the forked program will receive an
+since Ant 1.6, any attempt to read input in the forked program will receive an
 EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
 
 
@@ -54,7 +56,7 @@ the job table (see the <i>JDK Release Notes</i>).</p>
 
 <p>Please note that the Java VM provided by HP doesn't follow OpenVMS'
 conventions of exit codes.  If you run a Java VM with this task, the
-task may falsely claim that an error occured (or silently ignore an
+task may falsely claim that an error occurred (or silently ignore an
 error).  Don't use this task to run <code>JAVA.EXE</code>, use a
 <code>&lt;java&gt;</code> task with the <code>fork</code> attribute
 set to <code>true</code> instead as this task will follow the VM's
@@ -113,14 +115,21 @@ or the task will fail as follows:
     <td valign="top">list of Operating Systems on which the command may be
       executed. If the current OS's name is contained in this list, the command will
       be executed. The OS's name is determined by the Java Virtual machine and is set
-      in the &quot;os.name&quot; system property.</td>
+      in the &quot;os.name&quot; system property.
+      </td>
+    <td align="center" valign="top">No</td>
+  </tr>
+  <tr>
+    <td valign="top">osfamily</td>
+    <td valign="top">OS family as used in the &lt;os&gt; condition.
+    <em>since Ant 1.7</em></td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
     <td valign="top">spawn</td>
-    <td valign="top">whether or not you want the command to be spawned<br/>
+    <td valign="top">whether or not you want the command to be spawned<br>
     Default is false.<br>
-    If you spawn a command, its output will not be logged by ant.<br/>
+    If you spawn a command, its output will not be logged by ant.<br>
     The input, output, error, and result property settings are not active when spawning a process.<br>
     <em>since Ant 1.6</em>
     </td>
@@ -235,7 +244,7 @@ or the task will fail as follows:
   </tr>
   <tr>
     <td valign="top">searchpath</td>
-    <td valign="top">When this attribute is true nested, then
+    <td valign="top">When this attribute is true, then
                      system path environment variables will
                      be searched when resolving the location
                      of the executable. <em>since Ant 1.6.3</em></td>
@@ -311,10 +320,11 @@ is set to <code>false</code>. You can use that to run a program if it exists, bu
 otherwise do nothing.
 <p>
 What do those error codes mean? Well, they are OS dependent. On Windows
-boxes you have to look in include\error.h in your windows compiler or wine files;
-error code 2 means 'no such program', which usually means it is not on the path.
-Any time you see such an error from any ant task, it is usually not an ant bug,
-but some configuration problem on your machine.
+boxes you have to look at
+<a href="http://msdn.microsoft.com/library/default.asp?url=/library/en-us/debug/base/system_error_codes__0-499_.asp">
+the documentation</a>; error code 2 means 'no such program', which usually means
+it is not on the path. Any time you see such an error from any Ant task, it is
+usually not an Ant bug, but some configuration problem on your machine.
 
 <h3>Examples</h3>
 <blockquote><pre>
@@ -334,7 +344,7 @@ but some configuration problem on your machine.
 system command.</p>
 
 <blockquote><pre>
-&lt;property name="browser" location="C:/Programme/Internet Explorer/iexplore.exe"/&gt;
+&lt;property name="browser" location="C:/Program Files/Internet Explorer/iexplore.exe"/&gt;
 &lt;property name="file" location="ant/docs/manual/index.html"/&gt;
 
 &lt;exec executable="${browser}" spawn="true"&gt;
@@ -342,7 +352,7 @@ system command.</p>
 &lt;/exec&gt;
 </pre></blockquote>
 <p>Starts the <i>${browser}</i> with the specified <i>${file}</i> and end the
-ant process. The browser will let be open.</p>
+Ant process. The browser will remain.</p>
 
 <blockquote><pre>
 &lt;exec executable=&quot;cat&quot;&gt;
@@ -366,14 +376,9 @@ in a property of the same name.  Similarly, error output is sent to
 a file and a property, both named &quot;redirector.err&quot;.
 
 
-<p><b>Note:</b> Although it may work for you to specify arguments using
-a simple arg-element and separate them by spaces it may fail if you switch to
-a newer version of the JDK. JDK &lt; 1.2 will pass these as separate arguments
-to the program you are calling, JDK &gt;= 1.2 will pass them as a single
-argument and cause most calls to fail.</p>
-<p><b>Note2:</b> If you are using Ant on Windows and a new DOS-Window pops up
-for every command which is executed this may be a problem of the JDK you are using.
-This problem may occur with all JDK's &lt; 1.2.</p>
+<p><b>Note:</b> do not try to specify arguments using
+a simple arg-element and separate them by spaces. This results in
+only a single argument containing the entire string.</p>
 <p>
 <b>Timeouts: </b> If a timeout is specified, when it is reached the
 sub process is killed and a message printed to the log. The return
@@ -381,7 +386,7 @@ value of the execution will be "-1", which will halt the build if
 <tt>failonerror=true</tt>, but be ignored otherwise.
 
 <hr>
-<p align="center">Copyright &copy; 2000-2004 The Apache Software Foundation. All rights
+<p align="center">Copyright &copy; 2000-2005 The Apache Software Foundation. All rights
 Reserved.</p>
 
 </body>

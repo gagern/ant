@@ -1,9 +1,10 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -74,6 +75,9 @@ public class PropertyHelper {
     protected PropertyHelper() {
     }
 
+    //override facility for subclasses to put custom hashtables in
+
+
     // --------------------  Hook management  --------------------
 
     /**
@@ -121,14 +125,14 @@ public class PropertyHelper {
     public static synchronized
         PropertyHelper getPropertyHelper(Project project) {
         PropertyHelper helper
-            = (PropertyHelper) project.getReference("ant.PropertyHelper");
+            = (PropertyHelper) project.getReference(MagicNames.REFID_PROPERTY_HELPER);
         if (helper != null) {
             return helper;
         }
         helper = new PropertyHelper();
         helper.setProject(project);
 
-        project.addReference("ant.PropertyHelper", helper);
+        project.addReference(MagicNames.REFID_PROPERTY_HELPER, helper);
         return helper;
     }
 
@@ -480,6 +484,36 @@ public class PropertyHelper {
     public Hashtable getUserProperties() {
         return new Hashtable(userProperties);
     }
+
+    /**
+     * special back door for subclasses, internal access to
+     * the hashtables
+     * @return the live hashtable of all properties
+     */
+    protected Hashtable getInternalProperties() {
+        return properties;
+    }
+
+    /**
+     * special back door for subclasses, internal access to
+     * the hashtables
+     *
+     * @return the live hashtable of user properties
+     */
+    protected Hashtable getInternalUserProperties() {
+        return userProperties;
+    }
+
+    /**
+     * special back door for subclasses, internal access to
+     * the hashtables
+     *
+     * @return the live hashtable inherited properties
+     */
+    protected Hashtable getInternalInheritedProperties() {
+        return inheritedProperties;
+    }
+
 
     /**
      * Copies all user properties that have not been set on the
