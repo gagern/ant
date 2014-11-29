@@ -554,13 +554,17 @@ public class ExecuteOnTest extends BuildFileTest {
         executeTarget("ignoremissing");
     }
 
+    public void testForce() {
+        executeTarget("force");
+    }
+
     //borrowed from TokenFilterTest
     private String getFileString(String filename) throws IOException {
         String result = null;
         FileReader reader = null;
         try {
             reader = new FileReader(getProject().resolveFile(filename));
-            result = FileUtils.newFileUtils().readFully(reader);
+            result = FileUtils.readFully(reader);
         } finally {
             if (reader != null) {
                 try {

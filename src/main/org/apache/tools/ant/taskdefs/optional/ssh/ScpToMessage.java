@@ -30,7 +30,7 @@ import java.util.Iterator;
 
 public class ScpToMessage extends AbstractSshMessage {
 
-    private final int BUFFER_SIZE = 1024;
+    private static final int BUFFER_SIZE = 1024;
 
     private File localFile;
     private String remotePath;
@@ -112,7 +112,7 @@ public class ScpToMessage extends AbstractSshMessage {
     }
 
     private void doMultipleTransfer() throws IOException, JSchException {
-        Channel channel = openExecChannel("scp -d -t " + remotePath);
+        Channel channel = openExecChannel("scp -r -d -t " + remotePath);
         try {
             OutputStream out = channel.getOutputStream();
             InputStream in = channel.getInputStream();
@@ -197,8 +197,8 @@ public class ScpToMessage extends AbstractSshMessage {
                 totalLength += len;
 
                 if (trackProgress) {
-                    percentTransmitted = trackProgress(initFilesize, 
-                                                       totalLength, 
+                    percentTransmitted = trackProgress(initFilesize,
+                                                       totalLength,
                                                        percentTransmitted);
                 }
             }

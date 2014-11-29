@@ -93,7 +93,7 @@ operation as <a href="../CoreTypes/filterset.html">filtersets</a>
   </tr>
   <tr>
     <td valign="top">failonerror</td>
-     <td valign="top">Log a warning message, but do not stop the
+     <td valign="top">If false, log a warning message, but do not stop the
        build, when the file to copy does not exist or one of the nested
        filesets points to a directory that doesn't exist or an error occurs
        while copying.
@@ -133,7 +133,7 @@ operation as <a href="../CoreTypes/filterset.html">filtersets</a>
     <td valign="top">The number of milliseconds leeway to give before
     deciding a file is out of date. This is needed because not every
     file system supports tracking the last modified time to the
-    millisecond level. Default is 0 milliseconds, or 2 seconds on DOS
+    millisecond level. Default is 1 second, or 2 seconds on DOS
     systems.  This can also be useful if source and target files live
     on separate machines with clocks being out of sync.  <em>since Ant
     1.6.2</em>.</td>
@@ -151,6 +151,10 @@ sets of files to copy.
  href="../CoreTypes/mapper.html">mapper</a> element. The default mapper used by
  <code>&lt;copy&gt;</code> is the <a
  href="../CoreTypes/mapper.html#identity-mapper">identity mapper</a>.</p>
+  <p>
+    <em>Since Ant 1.6.3</em>,
+    one can use a filenamemapper type in place of the mapper element.
+  </p>
 
 <h4>filterset</h4>
  <p><a href="../CoreTypes/filterset.html">FilterSet</a>s are used to replace
@@ -162,9 +166,9 @@ tokens in files that are copied.
 FilterChain</a>s.</p>
 
 <p>
-If &lt;filterset&gt; and &lt;filterchain&gt; elements are used inside the
-same &lt;copy&gt; task, all &lt;filterchain&gt; elements are processed first
-followed by &lt;filterset&gt; elements.
+If <code>&lt;filterset&gt;</code> and <code>&lt;filterchain&gt;</code> elements are used inside the
+same <code>&lt;copy&gt;</code> task, all <code>&lt;filterchain&gt;</code> elements are processed first
+followed by <code>&lt;filterset&gt;</code> elements.
 </p>
 
 <h3>Examples</h3>
@@ -199,7 +203,7 @@ followed by &lt;filterset&gt; elements.
 <pre>
   &lt;copy todir=&quot;../backup/dir&quot;&gt;
     &lt;fileset dir=&quot;src_dir&quot;/&gt;
-    &lt;mapper type=&quot;glob&quot; from=&quot;*&quot; to=&quot;*.bak&quot;/&gt;
+    &lt;globmapper from=&quot;*&quot; to=&quot;*.bak&quot;/&gt;
   &lt;/copy&gt;
 </pre>
 

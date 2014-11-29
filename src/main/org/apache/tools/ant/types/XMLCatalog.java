@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ public class XMLCatalog extends DataType
     implements Cloneable, EntityResolver, URIResolver {
 
     /** helper for some File.toURL connversions */
-    private static FileUtils fileUtils = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     //-- Fields ----------------------------------------------------------------
 
@@ -453,7 +453,7 @@ public class XMLCatalog extends DataType
             URL baseURL = null;
             try {
                 if (base == null) {
-                    baseURL = fileUtils.getFileURL(getProject().getBaseDir());
+                    baseURL = FILE_UTILS.getFileURL(getProject().getBaseDir());
                 } else {
                     baseURL = new URL(base);
                 }
@@ -539,7 +539,7 @@ public class XMLCatalog extends DataType
                 catalogResolver = new InternalResolver();
                 if (getCatalogPath() != null
                     && getCatalogPath().list().length != 0) {
-                        log("Warning: catalogpath listing external catalogs"
+                        log("Warning: XML resolver not found; external catalogs"
                             + " will be ignored", Project.MSG_WARN);
                     }
                 log("Failed to load Apache resolver: " + ex, Project.MSG_DEBUG);
@@ -649,7 +649,7 @@ public class XMLCatalog extends DataType
             baseURL = matchingEntry.getBase();
         } else {
             try {
-                baseURL = fileUtils.getFileURL(getProject().getBaseDir());
+                baseURL = FILE_UTILS.getFileURL(getProject().getBaseDir());
             } catch (MalformedURLException ex) {
                 throw new BuildException("Project basedir cannot be converted to a URL");
             }
@@ -667,7 +667,7 @@ public class XMLCatalog extends DataType
                 log("uri : '"
                     + uri + "' matches a readable file", Project.MSG_DEBUG);
                 try {
-                    url = fileUtils.getFileURL(testFile);
+                    url = FILE_UTILS.getFileURL(testFile);
                 } catch (MalformedURLException ex1) {
                     throw new BuildException("could not find an URL for :" + testFile.getAbsolutePath());
                 }
@@ -679,7 +679,7 @@ public class XMLCatalog extends DataType
         }
 
         if (url != null) {
-            String fileName = url.getFile();
+            String fileName = FILE_UTILS.fromURI(url.toString());
             if (fileName != null) {
                 log("fileName " + fileName, Project.MSG_DEBUG);
                 File resFile = new File(fileName);
@@ -756,7 +756,7 @@ public class XMLCatalog extends DataType
             baseURL = matchingEntry.getBase();
         } else {
             try {
-                baseURL = fileUtils.getFileURL(getProject().getBaseDir());
+                baseURL = FILE_UTILS.getFileURL(getProject().getBaseDir());
             } catch (MalformedURLException ex) {
                 throw new BuildException("Project basedir cannot be converted to a URL");
             }

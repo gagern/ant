@@ -67,14 +67,14 @@ public class Move extends Copy {
     protected void validateAttributes() throws BuildException {
         if (file != null && file.isDirectory()) {
             if ((destFile != null && destDir != null)
-                || (destFile == null && destDir == null)){
+                || (destFile == null && destDir == null)) {
                 throw new BuildException("One and only one of tofile and todir "
                                          + "must be set.");
             }
             destFile = (destFile == null)
                 ? new File(destDir, file.getName()) : destFile;
             destDir = (destDir == null)
-                ? fileUtils.getParentFile(destFile) : destDir;
+                ? destFile.getParentFile() : destDir;
 
             completeDirMap.put(file, destFile);
             file = null;

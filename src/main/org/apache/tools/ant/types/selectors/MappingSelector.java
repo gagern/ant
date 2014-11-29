@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,6 +30,10 @@ import java.io.File;
  * selector
  */
 public abstract class MappingSelector extends BaseSelector {
+
+    /** Utilities used for file operations */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     protected File targetdir = null;
     protected Mapper mapperElement = null;
     protected FileNameMapper map = null;
@@ -40,7 +44,7 @@ public abstract class MappingSelector extends BaseSelector {
      *
      */
     public MappingSelector() {
-        granularity = (int) FileUtils.newFileUtils().getFileTimestampGranularity();
+        granularity = (int) FILE_UTILS.getFileTimestampGranularity();
     }
 
 
@@ -128,8 +132,8 @@ public abstract class MappingSelector extends BaseSelector {
 
     /**
      * Sets the number of milliseconds leeway we will give before we consider
-     * a file out of date. Defaults to 2000 on MS-DOS derivatives as the FAT
-     * file system.
+     * a file out of date. Defaults to 2000 on MS-DOS derivatives and 1000 on
+     * others.
      * @param granularity the leeway in milliseconds
      */
     public void setGranularity(int granularity) {

@@ -106,10 +106,11 @@ public class CommandlineJava implements Cloneable {
                     listIt.add("-D" + props[i]);
                 }
             }
-            Properties propertySets = mergePropertySets();
-            for (Enumeration e = propertySets.keys(); e.hasMoreElements();) {
+            Properties propertySetProperties = mergePropertySets();
+            for (Enumeration e = propertySetProperties.keys();
+                 e.hasMoreElements();) {
                 String key = (String) e.nextElement();
-                String value = propertySets.getProperty(key);
+                String value = propertySetProperties.getProperty(key);
                 listIt.add("-D" + key + "=" + value);
             }
         }
@@ -133,9 +134,9 @@ public class CommandlineJava implements Cloneable {
             try {
                 sys = System.getProperties();
                 Properties p = new Properties();
-                for (Enumeration e = sys.keys(); e.hasMoreElements();) {
-                    Object o = e.nextElement();
-                    p.put(o, sys.get(o));
+                for (Enumeration e = sys.propertyNames(); e.hasMoreElements();) {
+                    String name = (String) e.nextElement();
+                    p.put(name, sys.getProperty(name));
                 }
                 p.putAll(mergePropertySets());
                 for (Enumeration e = variables.elements(); e.hasMoreElements();) {
@@ -388,8 +389,8 @@ public class CommandlineJava implements Cloneable {
         if (haveBootclasspath(true)) {
             listIterator.add("-Xbootclasspath:" + bootclasspath.toString());
         } else if (cloneBootclasspath()) {
-            listIterator.add("-Xbootclasspath:" +
-                             Path.systemBootClasspath.toString());
+            listIterator.add("-Xbootclasspath:"
+                             + Path.systemBootClasspath.toString());
         }
 
         //main classpath

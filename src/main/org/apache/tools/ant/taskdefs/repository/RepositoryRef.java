@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package org.apache.tools.ant.taskdefs.optional.repository;
+package org.apache.tools.ant.taskdefs.repository;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -29,6 +29,9 @@ import java.io.IOException;
  * @since Ant1.7
  */
 public final class RepositoryRef extends Repository {
+    /** this constant name is only funny to COM developers
+     */
+    public static final String E_NOTIMPL = "Not Implemented";
 
 
     /**
@@ -67,10 +70,20 @@ public final class RepositoryRef extends Repository {
      *
      * @param library
      *
+     * @param useTimestamp
      * @return
      */
-    public boolean fetch(Library library) throws IOException {
-        throw new BuildException("Not Implemented");
+    public boolean fetch(Library library, boolean useTimestamp) throws IOException {
+        throw new BuildException(E_NOTIMPL);
     }
 
+    /**
+     * this is a string that uniquely describes the repository and can be used
+     * for equality tests <i>across</i> instances.
+     *
+     * @return
+     */
+    public String getRepositoryURI() {
+        return "ref://" + getRefid();
+    }
 }

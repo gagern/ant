@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,17 +24,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.tools.ant.BuildFileTest;
-import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
  */
 public class JarTest extends BuildFileTest {
+
+    /** Utilities used for file operations */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     private static String tempJar = "tmp.jar";
     private static String tempDir = "jartmp/";
@@ -96,7 +97,7 @@ public class JarTest extends BuildFileTest {
         File jarFile = new File(getProjectDir(), tempJar);
         long jarModifiedDate = jarFile.lastModified();
         try {
-            Thread.currentThread().sleep(2500);
+            Thread.sleep(2500);
         } catch (InterruptedException e) {
         } // end of try-catch
         executeTarget(secondTarget);
@@ -125,9 +126,9 @@ public class JarTest extends BuildFileTest {
     private void testRecreate(String firstTarget, String secondTarget) {
         executeTarget(firstTarget);
         long sleeptime = 3000
-            + FileUtils.newFileUtils().getFileTimestampGranularity();
+            + FILE_UTILS.getFileTimestampGranularity();
         try {
-            Thread.currentThread().sleep(sleeptime);
+            Thread.sleep(sleeptime);
         } catch (InterruptedException e) {
         } // end of try-catch
         File jarFile = new File(getProjectDir(), tempJar);
@@ -255,5 +256,10 @@ public class JarTest extends BuildFileTest {
                 archive.close();
             }
         }
+    }
+    public void testManifestOnlyJar() {
+        executeTarget("testManifestOnlyJar");
+        File manifestFile = getProject().resolveFile(tempDir + "META-INF" + File.separator + "MANIFEST.MF");
+        assertTrue(manifestFile.exists());
     }
 }

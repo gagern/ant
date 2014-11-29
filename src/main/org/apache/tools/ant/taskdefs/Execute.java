@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -48,6 +48,8 @@ public class Execute {
 
     /** Invalid exit code. **/
     public static final int INVALID = Integer.MAX_VALUE;
+
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     private String[] cmdl = null;
     private String[] env = null;
@@ -535,10 +537,10 @@ public class Execute {
             }
         };
 
-        ExecuteStreamHandler streamHandler = new PumpStreamHandler(dummyOut);
-        streamHandler.setProcessErrorStream(process.getErrorStream());
-        streamHandler.setProcessOutputStream(process.getInputStream());
-        streamHandler.start();
+        ExecuteStreamHandler handler = new PumpStreamHandler(dummyOut);
+        handler.setProcessErrorStream(process.getErrorStream());
+        handler.setProcessOutputStream(process.getInputStream());
+        handler.start();
         process.getOutputStream().close();
 
         project.log("spawned process " + process.toString(), Project.MSG_VERBOSE);
@@ -1152,7 +1154,7 @@ public class Execute {
          */
         private File createCommandFile(String[] cmd, String[] env)
             throws IOException {
-            File script = FileUtils.newFileUtils().createTempFile("ANT", ".COM",null);
+            File script = FILE_UTILS.createTempFile("ANT", ".COM", null);
             //TODO: bind the longevity of the file to the exe
             script.deleteOnExit();
             PrintWriter out = null;
@@ -1162,7 +1164,7 @@ public class Execute {
                 // add the environment as logicals to the DCL script
                 if (env != null) {
                     int eqIndex;
-                    for (int i = 1; i < env.length ; i++) {
+                    for (int i = 1; i < env.length; i++) {
                         eqIndex = env[i].indexOf('=');
                         if (eqIndex != -1) {
                             out.print("$ DEFINE/NOLOG ");
@@ -1175,7 +1177,7 @@ public class Execute {
                 }
 
                 out.print("$ " + cmd[0]);
-                for (int i = 1; i < cmd.length ; i++) {
+                for (int i = 1; i < cmd.length; i++) {
                     out.println(" -");
                     out.print(cmd[i]);
                 }

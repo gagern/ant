@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
+ * Copyright  2001-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import java.io.IOException;
  */
 public class ReplaceRegExpTest extends BuildFileTest {
     private static final String PROJECT_PATH = "src/etc/testcases/taskdefs/optional";
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+    
     public ReplaceRegExpTest(String name) {
         super(name);
     }
@@ -47,7 +49,7 @@ public class ReplaceRegExpTest extends BuildFileTest {
         Properties original = new Properties();
         FileInputStream propsFile = null;
         try {
-            propsFile = new FileInputStream(PROJECT_PATH + "/replaceregexp.properties");
+            propsFile = new FileInputStream(new File(System.getProperty("root"), PROJECT_PATH + "/replaceregexp.properties"));
             original.load(propsFile);
         } finally {
             if (propsFile != null) {
@@ -62,7 +64,7 @@ public class ReplaceRegExpTest extends BuildFileTest {
 
         Properties after = new Properties();
         try {
-            propsFile = new FileInputStream(PROJECT_PATH + "/test.properties");
+            propsFile = new FileInputStream(new File(System.getProperty("root"), PROJECT_PATH + "/test.properties"));
             after.load(propsFile);
         } finally {
             if (propsFile != null) {
@@ -77,7 +79,7 @@ public class ReplaceRegExpTest extends BuildFileTest {
     // inspired by bug 22541
     public void testDirectoryDateDoesNotChange() {
         executeTarget("touchDirectory");
-        File myFile = new File(PROJECT_PATH + "/" + getProject().getProperty("tmpregexp"));
+        File myFile = new File(System.getProperty("root"), PROJECT_PATH + "/" + getProject().getProperty("tmpregexp"));
         long timeStampBefore = myFile.lastModified();
         executeTarget("testDirectoryDateDoesNotChange");
         long timeStampAfter = myFile.lastModified();
@@ -87,17 +89,17 @@ public class ReplaceRegExpTest extends BuildFileTest {
     public void testDontAddNewline1() throws IOException {
         executeTarget("testDontAddNewline1");
         assertTrue("Files match",
-                   FileUtils.newFileUtils()
-                   .contentEquals(new File(PROJECT_PATH + "/test.properties"),
-                                  new File(PROJECT_PATH + "/replaceregexp2.result.properties")));
+                   FILE_UTILS
+                   .contentEquals(new File(System.getProperty("root"), PROJECT_PATH + "/test.properties"),
+                                  new File(System.getProperty("root"), PROJECT_PATH + "/replaceregexp2.result.properties")));
     }
 
     public void testDontAddNewline2() throws IOException {
         executeTarget("testDontAddNewline2");
         assertTrue("Files match",
-                   FileUtils.newFileUtils()
-                   .contentEquals(new File(PROJECT_PATH + "/test.properties"),
-                                  new File(PROJECT_PATH + "/replaceregexp2.result.properties")));
+                   FILE_UTILS
+                   .contentEquals(new File(System.getProperty("root"), PROJECT_PATH + "/test.properties"),
+                                  new File(System.getProperty("root"), PROJECT_PATH + "/replaceregexp2.result.properties")));
     }
 
 }// ReplaceRegExpTest

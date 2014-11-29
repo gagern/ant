@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,17 +24,13 @@ import java.io.PrintStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.PipedInputStream;
 import java.io.InputStreamReader;
 import java.io.PipedOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.util.Arrays;
 import java.util.Vector;
+
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.BuildException;
@@ -56,7 +52,7 @@ import org.apache.tools.ant.util.KeepAliveOutputStream;
  */
 public class Redirector {
 
-    private static final String defaultEncoding
+    private static final String DEFAULT_ENCODING
         = System.getProperty("file.encoding");
 
     private class PropertyOutputStream extends ByteArrayOutputStream {
@@ -156,13 +152,13 @@ public class Redirector {
     private Vector inputFilterChains;
 
     /** The output encoding */
-    private String outputEncoding = defaultEncoding;
+    private String outputEncoding = DEFAULT_ENCODING;
 
     /** The error encoding */
-    private String errorEncoding = defaultEncoding;
+    private String errorEncoding = DEFAULT_ENCODING;
 
     /** The input encoding */
-    private String inputEncoding = defaultEncoding;
+    private String inputEncoding = DEFAULT_ENCODING;
 
     /** Whether to complete properties settings **/
     private boolean appendProperties = true;
@@ -494,7 +490,7 @@ public class Redirector {
             try {
                 LeadPipeInputStream snk = new LeadPipeInputStream();
                 snk.setManagingTask(managingTask);
-    
+
                 InputStream outPumpIn = snk;
 
                 Reader reader = new InputStreamReader(outPumpIn, inputEncoding);
@@ -523,7 +519,7 @@ public class Redirector {
             try {
                 LeadPipeInputStream snk = new LeadPipeInputStream();
                 snk.setManagingTask(managingTask);
-    
+
                 InputStream errPumpIn = snk;
 
                 Reader reader = new InputStreamReader(errPumpIn, inputEncoding);
@@ -558,7 +554,7 @@ public class Redirector {
             } catch (IOException eyeOhEx) {
                 throw new BuildException(eyeOhEx);
             }
-            ((ConcatFileInputStream)inputStream).setManagingTask(managingTask);
+            ((ConcatFileInputStream) inputStream).setManagingTask(managingTask);
         } else if (inputString != null) {
             managingTask.log("Using input \"" + inputString + "\"",
                 Project.MSG_VERBOSE);
@@ -729,17 +725,22 @@ public class Redirector {
                     try {
                         managingTask.log(thread[i].toString(), Project.MSG_DEBUG);
                     } catch (NullPointerException enPeaEx) {
+                        // Ignore exception
                     }
                 }
                 Thread.sleep(1000);
             } catch (InterruptedException eyeEx) {
+                // Ignore exception
             }
         }
 
         setProperties();
 
         inputStream = null;
-        outputStream = errorStream = outPrintStream = errorPrintStream = null;
+        outputStream = null;
+        errorStream = null;
+        outPrintStream = null;
+        errorPrintStream = null;
    }
 
     /**
@@ -751,12 +752,14 @@ public class Redirector {
             try {
                 baos.close();
             } catch (IOException eyeOhEx) {
+                // Ignore exception
             }
         }
         if (errorBaos != null) {
             try {
                 errorBaos.close();
             } catch (IOException eyeOhEx) {
+                // Ignore exception
             }
         }
     }
@@ -770,7 +773,7 @@ public class Redirector {
         Arrays.fill(c, ' ');
         String indent = new String(c);
 
-        for (int i = 1; i < file.length ; i++) {
+        for (int i = 1; i < file.length; i++) {
             outputStream = new TeeOutputStream(outputStream,
                 new LazyFileOutputStream(file[i], append, createEmptyFiles));
             managingTask.log(indent + file[i], loglevel);

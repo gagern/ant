@@ -1,5 +1,5 @@
 /*
- * Copyright  2001,2003-2004 The Apache Software Foundation
+ * Copyright  2001-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import junit.framework.TestCase;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -36,6 +37,9 @@ import org.w3c.dom.NodeList;
  * Ensure that reference classpath feature is working fine...
  */
 public class XMLReportTest extends TestCase {
+    /** helper for some File/URL connversions */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     public XMLReportTest(String s) {
         super(s);
     }
@@ -45,7 +49,7 @@ public class XMLReportTest extends TestCase {
         if (url == null) {
             throw new FileNotFoundException("Unable to load '" + name + "' from classpath");
         }
-        return new File(url.getFile());
+        return new File(FILE_UTILS.fromURI(url.toString()));
     }
 
     public void testCreateDocument() throws Exception {

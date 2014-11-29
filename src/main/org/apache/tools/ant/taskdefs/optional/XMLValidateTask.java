@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@ package org.apache.tools.ant.taskdefs.optional;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Vector;
 
 import org.apache.tools.ant.AntClassLoader;
@@ -59,7 +57,7 @@ public class XMLValidateTask extends Task {
     /**
      * helper for path -> URI and URI -> path conversions.
      */
-    private static FileUtils fu = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     protected static final String INIT_FAILED_MSG =
         "Could not start xml validation: ";
@@ -391,7 +389,7 @@ public class XMLValidateTask extends Task {
      */
     private void setFeature(String feature, boolean value)
         throws BuildException {
-        log("Setting feature "+feature+"="+value,Project.MSG_DEBUG);
+        log("Setting feature " + feature + "=" + value, Project.MSG_DEBUG);
         try {
             xmlReader.setFeature(feature, value);
         } catch (SAXNotRecognizedException e) {
@@ -455,11 +453,11 @@ public class XMLValidateTask extends Task {
             log("Validating " + afile.getName() + "... ", Project.MSG_VERBOSE);
             errorHandler.init(afile);
             InputSource is = new InputSource(new FileInputStream(afile));
-            String uri = fu.toURI(afile.getAbsolutePath());
+            String uri = FILE_UTILS.toURI(afile.getAbsolutePath());
             is.setSystemId(uri);
             xmlReader.parse(is);
         } catch (SAXException ex) {
-            log("Caught when validating: "+ex.toString(),Project.MSG_DEBUG);
+            log("Caught when validating: " + ex.toString(), Project.MSG_DEBUG);
             if (failOnError) {
                 throw new BuildException(
                     "Could not validate document " + afile);
@@ -546,18 +544,22 @@ public class XMLValidateTask extends Task {
         private String getMessage(SAXParseException e) {
             String sysID = e.getSystemId();
             if (sysID != null) {
-                try {
-                    int line = e.getLineNumber();
-                    int col = e.getColumnNumber();
-                    return new URL(sysID).getFile()
-                        + (line == -1
-                            ? ""
-                            : (":" + line + (col == -1 ? "" : (":" + col))))
-                        + ": "
-                        + e.getMessage();
-                } catch (MalformedURLException mfue) {
-                    // ignore and just return exception message
+                String name = sysID;
+                if (sysID.startsWith("file:")) {
+                    try {
+                        name = FILE_UTILS.fromURI(sysID);
+                    } catch (Exception ex) {
+                        // if this is not a valid file: just use the uri
+                    }
                 }
+                int line = e.getLineNumber();
+                int col = e.getColumnNumber();
+                return  name
+                    + (line == -1
+                       ? ""
+                       : (":" + line + (col == -1 ? "" : (":" + col))))
+                    + ": "
+                    + e.getMessage();
             }
             return e.getMessage();
         }
@@ -567,7 +569,7 @@ public class XMLValidateTask extends Task {
      * The class to create to set a feature of the parser.
      * @since ant1.6
      */
-    public class Attribute {
+    public static class Attribute {
         /** The name of the attribute to set.
          *
          * Valid attributes <a href="http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html#package_description">include.</a>
@@ -617,7 +619,7 @@ public class XMLValidateTask extends Task {
      * XML parser properties</a> for usable properties
      * @since ant 1.6.2
      */
-    public final class Property {
+    public static final class Property {
 
         private String name;
         private String value;

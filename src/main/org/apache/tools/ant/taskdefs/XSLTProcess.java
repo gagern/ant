@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,9 +82,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     /** force output of target files even if they already exist */
     private boolean force = false;
 
-    /** Utilities used for file operations */
-    private FileUtils fileUtils;
-
     /** XSL output properties to be used */
     private Vector outputProperties = new Vector();
 
@@ -102,6 +99,9 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     /** Name of the now-deprecated Xalan liaison class */
     private static final String XALAN_LIAISON_CLASS =
                         "org.apache.tools.ant.taskdefs.optional.XalanLiaison";
+
+    /** Utilities used for file operations */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * Whether to style all files in the included directories as well.
@@ -145,7 +145,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * Creates a new XSLTProcess Task.
      */
     public XSLTProcess() {
-        fileUtils = FileUtils.newFileUtils();
+        
     } //-- XSLTProcess
 
     /**
@@ -221,7 +221,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
 
             File stylesheet = getProject().resolveFile(xslFile);
             if (!stylesheet.exists()) {
-                stylesheet = fileUtils.resolveFile(baseDir, xslFile);
+                stylesheet = FILE_UTILS.resolveFile(baseDir, xslFile);
                 /*
                  * shouldn't throw out deprecation warnings before we know,
                  * the wrong version has been used.
@@ -460,15 +460,15 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                          File stylesheet)
         throws BuildException {
 
-        File   outFile = null;
-        File   inFile = null;
+        File   outF = null;
+        File   inF = null;
 
         try {
             long styleSheetLastModified = stylesheet.lastModified();
-            inFile = new File(baseDir, xmlFile);
+            inF = new File(baseDir, xmlFile);
 
-            if (inFile.isDirectory()) {
-                log("Skipping " + inFile + " it is a directory.",
+            if (inF.isDirectory()) {
+                log("Skipping " + inF + " it is a directory.",
                     Project.MSG_VERBOSE);
                 return;
             }
@@ -491,23 +491,23 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 return;
             }
 
-            outFile = new File(destDir, outFileName[0]);
+            outF = new File(destDir, outFileName[0]);
 
             if (force
-                || inFile.lastModified() > outFile.lastModified()
-                || styleSheetLastModified > outFile.lastModified()) {
-                ensureDirectoryFor(outFile);
-                log("Processing " + inFile + " to " + outFile);
+                || inF.lastModified() > outF.lastModified()
+                || styleSheetLastModified > outF.lastModified()) {
+                ensureDirectoryFor(outF);
+                log("Processing " + inF + " to " + outF);
 
                 configureLiaison(stylesheet);
-                liaison.transform(inFile, outFile);
+                liaison.transform(inF, outF);
             }
         } catch (Exception ex) {
             // If failed to process document, must delete target document,
             // or it will not attempt to process it the second time
             log("Failed to process " + inFile, Project.MSG_INFO);
-            if (outFile != null) {
-                outFile.delete();
+            if (outF != null) {
+                outF.delete();
             }
 
             throw new BuildException(ex);
@@ -562,7 +562,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     private void ensureDirectoryFor(File targetFile)
          throws BuildException {
-        File directory = fileUtils.getParentFile(targetFile);
+        File directory = targetFile.getParentFile();
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
                 throw new BuildException("Unable to create directory: "
@@ -967,8 +967,10 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @since Ant 1.6.2
      */
     private class StyleMapper implements FileNameMapper {
-        public void setFrom(String from) {}
-        public void setTo(String to) {}
+        public void setFrom(String from) {
+        }
+        public void setTo(String to) {
+        }
         public String[] mapFileName(String xmlFile) {
             int dotPos = xmlFile.lastIndexOf('.');
             if (dotPos > 0) {

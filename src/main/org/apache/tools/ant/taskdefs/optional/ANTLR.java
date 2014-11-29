@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class ANTLR extends Task {
     private CommandlineJava commandline = new CommandlineJava();
 
     /** the file to process */
-    private File target;
+    private File targetFile;
 
     /** where to output the result */
     private File outputDirectory;
@@ -84,12 +84,11 @@ public class ANTLR extends Task {
 
 
     /** Instance of a utility class to use for file operations. */
-    private FileUtils fileUtils;
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     public ANTLR() {
         commandline.setVm(JavaEnvUtils.getJreExecutable("java"));
         commandline.setClassname("antlr.Tool");
-        fileUtils = FileUtils.newFileUtils();
     }
 
     /**
@@ -97,7 +96,7 @@ public class ANTLR extends Task {
      */
     public void setTarget(File target) {
         log("Setting target to: " + target.toString(), Project.MSG_VERBOSE);
-        this.target = target;
+        this.targetFile = target;
     }
 
     /**
@@ -120,7 +119,7 @@ public class ANTLR extends Task {
         } else {
             sg = superGrammar;
         }
-        setGlib(fileUtils.resolveFile(getProject().getBaseDir(), sg));
+        setGlib(FILE_UTILS.resolveFile(getProject().getBaseDir(), sg));
     }
     /**
      * Sets an optional super grammar file
@@ -262,19 +261,19 @@ public class ANTLR extends Task {
         //TODO: use ANTLR to parse the grammar file to do this.
         File generatedFile = getGeneratedFile();
         boolean targetIsOutOfDate =
-            target.lastModified() > generatedFile.lastModified();
+            targetFile.lastModified() > generatedFile.lastModified();
         boolean superGrammarIsOutOfDate  = superGrammar != null
                 && (superGrammar.lastModified() > generatedFile.lastModified());
         if (targetIsOutOfDate || superGrammarIsOutOfDate) {
             if (targetIsOutOfDate) {
-                log("Compiling " + target + " as it is newer than "
+                log("Compiling " + targetFile + " as it is newer than "
                     + generatedFile, Project.MSG_VERBOSE);
             } else if (superGrammarIsOutOfDate) {
-                log("Compiling " + target + " as " + superGrammar
+                log("Compiling " + targetFile + " as " + superGrammar
                     + " is newer than " + generatedFile, Project.MSG_VERBOSE);
             }
             populateAttributes();
-            commandline.createArgument().setValue(target.toString());
+            commandline.createArgument().setValue(targetFile.toString());
 
             log(commandline.describeCommand(), Project.MSG_VERBOSE);
             int err = run(commandline.getCommandline());
@@ -332,13 +331,13 @@ public class ANTLR extends Task {
     }
 
     private void validateAttributes() throws BuildException {
-        if (target == null || !target.isFile()) {
-            throw new BuildException("Invalid target: " + target);
+        if (targetFile == null || !targetFile.isFile()) {
+            throw new BuildException("Invalid target: " + targetFile);
         }
 
         // if no output directory is specified, used the target's directory
         if (outputDirectory == null) {
-            setOutputdirectory(new File(target.getParent()));
+            setOutputdirectory(new File(targetFile.getParent()));
         }
         if (!outputDirectory.isDirectory()) {
             throw new BuildException("Invalid output directory: " + outputDirectory);
@@ -348,7 +347,7 @@ public class ANTLR extends Task {
     private File getGeneratedFile() throws BuildException {
         String generatedFileName = null;
         try {
-            BufferedReader in = new BufferedReader(new FileReader(target));
+            BufferedReader in = new BufferedReader(new FileReader(targetFile));
             String line;
             while ((line = in.readLine()) != null) {
                 int extendsIndex = line.indexOf(" extends ");

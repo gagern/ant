@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -123,6 +123,9 @@ public class Project {
     /** Default filter end token. */
     public static final String TOKEN_END = FilterSet.DEFAULT_TOKEN_END;
 
+    /** Instance of a utility class to use for file operations. */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     /** Name of this project. */
     private String name;
     /** Description for this project (if any). */
@@ -186,6 +189,11 @@ public class Project {
     private boolean keepGoingMode = false;
 
     /**
+     * Flag which catches Listeners which try to use System.out or System.err
+     */
+    private boolean loggingMessage = false;
+
+    /**
      * Sets the input handler
      *
      * @param handler the InputHandler instance to use for gathering input.
@@ -227,19 +235,10 @@ public class Project {
         return inputHandler;
     }
 
-    /** Instance of a utility class to use for file operations. */
-    private FileUtils fileUtils;
-
-    /**
-     * Flag which catches Listeners which try to use System.out or System.err
-     */
-    private boolean loggingMessage = false;
-
     /**
      * Creates a new Ant project.
      */
     public Project() {
-        fileUtils = FileUtils.newFileUtils();
         inputHandler = new DefaultInputHandler();
     }
 
@@ -731,7 +730,7 @@ public class Project {
      *                           isn't a directory
      */
     public void setBaseDir(File baseDir) throws BuildException {
-        baseDir = fileUtils.normalize(baseDir.getAbsolutePath());
+        baseDir = FILE_UTILS.normalize(baseDir.getAbsolutePath());
         if (!baseDir.exists()) {
             throw new BuildException("Basedir " + baseDir.getAbsolutePath()
                 + " does not exist");
@@ -828,11 +827,11 @@ public class Project {
      */
     public void setSystemProperties() {
         Properties systemP = System.getProperties();
-        Enumeration e = systemP.keys();
+        Enumeration e = systemP.propertyNames();
         while (e.hasMoreElements()) {
-            Object name = e.nextElement();
-            String value = systemP.get(name).toString();
-            this.setPropertyInternal(name.toString(), value);
+            String propertyName = (String) e.nextElement();
+            String value = systemP.getProperty(propertyName);
+            this.setPropertyInternal(propertyName, value);
         }
     }
 
@@ -888,7 +887,7 @@ public class Project {
             throw new BuildException(message);
         }
         try {
-            taskClass.getConstructor(null);
+            taskClass.getConstructor((Class[]) null);
             // don't have to check for public, since
             // getConstructor finds public constructors only.
         } catch (NoSuchMethodException e) {
@@ -1089,9 +1088,9 @@ public class Project {
         if (o == null) {
             throw new BuildException("Unable to obtain a Target Executor instance.");
         } else {
-            String[] targetNameArray = (String[])(targetNames.toArray(
+            String[] targetNameArray = (String[]) (targetNames.toArray(
                 new String[targetNames.size()]));
-            ((Executor)o).executeTargets(this, targetNameArray);
+            ((Executor) o).executeTargets(this, targetNameArray);
         }
     }
 
@@ -1214,8 +1213,8 @@ public class Project {
     }
 
     /**
-     * Executes a <CODE>Vector</CODE> of sorted targets.
-     * @param sortedTargets   the aforementioned <CODE>Vector</CODE>.
+     * Executes a <code>Vector</code> of sorted targets.
+     * @param sortedTargets   the aforementioned <code>Vector</code>.
      */
     public void executeSortedTargets(Vector sortedTargets)
         throws BuildException {
@@ -1300,7 +1299,7 @@ public class Project {
      * @deprecated
      */
     public File resolveFile(String fileName, File rootDir) {
-        return fileUtils.resolveFile(rootDir, fileName);
+        return FILE_UTILS.resolveFile(rootDir, fileName);
     }
 
     /**
@@ -1316,7 +1315,7 @@ public class Project {
      *
      */
     public File resolveFile(String fileName) {
-        return fileUtils.resolveFile(baseDir, fileName);
+        return FILE_UTILS.resolveFile(baseDir, fileName);
     }
 
     /**
@@ -1370,7 +1369,7 @@ public class Project {
      */
     public void copyFile(String sourceFile, String destFile)
           throws IOException {
-        fileUtils.copyFile(sourceFile, destFile);
+        FILE_UTILS.copyFile(sourceFile, destFile);
     }
 
     /**
@@ -1390,7 +1389,7 @@ public class Project {
      */
     public void copyFile(String sourceFile, String destFile, boolean filtering)
         throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null);
     }
 
@@ -1414,7 +1413,7 @@ public class Project {
      */
     public void copyFile(String sourceFile, String destFile, boolean filtering,
                          boolean overwrite) throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null, overwrite);
     }
 
@@ -1444,7 +1443,7 @@ public class Project {
     public void copyFile(String sourceFile, String destFile, boolean filtering,
                          boolean overwrite, boolean preserveLastModified)
         throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null, overwrite, preserveLastModified);
     }
 
@@ -1462,7 +1461,7 @@ public class Project {
      * @deprecated
      */
     public void copyFile(File sourceFile, File destFile) throws IOException {
-        fileUtils.copyFile(sourceFile, destFile);
+        FILE_UTILS.copyFile(sourceFile, destFile);
     }
 
     /**
@@ -1482,7 +1481,7 @@ public class Project {
      */
     public void copyFile(File sourceFile, File destFile, boolean filtering)
         throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null);
     }
 
@@ -1506,7 +1505,7 @@ public class Project {
      */
     public void copyFile(File sourceFile, File destFile, boolean filtering,
                          boolean overwrite) throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null, overwrite);
     }
 
@@ -1536,7 +1535,7 @@ public class Project {
     public void copyFile(File sourceFile, File destFile, boolean filtering,
                          boolean overwrite, boolean preserveLastModified)
         throws IOException {
-        fileUtils.copyFile(sourceFile, destFile,
+        FILE_UTILS.copyFile(sourceFile, destFile,
             filtering ? globalFilters : null, overwrite, preserveLastModified);
     }
 
@@ -1557,7 +1556,7 @@ public class Project {
      */
     public void setFileLastModified(File file, long time)
          throws BuildException {
-        fileUtils.setFileLastModified(file, time);
+        FILE_UTILS.setFileLastModified(file, time);
         log("Setting modification time for " + file, MSG_VERBOSE);
     }
 
@@ -1580,7 +1579,7 @@ public class Project {
 
     /**
      * Topologically sorts a set of targets.  Equivalent to calling
-     * <CODE>topoSort(new String[] {root}, targets, true)</CODE>.
+     * <code>topoSort(new String[] {root}, targets, true)</code>.
      *
      * @param root The name of the root target. The sort is created in such
      *             a way that the sequence of Targets up to the root
@@ -1599,7 +1598,7 @@ public class Project {
 
     /**
      * Topologically sorts a set of targets.  Equivalent to calling
-     * <CODE>topoSort(new String[] {root}, targets, returnAll)</CODE>.
+     * <code>topoSort(new String[] {root}, targets, returnAll)</code>.
      *
      * @param root The name of the root target. The sort is created in such
      *             a way that the sequence of Targets up to the root
@@ -1607,7 +1606,7 @@ public class Project {
      *             Must not be <code>null</code>.
      * @param targets A Hashtable mapping names to Targets.
      *                Must not be <code>null</code>.
-     * @param returnAll <CODE>boolean</CODE> indicating whether to return all
+     * @param returnAll <code>boolean</code> indicating whether to return all
      *                  targets, or the execution sequence only.
      * @return a Vector of Target objects in sorted order.
      * @exception BuildException if there is a cyclic dependency among the
@@ -1622,14 +1621,14 @@ public class Project {
     /**
      * Topologically sorts a set of targets.
      *
-     * @param root <CODE>String[]</CODE> containing the names of the root targets.
+     * @param root <code>String[]</code> containing the names of the root targets.
      *             The sort is created in such a way that the ordered sequence of
      *             Targets is the minimum possible such sequence to the specified
      *             root targets.
      *             Must not be <code>null</code>.
      * @param targets A map of names to targets (String to Target).
      *                Must not be <code>null</code>.
-     * @param returnAll <CODE>boolean</CODE> indicating whether to return all
+     * @param returnAll <code>boolean</code> indicating whether to return all
      *                  targets, or the execution sequence only.
      * @return a Vector of Target objects in sorted order.
      * @exception BuildException if there is a cyclic dependency among the
@@ -1651,7 +1650,7 @@ public class Project {
         // build Target.
 
         for (int i = 0; i < root.length; i++) {
-            String st = (String)(state.get(root[i]));
+            String st = (String) (state.get(root[i]));
             if (st == null) {
                 tsort(root[i], targets, state, visiting, ret);
             } else if (st == VISITING) {

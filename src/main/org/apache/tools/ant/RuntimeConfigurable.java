@@ -40,6 +40,9 @@ import org.xml.sax.helpers.AttributeListImpl;
  */
 public class RuntimeConfigurable implements Serializable {
 
+    /** Empty Hashtable. */
+    private static final Hashtable EMPTY_HASHTABLE = new Hashtable(0);
+
     /** Name of the element to configure. */
     private String elementTag = null;
 
@@ -89,9 +92,8 @@ public class RuntimeConfigurable implements Serializable {
      *                   Should not be <code>null</code>.
      */
     public RuntimeConfigurable(Object proxy, String elementTag) {
-        wrappedObject = proxy;
+        setProxy(proxy);
         this.elementTag = elementTag;
-        proxyConfigured = false;
         // Most likely an UnknownElement
         if (proxy instanceof Task) {
             ((Task) proxy).setRuntimeConfigurableWrapper(this);
@@ -110,9 +112,9 @@ public class RuntimeConfigurable implements Serializable {
 
     /**
      * Sets the creator of the element to be configured
-     * used to store the element in the parent;
+     * used to store the element in the parent.
      *
-     * @param creator the creator object
+     * @param creator the creator object.
      */
     void setCreator(IntrospectionHelper.Creator creator) {
         this.creator = creator;
@@ -120,7 +122,7 @@ public class RuntimeConfigurable implements Serializable {
 
     /**
      * Get the object for which this RuntimeConfigurable holds the configuration
-     * information
+     * information.
      *
      * @return the object whose configure is held by this instance.
      */
@@ -129,16 +131,16 @@ public class RuntimeConfigurable implements Serializable {
     }
 
     /**
-     * get the polymorphic type for this element
-     * @return the ant component type name, null if not set
+     * Get the polymorphic type for this element.
+     * @return the ant component type name, null if not set.
      */
     public String getPolyType() {
         return polyType;
     }
 
     /**
-     * set the polymorphic type for this element
-     * @param polyType the ant component type name, null if not set
+     * Set the polymorphic type for this element.
+     * @param polyType the ant component type name, null if not set.
      */
     public void setPolyType(String polyType) {
         this.polyType = polyType;
@@ -159,7 +161,7 @@ public class RuntimeConfigurable implements Serializable {
     }
 
     /**
-     * Set an attribute to a given value
+     * Set an attribute to a given value.
      *
      * @param name the name of the attribute.
      * @param value the attribute's value.
@@ -177,17 +179,15 @@ public class RuntimeConfigurable implements Serializable {
         }
     }
 
-    /** Return the attribute map.
+    /**
+     * Return the attribute map.
      *
-     * @return Attribute name to attribute value map
+     * @return Attribute name to attribute value map.
      * @since Ant 1.6
      */
     public Hashtable getAttributeMap() {
-        if (attributeMap != null) {
-            return new Hashtable(attributeMap);
-        } else {
-            return new Hashtable(1);
-        }
+        return (attributeMap == null)
+            ? EMPTY_HASHTABLE : new Hashtable(attributeMap);
     }
 
     /**
@@ -208,9 +208,7 @@ public class RuntimeConfigurable implements Serializable {
      *              Must not be <code>null</code>.
      */
     public void addChild(RuntimeConfigurable child) {
-        if (children == null) {
-            children = new ArrayList();
-        }
+        children = (children == null) ? new ArrayList() : children;
         children.add(child);
     }
 
@@ -232,11 +230,8 @@ public class RuntimeConfigurable implements Serializable {
      * @since Ant 1.6
      */
     public Enumeration getChildren() {
-        if (children != null) {
-            return Collections.enumeration(children);
-        } else {
-            return new CollectionUtils.EmptyEnumeration();
-        }
+        return (children == null) ? new CollectionUtils.EmptyEnumeration()
+            : Collections.enumeration(children);
     }
 
     /**
@@ -246,14 +241,8 @@ public class RuntimeConfigurable implements Serializable {
      *        Should not be <code>null</code>.
      */
     public void addText(String data) {
-        if (data.length() == 0) {
-            return;
-        }
-        if (characters != null) {
-            characters.append(data);
-        } else {
-            characters = new StringBuffer(data);
-        }
+        characters = (characters == null)
+            ? new StringBuffer(data) : characters.append(data);
     }
 
     /**
@@ -275,7 +264,8 @@ public class RuntimeConfigurable implements Serializable {
         characters.append(buf, start, count);
     }
 
-    /** Get the text content of this element. Various text chunks are
+    /**
+     * Get the text content of this element. Various text chunks are
      * concatenated, there is no way ( currently ) of keeping track of
      * multiple fragments.
      *
@@ -347,7 +337,6 @@ public class RuntimeConfigurable implements Serializable {
         if (proxyConfigured) {
             return;
         }
-
         // Configure the object
         Object target = (wrappedObject instanceof TypeAdapter)
             ? ((TypeAdapter) wrappedObject).getProxy() : wrappedObject;
@@ -372,10 +361,8 @@ public class RuntimeConfigurable implements Serializable {
                         throw be;
                     } else {
                         throw new BuildException(
-                            getElementTag()
-                            +  " doesn't support the \""
-                            + be.getAttribute()
-                            + "\" attribute", be);
+                            getElementTag() +  " doesn't support the \""
+                            + be.getAttribute() + "\" attribute", be);
                     }
                 } catch (BuildException be) {
                     if (name.equals("id")) {
@@ -396,8 +383,7 @@ public class RuntimeConfigurable implements Serializable {
 
         Enumeration e = getChildren();
         while (e.hasMoreElements()) {
-            RuntimeConfigurable child
-                    = (RuntimeConfigurable) e.nextElement();
+            RuntimeConfigurable child = (RuntimeConfigurable) e.nextElement();
             if (child.wrappedObject instanceof Task) {
                 Task childTask = (Task) child.wrappedObject;
                 childTask.setRuntimeConfigurableWrapper(child);
@@ -416,11 +402,9 @@ public class RuntimeConfigurable implements Serializable {
              * For TaskContainers, we simply skip configuration here.
              */
             String tag = child.getElementTag().toLowerCase(Locale.US);
-            if (configureChildren
-                && ih.supportsNestedElement(tag)) {
+            if (configureChildren && ih.supportsNestedElement(tag)) {
                 child.maybeConfigure(p);
-                ProjectHelper.storeChild(p, target, child.wrappedObject,
-                                         tag);
+                ProjectHelper.storeChild(p, target, child.wrappedObject, tag);
             }
         }
 
@@ -443,9 +427,9 @@ public class RuntimeConfigurable implements Serializable {
 
     /**
      * Apply presets, attributes and text are set if not currently set.
-     * nested elements are prepended.
+     * Nested elements are prepended.
      *
-     * @param r a <code>RuntimeConfigurable</code> value
+     * @param r a <code>RuntimeConfigurable</code> value.
      */
     public void applyPreSet(RuntimeConfigurable r) {
         // Attributes
@@ -458,11 +442,10 @@ public class RuntimeConfigurable implements Serializable {
             }
         }
         // poly type
-        if (r.polyType != null && polyType == null) {
-            polyType = r.polyType;
-        }
 
-        // Children (this is a shadow of unknownElement#children)
+        polyType = (polyType == null) ? r.polyType : polyType;
+
+        // Children (this is a shadow of UnknownElement#children)
         if (r.children != null) {
             List newChildren = new ArrayList();
             newChildren.addAll(r.children);
@@ -476,8 +459,7 @@ public class RuntimeConfigurable implements Serializable {
         if (r.characters != null) {
             if (characters == null
                 || characters.toString().trim().length() == 0) {
-                characters =
-                    new StringBuffer(r.characters.toString());
+                characters = new StringBuffer(r.characters.toString());
             }
         }
     }

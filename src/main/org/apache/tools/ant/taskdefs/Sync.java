@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -25,14 +25,14 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 
-import java.util.Hashtable;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.util.FileNameMapper;
-import org.apache.tools.ant.util.IdentityMapper;
 
 /**
  * Synchronize a local target directory from the files defined
@@ -53,19 +53,22 @@ import org.apache.tools.ant.util.IdentityMapper;
 public class Sync extends Task {
 
     // Same as regular <copy> task... see at end-of-file!
-    private MyCopy _copy;
+    private MyCopy myCopy;
 
     // Override Task#init
+    /**
+     * @see Task#init()
+     */
     public void init()
         throws BuildException {
         // Instantiate it
-        _copy = new MyCopy();
-        configureTask(_copy);
+        myCopy = new MyCopy();
+        configureTask(myCopy);
 
         // Default config of <mycopy> for our purposes.
-        _copy.setFiltering(false);
-        _copy.setIncludeEmptyDirs(false);
-        _copy.setPreserveLastModified(true);
+        myCopy.setFiltering(false);
+        myCopy.setIncludeEmptyDirs(false);
+        myCopy.setPreserveLastModified(true);
     }
 
     private void configureTask(Task helper) {
@@ -76,13 +79,16 @@ public class Sync extends Task {
     }
 
     // Override Task#execute
+    /**
+     * @see Task#execute()
+     */
     public void execute()
         throws BuildException {
         // The destination of the files to copy
-        File toDir = _copy.getToDir();
+        File toDir = myCopy.getToDir();
 
         // The complete list of files to copy
-        Hashtable allFiles = _copy._dest2src;
+        Set allFiles = myCopy.nonOrphans;
 
         // If the destination directory didn't already exist,
         // or was empty, then no previous file removal is necessary!
@@ -90,7 +96,7 @@ public class Sync extends Task {
 
         // Copy all the necessary out-of-date files
         log("PASS#1: Copying files to " + toDir, Project.MSG_DEBUG);
-        _copy.execute();
+        myCopy.execute();
 
         // Do we need to perform further processing?
         if (noRemovalNecessary) {
@@ -105,7 +111,7 @@ public class Sync extends Task {
         logRemovedCount(removedFileCount[1], "dangling file", "", "s");
 
         // Get rid of empty directories on the destination side
-        if (!_copy.getIncludeEmptyDirs()) {
+        if (!myCopy.getIncludeEmptyDirs()) {
             log("PASS#3: Removing empty directories from " + toDir,
                 Project.MSG_DEBUG);
             int removedDirCount = removeEmptyDirectories(toDir, false);
@@ -115,7 +121,7 @@ public class Sync extends Task {
 
     private void logRemovedCount(int count, String prefix,
                                  String singularSuffix, String pluralSuffix) {
-        File toDir = _copy.getToDir();
+        File toDir = myCopy.getToDir();
 
         String what = (prefix == null) ? "" : prefix;
         what += (count < 2) ? singularSuffix : pluralSuffix;
@@ -143,54 +149,35 @@ public class Sync extends Task {
      * @return the number of orphaned files and directories actually removed.
      * Position 0 of the array is the number of orphaned directories.
      * Position 1 of the array is the number or orphaned files.
-     * Position 2 is meaningless.
      */
-    private int[] removeOrphanFiles(Hashtable nonOrphans, File file) {
-        int[] removedCount = new int[] {0, 0, 0};
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-            for (int i = 0; i < children.length; ++i) {
-                int[] temp = removeOrphanFiles(nonOrphans, children[i]);
-                removedCount[0] += temp[0];
-                removedCount[1] += temp[1];
-                removedCount[2] += temp[2];
-            }
-
-            if (nonOrphans.get(file) == null && removedCount[2] == 0) {
-                log("Removing orphan directory: " + file, Project.MSG_DEBUG);
-                file.delete();
-                ++removedCount[0];
-            } else {
-                /*
-                  Contrary to what is said above, position 2 is not
-                  meaningless inside the recursion.
-                  Position 2 is used to carry information back up the
-                  recursion about whether or not a directory contains
-                  a directory or file at any depth that is not an
-                  orphan
-                  This has to be done, because if you have the
-                  following directory structure: c:\src\a\file and
-                  your mapper src files were constructed like so:
-                  <include name="**\a\**\*"/>
-                  The folder 'a' will not be in the hashtable of
-                  nonorphans.  So, before deleting it as an orphan, we
-                  have to know whether or not any of its children at
-                  any level are orphans.
-                  If no, then this folder is also an orphan, and may
-                  be deleted.  I do this by changing position 2 to a
-                  '1'.
-                */
-                removedCount[2] = 1;
-            }
-
-        } else {
-            if (nonOrphans.get(file) == null) {
-                log("Removing orphan file: " + file, Project.MSG_DEBUG);
-                file.delete();
-                ++removedCount[1];
-            } else {
-                removedCount[2] = 1;
-            }
+    private int[] removeOrphanFiles(Set nonOrphans, File toDir) {
+        int[] removedCount = new int[] {0, 0};
+        DirectoryScanner ds = new DirectoryScanner();
+        ds.setBasedir(toDir);
+        String[] excls =
+            (String[]) nonOrphans.toArray(new String[nonOrphans.size() + 1]);
+        // want to keep toDir itself
+        excls[nonOrphans.size()] = "";
+        ds.setExcludes(excls);
+        ds.scan();
+        String[] files = ds.getIncludedFiles();
+        for (int i = 0; i < files.length; i++) {
+            File f = new File(toDir, files[i]);
+            log("Removing orphan file: " + f, Project.MSG_DEBUG);
+            f.delete();
+            ++removedCount[1];
+        }
+        String[] dirs = ds.getIncludedDirectories();
+        // ds returns the directories as it has visited them.
+        // iterating through the array backwards means we are deleting
+        // leaves before their parent nodes - thus making sure (well,
+        // more likely) that the directories are empty when we try to
+        // delete them.
+        for (int i = dirs.length - 1; i >= 0; --i) {
+            File f = new File(toDir, dirs[i]);
+            log("Removing orphan directory: " + f, Project.MSG_DEBUG);
+            f.delete();
+            ++removedCount[0];
         }
         return removedCount;
     }
@@ -243,30 +230,34 @@ public class Sync extends Task {
 
     /**
      * Sets the destination directory.
+     * @param destDir the destination directory
      */
     public void setTodir(File destDir) {
-        _copy.setTodir(destDir);
+        myCopy.setTodir(destDir);
     }
 
     /**
      * Used to force listing of all names of copied files.
+     * @param verbose if true force listing of all names of copied files.
      */
     public void setVerbose(boolean verbose) {
-        _copy.setVerbose(verbose);
+        myCopy.setVerbose(verbose);
     }
 
     /**
      * Overwrite any existing destination file(s).
+     * @param overwrite if true overwrite any existing destination file(s).
      */
     public void setOverwrite(boolean overwrite) {
-        _copy.setOverwrite(overwrite);
+        myCopy.setOverwrite(overwrite);
     }
 
     /**
      * Used to copy empty directories.
+     * @param includeEmpty If true copy empty directories.
      */
     public void setIncludeEmptyDirs(boolean includeEmpty) {
-        _copy.setIncludeEmptyDirs(includeEmpty);
+        myCopy.setIncludeEmptyDirs(includeEmpty);
     }
 
     /**
@@ -274,14 +265,15 @@ public class Sync extends Task {
      * @param failonerror true or false
      */
     public void setFailOnError(boolean failonerror) {
-        _copy.setFailOnError(failonerror);
+        myCopy.setFailOnError(failonerror);
     }
 
     /**
      * Adds a set of files to copy.
+     * @param set a fileset
      */
     public void addFileset(FileSet set) {
-        _copy.addFileset(set);
+        myCopy.addFileset(set);
     }
 
     /**
@@ -289,11 +281,11 @@ public class Sync extends Task {
      * target is out of date.
      *
      * <p>Default is 0 milliseconds, or 2 seconds on DOS systems.</p>
-     *
+     * @param granularity a <code>long</code> value
      * @since Ant 1.6.2
      */
     public void setGranularity(long granularity) {
-        _copy.setGranularity(granularity);
+        myCopy.setGranularity(granularity);
     }
 
     /**
@@ -303,32 +295,41 @@ public class Sync extends Task {
 
         // List of files that must be copied, irrelevant from the
         // fact that they are newer or not than the destination.
-        private Hashtable _dest2src = new Hashtable();
+        private Set nonOrphans = new HashSet();
 
+        /** Constructor for MyCopy. */
         public MyCopy() {
         }
 
-        protected void buildMap(File fromDir, File toDir, String[] names,
-                                FileNameMapper mapper, Hashtable map) {
-            assertTrue("No mapper", mapper instanceof IdentityMapper);
+        /**
+         * @see Copy#scan(File, File, String[], String[])
+         */
+        protected void scan(File fromDir, File toDir, String[] files,
+                            String[] dirs) {
+            assertTrue("No mapper", mapperElement == null);
 
-            super.buildMap(fromDir, toDir, names, mapper, map);
+            super.scan(fromDir, toDir, files, dirs);
 
-            for (int i = 0; i < names.length; ++i) {
-                String name = names[i];
-                File dest = new File(toDir, name);
-                // No need to instantiate the src file, as we use the
-                // table as a set (to remain Java 1.1 compatible!!!).
-                //File src = new File(fromDir, name);
-                //_dest2src.put(dest, src);
-                _dest2src.put(dest, fromDir);
+            for (int i = 0; i < files.length; ++i) {
+                nonOrphans.add(files[i]);
+            }
+            for (int i = 0; i < dirs.length; ++i) {
+                nonOrphans.add(dirs[i]);
             }
         }
 
+        /**
+         * Get the destination directory.
+         * @return the destination directory
+         */
         public File getToDir() {
             return destDir;
         }
 
+        /**
+         * Get the includeEmptyDirs attribute.
+         * @return true if emptyDirs are to be included
+         */
         public boolean getIncludeEmptyDirs() {
             return includeEmpty;
         }

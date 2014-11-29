@@ -116,7 +116,7 @@ public class ManifestTest extends BuildFileTest {
     public void test7() {
         executeTarget("test7");
 
-        boolean hasWarning = getLog().indexOf("Manifest attributes should not start with \"From\"") != -1;
+        boolean hasWarning = getLog().indexOf(Manifest.ERROR_FROM_FORBIDDEN) != -1;
         assertEquals("Expected warning about From: attribute", true, hasWarning);
     }
 
@@ -191,8 +191,8 @@ public class ManifestTest extends BuildFileTest {
      * Tets long line wrapping
      */
     public void testLongLine() throws IOException, ManifestException {
-        Project project = getProject();
-        project.setUserProperty("test.longline", LONG_LINE);
+        Project p = getProject();
+        p.setUserProperty("test.longline", LONG_LINE);
         executeTarget("testLongLine");
 
         Manifest manifest = getManifest(EXPANDED_MANIFEST);
@@ -286,11 +286,15 @@ public class ManifestTest extends BuildFileTest {
         assertTrue(mfAsString.indexOf("Foo: Baz") > -1);
     }
 
+    public void testFrom() {
+        expectLogContaining("testFrom", Manifest.ERROR_FROM_FORBIDDEN);
+    }
+    
     /**
      * Reads mftest.mf.
      */
     private Manifest getManifest(String filename) throws IOException, ManifestException {
-        FileReader r = new FileReader(filename);
+        FileReader r = new FileReader(new File(System.getProperty("root"), filename));
         try {
             return new Manifest(r);
         } finally {

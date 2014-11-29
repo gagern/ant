@@ -96,12 +96,18 @@ public class Path extends DataType implements Cloneable {
     /**
      * Invoked by IntrospectionHelper for <code>setXXX(Path p)</code>
      * attribute setters.
+     * @param project the <CODE>Project</CODE> for this path.
+     * @param path the <CODE>String</CODE> path definition.
      */
     public Path(Project p, String path) {
         this(p);
         createPathElement().setPath(path);
     }
 
+    /**
+     * Construct an empty <CODE>Path</CODE>.
+     * @param project the <CODE>Project</CODE> for this path.
+     */
     public Path(Project project) {
         setProject(project);
         elements = new Vector();
@@ -122,7 +128,7 @@ public class Path extends DataType implements Cloneable {
 
     /**
      * Parses a path definition and creates single PathElements.
-     * @param path the path definition.
+     * @param path the <CODE>String</CODE> path definition.
      */
     public void setPath(String path) throws BuildException {
         if (isReference()) {
@@ -322,21 +328,16 @@ public class Path extends DataType implements Cloneable {
                 }
             } else if (o instanceof DirSet) {
                 DirSet dset = (DirSet) o;
-                DirectoryScanner ds = dset.getDirectoryScanner(getProject());
-                String[] s = ds.getIncludedDirectories();
-                File dir = dset.getDir(getProject());
-                addUnlessPresent(result, dir, s);
+                addUnlessPresent(result, dset.getDir(getProject()),
+                    dset.getDirectoryScanner(getProject()).getIncludedDirectories());
             } else if (o instanceof FileSet) {
                 FileSet fs = (FileSet) o;
-                DirectoryScanner ds = fs.getDirectoryScanner(getProject());
-                String[] s = ds.getIncludedFiles();
-                File dir = fs.getDir(getProject());
-                addUnlessPresent(result, dir, s);
+                addUnlessPresent(result, fs.getDir(getProject()),
+                    fs.getDirectoryScanner(getProject()).getIncludedFiles());
             } else if (o instanceof FileList) {
                 FileList fl = (FileList) o;
-                String[] s = fl.getFiles(getProject());
-                File dir = fl.getDir(getProject());
-                addUnlessPresent(result, dir, s);
+                addUnlessPresent(result,
+                    fl.getDir(getProject()), fl.getFiles(getProject()));
             }
         }
         String[] res = new String[result.size()];
@@ -529,7 +530,24 @@ public class Path extends DataType implements Cloneable {
      * if ${build.sysclasspath} has not been set.
      */
     public Path concatSystemClasspath(String defValue) {
+        return concatSpecialPath(defValue, Path.systemClasspath);
+    }
 
+    /**
+     * Concatenates the system boot class path in the order specified
+     * by the ${build.sysclasspath} property - using the supplied
+     * value if ${build.sysclasspath} has not been set.
+     */
+    public Path concatSystemBootClasspath(String defValue) {
+        return concatSpecialPath(defValue, Path.systemBootClasspath);
+    }
+
+    /**
+     * Concatenates a class path in the order specified by the
+     * ${build.sysclasspath} property - using the supplied value if
+     * ${build.sysclasspath} has not been set.
+     */
+    private Path concatSpecialPath(String defValue, Path p) {
         Path result = new Path(getProject());
 
         String order = defValue;
@@ -542,11 +560,11 @@ public class Path extends DataType implements Cloneable {
 
         if (order.equals("only")) {
             // only: the developer knows what (s)he is doing
-            result.addExisting(Path.systemClasspath, true);
+            result.addExisting(p, true);
 
         } else if (order.equals("first")) {
             // first: developer could use a little help
-            result.addExisting(Path.systemClasspath, true);
+            result.addExisting(p, true);
             result.addExisting(this);
 
         } else if (order.equals("ignore")) {
@@ -561,7 +579,7 @@ public class Path extends DataType implements Cloneable {
             }
 
             result.addExisting(this);
-            result.addExisting(Path.systemClasspath, true);
+            result.addExisting(p, true);
         }
 
 
@@ -573,7 +591,7 @@ public class Path extends DataType implements Cloneable {
      * Add the Java Runtime classes to this Path instance.
      */
     public void addJavaRuntime() {
-        if ("Kaffe".equals(System.getProperty("java.vm.name"))) {
+        if (JavaEnvUtils.isKaffe()) {
             // newer versions of Kaffe (1.1.1+) won't have this,
             // but this will be sorted by FileSet anyway.
             File kaffeShare = new File(System.getProperty("java.home")

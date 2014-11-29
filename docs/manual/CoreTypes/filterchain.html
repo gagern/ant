@@ -16,8 +16,8 @@ to a file 'bar' - you would do something like<P>
 cat foo|head -n10|grep blee &gt; bar
 </code><P>
 Ant was not flexible enough.  There was no way for the
-&lt;copy&gt; task to do something similar.  If you wanted
-the &lt;copy&gt; task to get the first 10 lines, you would have
+<code>&lt;copy&gt;</code> task to do something similar.  If you wanted
+the <code>&lt;copy&gt;</code> task to get the first 10 lines, you would have
 had to create special attributes:<P>
 <code>
 &lt;copy file=&quot;foo&quot; tofile=&quot;bar&quot; head=&quot;10&quot; contains=&quot;blee&quot;/&gt;
@@ -37,7 +37,7 @@ tasks to support FilterChains.  A FilterChain is a group of
 ordered FilterReaders.  Users can define their own FilterReaders
 by just extending the java.io.FilterReader class.  Such custom
 FilterReaders can be easily plugged in as nested elements of
-&lt;filterchain&gt; by using &lt;filterreader&gt; elements.
+<code>&lt;filterchain&gt;</code> by using <code>&lt;filterreader&gt;</code> elements.
 <P>
 Example:
 <BLOCKQUOTE><PRE>
@@ -79,7 +79,7 @@ is equivalent to:
 &lt;/loadfile&gt;
 </PRE></BLOCKQUOTE>
 
-The following built-in tasks support nested &lt;filterchain&gt; elements.<BR>
+The following built-in tasks support nested <code>&lt;filterchain&gt;</code> elements.<BR>
 <a href="../CoreTasks/concat.html">Concat</a>,<BR>
 <a href="../CoreTasks/copy.html">Copy</a>,<BR>
 <a href="../CoreTasks/loadfile.html">LoadFile</a>,<BR>
@@ -135,8 +135,8 @@ org.apache.tools.type.Parameterizable.
 
 <P>
 <H4>Nested Elements:</H4>
-&lt;filterreader&gt; supports &lt;classpath&gt; and &lt;param&gt;
-as nested elements.  Each &lt;param&gt; element may take in the following
+<code>&lt;filterreader&gt;</code> supports <code>&lt;classpath&gt;</code> and <code>&lt;param&gt;</code>
+as nested elements.  Each <code>&lt;param&gt;</code> element may take in the following
 attributes - name, type and value.
 <P>
 The following FilterReaders are supplied with the default
@@ -209,7 +209,7 @@ This results in the property modifiedmessage holding the value
   message=&quot;All these moments will be lost in time, like teardrops in the ${weather}&quot;
   file=&quot;loadfile1.tmp&quot;
   /&gt;
-&lt;property name=&quot;weather&quot; value=&quot;rain&quot; /&gt;
+&lt;property name=&quot;weather&quot; value=&quot;rain&quot;/&gt;
 &lt;loadfile property=&quot;modifiedmessage&quot; srcFile=&quot;loadfile1.tmp&quot;&gt;
   &lt;filterchain&gt;
     &lt;filterreader classname=&quot;org.apache.tools.ant.filters.ExpandProperties&quot;/&gt;
@@ -223,7 +223,7 @@ Convenience method:
   message=&quot;All these moments will be lost in time, like teardrops in the ${weather}&quot;
   file=&quot;loadfile1.tmp&quot;
   /&gt;
-&lt;property name=&quot;weather&quot; value=&quot;rain&quot; /&gt;
+&lt;property name=&quot;weather&quot; value=&quot;rain&quot;/&gt;
 &lt;loadfile property=&quot;modifiedmessage&quot; srcFile=&quot;loadfile1.tmp&quot;&gt;
   &lt;filterchain&gt;
     &lt;expandproperties/&gt;
@@ -420,7 +420,7 @@ user defined values.
 
 <H4>Example:</H4>
 
-This replaces occurences of the string &#64;DATE&#64; in the data
+This replaces occurrences of the string &#64;DATE&#64; in the data
 with today's date and stores it in the property ${src.file.replaced}
 <BLOCKQUOTE><PRE>
 &lt;tstamp/&gt;
@@ -648,34 +648,34 @@ This graphic shows the dependencies:
     <TABLE>
     <TR>
      <TD bgcolor="#C0C0C0">&nbsp;</TD>
-     <TD><PRE>&lt;filterchain>
+     <TD><PRE>&lt;filterchain&gt;
     &lt;headfilter lines="2"/&gt;
-&lt;/filterchain></PRE></TD>
+&lt;/filterchain&gt;</PRE></TD>
     </TR>
     <TR>
      <TD bgcolor="#FF00FF">&nbsp;</TD>
-     <TD><PRE>&lt;filterchain>
+     <TD><PRE>&lt;filterchain&gt;
     &lt;tailfilter lines="-1" skip="2"/&gt;
-&lt;/filterchain></PRE></TD>
+&lt;/filterchain&gt;</PRE></TD>
     </TR>
     <TR>
      <TD bgcolor="#008000">&nbsp;</TD>
-     <TD><PRE>&lt;filterchain>
+     <TD><PRE>&lt;filterchain&gt;
     &lt;headfilter lines="-1" skip="2"/&gt;
-&lt;/filterchain></PRE></TD>
+&lt;/filterchain&gt;</PRE></TD>
     </TR>
     <TR>
      <TD bgcolor="#0000FF">&nbsp;</TD>
-     <TD><PRE>&lt;filterchain>
-    &lt;headfilter lines="-1" skip="2"/>
-    &lt;tailfilter lines="-1" skip="2"/>
-&lt;/filterchain></PRE></TD>
+     <TD><PRE>&lt;filterchain&gt;
+    &lt;headfilter lines="-1" skip="2"/&gt;
+    &lt;tailfilter lines="-1" skip="2"/&gt;
+&lt;/filterchain&gt;</PRE></TD>
     </TR>
     <TR>
      <TD bgcolor="#00FF00">&nbsp;</TD>
-     <TD><PRE>&lt;filterchain>
+     <TD><PRE>&lt;filterchain&gt;
     &lt;tailfilter lines="2"/&gt;
-&lt;/filterchain></PRE></TD>
+&lt;/filterchain&gt;</PRE></TD>
     </TR>
     </TABLE>
  </TD>
@@ -967,7 +967,7 @@ This tokenizer treats <b>all</b> the input as a token. So be
 careful not to use this on very large input.
 <H4>Examples:</H4>
 
-Replace the first occurance of package with //package.
+Replace the first occurrence of package with //package.
 <BLOCKQUOTE><PRE>
 &lt;tokenfilter&gt;
       &lt;filetokenizer/&gt;
@@ -1135,7 +1135,7 @@ for an explanation of regex flags.</TD>
 </TABLE>
 <H4>Examples:</H4>
 
-Replace all occurances of "hello" with "world", ignoring case.
+Replace all occurrences of "hello" with "world", ignoring case.
 
 <BLOCKQUOTE><PRE>
 &lt;tokenfilter&gt;
@@ -1308,7 +1308,7 @@ Custom string filters and tokenizers may be plugged in by
 extending the interfaces org.apache.tools.ant.filters.TokenFilter.Filter
 and org.apache.tools.ant.util.Tokenizer respectly.
 
-They are defined the build file using &lt;typedef/&gt;. For
+They are defined the build file using <code>&lt;typedef/&gt;</code>. For
 example a string filter that capitalizes words may be declared as:
 <blockquote><pre>
 package my.customant;

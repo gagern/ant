@@ -32,6 +32,23 @@
              storepass="apacheant" maxmemory="128m"/>
   </target>
 
+  <target name="preserveLastModified">
+    <jar jarfile="signtest.jar" basedir="${classes.dir}" includes="**/Task.class"/>
+    <touch file="signtest.jar" datetime="06/28/2000 2:02 pm"/>
+    <signjar jar="signtest.jar" alias="testonly" keystore="testkeystore" storepass="apacheant" 
+    	preservelastmodified="true"/>
+
+    <fail message="preserveLastModified did not preserve the last modified time">
+      <condition>
+        <not>
+          <isfileselected file="signtest.jar">
+            <date datetime="06/28/2000 2:02 pm" when="equal"/>
+          </isfileselected>
+        </not>
+      </condition>
+    </fail>
+  </target>
+
   <target name="clean">
     <delete file="signtest.jar"/>
   </target>

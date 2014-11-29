@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ import org.apache.tools.ant.util.LoaderUtils;
  */
 public class AntClassLoader extends ClassLoader implements SubBuildListener {
 
-    private static final FileUtils fileUtils = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * An enumeration of all resources of a given name found within the
@@ -518,7 +518,7 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
             if (cons.length > 0 && cons[0] != null) {
                 final String[] strs = new String[NUMBER_OF_STRINGS];
                 try {
-                    cons[0].newInstance(strs);
+                    cons[0].newInstance((Object[]) strs);
                     // Expecting an exception to be thrown by this call:
                     // IllegalArgumentException: wrong number of Arguments
                 } catch (Throwable t) {
@@ -873,7 +873,8 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
             base = parent.getResources(name);
             // Note: could cause overlaps in case ClassLoader.this.parent has matches.
         } else {
-            // ClassLoader.this.parent is already delegated to from ClassLoader.getResources, no need:
+            // ClassLoader.this.parent is already delegated to from
+            // ClassLoader.getResources, no need:
             base = new CollectionUtils.EmptyEnumeration();
         }
         if (isParentFirst(name)) {
@@ -908,7 +909,7 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
 
                 if (resource.exists()) {
                     try {
-                        return fileUtils.getFileURL(resource);
+                        return FILE_UTILS.getFileURL(resource);
                     } catch (MalformedURLException ex) {
                         return null;
                     }
@@ -923,7 +924,7 @@ public class AntClassLoader extends ClassLoader implements SubBuildListener {
                 ZipEntry entry = zipFile.getEntry(resourceName);
                 if (entry != null) {
                     try {
-                        return new URL("jar:" + fileUtils.getFileURL(file)
+                        return new URL("jar:" + FILE_UTILS.getFileURL(file)
                                        + "!/" + entry);
                     } catch (MalformedURLException ex) {
                         return null;

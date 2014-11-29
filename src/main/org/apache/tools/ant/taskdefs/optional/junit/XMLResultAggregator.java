@@ -34,6 +34,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.util.DOMElementWriter;
 import org.apache.tools.ant.util.StringUtils;
+import org.apache.tools.ant.util.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
@@ -74,6 +75,7 @@ public class XMLResultAggregator extends Task implements XMLConstants {
 
     /**
      * Generate a report based on the document created by the merge.
+     * @return the report
      */
     public AggregateTransformer createReport() {
         AggregateTransformer transformer = new AggregateTransformer(this);
@@ -200,13 +202,8 @@ public class XMLResultAggregator extends Task implements XMLConstants {
                 throw new IOException("Error while writing DOM content");
             }
         } finally {
-            if (wri != null) {
-                wri.close();
-                out = null;
-            }
-            if (out != null) {
-                out.close();
-            }
+            FileUtils.close(wri);
+            FileUtils.close(out);
         }
     }
 

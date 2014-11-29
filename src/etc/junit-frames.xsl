@@ -96,12 +96,12 @@
         </redirect:write>
         <xsl:if test="string-length(./system-out)!=0">
             <redirect:write file="{$output.dir}/{$package.dir}/{@name}-out.txt">
-                <xsl:value-of select="./system-out" />
+                <xsl:value-of disable-output-escaping="yes" select="./system-out" />
             </redirect:write>
         </xsl:if>
         <xsl:if test="string-length(./system-err)!=0">
             <redirect:write file="{$output.dir}/{$package.dir}/{@name}-err.txt">
-                <xsl:value-of select="./system-err" />
+                <xsl:value-of disable-output-escaping="yes" select="./system-err" />
             </redirect:write>
         </xsl:if>
     </xsl:for-each>
@@ -202,7 +202,8 @@ h6 {
        <script type="text/javascript" language="JavaScript"><![CDATA[
         function displayProperties (name) {
           var win = window.open('','JUnitSystemProperties','scrollbars=1,resizable=1');
-          var doc = win.document.open();
+          var doc = win.document;
+          doc.open();
           doc.write("<html><head><title>Properties of " + name + "</title>");
           doc.write("<style type=\"text/css\">");
           doc.write("body {font:normal 68% verdana,arial,helvetica; color:#000000; }");

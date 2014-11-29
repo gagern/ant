@@ -35,6 +35,7 @@ import junit.framework.Test;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.DOMElementWriter;
 import org.apache.tools.ant.util.DateUtils;
+import org.apache.tools.ant.util.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Text;
@@ -107,9 +108,9 @@ public class XMLJUnitResultFormatter implements JUnitResultFormatter, XMLConstan
         //add the timestamp
         final String timestamp = DateUtils.format(new Date(),
                 DateUtils.ISO8601_DATETIME_PATTERN);
-        rootElement.setAttribute(TIMESTAMP,timestamp);
+        rootElement.setAttribute(TIMESTAMP, timestamp);
         //and the hostname.
-        rootElement.setAttribute(HOSTNAME,getHostname());
+        rootElement.setAttribute(HOSTNAME, getHostname());
 
         // Output properties
         Element propsElement = doc.createElement(PROPERTIES);
@@ -158,13 +159,7 @@ public class XMLJUnitResultFormatter implements JUnitResultFormatter, XMLConstan
                 throw new BuildException("Unable to write log file", exc);
             } finally {
                 if (out != System.out && out != System.err) {
-                    if (wri != null) {
-                        try {
-                            wri.close();
-                        } catch (IOException e) {
-                            // ignore
-                        }
-                    }
+                    FileUtils.close(wri);
                 }
             }
         }

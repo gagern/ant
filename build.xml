@@ -174,6 +174,7 @@
   <selector id="needs.sun.b64">
     <or>
       <filename name="${optional.package}/splash/SplashTask*"/>
+      <filename name="${optional.package}/splash/SplashScreenTest.java"/>
     </or>
   </selector>
 
@@ -328,11 +329,6 @@
     <filename name="${ant.package}/launch/**/*"/>
   </selector>
 
-  <selector id="needs.commons.httpclient">
-    <filename name="${optional.package}/repository/**/*"/>
-  </selector>
-
-
   <patternset id="onlinetests">
     <exclude name="**/GetTest.java" if="offline"/>
     <exclude name="**/SignJarTest.java" if="offline"/>
@@ -345,6 +341,7 @@
     <exclude unless="run.failing.tests" name="${optional.package}/BeanShellScriptTest.java"/>
     <exclude unless="run.failing.tests" name="${optional.package}/jdepend/JDependTest.java"/>
     <exclude unless="run.failing.tests" name="${optional.package}/DotnetTest.java"/>
+    <exclude unless="run.failing.tests" name="${optional.package}/WsdlToDotnetTest.java"/>
   </patternset>
 
   <!--
@@ -372,28 +369,6 @@
     <exclude name="srcdownload.html"/>
     <exclude name="*.cgi"/>
   </patternset>
-
-  <!--
-       ===================================================================
-         Set up a preset def for javac depending on
-         the java version
-       ===================================================================
-  -->
-
-  <target name="javac.preset" depends="javac.preset.1.5+,javac.preset.1.5-"/>
-  <target name="javac.preset.1.5+" depends="check_for_optional_packages"
-          if="jdk1.5+">
-    <presetdef name="javac.preset">
-      <javac source="${javac.source}"/>
-    </presetdef>
-  </target>
-  <target name="javac.preset.1.5-" depends="check_for_optional_packages"
-          unless="jdk1.5+">
-    <presetdef name="javac.preset">
-      <javac/>
-    </presetdef>
-  </target>
-
 
   <!--
        ===================================================================
@@ -482,7 +457,7 @@
                classname="jdepend.framework.JDepend"
                classpathref="classpath"/>
     <available property="log4j.present"
-               classname="org.apache.log4j.Category"
+               classname="org.apache.log4j.Logger"
                classpathref="classpath"/>
     <available property="commons.logging.present"
                classname="org.apache.commons.logging.LogFactory"
@@ -568,7 +543,7 @@
     </condition>
 
     <!-- http client needs commons logging -->
-    <condition property="commons.httpclient.present">
+    <condition property="apache-httpclient.present">
       <and>
         <available
           classname="org.apache.commons.httpclient.HttpClient"
@@ -614,6 +589,17 @@
     <available property="jsch.present"
                classname="com.jcraft.jsch.Session"
                classpathref="classpath"/>
+
+    <condition property="running.in.gump">
+      <isset property="gump.merge"/>
+    </condition>
+
+    <condition property="build.compiler" value="classic">
+      <not>
+        <isset property="jdk1.3+"/>
+      </not>
+    </condition>
+    <property name="build.compiler" value="modern"/>
   </target>
 
 
@@ -641,17 +627,18 @@
        ===================================================================
   -->
   <target name="build"
-          depends="prepare, check_for_optional_packages, javac.preset"
+          depends="prepare, check_for_optional_packages"
           description="--> compiles the source code">
     <mkdir dir="${build.dir}"/>
     <mkdir dir="${build.classes}"/>
     <mkdir dir="${build.lib}"/>
 
-    <javac.preset srcdir="${java.dir}"
+    <javac srcdir="${java.dir}"
            destdir="${build.classes}"
            debug="${debug}"
            deprecation="${deprecation}"
            target="${javac.target}"
+           source="${javac.source}"
            optimize="${optimize}" >
       <classpath refid="classpath"/>
 
@@ -695,11 +682,10 @@
             <selector refid="needs.jdepend" unless="jdepend.present"/>
             <selector refid="needs.swing"  unless="swing.present"/>
             <selector refid="needs.jsch" unless="jsch.present"/>
-            <selector refid="needs.commons.httpclient" unless="commons.httpclient.present"/>
           </or>
         </not>
       </selector>
-    </javac.preset>
+    </javac>
 
     <copy todir="${build.classes}">
       <fileset dir="${java.dir}">
@@ -870,7 +856,6 @@
             <selector refid="needs.jdepend"/>
             <selector refid="needs.swing"/>
             <selector refid="needs.jsch"/>
-            <selector refid="needs.commons.httpclient"/>
           </or>
         </not>
       </and>
@@ -915,7 +900,6 @@
     <optional-jar dep="swing"/>
     <optional-jar dep="jsch"/>
     <optional-jar dep="jdepend"/>
-    <optional-jar dep="commons.httpclient"/>
 
     <jar destfile="${build.lib}/${optional.jars.prefix}-weblogic.jar"
          basedir="${build.classes}"
@@ -1404,15 +1388,16 @@
   <target name="compile-tests" depends="build" if="junit.present">
     <mkdir dir="${build.tests}"/>
 
-    <javac.preset srcdir="${tests.dir}"
+    <javac srcdir="${tests.dir}"
            destdir="${build.tests}"
            debug="${debug}"
            target="${javac.target}"
+           source="${javac.source}"
            deprecation="${deprecation}" >
       <classpath refid="tests-classpath"/>
 
       <selector refid="conditional-patterns"/>
-    </javac.preset>
+    </javac>
 
     <!-- Used by AntlibTest.testAntlibResource: -->
     <jar jarfile="${build.tests}/org/apache/tools/ant/taskdefs/test2-antlib.jar">
@@ -1494,6 +1479,8 @@
       <sysproperty key="build.tests.value" value="${build.tests.value}"/>
       <sysproperty key="tests-classpath.value"
                    value="${tests-classpath.value}"/>
+      <sysproperty key="root" file="${basedir}"/>
+      <sysproperty key="build.compiler" value="${build.compiler}"/>
 
       <formatter type="brief" usefile="false"/>
 
@@ -1599,6 +1586,8 @@
           IllegalAccessExceptions otherwise.  -->
           <exclude name="${ant.package}/taskdefs/SQLExecTest.java"
                    unless="tests.and.ant.share.classloader"/>
+          <exclude name="${ant.package}/taskdefs/cvslib/ChangeLogWriterTest.java"
+                   unless="tests.and.ant.share.classloader"/>
           <exclude name="${optional.package}/sos/SOSTest.java"
                    unless="tests.and.ant.share.classloader"/>
           <exclude name="${optional.package}/vss/MSVSSTest.java"
@@ -1623,6 +1612,10 @@
 
           <!-- test needs special setup -->
           <exclude name="${optional.package}/ssh/ScpTest.java"/>
+
+          <!-- test fails in Gump -->
+          <exclude name="${ant.package}/util/ClasspathUtilsTest.java"
+                   if="running.in.gump"/>
         </fileset>
       </batchtest>
     </junit>
@@ -1647,6 +1640,8 @@
       <sysproperty key="offline" value="${offline}"/>      
       <sysproperty key="tests-classpath.value"
                    value="${tests-classpath.value}"/>
+      <sysproperty key="root" file="${basedir}"/>
+      <sysproperty key="build.compiler" value="${build.compiler}"/>
       <classpath refid="tests-classpath"/>
       <formatter type="plain" usefile="false"/>
       <test name="${testcase}"/>

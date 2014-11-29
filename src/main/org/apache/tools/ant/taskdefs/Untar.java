@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,9 +23,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.bzip2.CBZip2InputStream;
 import org.apache.tools.tar.TarEntry;
@@ -74,7 +76,8 @@ public class Untar extends Expand {
 
     /**
      * No encoding support in Untar.
-     *
+     * @param encoding not used
+     * @throws BuildException always
      * @since Ant 1.6
      */
     public void setEncoding(String encoding) {
@@ -83,6 +86,9 @@ public class Untar extends Expand {
                                  + " attribute", getLocation());
     }
 
+    /**
+     * @see Expand#expandFile(FileUtils, File, File)
+     */
     protected void expandFile(FileUtils fileUtils, File srcF, File dir) {
         TarInputStream tis = null;
         try {
@@ -92,10 +98,11 @@ public class Untar extends Expand {
                     new BufferedInputStream(
                         new FileInputStream(srcF))));
             TarEntry te = null;
-
+            FileNameMapper mapper = getMapper();
             while ((te = tis.getNextEntry()) != null) {
                 extractFile(fileUtils, srcF, dir, tis,
-                            te.getName(), te.getModTime(), te.isDirectory());
+                            te.getName(), te.getModTime(),
+                            te.isDirectory(), mapper);
             }
             log("expand complete", Project.MSG_VERBOSE);
 
@@ -103,13 +110,7 @@ public class Untar extends Expand {
             throw new BuildException("Error while expanding " + srcF.getPath(),
                                      ioe, getLocation());
         } finally {
-            if (tis != null) {
-                try {
-                    tis.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
+            FileUtils.close(tis);
         }
     }
 
@@ -166,11 +167,11 @@ public class Untar extends Expand {
         private InputStream decompress(final File file,
                                        final InputStream istream)
             throws IOException, BuildException {
-            final String value = getValue();
-            if (GZIP.equals(value)) {
+            final String v = getValue();
+            if (GZIP.equals(v)) {
                 return new GZIPInputStream(istream);
             } else {
-                if (BZIP2.equals(value)) {
+                if (BZIP2.equals(v)) {
                     final char[] magic = new char[] {'B', 'Z'};
                     for (int i = 0; i < magic.length; i++) {
                         if (istream.read() != magic[i]) {

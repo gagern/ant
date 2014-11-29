@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
+ * Copyright  2001-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,10 +30,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
-import java.io.PrintWriter;
 import java.io.Writer;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.CharacterIterator;
@@ -60,11 +58,17 @@ import org.apache.tools.ant.launch.Locator;
  */
 
 public class FileUtils {
+
+    private static final FileUtils PRIMARY_INSTANCE = new FileUtils();
+
     //get some non-crypto-grade randomness from various places.
     private static Random rand = new Random(System.currentTimeMillis()
-            +Runtime.getRuntime().freeMemory());
+            + Runtime.getRuntime().freeMemory());
 
-    private boolean onNetWare = Os.isFamily("netware");
+    private static boolean onNetWare = Os.isFamily("netware");
+    private static boolean onDos = Os.isFamily("dos");
+
+    private static final int BUF_SIZE = 8192;
 
     // for toURI
     private static boolean[] isSpecial = new boolean[256];
@@ -108,9 +112,20 @@ public class FileUtils {
      * Factory method.
      *
      * @return a new instance of FileUtils.
+     * @deprecated Use getFileUtils instead, FileUtils do not have state.
      */
     public static FileUtils newFileUtils() {
         return new FileUtils();
+    }
+
+    /**
+     * Method to retrieve The FileUtils, which is shared by all users of this
+     * method.
+     * @return an instance of FileUtils.
+     * @since Ant 1.7
+     */
+    public static FileUtils getFileUtils() {
+        return PRIMARY_INSTANCE;
     }
 
     /**
@@ -509,7 +524,7 @@ public class FileUtils {
 
             // ensure that parent dir of dest file exists!
             // not using getParentFile method to stay 1.1 compat
-            File parent = getParentFile(destFile);
+            File parent = destFile.getParentFile();
             if (parent != null && !parent.exists()) {
                 parent.mkdirs();
             }
@@ -544,7 +559,7 @@ public class FileUtils {
 
                     if (filterChainsAvailable) {
                         ChainReaderHelper crh = new ChainReaderHelper();
-                        crh.setBufferSize(8192);
+                        crh.setBufferSize(BUF_SIZE);
                         crh.setPrimaryReader(in);
                         crh.setFilterChains(filterChains);
                         crh.setProject(project);
@@ -568,12 +583,8 @@ public class FileUtils {
                         line = lineTokenizer.getToken(in);
                     }
                 } finally {
-                    if (out != null) {
-                        out.close();
-                    }
-                    if (in != null) {
-                        in.close();
-                    }
+                    close(out);
+                    close(in);
                 }
             } else if (filterChainsAvailable
                        || (inputEncoding != null
@@ -605,14 +616,14 @@ public class FileUtils {
 
                      if (filterChainsAvailable) {
                          ChainReaderHelper crh = new ChainReaderHelper();
-                         crh.setBufferSize(8192);
+                         crh.setBufferSize(BUF_SIZE);
                          crh.setPrimaryReader(in);
                          crh.setFilterChains(filterChains);
                          crh.setProject(project);
                          Reader rdr = crh.getAssembledReader();
                          in = new BufferedReader(rdr);
                      }
-                     char[] buffer = new char[1024 * 8];
+                     char[] buffer = new char[BUF_SIZE];
                      while (true) {
                          int nRead = in.read(buffer, 0, buffer.length);
                          if (nRead == -1) {
@@ -620,13 +631,9 @@ public class FileUtils {
                          }
                          out.write(buffer, 0, nRead);
                       }
-                  } finally {
-                      if (out != null) {
-                         out.close();
-                     }
-                     if (in != null) {
-                         in.close();
-                     }
+                 } finally {
+                     close(out);
+                     close(in);
                  }
             } else {
                 FileInputStream in = null;
@@ -635,19 +642,15 @@ public class FileUtils {
                     in = new FileInputStream(sourceFile);
                     out = new FileOutputStream(destFile);
 
-                    byte[] buffer = new byte[8 * 1024];
+                    byte[] buffer = new byte[BUF_SIZE];
                     int count = 0;
                     do {
                         out.write(buffer, 0, count);
                         count = in.read(buffer, 0, buffer.length);
                     } while (count != -1);
                 } finally {
-                    if (out != null) {
-                        out.close();
-                    }
-                    if (in != null) {
-                        in.close();
-                    }
+                    close(out);
+                    close(in);
                 }
             }
 
@@ -670,7 +673,7 @@ public class FileUtils {
     public void setFileLastModified(File file, long time)
         throws BuildException {
         if (time < 0) {
-            time=System.currentTimeMillis();
+            time = System.currentTimeMillis();
         }
         file.setLastModified(time);
     }
@@ -696,22 +699,8 @@ public class FileUtils {
             .replace('\\', File.separatorChar);
 
         // deal with absolute files
-        if (!onNetWare) {
-            if (filename.startsWith(File.separator)
-                || (filename.length() >= 2
-                    && Character.isLetter(filename.charAt(0))
-                    && filename.charAt(1) == ':')) {
-                return normalize(filename);
-            }
-        } else {
-            // the assumption that the : will appear as the second character in
-            // the path name breaks down when NetWare is a supported platform.
-            // Netware volumes are of the pattern: "data:\"
-            int colon = filename.indexOf(":");
-            if (filename.startsWith(File.separator)
-                || (colon > -1)) {
-                return normalize(filename);
-            }
+        if (isAbsolutePath(filename)) {
+            return normalize(filename);
         }
 
         if (file == null) {
@@ -723,7 +712,7 @@ public class FileUtils {
         while (tok.hasMoreTokens()) {
             String part = tok.nextToken();
             if (part.equals("..")) {
-                helpFile = getParentFile(helpFile);
+                helpFile = helpFile.getParentFile();
                 if (helpFile == null) {
                     String msg = "The file or path you specified ("
                         + filename + ") is invalid relative to "
@@ -738,6 +727,30 @@ public class FileUtils {
         }
 
         return new File(helpFile.getAbsolutePath());
+    }
+
+    /**
+     * Verifies if the filename represents is an absolute path.
+     * @param filename the file name to be checked for being an absolute path
+     * @return true if the filename represents an absolute path.
+     */
+    private static boolean isAbsolutePath(String filename) {
+        if (filename.startsWith(File.separator)) {
+            // common for all os
+            return true;
+        } else if (onDos
+                && filename.length() >= 2
+                && Character.isLetter(filename.charAt(0))
+                && filename.charAt(1) == ':') {
+            // Actually on windows the : must be followed by a \ for
+            // the path to be absolute, else the path is relative
+            // to the current working directory on that drive.
+            // (Every drive may have another current working directory)
+            return true;
+        } else if (onNetWare && filename.indexOf(":") > -1) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -769,26 +782,15 @@ public class FileUtils {
         // make sure we are dealing with an absolute path
         int colon = path.indexOf(":");
 
-        if (!onNetWare) {
-            if (!path.startsWith(File.separator)
-                && !(path.length() >= 2
-                    && Character.isLetter(path.charAt(0))
-                    && colon == 1)) {
-                String msg = path + " is not an absolute path";
-                throw new BuildException(msg);
-            }
-        } else {
-            if (!path.startsWith(File.separator)
-                && (colon == -1)) {
-                String msg = path + " is not an absolute path";
-                throw new BuildException(msg);
-            }
+        if (!isAbsolutePath(path)) {
+            String msg = path + " is not an absolute path";
+            throw new BuildException(msg);
         }
 
         boolean dosWithDrive = false;
         String root = null;
         // Eliminate consecutive slashes after the drive spec
-        if ((!onNetWare && path.length() >= 2
+        if ((onDos && path.length() >= 2
                 && Character.isLetter(path.charAt(0))
                 && path.charAt(1) == ':')
             || (onNetWare && colon > -1)) {
@@ -882,8 +884,8 @@ public class FileUtils {
         String name = f.getName();
         boolean isAbsolute = path.charAt(0) == File.separatorChar;
         // treat directories specified using .DIR syntax as files
-        boolean isDirectory = f.isDirectory() &&
-            !name.regionMatches(true, name.length() - 4, ".DIR", 0, 4);
+        boolean isDirectory = f.isDirectory()
+            && !name.regionMatches(true, name.length() - 4, ".DIR", 0, 4);
 
         String device = null;
         StringBuffer directory = null;
@@ -919,9 +921,9 @@ public class FileUtils {
         if (!isAbsolute && directory != null) {
             directory.insert(0, '.');
         }
-        osPath = ((device != null) ? device + ":" : "") +
-            ((directory != null) ? "[" + directory + "]" : "") +
-            ((file != null) ? file : "");
+        osPath = ((device != null) ? device + ":" : "")
+            + ((directory != null) ? "[" + directory + "]" : "")
+            + ((file != null) ? file : "");
         return osPath;
     }
 
@@ -1026,40 +1028,22 @@ public class FileUtils {
             }
             return true;
         } finally {
-            if (in1 != null) {
-                try {
-                    in1.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
-            if (in2 != null) {
-                try {
-                    in2.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
+            close(in1);
+            close(in2);
         }
     }
 
     /**
-     * Emulation of File.getParentFile for JDK 1.1
-     *
-     *
+     * This was originally an emulation of {@link File#getParentFile} for JDK 1.1,
+     * but it is now implemented using that method (Ant 1.7 onwards).
      * @param f the file whose parent is required.
      * @return the given file's parent, or null if the file does not have a
      *         parent.
      * @since 1.10
+     * @deprecated Just use {@link File#getParentFile} directly.
      */
     public File getParentFile(File f) {
-        if (f != null) {
-            String p = f.getParent();
-            if (p != null) {
-                return new File(p);
-            }
-        }
-        return null;
+        return (f == null) ? null : f.getParentFile();
     }
 
     /**
@@ -1071,7 +1055,7 @@ public class FileUtils {
      *         reader.
      */
     public static final String readFully(Reader rdr) throws IOException {
-        return readFully(rdr, 8192);
+        return readFully(rdr, BUF_SIZE);
     }
 
     /**
@@ -1093,23 +1077,15 @@ public class FileUtils {
         }
         final char[] buffer = new char[bufferSize];
         int bufferLength = 0;
-        String text = null;
         StringBuffer textBuffer = null;
         while (bufferLength != -1) {
             bufferLength = rdr.read(buffer);
-            if (bufferLength != -1) {
-                if (textBuffer == null) {
-                    textBuffer = new StringBuffer(
-                                                  new String(buffer, 0, bufferLength));
-                } else {
-                    textBuffer.append(new String(buffer, 0, bufferLength));
-                }
+            if (bufferLength > 0) {
+                textBuffer = (textBuffer == null) ? new StringBuffer() : textBuffer;
+                textBuffer.append(new String(buffer, 0, bufferLength));
             }
         }
-        if (textBuffer != null) {
-            text = textBuffer.toString();
-        }
-        return text;
+        return (textBuffer == null) ? null : textBuffer.toString();
     }
 
     /**
@@ -1121,9 +1097,27 @@ public class FileUtils {
      *
      * @param f the file to be created
      * @return true if the file did not exist already.
+     * @throws IOException on error
      * @since Ant 1.5
      */
     public boolean createNewFile(File f) throws IOException {
+        return createNewFile(f, false);
+    }
+
+    /**
+     * Create a new file, optionally creating parent directories.
+     *
+     * @param f the file to be created.
+     * @param mkdirs <code>boolean</code> whether to create parent directories.
+     * @return true if the file did not exist already.
+     * @throws IOException on error.
+     * @since Ant 1.6.3
+     */
+    public boolean createNewFile(File f, boolean mkdirs) throws IOException {
+        File parent = f.getParentFile();
+        if (mkdirs && !(parent.exists())) {
+            parent.mkdirs();
+        }
         return f.createNewFile();
     }
 
@@ -1138,6 +1132,7 @@ public class FileUtils {
      * @param name the name of the file to test.
      *
      * @return true if the file is a symbolic link.
+     * @throws IOException on error
      * @since Ant 1.5
      */
     public boolean isSymbolicLink(File parent, String name)
@@ -1170,12 +1165,7 @@ public class FileUtils {
         if (!l.endsWith(File.separator)) {
             l += File.separator;
         }
-
-        if (p.startsWith(l)) {
-            return p.substring(l.length());
-        } else {
-            return p;
-        }
+        return (p.startsWith(l)) ? p.substring(l.length()) : p;
     }
 
     /**
@@ -1203,7 +1193,6 @@ public class FileUtils {
             if (!path.startsWith(File.separator)) {
                 sb.append("/");
             }
-
         } catch (BuildException e) {
             // relative path
         }
@@ -1278,12 +1267,12 @@ public class FileUtils {
      * <code>from</code>, which involves deleting <code>from</code> as
      * well.</p>
      *
+     * @param from the file to move
+     * @param to the new file name
+     *
      * @throws IOException if anything bad happens during this
      * process.  Note that <code>to</code> may have been deleted
      * already when this happens.
-     *
-     * @param from the file to move
-     * @param to the new file name
      *
      * @since Ant 1.6
      */
@@ -1292,13 +1281,11 @@ public class FileUtils {
             throw new IOException("Failed to delete " + to
                                   + " while trying to rename " + from);
         }
-
-        File parent = getParentFile(to);
+        File parent = to.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
             throw new IOException("Failed to create directory " + parent
                                   + " while trying to rename " + from);
         }
-
         if (!from.renameTo(to)) {
             copyFile(from, to);
             if (!from.delete()) {
@@ -1314,10 +1301,10 @@ public class FileUtils {
      * by filesystem. We do not have an easy way to probe for file systems,
      * however.
      * @return the difference, in milliseconds, which two file timestamps must have
-     * in order for the two files to be given a creation order. 
+     * in order for the two files to be given a creation order.
      */
     public long getFileTimestampGranularity() {
-        if (Os.isFamily("dos")) {
+        if (onDos) {
             return FAT_FILE_TIMESTAMP_GRANULARITY;
         } else {
             return UNIX_FILE_TIMESTAMP_GRANULARITY;
@@ -1335,14 +1322,14 @@ public class FileUtils {
      *  granularity into account
      * @since Ant1.7
      */
-    public boolean isUpToDate(File source,File dest,long granularity) {
+    public boolean isUpToDate(File source, File dest, long granularity) {
         //do a check for the destination file existing
-        if(!dest.exists()) {
+        if (!dest.exists()) {
             //if it does not, then the file is not up to date.
             return false;
         }
-        long sourceTime=source.lastModified();
-        long destTime=dest.lastModified();
+        long sourceTime = source.lastModified();
+        long destTime = dest.lastModified();
         return isUpToDate(sourceTime, destTime, granularity);
     }
 
@@ -1366,8 +1353,8 @@ public class FileUtils {
      * @param granularity os/filesys granularity
      * @return true if the dest file is considered up to date
      */
-    public boolean isUpToDate(long sourceTime,long destTime, long granularity) {
-        if(destTime==-1) {
+    public boolean isUpToDate(long sourceTime, long destTime, long granularity) {
+        if (destTime == -1) {
             return false;
         }
         return destTime >= sourceTime + granularity;
@@ -1382,9 +1369,8 @@ public class FileUtils {
      * @return true if the dest file is considered up to date
      */
     public boolean isUpToDate(long sourceTime, long destTime) {
-        return isUpToDate(sourceTime, destTime,getFileTimestampGranularity());
+        return isUpToDate(sourceTime, destTime, getFileTimestampGranularity());
     }
-
 
     /**
      * close a writer without throwing any exception if something went wrong.
@@ -1408,7 +1394,7 @@ public class FileUtils {
      * @param device stream, can be null
      */
     public static void close(Reader device) {
-        if ( device != null ) {
+        if (device != null) {
             try {
                 device.close();
             } catch (IOException ioex) {
@@ -1424,7 +1410,7 @@ public class FileUtils {
      * @param device stream, can be null
      */
     public static void close(OutputStream device) {
-        if ( device != null ) {
+        if (device != null) {
             try {
                 device.close();
             } catch (IOException ioex) {
@@ -1440,7 +1426,7 @@ public class FileUtils {
      * @param device stream, can be null
      */
     public static void close(InputStream device) {
-        if ( device != null ) {
+        if (device != null) {
             try {
                 device.close();
             } catch (IOException ioex) {
@@ -1455,7 +1441,7 @@ public class FileUtils {
      * @param file file to delete
      */
     public static void delete(File file) {
-        if(file!=null) {
+        if (file != null) {
             file.delete();
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2002,2004 The Apache Software Foundation
+ * Copyright  2001-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import java.util.Vector;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileList;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Examines and removes out of date target files.  If any of the target files
@@ -76,6 +76,8 @@ import org.apache.tools.ant.types.FileSet;
  * @since Ant 1.4
  */
 public class DependSet extends MatchingTask {
+
+    private static final FileUtils     FILE_UTILS = FileUtils.getFileUtils();
 
     private Vector sourceFileSets  = new Vector();
     private Vector sourceFileLists = new Vector();
@@ -134,13 +136,10 @@ public class DependSet extends MatchingTask {
 
         long now = (new Date()).getTime();
         /*
-          If we're on Windows, we have to munge the time up to 2 secs to
-          be able to check file modification times.
-          (Windows has a max resolution of two secs for modification times)
+          We have to munge the time to allow for the filesystem time
+          granularity.
         */
-        if (Os.isFamily("windows")) {
-            now += 2000;
-        }
+        now += FILE_UTILS.getFileTimestampGranularity();
 
         //
         // Grab all the target files specified via filesets

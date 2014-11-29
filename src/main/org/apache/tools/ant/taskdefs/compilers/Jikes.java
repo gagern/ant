@@ -35,22 +35,16 @@ public class Jikes extends DefaultCompilerAdapter {
      * Performs a compile using the Jikes compiler from IBM.
      * Mostly of this code is identical to doClassicCompile()
      * However, it does not support all options like
-     * bootclasspath, extdirs, deprecation and so on, because
+     * extdirs, deprecation and so on, because
      * there is no option in jikes and I don't understand
      * what they should do.
      *
-     * It has been successfully tested with jikes >1.10
+     * It has been successfully tested with jikes &gt;1.10
      */
     public boolean execute() throws BuildException {
         attributes.log("Using jikes compiler", Project.MSG_VERBOSE);
 
         Path classpath = new Path(project);
-
-        // Jikes doesn't support bootclasspath dir (-bootclasspath)
-        // so we'll emulate it for compatibility and convenience.
-        if (bootclasspath != null) {
-            classpath.append(bootclasspath);
-        }
 
         // Jikes doesn't support an extension dir (-extdir)
         // so we'll emulate it for compatibility and convenience.
@@ -186,13 +180,28 @@ public class Jikes extends DefaultCompilerAdapter {
 
         if (attributes.getSource() != null) {
             cmd.createArgument().setValue("-source");
-            cmd.createArgument().setValue(attributes.getSource());
+            String source = attributes.getSource();
+            if (source.equals("1.1") || source.equals("1.2")) {
+                // support for -source 1.1 and -source 1.2 has been
+                // added with JDK 1.4.2, Jikes doesn't like it
+                attributes.log("Jikes doesn't support '-source "
+                               + source + "', will use '-source 1.3' instead");
+                cmd.createArgument().setValue("1.3");
+            } else {
+                cmd.createArgument().setValue(source);
+            }
         }
 
         addCurrentCompilerArgs(cmd);
 
         int firstFileName = cmd.size();
         logAndAddFilesToCompile(cmd);
+
+        Path boot = getBootClassPath();
+        if (boot.size() > 0) {
+            cmd.createArgument().setValue("-bootclasspath");
+            cmd.createArgument().setPath(boot);
+        }
 
         return
             executeExternalCompile(cmd.getCommandline(), firstFileName) == 0;

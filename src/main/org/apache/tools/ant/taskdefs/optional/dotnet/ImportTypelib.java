@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import java.io.File;
  */
 public class ImportTypelib extends Task {
 
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * input file; precedes options
@@ -77,7 +78,7 @@ public class ImportTypelib extends Task {
 
     /**
      * This method names the output file.
-     * 
+     *
      * This is an operation which is required to have been performed.
      * @param destFile
      */
@@ -95,7 +96,7 @@ public class ImportTypelib extends Task {
     }
 
     /**
-     * This method sets which is the source .tlb file. 
+     * This method sets which is the source .tlb file.
      * This is an operation which is required to have been performed.
      * @param srcFile
      */
@@ -166,7 +167,7 @@ public class ImportTypelib extends Task {
         }
         long sourceTime = srcFile.lastModified();
         long destTime = destFile.lastModified();
-        if (sourceTime > (destTime + FileUtils.newFileUtils().getFileTimestampGranularity())) {
+        if (sourceTime > (destTime + FILE_UTILS.getFileTimestampGranularity())) {
             log("Source file is newer than the dest file: a rebuild is required",
                     Project.MSG_VERBOSE);
             return true;
@@ -188,7 +189,7 @@ public class ImportTypelib extends Task {
             + " to assembly " + destFile
             + " in namespace " + namespace, Project.MSG_VERBOSE);
         //rebuild unless the dest file is newer than the source file
-        if(!isExecuteNeeded()) {
+        if (!isExecuteNeeded()) {
             return;
         }
 

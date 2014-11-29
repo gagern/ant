@@ -52,10 +52,11 @@ public class Gcj extends DefaultCompilerAdapter {
 
         // gcj doesn't support bootclasspath dir (-bootclasspath)
         // so we'll emulate it for compatibility and convenience.
-        if (bootclasspath != null) {
-            classpath.append(bootclasspath);
+        Path p = getBootClassPath();
+        if (p.size() > 0) {
+            classpath.append(p);
         }
-
+        
         // gcj doesn't support an extension dir (-extdir)
         // so we'll emulate it for compatibility and convenience.
         classpath.addExtdirs(extdirs);
@@ -122,10 +123,10 @@ public class Gcj extends DefaultCompilerAdapter {
     public boolean isNativeBuild() {
         boolean nativeBuild = false;
         String[] additionalArguments = getJavac().getCurrentCompilerArgs();
-        int argsLength=0;
+        int argsLength = 0;
         while (!nativeBuild && argsLength < additionalArguments.length) {
             int conflictLength = 0;
-            while (!nativeBuild 
+            while (!nativeBuild
                    && conflictLength < CONFLICT_WITH_DASH_C.length) {
                 nativeBuild = (additionalArguments[argsLength].startsWith
                                (CONFLICT_WITH_DASH_C[conflictLength]));
@@ -136,8 +137,8 @@ public class Gcj extends DefaultCompilerAdapter {
         return nativeBuild;
     }
 
-    private static final String [] CONFLICT_WITH_DASH_C = { 
-        "-o" , "--main=", "-D", "-fjni", "-L" 
+    private static final String [] CONFLICT_WITH_DASH_C = {
+        "-o" , "--main=", "-D", "-fjni", "-L"
     };
 
 }

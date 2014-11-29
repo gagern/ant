@@ -17,6 +17,7 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ExitStatusException;
@@ -52,7 +53,7 @@ public class Exit extends Task {
                 throw new BuildException(
                     "A single nested condition is required.");
             }
-            return ((Condition)(getConditions().nextElement())).eval();
+            return ((Condition) (getConditions().nextElement())).eval();
         }
     }
 
@@ -105,7 +106,7 @@ public class Exit extends Task {
      * The error message is constructed from the text fields, from
      * the nested condition (if specified), or finally from
      * the if and unless parameters (if present).
-     * @throws BuildException
+     * @throws BuildException on error
      */
     public void execute() throws BuildException {
         boolean fail = (nestedConditionPresent()) ? testNestedCondition()
@@ -136,7 +137,7 @@ public class Exit extends Task {
                     }
                 }
             }
-            log("failing due to " + text, getProject().MSG_DEBUG);
+            log("failing due to " + text, Project.MSG_DEBUG);
             throw ((status == null) ? new BuildException(text)
              : new ExitStatusException(text, status.intValue()));
         }

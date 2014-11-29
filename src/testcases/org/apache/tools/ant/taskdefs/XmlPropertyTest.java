@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.apache.tools.ant.util.FileUtils;
 /**
  */
 public class XmlPropertyTest extends BuildFileTest {
-    private static FileUtils fileUtils = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     public XmlPropertyTest(String name) {
         super(name);
@@ -116,16 +116,16 @@ public class XmlPropertyTest extends BuildFileTest {
     private void doTest(String msg, boolean keepRoot, boolean collapse,
                         boolean semantic, boolean include, boolean localRoot) {
         Enumeration iter =
-            getFiles(new File("src/etc/testcases/taskdefs/xmlproperty/inputs"));
+            getFiles(new File(System.getProperty("root"), "src/etc/testcases/taskdefs/xmlproperty/inputs"));
         while (iter.hasMoreElements()) {
             File inputFile = (File) iter.nextElement();
             // What's the working directory?  If local, then its the
             // folder of the input file.  Otherwise, its the "current" dir..
             File workingDir;
             if ( localRoot ) {
-                workingDir = fileUtils.getParentFile(inputFile);
+                workingDir = inputFile.getParentFile();
             } else {
-                workingDir = fileUtils.resolveFile(new File("."), ".");
+                workingDir = FILE_UTILS.resolveFile(new File("."), ".");
             }
 
             try {
@@ -141,10 +141,10 @@ public class XmlPropertyTest extends BuildFileTest {
 
                 //                System.out.println(msg + " (" + propertyFile.getName() + ") in (" + workingDir + ")");
 
-                Project project = new Project();
+                Project p = new Project();
 
                 XmlProperty xmlproperty = new XmlProperty();
-                xmlproperty.setProject(project);
+                xmlproperty.setProject(p);
                 xmlproperty.setFile(inputFile);
 
                 xmlproperty.setKeeproot(keepRoot);
@@ -156,17 +156,17 @@ public class XmlPropertyTest extends BuildFileTest {
                 // Set a property on the project to make sure that loading
                 // a property with the same name from an xml file will
                 // *not* change it.
-                project.setNewProperty("override.property.test", "foo");
+                p.setNewProperty("override.property.test", "foo");
 
                 xmlproperty.execute();
 
                 Properties props = new Properties();
                 props.load(new FileInputStream(propertyFile));
 
-                //printProperties(project.getProperties());
+                //printProperties(p.getProperties());
 
-                ensureProperties(msg, inputFile, workingDir, project, props);
-                ensureReferences(msg, inputFile, project.getReferences());
+                ensureProperties(msg, inputFile, workingDir, p, props);
+                ensureReferences(msg, inputFile, p.getReferences());
 
             } catch (IOException ex) {
                 fail(ex.toString());
@@ -181,9 +181,9 @@ public class XmlPropertyTest extends BuildFileTest {
      * to generic Project/Task configuration.
      */
     private static void ensureProperties (String msg, File inputFile,
-                                          File workingDir, Project project,
+                                          File workingDir, Project p,
                                           Properties properties) {
-        Hashtable xmlproperties = project.getProperties();
+        Hashtable xmlproperties = p.getProperties();
         // Every key identified by the Properties must have been loaded.
         Enumeration propertyKeyEnum = properties.propertyNames();
         while(propertyKeyEnum.hasMoreElements()){
@@ -202,7 +202,7 @@ public class XmlPropertyTest extends BuildFileTest {
                 // We don't have an adequate way of testing the actual
                 // *value* of the Path object, though...
                 String id = currentKey;
-                Object obj = project.getReferences().get(id);
+                Object obj = p.getReferences().get(id);
 
                 if ( obj == null ) {
                     fail(assertMsg + " Object ID does not exist.");
@@ -285,7 +285,7 @@ public class XmlPropertyTest extends BuildFileTest {
                 + ".properties";
         }
 
-        File dir = fileUtils.getParentFile(fileUtils.getParentFile(input));
+        File dir = input.getParentFile().getParentFile();
 
         String goldFileFolder = "goldfiles/";
 

@@ -39,42 +39,36 @@ import java.util.jar.Manifest;
 public final class Specification {
     /**
      * Manifest Attribute Name object for SPECIFICATION_TITLE.
-     * @see Attributes.Name#SPECIFICATION_TITLE
      */
     public static final Attributes.Name SPECIFICATION_TITLE
         = Attributes.Name.SPECIFICATION_TITLE;
 
     /**
      * Manifest Attribute Name object for SPECIFICATION_VERSION.
-     * @see Attributes.Name#SPECIFICATION_VERSION
      */
     public static final Attributes.Name SPECIFICATION_VERSION
         = Attributes.Name.SPECIFICATION_VERSION;
 
     /**
      * Manifest Attribute Name object for SPECIFICATION_VENDOR.
-     * @see Attributes.Name#SPECIFICATION_VENDOR
      */
     public static final Attributes.Name SPECIFICATION_VENDOR
         = Attributes.Name.SPECIFICATION_VENDOR;
 
     /**
      * Manifest Attribute Name object for IMPLEMENTATION_TITLE.
-     * @see Attributes.Name#IMPLEMENTATION_TITLE
      */
     public static final Attributes.Name IMPLEMENTATION_TITLE
         = Attributes.Name.IMPLEMENTATION_TITLE;
 
     /**
      * Manifest Attribute Name object for IMPLEMENTATION_VERSION.
-     * @see Attributes.Name#IMPLEMENTATION_VERSION
      */
     public static final Attributes.Name IMPLEMENTATION_VERSION
         = Attributes.Name.IMPLEMENTATION_VERSION;
 
     /**
      * Manifest Attribute Name object for IMPLEMENTATION_VENDOR.
-     * @see Attributes.Name#IMPLEMENTATION_VENDOR
      */
     public static final Attributes.Name IMPLEMENTATION_VENDOR
         = Attributes.Name.IMPLEMENTATION_VENDOR;
@@ -349,29 +343,31 @@ public final class Specification {
         }
 
         // Available specification version must be >= required
-        final DeweyDecimal specificationVersion
+        final DeweyDecimal otherSpecificationVersion
             = other.getSpecificationVersion();
         if (null != specificationVersion) {
-            if (null == specificationVersion
-                || !isCompatible(specificationVersion, specificationVersion)) {
+            if (null == otherSpecificationVersion
+                || !isCompatible(specificationVersion, otherSpecificationVersion)) {
                 return REQUIRE_SPECIFICATION_UPGRADE;
             }
         }
 
         // Implementation Vendor ID must match
-        final String implementationVendor = other.getImplementationVendor();
+        final String otherImplementationVendor
+            = other.getImplementationVendor();
         if (null != implementationVendor) {
-            if (null == implementationVendor
-                || !implementationVendor.equals(implementationVendor)) {
+            if (null == otherImplementationVendor
+                || !implementationVendor.equals(otherImplementationVendor)) {
                 return REQUIRE_VENDOR_SWITCH;
             }
         }
 
         // Implementation version must be >= required
-        final String implementationVersion = other.getImplementationVersion();
+        final String otherImplementationVersion
+            = other.getImplementationVersion();
         if (null != implementationVersion) {
-            if (null == implementationVersion
-                || !implementationVersion.equals(implementationVersion)) {
+            if (null == otherImplementationVersion
+                || !implementationVersion.equals(otherImplementationVersion)) {
                 return REQUIRE_IMPLEMENTATION_CHANGE;
             }
         }

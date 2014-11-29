@@ -1,5 +1,5 @@
 /*
- * Copyright  2001-2004 The Apache Software Foundation
+ * Copyright  2001-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ import org.apache.tools.ant.taskdefs.condition.Os;
  */
 public abstract class DefaultCompilerAdapter implements CompilerAdapter {
 
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+    
     /* jdg - TODO - all these attributes are currently protected, but they
      * should probably be private in the near future.
      */
@@ -69,7 +71,6 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
     protected static final String lSep = System.getProperty("line.separator");
     protected Javac attributes;
 
-    private FileUtils fileUtils = FileUtils.newFileUtils();
 
     /**
      * Set the Javac instance which contains the configured compilation
@@ -213,12 +214,12 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
         // as well as "bootclasspath" and "extdirs"
         if (assumeJava11()) {
             Path cp = new Path(project);
-            /*
-             * XXX - This doesn't mix very well with build.systemclasspath,
-             */
-            if (bootclasspath != null) {
-                cp.append(bootclasspath);
+
+            Path bp = getBootClassPath();
+            if (bp.size() > 0) {
+                cp.append(bp);
             }
+
             if (extdirs != null) {
                 cp.addExtdirs(extdirs);
             }
@@ -237,10 +238,13 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                 cmd.createArgument().setValue("-target");
                 cmd.createArgument().setValue(target);
             }
-            if (bootclasspath != null && bootclasspath.size() > 0) {
+
+            Path bp = getBootClassPath();
+            if (bp.size() > 0) {
                 cmd.createArgument().setValue("-bootclasspath");
-                cmd.createArgument().setPath(bootclasspath);
+                cmd.createArgument().setPath(bp);
             }
+
             if (extdirs != null && extdirs.size() > 0) {
                 cmd.createArgument().setValue("-extdirs");
                 cmd.createArgument().setPath(extdirs);
@@ -297,7 +301,15 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
         setupJavacCommandlineSwitches(cmd, true);
         if (attributes.getSource() != null && !assumeJava13()) {
             cmd.createArgument().setValue("-source");
-            cmd.createArgument().setValue(attributes.getSource());
+            String source = attributes.getSource();
+            if (assumeJava14()
+                && (source.equals("1.1") || source.equals("1.2"))) {
+                // support for -source 1.1 and -source 1.2 has been
+                // added with JDK 1.4.2
+                cmd.createArgument().setValue("1.3");
+            } else {
+                cmd.createArgument().setValue(source);
+            }
         }
         return cmd;
     }
@@ -397,7 +409,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                 && firstFileName >= 0) {
                 PrintWriter out = null;
                 try {
-                    tmpFile = fileUtils.createTempFile(
+                    tmpFile = FILE_UTILS.createTempFile(
                         "files", "", getJavac().getTempdir());
                     tmpFile.deleteOnExit();
                     out = new PrintWriter(new FileWriter(tmpFile));
@@ -501,5 +513,33 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
                 && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3));
     }
 
+    /**
+     * Shall we assume JDK 1.4 command line switches?
+     * @since Ant 1.6.3
+     */
+    protected boolean assumeJava14() {
+        return "javac1.4".equals(attributes.getCompilerVersion())
+            || ("classic".equals(attributes.getCompilerVersion())
+                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4))
+            || ("modern".equals(attributes.getCompilerVersion())
+                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4))
+            || ("extJavac".equals(attributes.getCompilerVersion())
+                && JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4));
+    }
+
+    /**
+     * Combines a user specified bootclasspath with the system
+     * bootclasspath taking build.sysclasspath into account.
+     *
+     * @return a non-null Path instance that combines the user
+     * specified and the system bootclasspath.
+     */
+    protected Path getBootClassPath() {
+        Path bp = new Path(project);
+        if (bootclasspath != null) {
+            bp.append(bootclasspath);
+        }
+        return bp.concatSystemBootClasspath("ignore");
+    }
 }
 

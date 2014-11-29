@@ -509,13 +509,13 @@ public class SQLExec extends JDBCTask {
             return;
         }
 
+        ResultSet resultSet = null;
         try {
             totalSql++;
             log("SQL: " + sql, Project.MSG_VERBOSE);
 
             boolean ret;
             int updateCount = 0, updateCountTotal = 0;
-            ResultSet resultSet = null;
 
             ret = statement.execute(sql);
             updateCount = statement.getUpdateCount();
@@ -527,7 +527,7 @@ public class SQLExec extends JDBCTask {
                     }
                 } else {
                     if (print) {
-                        printResults(out);
+                        printResults(resultSet, out);
                     }
                 }
                 ret = statement.getMoreResults();
@@ -559,17 +559,39 @@ public class SQLExec extends JDBCTask {
                 throw e;
             }
             log(e.toString(), Project.MSG_ERR);
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
         }
     }
 
     /**
-     * print any results in the statement.
+     * print any results in the statement
+     * @deprecated use {@link #printResults(java.sql.ResultSet, java.io.PrintStream) the two arg version} instead.
      * @param out the place to print results
      * @throws SQLException on SQL problems.
      */
     protected void printResults(PrintStream out) throws SQLException {
         ResultSet rs = null;
         rs = statement.getResultSet();
+        try {
+            printResults(rs, out);
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+        }
+    }
+
+    /**
+     * print any results in the result set.
+     * @param rs the resultset to print information about
+     * @param out the place to print results
+     * @throws SQLException on SQL problems.
+     * @since Ant 1.7
+     */
+    protected void printResults(ResultSet rs, PrintStream out) throws SQLException {
         if (rs != null) {
             log("Processing new result set.", Project.MSG_VERBOSE);
             ResultSetMetaData md = rs.getMetaData();

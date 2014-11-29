@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public class Copy extends Task {
      * Copy task constructor.
      */
     public Copy() {
-        fileUtils = FileUtils.newFileUtils();
+        fileUtils = FileUtils.getFileUtils();
         granularity = fileUtils.getFileTimestampGranularity();
     }
 
@@ -290,6 +290,16 @@ public class Copy extends Task {
     }
 
     /**
+     * A nested filenamemapper
+     * @param fileNameMapper the mapper to add
+     * @since Ant 1.6.3
+     */
+    public void add(FileNameMapper fileNameMapper) {
+        createMapper().add(fileNameMapper);
+    }
+
+
+    /**
      * Sets the character encoding
      * @param encoding the character encoding
      * @since 1.32, Ant 1.5
@@ -333,8 +343,9 @@ public class Copy extends Task {
      * The number of milliseconds leeway to give before deciding a
      * target is out of date.
      *
-     * <p>Default is 0 milliseconds, or 2 seconds on DOS systems.</p>
-     *
+     * <p>Default is 1 second, or 2 seconds on DOS systems.</p>
+     * @param granularity the granularity used to decide if a target is out of
+     * date.
      * @since Ant 1.6.2
      */
     public void setGranularity(long granularity) {
@@ -499,7 +510,7 @@ public class Copy extends Task {
         }
 
         if (destFile != null) {
-            destDir = fileUtils.getParentFile(destFile);
+            destDir = destFile.getParentFile();
         }
 
     }

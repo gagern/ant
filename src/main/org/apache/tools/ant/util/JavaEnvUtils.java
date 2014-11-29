@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public class JavaEnvUtils {
     private static final String javaHome = System.getProperty("java.home");
 
     /** FileUtils instance for path normalization */
-    private static final FileUtils fileUtils = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /** Version of currently running VM. */
     private static String javaVersion;
@@ -66,6 +66,9 @@ public class JavaEnvUtils {
     public static final String JAVA_1_4 = "1.4";
     /** Version constant for Java 1.5 */
     public static final String JAVA_1_5 = "1.5";
+
+    /** Whether this is the Kaffe VM */
+    private static boolean kaffeDetected;
 
     /** array of packages in the runtime */
     private static Vector jrePackages;
@@ -103,6 +106,13 @@ public class JavaEnvUtils {
             // swallow as we've hit the max class version that
             // we have
         }
+        kaffeDetected = false;
+        try {
+            Class.forName("kaffe.util.NotImplemented");
+            kaffeDetected = true;
+        } catch (Throwable t) {
+            // swallow as this simply doesn't seem to be Kaffe
+        }
     }
 
     /**
@@ -123,6 +133,16 @@ public class JavaEnvUtils {
      */
     public static boolean isJavaVersion(String version) {
         return javaVersion.equals(version);
+    }
+
+    /**
+     * Checks whether the current Java VM is Kaffe.
+     * @return true if the current Java VM is Kaffe.
+     * @since Ant 1.6.3
+     * @see http://www.kaffe.org/
+     */
+    public static boolean isKaffe() {
+        return kaffeDetected;
     }
 
     /**
@@ -230,7 +250,7 @@ public class JavaEnvUtils {
      * @return null if the executable cannot be found.
      */
     private static File findInDir(String dirName, String commandName) {
-        File dir = fileUtils.normalize(dirName);
+        File dir = FILE_UTILS.normalize(dirName);
         File executable = null;
         if (dir.exists()) {
             executable = new File(dir, addExtension(commandName));
@@ -339,7 +359,7 @@ public class JavaEnvUtils {
         }
         return jrePackages;
     }
-    
+
     /**
      *
      * Writes the command into a temporary DCL script and returns the
@@ -351,8 +371,7 @@ public class JavaEnvUtils {
      */
     public static File createVmsJavaOptionFile(String[] cmd)
             throws IOException {
-        File script = FileUtils.newFileUtils()
-                .createTempFile("ANT", ".JAVA_OPTS", null);
+        File script = FILE_UTILS.createTempFile("ANT", ".JAVA_OPTS", null);
         PrintWriter out = null;
         try {
             out = new PrintWriter(new BufferedWriter(new FileWriter(script)));

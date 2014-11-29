@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -106,6 +106,8 @@ public class FixCRLF extends MatchingTask {
 
     private static final char CTRLZ = '\u001A';
 
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     private int tablength = 8;
     private String spaces = "        ";
     private StringBuffer linebuf = new StringBuffer(1024);
@@ -119,8 +121,6 @@ public class FixCRLF extends MatchingTask {
 
     private File srcDir;
     private File destDir = null;
-
-    private FileUtils fileUtils = FileUtils.newFileUtils();
 
     /**
      * Encoding to assume for the files
@@ -373,7 +373,7 @@ public class FixCRLF extends MatchingTask {
         try {
             // Set up the output Writer
             try {
-                tmpFile = fileUtils.createTempFile("fixcrlf", "", null);
+                tmpFile = FILE_UTILS.createTempFile("fixcrlf", "", null);
                 tmpFile.deleteOnExit();
                 Writer writer = (encoding == null) ? new FileWriter(tmpFile)
                     : new OutputStreamWriter(new FileOutputStream(tmpFile),
@@ -527,7 +527,7 @@ public class FixCRLF extends MatchingTask {
             if (destFile.exists()) {
                 // Compare the destination with the temp file
                 log("destFile exists", Project.MSG_DEBUG);
-                if (!fileUtils.contentEquals(destFile, tmpFile)) {
+                if (!FILE_UTILS.contentEquals(destFile, tmpFile)) {
                     log(destFile + " is being written", Project.MSG_DEBUG);
                 } else {
                     log(destFile + " is not written, as the contents "
@@ -537,7 +537,7 @@ public class FixCRLF extends MatchingTask {
             }
 
             if (destIsWrong) {
-                fileUtils.rename(tmpFile, destFile);
+                FILE_UTILS.rename(tmpFile, destFile);
                 tmpFile = null;
             }
 
@@ -574,12 +574,12 @@ public class FixCRLF extends MatchingTask {
      */
     private void nextStateChange(OneLiner.BufferLine bufline)
         throws BuildException {
-        int eol = bufline.length();
+        int eofl = bufline.length();
         int ptr = bufline.getNext();
 
 
         //  Look for next single or double quote, double slash or slash star
-        while (ptr < eol) {
+        while (ptr < eofl) {
             switch (bufline.getChar(ptr++)) {
             case '\'':
                 bufline.setState(IN_CHAR_CONST);
@@ -590,7 +590,7 @@ public class FixCRLF extends MatchingTask {
                 bufline.setLookahead(--ptr);
                 return;
             case '/':
-                if (ptr < eol) {
+                if (ptr < eofl) {
                     if (bufline.getChar(ptr) == '*') {
                         bufline.setState(IN_MULTI_COMMENT);
                         bufline.setLookahead(--ptr);
@@ -604,7 +604,7 @@ public class FixCRLF extends MatchingTask {
                 break;
             } // end of switch (bufline.getChar(ptr++))
 
-        } // end of while (ptr < eol)
+        } // end of while (ptr < eofl)
         // Eol is the next token
         bufline.setLookahead(ptr);
     }
@@ -626,10 +626,10 @@ public class FixCRLF extends MatchingTask {
     private void endOfCharConst(OneLiner.BufferLine bufline, char terminator)
         throws BuildException {
         int ptr = bufline.getNext();
-        int eol = bufline.length();
+        int eofl = bufline.length();
         char c;
         ptr++;          // skip past initial quote
-        while (ptr < eol) {
+        while (ptr < eofl) {
             if ((c = bufline.getChar(ptr++)) == '\\') {
                 ptr++;
             } else {
@@ -638,7 +638,7 @@ public class FixCRLF extends MatchingTask {
                     return;
                 }
             }
-        } // end of while (ptr < eol)
+        } // end of while (ptr < eofl)
         // Must have fallen through to the end of the line
         throw new BuildException("endOfCharConst: unterminated char constant");
     }
@@ -1000,3 +1000,4 @@ public class FixCRLF extends MatchingTask {
     }
 
 }
+

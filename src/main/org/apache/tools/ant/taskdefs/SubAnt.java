@@ -62,7 +62,7 @@ public class SubAnt
     private Path buildpath;
 
     private Ant ant = null;
-    private String target = null;
+    private String subTarget = null;
     private String antfile = "build.xml";
     private File genericantfile = null;
     private boolean inheritAll = false;
@@ -173,8 +173,8 @@ public class SubAnt
         }
 /*
     //REVISIT: there must be cleaner way of doing this, if it is merited at all
-        if (target == null) {
-            target = getOwningTarget().getName();
+        if (subTarget == null) {
+            subTarget = getOwningTarget().getName();
         }
 */
         BuildException buildException = null;
@@ -253,13 +253,7 @@ public class SubAnt
         }
 
         ant = createAntTask(directory);
-        String antfilename = null;
-        try {
-            antfilename = file.getCanonicalPath();
-        } catch (IOException e) {
-            throw new BuildException(e);
-        }
-
+        String antfilename = file.getAbsolutePath();
         ant.setAntfile(antfilename);
         try {
             ant.execute();
@@ -267,25 +261,25 @@ public class SubAnt
             if (failOnError) {
                 throw e;
             }
-            log("Failure for target '" + target
+            log("Failure for target '" + subTarget
                + "' of: " +  antfilename + "\n"
                + e.getMessage(), Project.MSG_WARN);
         } catch (Throwable e) {
             if (failOnError) {
                 throw new BuildException(e);
             }
-            log("Failure for target '" + target
+            log("Failure for target '" + subTarget
                 + "' of: " + antfilename + "\n"
                 + e.toString(),
                 Project.MSG_WARN);
         } finally {
             ant = null;
-        }        
+        }
     }
 
     /**
      * This method builds the file name to use in conjunction with directories.
-     * 
+     *
      * <p>Defaults to "build.xml".
      * If <code>genericantfile</code> is set, this attribute is ignored.</p>
      *
@@ -297,7 +291,7 @@ public class SubAnt
 
     /**
      * This method builds a file path to use in conjunction with directories.
-     * 
+     *
      * <p>Use <code>genericantfile</code>, in order to run the same build file
      * with different basedirs.</p>
      * If this attribute is set, <code>antfile</code> is ignored.
@@ -326,7 +320,7 @@ public class SubAnt
      */
     //     REVISIT: Defaults to the target name that contains this task if not specified.
     public void setTarget(String target) {
-        this.target = target;
+        this.subTarget = target;
     }
 
     /**
@@ -484,38 +478,38 @@ public class SubAnt
      *         references necessary to run the sub-build.
      */
     private Ant createAntTask(File directory) {
-        Ant ant = (Ant) getProject().createTask("ant");
-        ant.setOwningTarget(getOwningTarget());
-        ant.setTaskName(getTaskName());
-        ant.init();
-        if (target != null && target.length() > 0) {
-            ant.setTarget(target);
+        Ant antTask = (Ant) getProject().createTask("ant");
+        antTask.setOwningTarget(getOwningTarget());
+        antTask.setTaskName(getTaskName());
+        antTask.init();
+        if (subTarget != null && subTarget.length() > 0) {
+            antTask.setTarget(subTarget);
         }
 
 
         if (output != null) {
-            ant.setOutput(output);
+            antTask.setOutput(output);
         }
 
         if (directory != null) {
-            ant.setDir(directory);
+            antTask.setDir(directory);
         }
 
-        ant.setInheritAll(inheritAll);
+        antTask.setInheritAll(inheritAll);
         for (Enumeration i = properties.elements(); i.hasMoreElements();) {
-            copyProperty(ant.createProperty(), (Property) i.nextElement());
+            copyProperty(antTask.createProperty(), (Property) i.nextElement());
         }
 
         for (Enumeration i = propertySets.elements(); i.hasMoreElements();) {
-            ant.addPropertyset((PropertySet) i.nextElement());
+            antTask.addPropertyset((PropertySet) i.nextElement());
         }
 
-        ant.setInheritRefs(inheritRefs);
+        antTask.setInheritRefs(inheritRefs);
         for (Enumeration i = references.elements(); i.hasMoreElements();) {
-            ant.addReference((Ant.Reference) i.nextElement());
+            antTask.addReference((Ant.Reference) i.nextElement());
         }
 
-        return ant;
+        return antTask;
     }
 
     /**

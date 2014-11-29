@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ public class Zip extends MatchingTask {
     protected boolean doubleFilePass = false;
     protected boolean skipWriting = false;
 
-    private static FileUtils fileUtils = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * true when we are adding new files into the Zip file, as opposed
@@ -406,12 +406,12 @@ public class Zip extends MatchingTask {
 
             if (doUpdate) {
                 renamedFile =
-                    fileUtils.createTempFile("zip", ".tmp",
-                                             fileUtils.getParentFile(zipFile));
+                    FILE_UTILS.createTempFile("zip", ".tmp",
+                                             zipFile.getParentFile());
                 renamedFile.deleteOnExit();
 
                 try {
-                    fileUtils.rename(zipFile, renamedFile);
+                    FILE_UTILS.rename(zipFile, renamedFile);
                 } catch (SecurityException e) {
                     throw new BuildException(
                         "Not allowed to rename old file ("
@@ -528,7 +528,7 @@ public class Zip extends MatchingTask {
 
             if (doUpdate && renamedFile != null) {
                 try {
-                    fileUtils.rename(renamedFile, zipFile);
+                    FILE_UTILS.rename(renamedFile, zipFile);
                 } catch (IOException e) {
                     msg += " (and I couldn't rename the temporary file "
                             + renamedFile.getName() + " back)";
@@ -641,7 +641,7 @@ public class Zip extends MatchingTask {
                 }
 
                 if (!resources[i].isDirectory() && dealingWithFiles) {
-                    File f = fileUtils.resolveFile(base,
+                    File f = FILE_UTILS.resolveFile(base,
                                                    resources[i].getName());
                     zipFile(f, zOut, prefix + name, fileMode);
                 } else if (!resources[i].isDirectory()) {
@@ -750,7 +750,7 @@ public class Zip extends MatchingTask {
      * @param needsUpdate whether we already know that the archive is
      * out-of-date.  Subclasses overriding this method are supposed to
      * set this value correctly in their call to
-     * super.getResourcesToAdd.
+     * <code>super.getResourcesToAdd</code>.
      * @return an array of resources to add for each fileset passed in as well
      *         as a flag that indicates whether the archive is uptodate.
      *
@@ -800,7 +800,9 @@ public class Zip extends MatchingTask {
                                          getLocation());
             } else {
                 // Create.
-                createEmptyZip(zipFile);
+                if (!zipFile.exists())  {
+                    needsUpdate = true;
+                }
             }
             return new ArchiveState(needsUpdate, initialResources);
         }
@@ -825,7 +827,7 @@ public class Zip extends MatchingTask {
 
                 for (int j = 0; j < initialResources[i].length; j++) {
                     File resourceAsFile =
-                        fileUtils.resolveFile(base,
+                        FILE_UTILS.resolveFile(base,
                                               initialResources[i][j].getName());
                     if (resourceAsFile.equals(zipFile)) {
                         throw new BuildException("A zip file cannot include "
@@ -1064,7 +1066,7 @@ public class Zip extends MatchingTask {
     }
 
     /**
-     * Method that gets called when adding from java.io.File instances.
+     * Method that gets called when adding from <code>java.io.File</code> instances.
      *
      * <p>This implementation delegates to the six-arg version.</p>
      *
@@ -1086,7 +1088,7 @@ public class Zip extends MatchingTask {
         FileInputStream fIn = new FileInputStream(file);
         try {
             // ZIPs store time with a granularity of 2 seconds, round up
-            zipFile(fIn, zOut, vPath, 
+            zipFile(fIn, zOut, vPath,
                     file.lastModified() + (roundUp ? 1999 : 0),
                     null, mode);
         } finally {

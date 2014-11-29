@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class ProjectHelper2 extends ProjectHelper {
     /**
      * helper for path -> URI and URI -> path conversions.
      */
-    private static FileUtils fu = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * Parse an unknown element from a url
@@ -157,7 +157,7 @@ public class ProjectHelper2 extends ProjectHelper {
 
         if (source instanceof File) {
             buildFile = (File) source;
-            buildFile = fu.normalize(buildFile.getAbsolutePath());
+            buildFile = FILE_UTILS.normalize(buildFile.getAbsolutePath());
             context.setBuildFile(buildFile);
             buildFileName = buildFile.toString();
 //         } else if (source instanceof InputStream ) {
@@ -188,7 +188,7 @@ public class ProjectHelper2 extends ProjectHelper {
 
             String uri = null;
             if (buildFile != null) {
-                uri = fu.toURI(buildFile.getAbsolutePath());
+                uri = FILE_UTILS.toURI(buildFile.getAbsolutePath());
                 inputStream = new FileInputStream(buildFile);
             } else {
                 inputStream = url.openStream();
@@ -220,6 +220,8 @@ public class ProjectHelper2 extends ProjectHelper {
                     be.setLocation(location);
                 }
                 throw be;
+            } else if (t == null) {
+                t = exc;
             }
 
             throw new BuildException(exc.getMessage(), t, location);
@@ -227,6 +229,8 @@ public class ProjectHelper2 extends ProjectHelper {
             Throwable t = exc.getException();
             if (t instanceof BuildException) {
                 throw (BuildException) t;
+            } else if (t == null) {
+                t = exc;
             }
             throw new BuildException(exc.getMessage(), t);
         } catch (FileNotFoundException exc) {
@@ -411,16 +415,16 @@ public class ProjectHelper2 extends ProjectHelper {
                 + systemId, Project.MSG_VERBOSE);
 
             if (systemId.startsWith("file:")) {
-                String path = fu.fromURI(systemId);
+                String path = FILE_UTILS.fromURI(systemId);
 
                 File file = new File(path);
                 if (!file.isAbsolute()) {
-                    file = fu.resolveFile(context.getBuildFileParent(), path);
+                    file = FILE_UTILS.resolveFile(context.getBuildFileParent(), path);
                 }
                 try {
                     InputSource inputSource =
                             new InputSource(new FileInputStream(file));
-                    inputSource.setSystemId(fu.toURI(file.getAbsolutePath()));
+                    inputSource.setSystemId(FILE_UTILS.toURI(file.getAbsolutePath()));
                     return inputSource;
                 } catch (FileNotFoundException fne) {
                     context.getProject().log(file.getAbsolutePath()
@@ -524,7 +528,7 @@ public class ProjectHelper2 extends ProjectHelper {
     /**
      * The main handler - it handles the &lt;project&gt; tag.
      *
-     * @see AntHandler
+     * @see org.apache.tools.ant.helper.ProjectHelper2.AntHandler
      */
     public static class MainHandler extends AntHandler {
 
@@ -552,8 +556,14 @@ public class ProjectHelper2 extends ProjectHelper {
 //                     if (qname.equals( "target" ) )
 //                         return ProjectHelper2.targetHandler;
 //                 }
-                throw new SAXParseException("Unexpected element \"" + qname
+                if (name.equals(qname)) {
+                    throw new SAXParseException("Unexpected element \"{" + uri
+                    + "}" + name + "\" {" + ANT_CORE_URI + "}" + name,
+                    context.getLocator());
+                } else {
+                    throw new SAXParseException("Unexpected element \"" + qname
                     + "\" " + name, context.getLocator());
+                }
             }
         }
     }
@@ -591,6 +601,9 @@ public class ProjectHelper2 extends ProjectHelper {
             boolean nameAttributeSet = false;
 
             Project project = context.getProject();
+            // Set the location of the implicit target associated with the project tag
+            context.getImplicitTarget().setLocation(
+                new Location(context.getLocator()));
 
             /** XXX I really don't like this - the XML processor is still
              * too 'involved' in the processing. A better solution (IMO)
@@ -682,7 +695,7 @@ public class ProjectHelper2 extends ProjectHelper {
                     if ((new File(baseDir)).isAbsolute()) {
                         project.setBasedir(baseDir);
                     } else {
-                        project.setBaseDir(fu.resolveFile(
+                        project.setBaseDir(FILE_UTILS.resolveFile(
                                                context.getBuildFileParent(), baseDir));
                     }
                 }

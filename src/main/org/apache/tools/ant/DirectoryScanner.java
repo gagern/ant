@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.apache.tools.ant;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -164,6 +165,9 @@ public class DirectoryScanner
         "**/.DS_Store"
     };
 
+    /** Helper. */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     /**
      * Patterns which should be excluded by default.
      *
@@ -240,11 +244,68 @@ public class DirectoryScanner
      */
     private boolean followSymlinks = true;
 
-    /** Helper. */
-    private static final FileUtils FILE_UTILS = FileUtils.newFileUtils();
-
     /** Whether or not everything tested so far has been included. */
     protected boolean everythingIncluded = true;
+
+    /**
+     * Set of all include patterns that are full file names and don't
+     * contain any wildcards.
+     *
+     * <p>If this instance is not case sensitive, the file names get
+     * turned to lower case.</p>
+     *
+     * <p>Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).</p>
+     *
+     * @since Ant 1.7
+     */
+    private Set includeNonPatterns = new HashSet();
+
+    /**
+     * Set of all include patterns that are full file names and don't
+     * contain any wildcards.
+     *
+     * <p>If this instance is not case sensitive, the file names get
+     * turned to lower case.</p>
+     *
+     * <p>Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).</p>
+     *
+     * @since Ant 1.7
+     */
+    private Set excludeNonPatterns = new HashSet();
+
+    /**
+     * Array of all include patterns that contain wildcards.
+     *
+     * <p>Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).</p>
+     *
+     * @since Ant 1.7
+     */
+    private String[] includePatterns;
+
+    /**
+     * Array of all exclude patterns that contain wildcards.
+     *
+     * <p>Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).</p>
+     *
+     * @since Ant 1.7
+     */
+    private String[] excludePatterns;
+
+    /**
+     * Have the non-pattern sets and pattern arrays for in- and
+     * excludes been initialized?
+     *
+     * @since Ant 1.7
+     */
+    private boolean areNonPatternSetsReady = false;
 
     /**
      * Sole constructor.
@@ -699,7 +760,7 @@ public class DirectoryScanner
                     }
                 }
 
-                if ((myfile == null || !myfile.exists()) && !isCaseSensitive) {
+                if ((myfile == null || !myfile.exists()) && !isCaseSensitive()) {
                     File f = findFileCaseInsensitive(basedir, currentelement);
                     if (f.exists()) {
                         // adapt currentelement to the case we've
@@ -732,10 +793,10 @@ public class DirectoryScanner
                             scandir(myfile, currentelement, true);
                         }
                     } else {
-                        if (isCaseSensitive
+                        if (isCaseSensitive()
                             && originalpattern.equals(currentelement)) {
                             accountForIncludedFile(currentelement, myfile);
-                        } else if (!isCaseSensitive
+                        } else if (!isCaseSensitive()
                                    && originalpattern
                                    .equalsIgnoreCase(currentelement)) {
                             accountForIncludedFile(currentelement, myfile);
@@ -883,9 +944,9 @@ public class DirectoryScanner
         }
     }
     /**
-     * process included file
-     * @param name  path of the file relative to the directory of the fileset
-     * @param file  included file
+     * Process included file.
+     * @param name  path of the file relative to the directory of the FileSet.
+     * @param file  included File.
      */
     private void accountForIncludedFile(String name, File file) {
         if (!filesIncluded.contains(name)
@@ -907,11 +968,11 @@ public class DirectoryScanner
     }
 
     /**
-     *
+     * Process included directory.
      * @param name path of the directory relative to the directory of
-     * the fileset
-     * @param file directory as file
-     * @param fast
+     *             the FileSet.
+     * @param file directory as File.
+     * @param fast whether to perform fast scans.
      */
     private void accountForIncludedDir(String name, File file, boolean fast) {
         if (!dirsIncluded.contains(name)
@@ -950,8 +1011,17 @@ public class DirectoryScanner
      *         include pattern, or <code>false</code> otherwise.
      */
     protected boolean isIncluded(String name) {
-        for (int i = 0; i < includes.length; i++) {
-            if (matchPath(includes[i], name, isCaseSensitive)) {
+        ensureNonPatternSetsReady();
+
+        if ((isCaseSensitive() && includeNonPatterns.contains(name))
+            ||
+            (!isCaseSensitive() 
+             && includeNonPatterns.contains(name.toUpperCase()))) {
+                return true;
+        }
+
+        for (int i = 0; i < includePatterns.length; i++) {
+            if (matchPath(includePatterns[i], name, isCaseSensitive())) {
                 return true;
             }
         }
@@ -968,7 +1038,7 @@ public class DirectoryScanner
      */
     protected boolean couldHoldIncluded(String name) {
         for (int i = 0; i < includes.length; i++) {
-            if (matchPatternStart(includes[i], name, isCaseSensitive)) {
+            if (matchPatternStart(includes[i], name, isCaseSensitive())) {
                 if (isMorePowerfulThanExcludes(name, includes[i])) {
                     return true;
                 }
@@ -1011,8 +1081,17 @@ public class DirectoryScanner
      *         exclude pattern, or <code>false</code> otherwise.
      */
     protected boolean isExcluded(String name) {
-        for (int i = 0; i < excludes.length; i++) {
-            if (matchPath(excludes[i], name, isCaseSensitive)) {
+        ensureNonPatternSetsReady();
+
+        if ((isCaseSensitive() && excludeNonPatterns.contains(name))
+            ||
+            (!isCaseSensitive() 
+             && excludeNonPatterns.contains(name.toUpperCase()))) {
+                return true;
+        }
+
+        for (int i = 0; i < excludePatterns.length; i++) {
+            if (matchPath(excludePatterns[i], name, isCaseSensitive())) {
                 return true;
             }
         }
@@ -1047,6 +1126,9 @@ public class DirectoryScanner
      *         include patterns and none of the exclude patterns.
      */
     public String[] getIncludedFiles() {
+        if (filesIncluded == null) {
+            throw new IllegalStateException();
+        }
         String[] files = new String[filesIncluded.size()];
         filesIncluded.copyInto(files);
         Arrays.sort(files);
@@ -1059,7 +1141,9 @@ public class DirectoryScanner
      * @since Ant 1.6.3
      */
     public int getIncludedFilesCount() {
-        if (filesIncluded == null) throw new IllegalStateException();
+        if (filesIncluded == null) {
+            throw new IllegalStateException();
+        }
         return filesIncluded.size();
     }
 
@@ -1125,6 +1209,9 @@ public class DirectoryScanner
      * include patterns and none of the exclude patterns.
      */
     public String[] getIncludedDirectories() {
+        if (dirsIncluded == null) {
+            throw new IllegalStateException();
+        }
         String[] directories = new String[dirsIncluded.size()];
         dirsIncluded.copyInto(directories);
         Arrays.sort(directories);
@@ -1137,7 +1224,9 @@ public class DirectoryScanner
      * @since Ant 1.6.3
      */
     public int getIncludedDirsCount() {
-        if (dirsIncluded == null) throw new IllegalStateException();
+        if (dirsIncluded == null) {
+            throw new IllegalStateException();
+        }
         return dirsIncluded.size();
     }
 
@@ -1407,8 +1496,47 @@ public class DirectoryScanner
      *
      * @since Ant 1.6
      */
-    private void clearCaches() {
+    private synchronized void clearCaches() {
         fileListMap.clear();
         scannedDirs.clear();
+        includeNonPatterns.clear();
+        excludeNonPatterns.clear();
+        includePatterns = excludePatterns = null;
+        areNonPatternSetsReady = false;
     }
+
+    /**
+     * Ensure that the in|exclude &quot;patterns&quot;
+     * have been properly divided up.
+     *
+     * @since Ant 1.7
+     */
+    private synchronized void ensureNonPatternSetsReady() {
+        if (!areNonPatternSetsReady) {
+            includePatterns = fillNonPatternSet(includeNonPatterns, includes);
+            excludePatterns = fillNonPatternSet(excludeNonPatterns, excludes);
+            areNonPatternSetsReady = true;
+        }
+    }
+
+    /**
+     * Adds all patterns that are not real patterns (do not contain
+     * wildcards) to the set and returns the real patterns.
+     *
+     * @since Ant 1.7
+     */
+    private String[] fillNonPatternSet(Set set, String[] patterns) {
+        ArrayList al = new ArrayList(patterns.length);
+        for (int i = 0; i < patterns.length; i++) {
+            if (!SelectorUtils.hasWildcards(patterns[i])) {
+                set.add(isCaseSensitive() ? patterns[i]
+                    : patterns[i].toUpperCase());
+            } else {
+                al.add(patterns[i]);
+            }
+        }
+        return set.size() == 0 ? patterns
+            : (String[]) al.toArray(new String[al.size()]);
+    }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright  2003-2004 The Apache Software Foundation
+ * Copyright  2003-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.apache.tools.ant.util;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.ProjectComponent;
-import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
@@ -32,6 +31,9 @@ import java.util.Vector;
  * @since Ant 1.5.2
  */
 public class ResourceUtils {
+
+    /** Utilities used for file operations */
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * tells which source files should be reprocessed based on the
@@ -52,8 +54,7 @@ public class ResourceUtils {
                                                     FileNameMapper mapper,
                                                     ResourceFactory targets) {
         return selectOutOfDateSources(logTo, source, mapper, targets,
-                                      FileUtils.newFileUtils()
-                                      .getFileTimestampGranularity());
+                                      FILE_UTILS.getFileTimestampGranularity());
     }
 
     /**
@@ -108,8 +109,8 @@ public class ResourceUtils {
                                   + " doesn\'t exist.", Project.MSG_VERBOSE);
                         vresult.addElement(source[counter]);
                         added = true;
-                    } else if (!atarget.isDirectory() &&
-                               SelectorUtils.isOutOfDate(source[counter],
+                    } else if (!atarget.isDirectory()
+                               && SelectorUtils.isOutOfDate(source[counter],
                                                          atarget,
                                                          (int) granularity)) {
                         logTo.log(source[counter].getName() + " added as "

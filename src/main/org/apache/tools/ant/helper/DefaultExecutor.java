@@ -24,7 +24,8 @@ import org.apache.tools.ant.BuildException;
 
 
 /**
- * Default Target executor implementation.
+ * Default Target executor implementation. Runs each target individually
+ * (including all of its dependencies), halting immediately upon error.
  * @since Ant 1.6.3
  */
 public class DefaultExecutor implements Executor {

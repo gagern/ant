@@ -1,5 +1,5 @@
 /*
- * Copyright  2000-2004 The Apache Software Foundation
+ * Copyright  2000-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Enumeration;
 import java.util.Vector;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
+import org.apache.tools.ant.taskdefs.condition.IsSigned;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.FileUtils;
@@ -41,6 +39,8 @@ import org.apache.tools.ant.util.FileUtils;
  * @ant.task category="java"
  */
 public class SignJar extends Task {
+
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * The name of the jar file.
@@ -65,6 +65,7 @@ public class SignJar extends Task {
     protected boolean verbose;
     protected boolean internalsf;
     protected boolean sectionsonly;
+    private   boolean preserveLastModified;
 
     /** The maximum amount of memory to use for Jar signer */
     private String maxMemory;
@@ -93,6 +94,7 @@ public class SignJar extends Task {
 
     /**
      * the jar file to sign; required
+     * @param jar the jar file to sign
      */
     public void setJar(final File jar) {
         this.jar = jar;
@@ -100,6 +102,7 @@ public class SignJar extends Task {
 
     /**
      * the alias to sign under; required
+     * @param alias the alias to sign under
      */
     public void setAlias(final String alias) {
         this.alias = alias;
@@ -107,6 +110,7 @@ public class SignJar extends Task {
 
     /**
      * keystore location; required
+     * @param keystore the keystore location
      */
     public void setKeystore(final String keystore) {
         this.keystore = keystore;
@@ -114,6 +118,7 @@ public class SignJar extends Task {
 
     /**
      * password for keystore integrity; required
+     * @param storepass the password for the keystore
      */
     public void setStorepass(final String storepass) {
         this.storepass = storepass;
@@ -121,6 +126,7 @@ public class SignJar extends Task {
 
     /**
      * keystore type; optional
+     * @param storetype the keystore type
      */
     public void setStoretype(final String storetype) {
         this.storetype = storetype;
@@ -128,6 +134,7 @@ public class SignJar extends Task {
 
     /**
      * password for private key (if different); optional
+     * @param keypass the password for the key (if different)
      */
     public void setKeypass(final String keypass) {
         this.keypass = keypass;
@@ -135,6 +142,7 @@ public class SignJar extends Task {
 
     /**
      * name of .SF/.DSA file; optional
+     * @param sigfile the name of the .SF/.DSA file
      */
     public void setSigfile(final String sigfile) {
         this.sigfile = sigfile;
@@ -142,6 +150,7 @@ public class SignJar extends Task {
 
     /**
      * name of signed JAR file; optional
+     * @param signedjar the name of the signed jar file
      */
     public void setSignedjar(final File signedjar) {
         this.signedjar = signedjar;
@@ -150,6 +159,7 @@ public class SignJar extends Task {
     /**
      * Enable verbose output when signing
      * ; optional: default false
+     * @param verbose if true enable verbose output
      */
     public void setVerbose(final boolean verbose) {
         this.verbose = verbose;
@@ -158,6 +168,7 @@ public class SignJar extends Task {
     /**
      * Flag to include the .SF file inside the signature;
      * optional; default false
+     * @param internalsf if true include the .SF file inside the signature
      */
     public void setInternalsf(final boolean internalsf) {
         this.internalsf = internalsf;
@@ -166,6 +177,7 @@ public class SignJar extends Task {
     /**
      * flag to compute hash of entire manifest;
      * optional, default false
+     * @param sectionsonly flag to compute hash of entire manifest
      */
     public void setSectionsonly(final boolean sectionsonly) {
         this.sectionsonly = sectionsonly;
@@ -175,6 +187,7 @@ public class SignJar extends Task {
      * flag to control whether the presence of a signature
      * file means a JAR is signed;
      * optional, default false
+     * @param lazy flag to control whether the presence of a signature
      */
     public void setLazy(final boolean lazy) {
         this.lazy = lazy;
@@ -183,6 +196,7 @@ public class SignJar extends Task {
     /**
      * Adds a set of files to sign
      * @since Ant 1.4
+     * @param set a set of files to sign
      */
     public void addFileset(final FileSet set) {
         filesets.addElement(set);
@@ -191,6 +205,7 @@ public class SignJar extends Task {
 
     /**
      * sign the jar(s)
+     * @throws BuildException on errors
      */
     public void execute() throws BuildException {
         if (null == jar && filesets.size() == 0) {
@@ -236,6 +251,7 @@ public class SignJar extends Task {
             return;
         }
 
+        long lastModified = jarSource.lastModified();
         final ExecTask cmd = (ExecTask) getProject().createTask("exec");
         cmd.setExecutable(JavaEnvUtils.getJdkExecutable("jarsigner"));
 
@@ -301,8 +317,26 @@ public class SignJar extends Task {
         cmd.setFailonerror(true);
         cmd.setTaskName(getTaskName());
         cmd.execute();
+
+        // restore the lastModified attribute
+        if (preserveLastModified) {
+            if (jarTarget != null) {
+                jarTarget.setLastModified(lastModified);
+            } else {
+                jarSource.setLastModified(lastModified);
+            }
+        }
     }
 
+    /**
+     * Compare a jar file with its corresponding signed jar
+     *
+     * @param jarFile  the unsigned jar file
+     * @param signedjarFile the result signed jar file
+     * @return true if the signedjarfile is newer than the jar file
+     *         false if the signedjarfile is the same as the jarfile or if
+     *         jarfile or the signedjar does not exist.
+     */
     protected boolean isUpToDate(File jarFile, File signedjarFile) {
         if (null == jarFile) {
             return false;
@@ -319,7 +353,7 @@ public class SignJar extends Task {
             if (jarFile.equals(signedjarFile)) {
               return false;
             }
-            if (FileUtils.newFileUtils().isUpToDate(jarFile,signedjarFile)) {
+            if (FILE_UTILS.isUpToDate(jarFile, signedjarFile)) {
                 return true;
             }
         } else {
@@ -334,42 +368,23 @@ public class SignJar extends Task {
     /**
      * test for a file being signed, by looking for a signature in the META-INF
      * directory
-     * @param file
+     * @param file the file to be checked
      * @return true if the file is signed
      */
     protected boolean isSigned(File file) {
-        final String SIG_START = "META-INF/";
-        final String SIG_END = ".SF";
-
-        if (!file.exists()) {
-            return false;
-        }
-        ZipFile jarFile = null;
         try {
-            jarFile = new ZipFile(file);
-            if (null == alias) {
-                Enumeration entries = jarFile.entries();
-                while (entries.hasMoreElements()) {
-                    String name = ((ZipEntry) entries.nextElement()).getName();
-                    if (name.startsWith(SIG_START) && name.endsWith(SIG_END)) {
-                        return true;
-                    }
-                }
-                return false;
-            } else {
-                return jarFile.getEntry(SIG_START + alias.toUpperCase()
-                                        + SIG_END) != null;
-            }
+            return IsSigned.isSigned(file, alias);
         } catch (IOException e) {
             return false;
-        } finally {
-            if (jarFile != null) {
-                try {
-                    jarFile.close();
-                } catch (IOException e) {
-                }
-            }
         }
     }
-}
 
+    /**
+     * true to indicate that the signed jar modification date remains the same as the original.
+     * Defaults to false
+     * @param preserveLastModified if true preserve the last modified time
+     */
+    public void setPreserveLastModified(boolean preserveLastModified) {
+        this.preserveLastModified = preserveLastModified;
+    }
+}

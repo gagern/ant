@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ public class Concat extends Task {
     // The size of buffers to be used
     private static final int BUFFER_SIZE = 8192;
 
+    private static final FileUtils     FILE_UTILS = FileUtils.getFileUtils();
     // Attributes.
 
     /**
@@ -124,9 +125,6 @@ public class Concat extends Task {
 
     /** internal variable - used to collect the source files from sources */
     private Vector        sourceFiles = new Vector();
-
-    /** 1.1 utilities and copy utilities */
-    private static FileUtils     fileUtils = FileUtils.newFileUtils();
 
     // Attribute setters.
 
@@ -465,7 +463,7 @@ public class Concat extends Task {
                 continue;
             }
             if (destinationFile != null
-                && fileUtils.fileNameEquals(destinationFile, file)) {
+                && FILE_UTILS.fileNameEquals(destinationFile, file)) {
                 throw new BuildException("Input file \""
                                          + file + "\" "
                                          + "is the same as the output file.");
@@ -480,7 +478,7 @@ public class Concat extends Task {
             + " files to " + destinationFile);
         FileOutputStream out = null;
         FileInputStream in = null;
-        byte[] buffer = new byte[8 * 1024];
+        byte[] buffer = new byte[BUFFER_SIZE];
         try {
             try {
                 out = new FileOutputStream(destinationFile);
@@ -561,7 +559,7 @@ public class Concat extends Task {
                     os = new LogOutputStream(this, Project.MSG_WARN);
                 } else {
                     // ensure that the parent dir of dest file exists
-                    File parent = fileUtils.getParentFile(destinationFile);
+                    File parent = destinationFile.getParentFile();
                     if (!parent.exists()) {
                         parent.mkdirs();
                     }
@@ -713,7 +711,7 @@ public class Concat extends Task {
          * @throws BuildException if the file does not exist, or cannot be
          *                        read
          */
-        public void setFile(File file) {
+        public void setFile(File file) throws BuildException {
             // non-existing files are not allowed
             if (!file.exists()) {
                 throw new BuildException("File " + file + " does not exist.");
@@ -728,7 +726,7 @@ public class Concat extends Task {
                         new InputStreamReader(new FileInputStream(file),
                                               this.encoding));
                 }
-                value = fileUtils.readFully(reader);
+                value = FileUtils.readFully(reader);
             } catch (IOException ex) {
                 throw new BuildException(ex);
             } finally {

@@ -1,5 +1,5 @@
 /*
- * Copyright  2002-2004 The Apache Software Foundation
+ * Copyright  2002-2005 The Apache Software Foundation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,36 +20,33 @@ package org.apache.tools.ant.taskdefs;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.ProjectHelper;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.util.FileUtils;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Vector;
 
 /**
- * <p>
  * Task to import another build file into the current project.
  * <p>
  * It must be 'top level'. On execution it will read another Ant file
  * into the same Project.
+ * </p>
  * <p>
  * <b>Important</b>: we have not finalized how relative file references
- * will be resolved in deep/complex build hierarchies -such as what happens
+ * will be resolved in deep/complex build hierarchies - such as what happens
  * when an imported file imports another file. Use absolute references for
  * enhanced build file stability, especially in the imported files.
- *
- * Examples
+ * </p>
+ * <p>Examples:</p>
  * <pre>
- * &lt;import file="../common-targets.xml" /&gt;
+ * &lt;import file="../common-targets.xml"/&gt;
  * </pre>
- * Import targets from a file in a parent directory.
- *<p>
+ * <p>Import targets from a file in a parent directory.</p>
  * <pre>
- * &lt;import file="${deploy-platform}.xml" /&gt;
+ * &lt;import file="${deploy-platform}.xml"/&gt;
  * </pre>
- * Import the project defined by the property deploy-platform
+ * <p>Import the project defined by the property <code>deploy-platform</code>.</p>
  *
  * @since Ant1.6
  * @ant.task category="control"
@@ -57,7 +54,7 @@ import java.util.Vector;
 public class ImportTask extends Task {
     private String file;
     private boolean optional;
-    private static final FileUtils FILE_UTILS = FileUtils.newFileUtils();
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
      * sets the optional attribute
