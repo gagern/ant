@@ -166,6 +166,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      * @param inString the string to use as the suffix.  This parameter is
      *                 ignored.
      */
+    @Override
     public void setGenericJarSuffix(String inString) {
         log("Since a generic JAR file is not created during processing, the "
                 + "iPlanet Deployment Tool does not support the "
@@ -174,6 +175,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
     }
 
     /** {@inheritDoc}. */
+    @Override
     public void processDescriptor(String descriptorName, SAXParser saxParser) {
         this.descriptorName = descriptorName;
         this.iasDescriptorName = null;
@@ -193,6 +195,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      *                           descriptor
      * @throws BuildException If the user selections are invalid.
      */
+    @Override
     protected void checkConfiguration(String descriptorFileName,
                                     SAXParser saxParser) throws BuildException {
 
@@ -236,6 +239,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      * @throws SAXException      Any SAX exception, possibly wrapping another
      *                           exception
      */
+    @Override
     protected Hashtable parseEjbFiles(String descriptorFileName,
                          SAXParser saxParser) throws IOException, SAXException {
 
@@ -257,7 +261,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
         }
         if (getConfig().dtdLocations != null) {
             for (Iterator i = getConfig().dtdLocations.iterator();
-                 i.hasNext(); ) {
+                 i.hasNext();) {
                 EjbJar.DTDLocation dtdLocation =
                     (EjbJar.DTDLocation) i.next();
                 ejbc.registerDTD(dtdLocation.getPublicId(),
@@ -308,6 +312,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      *                 the completed JAR file.
      * @param ddPrefix not used
      */
+    @Override
     protected void addVendorFiles(Hashtable ejbFiles, String ddPrefix) {
         ejbFiles.put(META_DIR + IAS_DD, new File(getConfig().descriptorDir,
                      getIasDescriptorName()));
@@ -322,6 +327,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      *
      * @return File representing the JAR file which will be written.
      */
+    @Override
     File getVendorOutputJarFile(String baseName) {
         File jarFile = new File(getDestDir(), baseName + jarSuffix);
         log("JAR file name: " + jarFile.toString(), Project.MSG_VERBOSE);
@@ -335,6 +341,7 @@ public class IPlanetDeploymentTool extends GenericDeploymentTool {
      *
      * @return <code>null</code>.
      */
+    @Override
     protected String getPublicId() {
         return null;
     }

@@ -36,7 +36,7 @@ import org.apache.tools.ant.types.Parameter;
  *     &lt;/filterchain&gt;
  * &lt;/copy&gt;
  * </pre>
- * 
+ *
  * <p>Copies all java sources from <i>src</i> to <i>build</i> and adds the
  * content of <i>apache-license-java.txt</i> add the beginning of each
  * file.</p>
@@ -90,6 +90,7 @@ public final class ConcatFilter extends BaseParamFilterReader
      * @exception IOException if the underlying stream throws an IOException
      * during reading
      */
+    @Override
     public int read() throws IOException {
         // do the "singleton" initialization
         if (!getInitialized()) {
@@ -171,7 +172,7 @@ public final class ConcatFilter extends BaseParamFilterReader
      *         the specified reader
      */
     public Reader chain(final Reader rdr) {
-        ConcatFilter newFilter = new ConcatFilter(rdr);
+        final ConcatFilter newFilter = new ConcatFilter(rdr);
         newFilter.setPrepend(getPrepend());
         newFilter.setAppend(getAppend());
         // Usually the initialized is set to true. But here it must not.
@@ -188,7 +189,7 @@ public final class ConcatFilter extends BaseParamFilterReader
      */
     private void initialize() throws IOException {
         // get parameters
-        Parameter[] params = getParameters();
+        final Parameter[] params = getParameters();
         if (params != null) {
             for (int i = 0; i < params.length; i++) {
                 if ("prepend".equals(params[i].getName())) {

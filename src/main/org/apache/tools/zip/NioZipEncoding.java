@@ -34,7 +34,7 @@ import java.nio.charset.CodingErrorAction;
  * <p>This implementation works for all cases under java-1.5 or
  * later. However, in java-1.4, some charsets don't have a java.nio
  * implementation, most notably the default ZIP encoding Cp437.</p>
- * 
+ *
  * <p>The methods of this class are reentrant.</p>
  */
 class NioZipEncoding implements ZipEncoding {
@@ -43,10 +43,10 @@ class NioZipEncoding implements ZipEncoding {
     /**
      * Construct an NIO based zip encoding, which wraps the given
      * charset.
-     * 
+     *
      * @param charset The NIO charset to wrap.
      */
-    public NioZipEncoding(Charset charset) {
+    public NioZipEncoding(final Charset charset) {
         this.charset = charset;
     }
 
@@ -54,8 +54,8 @@ class NioZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#canEncode(java.lang.String)
      */
-    public boolean canEncode(String name) {
-        CharsetEncoder enc = this.charset.newEncoder();
+    public boolean canEncode(final String name) {
+        final CharsetEncoder enc = this.charset.newEncoder();
         enc.onMalformedInput(CodingErrorAction.REPORT);
         enc.onUnmappableCharacter(CodingErrorAction.REPORT);
 
@@ -66,18 +66,18 @@ class NioZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#encode(java.lang.String)
      */
-    public ByteBuffer encode(String name) {
-        CharsetEncoder enc = this.charset.newEncoder();
+    public ByteBuffer encode(final String name) {
+        final CharsetEncoder enc = this.charset.newEncoder();
 
         enc.onMalformedInput(CodingErrorAction.REPORT);
         enc.onUnmappableCharacter(CodingErrorAction.REPORT);
 
-        CharBuffer cb = CharBuffer.wrap(name);
+        final CharBuffer cb = CharBuffer.wrap(name);
         ByteBuffer out = ByteBuffer.allocate(name.length()
                                              + (name.length() + 1) / 2);
 
         while (cb.remaining() > 0) {
-            CoderResult res = enc.encode(cb, out,true);
+            final CoderResult res = enc.encode(cb, out,true);
 
             if (res.isUnmappable() || res.isMalformed()) {
 
@@ -113,7 +113,7 @@ class NioZipEncoding implements ZipEncoding {
      * @see
      * org.apache.tools.zip.ZipEncoding#decode(byte[])
      */
-    public String decode(byte[] data) throws IOException {
+    public String decode(final byte[] data) throws IOException {
         return this.charset.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT)

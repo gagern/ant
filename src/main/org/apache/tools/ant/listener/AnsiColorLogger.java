@@ -78,7 +78,7 @@ import org.apache.tools.ant.Project;
  *  7 -&gt; Reverse
  *  8 -&gt; Hidden
  *  </pre>
- *  
+ *
  *  Foreground is one of the following:<pre>
  *  30 -&gt; Black
  *  31 -&gt; Red
@@ -207,9 +207,10 @@ public class AnsiColorLogger extends DefaultLogger {
      * @see DefaultLogger#printMessage
      */
     /** {@inheritDoc}. */
+    @Override
     protected void printMessage(final String message,
-                                      final PrintStream stream,
-                                      final int priority) {
+                                final PrintStream stream,
+                                final int priority) {
         if (message != null && stream != null) {
             if (!colorsSet) {
                 setColors();

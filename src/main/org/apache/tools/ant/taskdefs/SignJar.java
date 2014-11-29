@@ -99,6 +99,16 @@ public class SignJar extends AbstractJarSignerTask {
     protected String tsaurl;
 
     /**
+     * Proxy host to be used when connecting to TSA server
+     */
+    protected String tsaproxyhost;
+
+    /**
+     * Proxy port to be used when connecting to TSA server
+     */
+    protected String tsaproxyport;
+
+    /**
      * alias for the TSA in the keystore
      */
     protected String tsacert;
@@ -251,6 +261,42 @@ public class SignJar extends AbstractJarSignerTask {
     }
 
     /**
+     * Get the proxy host to be used when connecting to the TSA url
+     * @return url or null
+     * @since Ant 1.9.5
+     */
+    public String getTsaproxyhost() {
+        return tsaproxyhost;
+    }
+
+    /**
+     *
+     * @param tsaproxyhost the proxy host to be used when connecting to the TSA.
+     * @since Ant 1.9.5
+     */
+    public void setTsaproxyhost(String tsaproxyhost) {
+        this.tsaproxyhost = tsaproxyhost;
+    }
+
+    /**
+     * Get the proxy host to be used when connecting to the TSA url
+     * @return url or null
+     * @since Ant 1.9.5
+     */
+    public String getTsaproxyport() {
+        return tsaproxyport;
+    }
+
+    /**
+     *
+     * @param tsaproxyport the proxy port to be used when connecting to the TSA.
+     * @since Ant 1.9.5
+     */
+    public void setTsaproxyport(String tsaproxyport) {
+        this.tsaproxyport = tsaproxyport;
+    }
+
+    /**
      * get the -tsacert option
      * @since Ant 1.7
      * @return a certificate alias or null
@@ -321,6 +367,7 @@ public class SignJar extends AbstractJarSignerTask {
      *
      * @throws BuildException on errors
      */
+    @Override
     public void execute() throws BuildException {
         //validation logic
         final boolean hasJar = jar != null;
@@ -348,7 +395,7 @@ public class SignJar extends AbstractJarSignerTask {
             throw new BuildException(ERROR_SIGNEDJAR_AND_PATHS);
         }
 
-        //this isnt strictly needed, but by being fussy now,
+        //this isn't strictly needed, but by being fussy now,
         //we can change implementation details later
         if (!hasDestDir && hasMapper) {
             throw new BuildException(ERROR_MAPPER_WITHOUT_DEST);
@@ -503,18 +550,28 @@ public class SignJar extends AbstractJarSignerTask {
             addValue(cmd, "-tsa");
             addValue(cmd, tsaurl);
         }
+
         if (tsacert != null) {
             addValue(cmd, "-tsacert");
             addValue(cmd, tsacert);
+        }
+
+        if (tsaproxyhost != null) {
+            if (tsaurl == null || tsaurl.startsWith("https")) {
+                addProxyFor(cmd, "https");
+            }
+            if (tsaurl == null || !tsaurl.startsWith("https")) {
+                addProxyFor(cmd, "http");
+            }
         }
     }
 
     /**
      * <p>Compare a jar file with its corresponding signed jar. The logic for this
      * is complex, and best explained in the source itself. Essentially if
-     * either file doesnt exist, or the destfile has an out of date timestamp,
+     * either file doesn't exist, or the destfile has an out of date timestamp,
      * then the return value is false.</p>
-     * 
+     *
      * <p>If we are signing ourself, the check {@link #isSigned(File)} is used to
      * trigger the process.</p>
      *
@@ -576,5 +633,13 @@ public class SignJar extends AbstractJarSignerTask {
      */
     public void setPreserveLastModified(boolean preserveLastModified) {
         this.preserveLastModified = preserveLastModified;
+    }
+
+    private void addProxyFor(final ExecTask cmd, final String scheme) {
+        addValue(cmd, "-J-D" + scheme + ".proxyHost=" + tsaproxyhost);
+
+        if (tsaproxyport != null) {
+            addValue(cmd, "-J-D" + scheme + ".proxyPort=" + tsaproxyport);
+        }
     }
 }

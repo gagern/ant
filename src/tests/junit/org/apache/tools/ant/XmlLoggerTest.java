@@ -15,26 +15,23 @@
  *  limitations under the License.
  *
  */
-package org.apache.tools.ant.taskdefs.compilers;
 
-/**
- * Extension interface for compilers that support source extensions
- * other than .java.
- *
- * @since Ant 1.8.2
- */
-public interface CompilerAdapterExtension {
+package org.apache.tools.ant;
 
-    /**
-     * Returns a list of source file extensions that are recognized by
-     * this compiler adapter.
-     *
-     * <p>For example, most compiler adapters will return [ "java" ],
-     * but a compiler adapter that can compile both Java and Groovy
-     * source code would return [ "java", "groovy" ].</p>
-     *
-     * @return list of source file extensions recognized by this
-     * compiler adapter.
-     */
-    String[] getSupportedFileExtensions();
+import org.apache.tools.ant.taskdefs.Cvs;
+import org.junit.Test;
+
+public class XmlLoggerTest {
+
+    @Test
+    // see https://issues.apache.org/bugzilla/show_bug.cgi?id=56850
+    // "NPE in XmlLogger.buildFinished"
+    public void test() throws Throwable {
+        final XmlLogger logger = new XmlLogger();
+        final Cvs task = new Cvs();
+        final BuildEvent event = new BuildEvent(task);
+        logger.buildStarted(event);
+        logger.buildFinished(event);
+      }
+
 }

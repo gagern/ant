@@ -71,9 +71,9 @@ import org.apache.tools.ant.util.LayoutPreservingProperties;
  * </ul>
  * Other parameters are:
  * <ul>
- *   <li>comment</li> 
- *   <li>key</li> 
- *   <li>operation</li> 
+ *   <li>comment</li>
+ *   <li>key</li>
+ *   <li>operation</li>
  *   <li>type</li>
  *   <li>value (the final four being eliminated shortly)</li>
  * </ul>
@@ -155,6 +155,7 @@ public class PropertyFile extends Task {
      * Execute the task.
      * @throws BuildException on error.
      */
+    @Override
     public void execute() throws BuildException {
         checkParameters();
         readFile();
@@ -378,7 +379,7 @@ public class PropertyFile extends Task {
          */
         protected void executeOn(Properties props) throws BuildException {
             checkParameters();
-            
+
             if (operation == Operation.DELETE_OPER) {
                 props.remove(key);
                 return;
@@ -614,6 +615,7 @@ public class PropertyFile extends Task {
             public static final int DELETE_OPER =      3;
 
             /** {@inheritDoc}. */
+            @Override
             public String[] getValues() {
                 return new String[] {"+", "-", "=", "del"};
             }
@@ -649,6 +651,7 @@ public class PropertyFile extends Task {
             public static final int STRING_TYPE =      2;
 
             /** {@inheritDoc} */
+            @Override
             public String[] getValues() {
                 return new String[] {"int", "date", "string"};
             }
@@ -706,7 +709,7 @@ public class PropertyFile extends Task {
 
         /**
          * Convert the value to a Calendar field index.
-         * @return the calander value.
+         * @return the calendar value.
          */
         public int getCalendarField() {
             String key = getValue().toLowerCase();
@@ -715,6 +718,7 @@ public class PropertyFile extends Task {
         }
 
         /** {@inheritDoc}. */
+        @Override
         public String[] getValues() {
             return UNITS;
         }

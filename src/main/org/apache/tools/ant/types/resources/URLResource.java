@@ -263,9 +263,13 @@ public class URLResource extends Resource implements URLProvider {
             return ((Resource) getCheckedRef()).getLastModified();
         }
         if (!isExists(false)) {
-            return 0L;
+            return UNKNOWN_DATETIME;
         }
-        return conn.getLastModified();
+        return withConnection(new ConnectionUser() {
+                public long useConnection(URLConnection c) {
+                    return conn.getLastModified();
+                }
+            }, UNKNOWN_DATETIME);
     }
 
     /**
@@ -290,14 +294,11 @@ public class URLResource extends Resource implements URLProvider {
         if (!isExists(false)) {
             return 0L;
         }
-        try {
-            connect();
-            long contentlength = conn.getContentLength();
-            close();
-            return contentlength;
-        } catch (IOException e) {
-            return UNKNOWN_SIZE;
-        }
+        return withConnection(new ConnectionUser() {
+                public long useConnection(URLConnection c) {
+                    return conn.getContentLength();
+                }
+            }, UNKNOWN_SIZE);
     }
 
     /**
@@ -430,4 +431,24 @@ public class URLResource extends Resource implements URLProvider {
         }
     }
 
+    private interface ConnectionUser {
+        long useConnection(URLConnection c);
+    }
+
+    private long withConnection(ConnectionUser u, long defaultValue) {
+        try {
+            if (conn != null) {
+                return u.useConnection(conn);
+            } else {
+                try {
+                    connect();
+                    return u.useConnection(conn);
+                } finally {
+                    close();
+                }
+            }
+        } catch (IOException ex) {
+            return defaultValue;
+        }
+    }
 }

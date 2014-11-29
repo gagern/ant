@@ -31,7 +31,7 @@ import java.io.OutputStream;
 public abstract class LineOrientedOutputStream extends OutputStream {
 
     /** Initial buffer size. */
-    private static final int INTIAL_SIZE = 132;
+    private static final int INITIAL_SIZE = 132;
 
     /** Carriage return */
     private static final int CR = 0x0d;
@@ -40,7 +40,7 @@ public abstract class LineOrientedOutputStream extends OutputStream {
     private static final int LF = 0x0a;
 
     private ByteArrayOutputStream buffer
-        = new ByteArrayOutputStream(INTIAL_SIZE);
+        = new ByteArrayOutputStream(INITIAL_SIZE);
     private boolean skip = false;
 
     /**
@@ -50,6 +50,7 @@ public abstract class LineOrientedOutputStream extends OutputStream {
      * @param cc data to log (byte).
      * @throws IOException if there is an error.
      */
+    @Override
     public final void write(int cc) throws IOException {
         final byte c = (byte) cc;
         if ((c == LF) || (c == CR)) {
@@ -66,6 +67,7 @@ public abstract class LineOrientedOutputStream extends OutputStream {
      * Flush this log stream
      * @throws IOException if there is an error.
      */
+    @Override
     public void flush() throws IOException {
     }
 
@@ -111,6 +113,7 @@ public abstract class LineOrientedOutputStream extends OutputStream {
      * Writes all remaining
      * @throws IOException if there is an error.
      */
+    @Override
     public void close() throws IOException {
         if (buffer.size() > 0) {
             processBuffer();
@@ -127,6 +130,7 @@ public abstract class LineOrientedOutputStream extends OutputStream {
      *
      * @throws IOException if the data cannot be written into the stream.
      */
+    @Override
     public final void write(byte[] b, int off, int len) throws IOException {
         // find the line breaks and pass other chars through in blocks
         int offset = off;

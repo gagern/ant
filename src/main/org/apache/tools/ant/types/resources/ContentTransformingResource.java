@@ -46,7 +46,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
      * Constructor with another resource to wrap.
      * @param other the resource to wrap.
      */
-    protected ContentTransformingResource(ResourceCollection other) {
+    protected ContentTransformingResource(final ResourceCollection other) {
         super(other);
     }
 
@@ -55,19 +55,20 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
      * @return the size, as a long, 0 if the Resource does not exist (for
      *         compatibility with java.io.File), or UNKNOWN_SIZE if not known.
      */
+    @Override
     public long getSize() {
         if (isExists()) {
             InputStream in = null;
             try {
                 in = getInputStream();
-                byte[] buf = new byte[BUFFER_SIZE];
+                final byte[] buf = new byte[BUFFER_SIZE];
                 int size = 0;
                 int readNow;
                 while ((readNow = in.read(buf, 0, buf.length)) > 0) {
                     size += readNow;
                 }
                 return size;
-            } catch (IOException ex) {
+            } catch (final IOException ex) {
                 throw new BuildException("caught exception while reading "
                                          + getName(), ex);
             } finally {
@@ -86,6 +87,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
      * @throws UnsupportedOperationException if InputStreams are not
      *         supported for this Resource type.
      */
+    @Override
     public InputStream getInputStream() throws IOException {
         InputStream in = getResource().getInputStream();
         if (in != null) {
@@ -102,6 +104,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
      * @throws UnsupportedOperationException if OutputStreams are not
      *         supported for this Resource type.
      */
+    @Override
     public OutputStream getOutputStream() throws IOException {
         OutputStream out = getResource().getOutputStream();
         if (out != null) {
@@ -113,7 +116,8 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
     /**
      * Suppress FileProvider, re-implement Appendable
      */
-    public <T> T as(Class<T> clazz) {
+    @Override
+    public <T> T as(final Class<T> clazz) {
         if (Appendable.class.isAssignableFrom(clazz)) {
             if (isAppendSupported()) {
                 final Appendable a =
@@ -134,7 +138,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
             return null;
         }
 
-        return FileProvider.class.isAssignableFrom(clazz) 
+        return FileProvider.class.isAssignableFrom(clazz)
             ? null : getResource().as(clazz);
     }
 
@@ -148,7 +152,7 @@ public abstract class ContentTransformingResource extends ResourceDecorator {
      */
     protected boolean isAppendSupported() {
         return false;
-    }    
+    }
 
     /**
      * Get a content-filtering/transforming InputStream.

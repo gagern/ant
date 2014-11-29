@@ -26,7 +26,6 @@ package org.apache.tools.ant;
 public class ExtensionPoint extends Target {
 
     public ExtensionPoint() {
-
     }
 
     /**
@@ -45,6 +44,7 @@ public class ExtensionPoint extends Target {
     /**
      * Throws an exception.
      */
+    @Override
     public final void addTask(Task task) {
         throw new BuildException(NO_CHILDREN_ALLOWED);
     }
@@ -52,8 +52,9 @@ public class ExtensionPoint extends Target {
     /**
      * Throws an exception.
      */
+    @Override
     public final void addDataType(RuntimeConfigurable r) {
         throw new BuildException(NO_CHILDREN_ALLOWED);
     }
-    
+
 }

@@ -28,7 +28,7 @@ import org.apache.tools.ant.Task;
 
 /**
  * Task to install project helper into Ant's runtime
- * 
+ *
  * @since Ant 1.8.2
  */
 public class ProjectHelperTask extends Task {
@@ -39,6 +39,7 @@ public class ProjectHelperTask extends Task {
         this.projectHelpers.add(projectHelper);
     }
 
+    @Override
     public void execute() throws BuildException {
         ProjectHelperRepository repo = ProjectHelperRepository.getInstance();
         for (Iterator it = projectHelpers.iterator(); it.hasNext();) {

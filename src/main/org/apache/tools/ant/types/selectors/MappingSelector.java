@@ -88,11 +88,12 @@ public abstract class MappingSelector extends BaseSelector {
         }
         this.map = fileNameMapper;
     }
- 
+
     /**
      * Checks to make sure all settings are kosher. In this case, it
      * means that the dest attribute has been set and we have a mapper.
      */
+    @Override
     public void verifySettings() {
         if (targetdir == null) {
             setError("The targetdir attribute is required.");
@@ -118,6 +119,7 @@ public abstract class MappingSelector extends BaseSelector {
      * @param file is a java.io.File object the selector can use
      * @return whether the file should be selected or not
      */
+    @Override
     public boolean isSelected(File basedir, String filename, File file) {
 
         // throw BuildException on error

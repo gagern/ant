@@ -65,7 +65,7 @@ public class EchoXML extends XMLFragment {
     public void setNamespacePolicy(NamespacePolicy n) {
         namespacePolicy = n;
     }
-    
+
     /**
      * Set whether to append the output file.
      * @param b boolean append flag.
@@ -115,6 +115,7 @@ public class EchoXML extends XMLFragment {
             setValue(s);
         }
         /** {@inheritDoc}. */
+        @Override
         public String[] getValues() {
             return new String[] {IGNORE, ELEMENTS, ALL};
         }

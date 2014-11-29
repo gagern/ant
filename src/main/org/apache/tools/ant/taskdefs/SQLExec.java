@@ -90,6 +90,7 @@ public class SQLExec extends JDBCTask {
         /** The enumerated strings */
         public static final String NORMAL = "normal", ROW = "row";
         /** @return the enumerated strings */
+        @Override
         public String[] getValues() {
             return new String[] {NORMAL, ROW};
         }
@@ -589,6 +590,7 @@ public class SQLExec extends JDBCTask {
      * Load the sql file and then execute it
      * @throws BuildException on error.
      */
+    @Override
     public void execute() throws BuildException {
         Vector savedTransaction = (Vector) transactions.clone();
         String savedSqlCommand = sqlCommand;
@@ -850,6 +852,7 @@ public class SQLExec extends JDBCTask {
      * @param out the place to print results
      * @throws SQLException on SQL problems.
      */
+    @Deprecated
     protected void printResults(PrintStream out) throws SQLException {
         ResultSet rs = getStatement().getResultSet();
         try {
@@ -954,6 +957,7 @@ public class SQLExec extends JDBCTask {
      * <p>returns null if the connection does not connect to the
      * expected RDBMS.</p>
      */
+    @Override
     protected Connection getConnection() {
         if (conn == null) {
             conn = super.getConnection();
@@ -981,13 +985,14 @@ public class SQLExec extends JDBCTask {
 
         return statement;
     }
-        
+
     /**
      * The action a task should perform on an error,
      * one of "continue", "stop" and "abort"
      */
     public static class OnError extends EnumeratedAttribute {
         /** @return the enumerated values */
+        @Override
         public String[] getValues() {
             return new String[] {"continue", "stop", "abort"};
         }

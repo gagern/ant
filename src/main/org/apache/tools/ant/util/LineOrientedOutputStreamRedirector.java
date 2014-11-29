@@ -26,12 +26,12 @@ import java.io.OutputStream;
  * If the source stream doesn't end with a end of line, one will be added. This
  * is particularly useful in combination with the OutputStreamFunneler so each
  * funneled stream get its line.
- * 
+ *
  * @since Ant 1.8.3
  */
 public class LineOrientedOutputStreamRedirector
-        extends
-            LineOrientedOutputStream {
+        extends LineOrientedOutputStream {
+
     private OutputStream stream;
 
     // these should be in the ASCII range and hopefully are single bytes
@@ -42,21 +42,25 @@ public class LineOrientedOutputStreamRedirector
     public LineOrientedOutputStreamRedirector(OutputStream stream) {
         this.stream = stream;
     }
-    
+
+    @Override
     protected void processLine(byte[] b) throws IOException {
         stream.write(b);
         stream.write(EOL);
     }
-    
+
+    @Override
     protected void processLine(String line) throws IOException {
         stream.write((line + System.getProperty("line.separator")).getBytes());
     }
-    
+
+    @Override
     public void close() throws IOException {
         super.close();
         stream.close();
     }
 
+    @Override
     public void flush() throws IOException {
         super.flush();
         stream.flush();

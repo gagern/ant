@@ -55,7 +55,7 @@ public class JUnitTest extends BaseTest implements Cloneable {
 
     /** the names of test methods to execute */
     private String[] methods = null;
-    
+
     /** the name of the result file */
     private String outfile = null;
 
@@ -110,7 +110,7 @@ public class JUnitTest extends BaseTest implements Cloneable {
      */
     public JUnitTest(String name, boolean haltOnError, boolean haltOnFailure,
                      boolean filtertrace, String[] methods) {
-        this(name, haltOnError, haltOnFailure, filtertrace, methods, 0);    
+        this(name, haltOnError, haltOnFailure, filtertrace, methods, 0);
     }
 
     /**
@@ -170,7 +170,7 @@ public class JUnitTest extends BaseTest implements Cloneable {
     /**
      * Set the thread id
      * @param thread the Ant id of the thread running this test
-	 * (this is not the system process or thread id)
+     * (this is not the system process or thread id)
      * (this will be 0 in single-threaded mode).
      * @since Ant 1.9.4
      */
@@ -527,6 +527,7 @@ public class JUnitTest extends BaseTest implements Cloneable {
      * @since Ant 1.5
      * @return a clone of this test.
      */
+    @Override
     public Object clone() {
         try {
             JUnitTest t = (JUnitTest) super.clone();

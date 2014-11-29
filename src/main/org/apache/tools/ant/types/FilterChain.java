@@ -374,6 +374,7 @@ public class FilterChain extends DataType
      * @param r the reference to which this instance is associated
      * @exception BuildException if this instance already has been configured.
      */
+    @Override
     public void setRefid(Reference r) throws BuildException {
         if (!filterReaders.isEmpty()) {
             throw tooManyAttributes();
@@ -396,6 +397,7 @@ public class FilterChain extends DataType
         filterReaders.addElement(filter);
     }
 
+    @Override
     protected synchronized void dieOnCircularReference(Stack<Object> stk, Project p)
         throws BuildException {
         if (isChecked()) {
@@ -404,7 +406,7 @@ public class FilterChain extends DataType
         if (isReference()) {
             super.dieOnCircularReference(stk, p);
         } else {
-            for (Iterator<Object> i = filterReaders.iterator(); i.hasNext(); ) {
+            for (Iterator<Object> i = filterReaders.iterator(); i.hasNext();) {
                 Object o = i.next();
                 if (o instanceof DataType) {
                     pushAndInvokeCircularReferenceCheck((DataType) o, stk, p);
