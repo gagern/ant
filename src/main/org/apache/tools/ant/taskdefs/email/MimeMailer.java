@@ -58,7 +58,7 @@ import org.apache.tools.ant.BuildException;
  * @since Ant 1.5
  */
 public class MimeMailer extends Mailer {
-    private final static String SSL_FACTORY = "javax.net.ssl.SSLSocketFactory";
+    private static final String SSL_FACTORY = "javax.net.ssl.SSLSocketFactory";
 
     /** Default character set */
     private static final String DEFAULT_CHARSET
@@ -136,7 +136,7 @@ public class MimeMailer extends Mailer {
             // 'session', which involves excessive quantities of
             // alcohol :-)
             Session sesh;
-            Authenticator auth;
+            Authenticator auth = null;
             if (SSL) {
                 try {
                     Provider p = (Provider) Class.forName(
@@ -151,13 +151,12 @@ public class MimeMailer extends Mailer {
                 props.put("mail.smtp.socketFactory.class", SSL_FACTORY);
                 props.put("mail.smtp.socketFactory.fallback", "false");
             }
-            if (user == null && password == null) {
-                sesh = Session.getDefaultInstance(props, null);
-            } else {
+            if (user != null || password != null) {
                 props.put("mail.smtp.auth", "true");
                 auth = new SimpleAuthenticator(user, password);
-                sesh = Session.getInstance(props, auth);
             }
+            sesh = Session.getInstance(props, auth);
+
             //create the message
             MimeMessage msg = new MimeMessage(sesh);
             MimeMultipart attachments = new MimeMultipart();
@@ -260,8 +259,11 @@ public class MimeMailer extends Mailer {
     }
 
     private String parseCharSetFromMimeType(String type) {
-        int pos;
-        if (type == null || (pos = type.indexOf("charset")) < 0) {
+        if (type == null) {
+            return null;
+        }
+        int pos = type.indexOf("charset");
+        if (pos < 0) {
           return null;
         }
         // Assuming mime type in form "text/XXXX; charset=XXXXXX"

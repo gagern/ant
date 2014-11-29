@@ -22,6 +22,7 @@ import java.io.File;
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.PropertyHelper;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.condition.Condition;
 import org.apache.tools.ant.types.EnumeratedAttribute;
@@ -50,7 +51,7 @@ public class Available extends Task implements Condition {
     private FileDir type;
     private Path classpath;
     private AntClassLoader loader;
-    private String value = "true";
+    private Object value = "true";
     private boolean isTask = false;
     private boolean ignoreSystemclasses = false;
     private boolean searchParents   = false;
@@ -136,8 +137,18 @@ public class Available extends Task implements Condition {
      *
      * @param value the value to be given.
      */
-    public void setValue(String value) {
+    public void setValue(Object value) {
         this.value = value;
+    }
+
+    /**
+     * Set the value to be given to the property if the desired resource is
+     * available.
+     *
+     * @param value the value to be given.
+     */
+    public void setValue(String value) {
+        setValue((Object) value);
     }
 
     /**
@@ -223,7 +234,8 @@ public class Available extends Task implements Condition {
         isTask = true;
         try {
             if (eval()) {
-                String oldvalue = getProject().getProperty(property);
+                PropertyHelper ph = PropertyHelper.getPropertyHelper(getProject());
+                Object oldvalue = ph.getProperty(property);
                 if (null != oldvalue && !oldvalue.equals(value)) {
                     log("DEPRECATED - <available> used to override an existing"
                         + " property."
@@ -234,7 +246,7 @@ public class Available extends Task implements Condition {
                 }
                 // NB: this makes use of Project#setProperty rather than Project#setNewProperty
                 //     due to backwards compatiblity reasons
-                getProject().setProperty(property, value);
+                ph.setProperty(property, value, true);
             }
         } finally {
             isTask = false;
@@ -323,12 +335,14 @@ public class Available extends Task implements Condition {
         } else {
             String[] paths = filepath.list();
             for (int i = 0; i < paths.length; ++i) {
-                log("Searching " + paths[i], Project.MSG_DEBUG);
+                log("Searching " + paths[i], Project.MSG_VERBOSE);
                 File path = new File(paths[i]);
 
                 // **   full-pathname specified == path in list
                 // **   simple name specified   == path in list
-                if (path.exists() && filename.equals(paths[i])) {
+                if (path.exists()
+                    && (filename.equals(paths[i])
+                        || filename.equals(path.getName()))) {
                     if (type == null) {
                         log("Found: " + path, Project.MSG_VERBOSE);
                         return true;
@@ -365,6 +379,7 @@ public class Available extends Task implements Condition {
                         return true;
                     }
                 }
+
                 // **   simple name specified   == parent dir + name
                 while (searchParents && parent != null && parent.exists()) {
                     if (checkFile(new File(parent, filename),

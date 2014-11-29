@@ -26,6 +26,11 @@ import java.util.Vector;
  *
  */
 public final class StringUtils {
+    private static final long KILOBYTE = 1024;
+    private static final long MEGABYTE = KILOBYTE * 1024;
+    private static final long GIGABYTE = MEGABYTE * 1024;
+    private static final long TERABYTE = GIGABYTE * 1024;
+    private static final long PETABYTE = TERABYTE * 1024;
 
     /**
      * constructor to stop anyone instantiating the class
@@ -185,5 +190,85 @@ public final class StringUtils {
             }
         }
         return b.toString();
+    }
+
+    /**
+     * Takes a human readable size representation eg 10K
+     * a long value. Doesn't support 1.1K or other rational values.
+     * @param humanSize the amount as a human readable string.
+     * @return a long value representation
+     * @throws Exception if there is a problem.
+     * @since Ant 1.7
+     */
+    public static long parseHumanSizes(String humanSize) throws Exception {
+        long factor = 1L;
+        char s = humanSize.charAt(0);
+        switch (s) {
+            case '+':
+                humanSize = humanSize.substring(1);
+                break;
+            case '-':
+                factor = -1L;
+                humanSize = humanSize.substring(1);
+                break;
+            default:
+                break;
+        }
+        //last character isn't a digit
+        char c = humanSize.charAt(humanSize.length() - 1);
+        if (!Character.isDigit(c)) {
+            int trim = 1;
+            switch (c) {
+                case 'K':
+                    factor *= KILOBYTE;
+                    break;
+                case 'M':
+                    factor *= MEGABYTE;
+                    break;
+                case 'G':
+                    factor *= GIGABYTE;
+                    break;
+                case 'T':
+                    factor *= TERABYTE;
+                    break;
+                case 'P':
+                    factor *= PETABYTE;
+                    break;
+                default:
+                    trim = 0;
+            }
+            humanSize = humanSize.substring(0, humanSize.length() - trim);
+        }
+        return factor * Long.parseLong(humanSize);
+    }
+
+    /**
+     * Removes the suffix from a given string, if the string contains
+     * that suffix.
+     * @param string String for check
+     * @param suffix Suffix to remove
+     * @return the <i>string</i> with the <i>suffix</i>
+     */
+    public static String removeSuffix(String string, String suffix) {
+        if (string.endsWith(suffix)) {
+            return string.substring(0, string.length() - suffix.length());
+        } else {
+            return string;
+        }
+    }
+
+    /**
+     * Removes the prefix from a given string, if the string contains
+     * that prefix.
+     * @param string String for check
+     * @param prefix Prefix to remove
+     * @return the <i>string</i> with the <i>prefix</i>
+     */
+    public static String removePrefix(String string, String prefix) {
+        if (string.startsWith(prefix)) {
+            return string.substring(prefix.length());
+        } else {
+            return string;
+        }
     }
 }

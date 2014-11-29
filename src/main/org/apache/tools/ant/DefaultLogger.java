@@ -22,9 +22,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
+import java.util.Date;
+import java.text.DateFormat;
 
 import org.apache.tools.ant.util.DateUtils;
 import org.apache.tools.ant.util.StringUtils;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Writes build events to a PrintStream. Currently, it
@@ -73,13 +76,13 @@ public class DefaultLogger implements BuildLogger {
      *
      * Only messages with a message level lower than or equal to the
      * given level should be written to the log.
-     * <P>
+     * <p>
      * Constants for the message levels are in the
      * {@link Project Project} class. The order of the levels, from least
      * to most verbose, is <code>MSG_ERR</code>, <code>MSG_WARN</code>,
      * <code>MSG_INFO</code>, <code>MSG_VERBOSE</code>,
      * <code>MSG_DEBUG</code>.
-     * <P>
+     * <p>
      * The default message level for DefaultLogger is Project.MSG_ERR.
      *
      * @param level the logging level for the logger.
@@ -145,6 +148,15 @@ public class DefaultLogger implements BuildLogger {
             message.append(StringUtils.LINE_SEP);
             message.append(getBuildFailedMessage());
             message.append(StringUtils.LINE_SEP);
+
+            while (error instanceof BuildException) { // #43398
+                Throwable cause = ((BuildException) error).getCause();
+                if (cause != null && cause.toString().equals(error.getMessage())) {
+                    error = cause;
+                } else {
+                    break;
+                }
+            }
 
             if (Project.MSG_VERBOSE <= msgOutputLevel
                 || !(error instanceof BuildException)) {
@@ -251,9 +263,9 @@ public class DefaultLogger implements BuildLogger {
                 tmp.append(label);
                 label = tmp.toString();
 
+                BufferedReader r = null;
                 try {
-                    BufferedReader r =
-                        new BufferedReader(
+                    r = new BufferedReader(
                             new StringReader(event.getMessage()));
                     String line = r.readLine();
                     boolean first = true;
@@ -273,8 +285,14 @@ public class DefaultLogger implements BuildLogger {
                 } catch (IOException e) {
                     // shouldn't be possible
                     message.append(label).append(event.getMessage());
+                } finally {
+                    if (r != null) {
+                        FileUtils.close(r);
+                    }
                 }
+
             } else {
+                //emacs mode or there is no task
                 message.append(event.getMessage());
             }
             Throwable ex = event.getException();
@@ -328,5 +346,28 @@ public class DefaultLogger implements BuildLogger {
      * @param message Message being logged. Should not be <code>null</code>.
      */
     protected void log(String message) {
+    }
+
+    /**
+     * Get the current time.
+     * @return the current time as a formatted string.
+     * @since Ant1.7.1
+     */
+    protected String getTimestamp() {
+        Date date = new Date(System.currentTimeMillis());
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+        String finishTime = formatter.format(date);
+        return finishTime;
+    }
+
+    /**
+     * Get the project name or null
+     * @param event the event
+     * @return the project that raised this event
+     * @since Ant1.7.1
+     */
+    protected String extractProjectName(BuildEvent event) {
+        Project project = event.getProject();
+        return (project != null) ? project.getName() : null;
     }
 }

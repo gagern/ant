@@ -331,7 +331,27 @@ public class ManifestTest extends BuildFileTest {
     public void testFrom() {
         expectLogContaining("testFrom", Manifest.ERROR_FROM_FORBIDDEN);
     }
-    
+
+    public void testIllegalName() {
+        expectBuildException("testIllegalName", "Manifest attribute names must not contain ' '");
+    }
+
+    public void testIllegalNameInSection() {
+        expectBuildException("testIllegalNameInSection", "Manifest attribute names must not contain ' '");
+    }
+
+    public void testIllegalNameBegin() {
+        expectBuildException("testIllegalNameInSection", "Manifest attribute names must not start with '-' at the begin.");
+    }
+
+    public void testIllegalName2() {
+        expectBuildException("testIllegalName", "Manifest attribute names must not contain '.'");
+    }
+
+    public void testIllegalName3() {
+        expectBuildException("testIllegalName", "Manifest attribute names must not contain '*'");
+    }
+
     /**
      * Reads mftest.mf.
      */

@@ -42,10 +42,11 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.condition.Condition;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.resources.Restrict;
-import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.selectors.Type;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.StringUtils;
@@ -58,6 +59,12 @@ import org.apache.tools.ant.util.StringUtils;
  * @ant.task category="control"
  */
 public class Checksum extends MatchingTask implements Condition {
+
+    private static final int NIBBLE = 4;
+    private static final int WORD = 16;
+    private static final int BUFFER_SIZE = 8 * 1024;
+    private static final int BYTE_MASK = 0xFF;
+
     private static class FileUnion extends Restrict {
         private Union u;
         FileUnion() {
@@ -144,7 +151,7 @@ public class Checksum extends MatchingTask implements Condition {
     /**
      * Size of the read buffer to use.
      */
-    private int readBufferSize = 8 * 1024;
+    private int readBufferSize = BUFFER_SIZE;
 
     /**
      * Formater for the checksum file.
@@ -386,13 +393,13 @@ public class Checksum extends MatchingTask implements Condition {
         try {
             if (resources != null) {
                 for (Iterator i = resources.iterator(); i.hasNext();) {
-                    FileResource fr = (FileResource) i.next();
-                    File src = fr.getFile();
+                    Resource r = (Resource) i.next();
+                    File src = ((FileProvider) r).getFile();
                     if (totalproperty != null || todir != null) {
                         // Use '/' to calculate digest based on file name.
                         // This is required in order to get the same result
                         // on different platforms.
-                        relativeFilePaths.put(src, fr.getName().replace(File.separatorChar, '/'));
+                        relativeFilePaths.put(src, r.getName().replace(File.separatorChar, '/'));
                     }
                     addToIncludeFileMap(src);
                 }
@@ -572,7 +579,7 @@ public class Checksum extends MatchingTask implements Condition {
     private String createDigestString(byte[] fileDigest) {
         StringBuffer checksumSb = new StringBuffer();
         for (int i = 0; i < fileDigest.length; i++) {
-            String hexStr = Integer.toHexString(0x00ff & fileDigest[i]);
+            String hexStr = Integer.toHexString(BYTE_MASK & fileDigest[i]);
             if (hexStr.length() < 2) {
                 checksumSb.append("0");
             }
@@ -604,9 +611,9 @@ public class Checksum extends MatchingTask implements Condition {
 
         // two characters form the hex value.
         for (int i = 0, j = 0; j < l; i++) {
-            int f = Character.digit(data[j++], 16) << 4;
-            f = f | Character.digit(data[j++], 16);
-            out[i] = (byte) (f & 0xFF);
+            int f = Character.digit(data[j++], WORD) << NIBBLE;
+            f = f | Character.digit(data[j++], WORD);
+            out[i] = (byte) (f & BYTE_MASK);
         }
 
         return out;

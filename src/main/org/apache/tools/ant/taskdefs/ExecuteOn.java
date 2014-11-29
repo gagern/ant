@@ -35,9 +35,11 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.ResourceUtils;
 import org.apache.tools.ant.util.SourceFileScanner;
 
 /**
@@ -383,15 +385,7 @@ public class ExecuteOn extends ExecTask {
                     }
                 }
                 if (fileNames.size() == 0 && skipEmpty) {
-                    int includedCount
-                        = ((!FileDirBoth.DIR.equals(currentType))
-                        ? ds.getIncludedFilesCount() : 0)
-                        + ((!FileDirBoth.FILE.equals(currentType))
-                        ? ds.getIncludedDirsCount() : 0);
-
-                    log("Skipping fileset for directory " + base + ". It is "
-                        + ((includedCount > 0) ? "up to date." : "empty."),
-                        Project.MSG_INFO);
+                    logSkippingFileset(currentType, ds, base);
                     continue;
                 }
                 if (!parallel) {
@@ -432,8 +426,8 @@ public class ExecuteOn extends ExecTask {
 
                     File base = null;
                     String name = res.getName();
-                    if (res instanceof FileResource) {
-                        FileResource fr = (FileResource) res;
+                    if (res instanceof FileProvider) {
+                        FileResource fr = ResourceUtils.asFileResource((FileProvider) res);
                         base = fr.getBaseDir();
                         if (base == null) {
                             name = fr.getFile().getAbsolutePath();
@@ -500,6 +494,25 @@ public class ExecuteOn extends ExecTask {
             redirector.setAppendProperties(false);
             redirector.setProperties();
         }
+    }
+
+    /**
+     * log a message for skipping a fileset.
+     * @param currentType the current type.
+     * @param ds the directory scanner.
+     * @param base the dir base
+     */
+    private void logSkippingFileset(
+        String currentType, DirectoryScanner ds, File base) {
+        int includedCount
+            = ((!FileDirBoth.DIR.equals(currentType))
+               ? ds.getIncludedFilesCount() : 0)
+            + ((!FileDirBoth.FILE.equals(currentType))
+               ? ds.getIncludedDirsCount() : 0);
+
+        log("Skipping fileset for directory " + base + ". It is "
+            + ((includedCount > 0) ? "up to date." : "empty."),
+             verbose ? Project.MSG_INFO : Project.MSG_VERBOSE);
     }
 
     /**

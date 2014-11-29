@@ -20,6 +20,10 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.MagicNames;
@@ -28,6 +32,7 @@ import org.apache.tools.ant.taskdefs.compilers.CompilerAdapter;
 import org.apache.tools.ant.taskdefs.compilers.CompilerAdapterFactory;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.GlobPatternMapper;
 import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.SourceFileScanner;
@@ -82,6 +87,11 @@ public class Javac extends MatchingTask {
     private static final String CLASSIC = "classic";
     private static final String EXTJAVAC = "extJavac";
 
+    private static final String PACKAGE_INFO_JAVA = "package-info.java";
+    private static final String PACKAGE_INFO_CLASS = "package-info.class";
+
+    private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
     private Path src;
     private File destDir;
     private Path compileClasspath;
@@ -113,6 +123,11 @@ public class Javac extends MatchingTask {
     private String source;
     private String debugLevel;
     private File tmpDir;
+    private String updatedProperty;
+    private String errorProperty;
+    private boolean taskSuccess = true; // assume the best
+    private boolean includeDestClasses = true;
+    private List    updateDirList = new ArrayList();
 
     /**
      * Javac task for compilation of Java files.
@@ -793,6 +808,56 @@ public class Javac extends MatchingTask {
     }
 
     /**
+     * The property to set on compliation success.
+     * This property will not be set if the compilation
+     * fails, or if there are no files to compile.
+     * @param updatedProperty the property name to use.
+     * @since Ant 1.7.1.
+     */
+    public void setUpdatedProperty(String updatedProperty) {
+        this.updatedProperty = updatedProperty;
+    }
+
+    /**
+     * The property to set on compliation failure.
+     * This property will be set if the compilation
+     * fails.
+     * @param errorProperty the property name to use.
+     * @since Ant 1.7.1.
+     */
+    public void setErrorProperty(String errorProperty) {
+        this.errorProperty = errorProperty;
+    }
+
+    /**
+     * This property controls whether to include the
+     * destination classes directory in the classpath
+     * given to the compiler.
+     * The default value is "true".
+     * @param includeDestClasses the value to use.
+     */
+    public void setIncludeDestClasses(boolean includeDestClasses) {
+        this.includeDestClasses = includeDestClasses;
+    }
+
+    /**
+     * Get the value of the includeDestClasses property.
+     * @return the value.
+     */
+    public boolean isIncludeDestClasses() {
+        return includeDestClasses;
+    }
+
+    /**
+     * Get the result of the javac task (success or failure).
+     * @return true if compilation succeeded, or
+     *         was not neccessary, false if the compilation failed.
+     */
+    public boolean getTaskSuccess() {
+        return taskSuccess;
+    }
+
+    /**
      * Executes the task.
      * @exception BuildException if an error occurs
      */
@@ -818,6 +883,11 @@ public class Javac extends MatchingTask {
         }
 
         compile();
+        if (updatedProperty != null
+            && taskSuccess
+            && compileList.length != 0) {
+            getProject().setNewProperty(updatedProperty, "true");
+        }
     }
 
     /**
@@ -842,6 +912,7 @@ public class Javac extends MatchingTask {
         SourceFileScanner sfs = new SourceFileScanner(this);
         File[] newFiles = sfs.restrictAsFiles(files, srcDir, destDir, m);
 
+        newFiles = removePackageInfoFiles(newFiles, srcDir, destDir);
         if (newFiles.length > 0) {
             File[] newCompileList
                 = new File[compileList.length + newFiles.length];
@@ -916,7 +987,7 @@ public class Javac extends MatchingTask {
             if (isJdkCompiler(compilerImpl)) {
                 compilerImpl = "extJavac";
             } else {
-                log("Since compiler setting isn't classic or modern,"
+                log("Since compiler setting isn't classic or modern, "
                     + "ignoring fork setting.", Project.MSG_WARN);
             }
         }
@@ -994,7 +1065,19 @@ public class Javac extends MatchingTask {
             adapter.setJavac(this);
 
             // finally, lets execute the compiler!!
-            if (!adapter.execute()) {
+            if (adapter.execute()) {
+                // Success - check
+                for (Iterator i = updateDirList.iterator(); i.hasNext();) {
+                    File file = (File) i.next();
+                    file.setLastModified(System.currentTimeMillis());
+                }
+            } else {
+                // Fail path
+                this.taskSuccess = false;
+                if (errorProperty != null) {
+                    getProject().setNewProperty(
+                        errorProperty, "true");
+                }
                 if (failOnError) {
                     throw new BuildException(FAIL_MSG, getLocation());
                 } else {
@@ -1018,6 +1101,73 @@ public class Javac extends MatchingTask {
         public void setCompiler(String impl) {
             super.setImplementation(impl);
         }
+    }
+
+    // ----------------------------------------------------------------
+    //  Code to remove package-info.java files from compilation
+    //  Since Ant 1.7.1.
+    //
+    //    package-info.java are files that contain package level
+    //    annotations. They may or may not have corresponding .class
+    //    files.
+    //
+    //    The following code uses the algorithm:
+    //     * on entry we have the files that need to be compiled
+    //     * if the filename is not package-info.java compile it
+    //     * if a corresponding .class file exists compile it
+    //     * if the corresponding class directory does not exist compile it
+    //     * if the corresponding directory lastmodifed time is
+    //       older than the java file, compile the java file and
+    //       touch the corresponding class directory (on successful
+    //       compilation).
+    //
+    // ----------------------------------------------------------------
+    private File[] removePackageInfoFiles(
+        File[] newFiles, File srcDir, File destDir) {
+        if (!hasPackageInfo(newFiles)) {
+            return newFiles;
+        }
+        List ret = new ArrayList();
+        for (int i = 0; i < newFiles.length; ++i) {
+            if (needsCompilePackageFile(newFiles[i], srcDir, destDir)) {
+                ret.add(newFiles[i]);
+            }
+        }
+        return (File[]) ret.toArray(new File[0]);
+    }
+
+    private boolean hasPackageInfo(File[] newFiles) {
+        for (int i = 0; i < newFiles.length; ++i) {
+            if (newFiles[i].getName().equals(PACKAGE_INFO_JAVA)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean needsCompilePackageFile(
+        File file, File srcDir, File destDir) {
+        if (!file.getName().equals(PACKAGE_INFO_JAVA)) {
+            return true;
+        }
+        // return true if destDir contains the file
+        String rel = FILE_UTILS.removeLeadingPath(srcDir, file);
+        File destFile = new File(destDir, rel);
+        File parent = destFile.getParentFile();
+        destFile = new File(parent, PACKAGE_INFO_CLASS);
+        File sourceFile = new File(srcDir, rel);
+        if (destFile.exists()) {
+            return true;
+        }
+        // Dest file does not exist
+        // Compile Source file if sourceFile is newer that destDir
+        // TODO - use fs
+        if (sourceFile.lastModified()
+            > destFile.getParentFile().lastModified()) {
+            updateDirList.add(destFile.getParentFile());
+            return true;
+        }
+        return false;
     }
 
 }

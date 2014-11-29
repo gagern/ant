@@ -30,10 +30,10 @@ import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.Sort;
 import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.Resources;
-import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.FileResourceIterator;
 import org.apache.tools.ant.types.resources.comparators.Reverse;
 import org.apache.tools.ant.types.resources.comparators.FileSystem;
@@ -57,6 +57,7 @@ import org.apache.tools.ant.types.selectors.FilenameSelector;
 import org.apache.tools.ant.types.selectors.MajoritySelector;
 import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
 import org.apache.tools.ant.types.selectors.modifiedselector.ModifiedSelector;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Deletes a file or directory, or set of files defined by a fileset.
@@ -83,15 +84,17 @@ public class Delete extends MatchingTask {
                 return ((Comparable) foo).compareTo(bar) * -1;
             }
         };
+        private Project project;
         private File basedir;
         private String[] dirs;
-        ReverseDirs(File basedir, String[] dirs) {
+        ReverseDirs(Project project, File basedir, String[] dirs) {
+            this.project = project;
             this.basedir = basedir;
             this.dirs = dirs;
             Arrays.sort(this.dirs, REVERSE);
         }
         public Iterator iterator() {
-            return new FileResourceIterator(basedir, dirs);
+            return new FileResourceIterator(project, basedir, dirs);
         }
         public boolean isFilesystemOnly() { return true; }
         public int size() { return dirs.length; }
@@ -110,6 +113,7 @@ public class Delete extends MatchingTask {
     private boolean failonerror = true;
     private boolean deleteOnExit = false;
     private Resources rcs = null;
+    private static FileUtils FILE_UTILS = FileUtils.getFileUtils();
     // CheckStyle:VisibilityModifier ON
 
     /**
@@ -521,6 +525,13 @@ public class Delete extends MatchingTask {
                         handle("Unable to delete file " + file.getAbsolutePath());
                     }
                 }
+            } else if (isDanglingSymlink(file)) {
+                log("Trying to delete file " + file.getAbsolutePath()
+                    + " which looks like a broken symlink.",
+                    quiet ? Project.MSG_VERBOSE : verbosity);
+                if (!delete(file)) {
+                    handle("Unable to delete file " + file.getAbsolutePath());
+                }
             } else {
                 log("Could not find file " + file.getAbsolutePath()
                     + " to delete.", quiet ? Project.MSG_VERBOSE : verbosity);
@@ -528,19 +539,28 @@ public class Delete extends MatchingTask {
         }
 
         // delete the directory
-        if (dir != null && dir.exists() && dir.isDirectory()
-            && !usedMatchingTask) {
-            /*
-               If verbosity is MSG_VERBOSE, that mean we are doing
-               regular logging (backwards as that sounds).  In that
-               case, we want to print one message about deleting the
-               top of the directory tree.  Otherwise, the removeDir
-               method will handle messages for _all_ directories.
-             */
-            if (verbosity == Project.MSG_VERBOSE) {
-                log("Deleting directory " + dir.getAbsolutePath());
+        if (dir != null && !usedMatchingTask) {
+            if (dir.exists() && dir.isDirectory()) {
+                /*
+                  If verbosity is MSG_VERBOSE, that mean we are doing
+                  regular logging (backwards as that sounds).  In that
+                  case, we want to print one message about deleting the
+                  top of the directory tree.  Otherwise, the removeDir
+                  method will handle messages for _all_ directories.
+                */
+                if (verbosity == Project.MSG_VERBOSE) {
+                    log("Deleting directory " + dir.getAbsolutePath());
+                }
+                removeDir(dir);
+            } else if (isDanglingSymlink(dir)) {
+                log("Trying to delete directory " + dir.getAbsolutePath()
+                    + " which looks like a broken symlink.",
+                    quiet ? Project.MSG_VERBOSE : verbosity);
+                if (!delete(dir)) {
+                    handle("Unable to delete directory "
+                           + dir.getAbsolutePath());
+                }
             }
-            removeDir(dir);
         }
         Resources resourcesToDelete = new Resources();
         resourcesToDelete.setProject(getProject());
@@ -562,10 +582,18 @@ public class Delete extends MatchingTask {
                 fs = (FileSet) fs.clone();
                 fs.setProject(getProject());
             }
-            resourcesToDelete.add(fs);
-            if (includeEmpty && fs.getDir().isDirectory()) {
-              filesetDirs.add(new ReverseDirs(fs.getDir(),
-                  fs.getDirectoryScanner().getIncludedDirectories()));
+            File fsDir = fs.getDir();
+            if (fsDir == null) {
+                throw new BuildException(
+                        "File or Resource without directory or file specified");
+            } else if (!fsDir.isDirectory()) {
+                handle("Directory does not exist:" + fsDir);
+            } else {
+                resourcesToDelete.add(fs);
+                if (includeEmpty) {
+                    filesetDirs.add(new ReverseDirs(getProject(), fsDir, fs
+                            .getDirectoryScanner().getIncludedDirectories()));
+                }
             }
         }
         resourcesToDelete.add(filesetDirs);
@@ -582,17 +610,17 @@ public class Delete extends MatchingTask {
         try {
             if (resourcesToDelete.isFilesystemOnly()) {
                 for (Iterator iter = resourcesToDelete.iterator(); iter.hasNext();) {
-                    FileResource r = (FileResource) iter.next();
                     // nonexistent resources could only occur if we already
                     // deleted something from a fileset:
-                    if (!r.isExists()) {
+                    File f = ((FileProvider) iter.next()).getFile();
+                    if (!f.exists()) {
                         continue;
                     }
-                    if (!(r.isDirectory()) || r.getFile().list().length == 0) {
-                        log("Deleting " + r, verbosity);
-                        if (!delete(r.getFile()) && failonerror) {
+                    if (!(f.isDirectory()) || f.list().length == 0) {
+                        log("Deleting " + f, verbosity);
+                        if (!delete(f) && failonerror) {
                             handle("Unable to delete "
-                                + (r.isDirectory() ? "directory " : "file ") + r);
+                                + (f.isDirectory() ? "directory " : "file ") + f);
                         }
                     }
                 }
@@ -727,6 +755,18 @@ public class Delete extends MatchingTask {
                      + " form " + d.getAbsolutePath(),
                      quiet ? Project.MSG_VERBOSE : verbosity);
             }
+        }
+    }
+
+    private boolean isDanglingSymlink(File f) {
+        try {
+            return FILE_UTILS.isDanglingSymbolicLink(f.getParentFile(),
+                                                     f.getName());
+        } catch (java.io.IOException e) {
+            log("Error while trying to detect " + f.getAbsolutePath()
+                + " as broken symbolic link. " + e.getMessage(),
+                quiet ? Project.MSG_VERBOSE : verbosity);
+            return false;
         }
     }
 }

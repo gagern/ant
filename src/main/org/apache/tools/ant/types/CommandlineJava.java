@@ -140,7 +140,10 @@ public class CommandlineJava implements Cloneable {
                 Properties p = new Properties();
                 for (Enumeration e = sys.propertyNames(); e.hasMoreElements();) {
                     String name = (String) e.nextElement();
-                    p.put(name, sys.getProperty(name));
+                    String value = sys.getProperty(name);
+                    if (name != null && value != null) {
+                        p.put(name, value);
+                    }
                 }
                 p.putAll(mergePropertySets());
                 for (Enumeration e = variables.elements(); e.hasMoreElements();) {
@@ -640,7 +643,7 @@ public class CommandlineJava implements Cloneable {
      * @return true if the classpath is to be used.
      * @since Ant 1.6
      */
-    protected boolean haveClasspath() {
+    public boolean haveClasspath() {
         Path fullClasspath = classpath != null
             ? classpath.concatSystemClasspath("ignore") : null;
         return fullClasspath != null

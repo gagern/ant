@@ -20,19 +20,13 @@ package org.apache.tools.ant.types.resources;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.Resource;
-import org.apache.tools.ant.types.Reference;
 
 /**
  * A Resource representation of something loadable via a Java classloader.
  * @since Ant 1.7
  */
-public class JavaResource extends Resource {
-
-    private Path classpath;
-    private Reference loader;
+public class JavaResource extends AbstractClasspathResource {
 
     /**
      * Default constructor.
@@ -49,120 +43,16 @@ public class JavaResource extends Resource {
      */
     public JavaResource(String name, Path path) {
         setName(name);
-        classpath = path;
+        setClasspath(path);
     }
 
     /**
-     * Set the classpath to use when looking up a resource.
-     * @param classpath to add to any existing classpath
-     */
-    public void setClasspath(Path classpath) {
-        checkAttributesAllowed();
-        if (this.classpath == null) {
-            this.classpath = classpath;
-        } else {
-            this.classpath.append(classpath);
-        }
-    }
-
-    /**
-     * Add a classpath to use when looking up a resource.
-     * @return The classpath to be configured
-     */
-    public Path createClasspath() {
-        checkChildrenAllowed();
-        if (this.classpath == null) {
-            this.classpath = new Path(getProject());
-        }
-        return this.classpath.createPath();
-    }
-
-    /**
-     * Set the classpath to use when looking up a resource,
-     * given as reference to a &lt;path&gt; defined elsewhere
-     * @param r The reference value
-     */
-    public void setClasspathRef(Reference r) {
-        checkAttributesAllowed();
-        createClasspath().setRefid(r);
-    }
-
-    /**
-     * get the classpath used by this <code>LoadProperties</code>.
-     * @return The classpath
-     */
-    public Path getClasspath() {
-        return isReference()
-            ? ((JavaResource) getCheckedRef()).getClasspath() : classpath;
-    }
-
-    /**
-     * Use the reference to locate the loader. If the loader is not
-     * found, taskdef will use the specified classpath and register it
-     * with the specified name.
-     *
-     * This allow multiple taskdef/typedef to use the same class loader,
-     * so they can be used together. It eliminate the need to
-     * put them in the CLASSPATH.
-     *
-     * @param r the reference to locate the loader.
-     */
-    public void setLoaderRef(Reference r) {
-        checkAttributesAllowed();
-        loader = r;
-    }
-
-    /**
-     * Overrides the super version.
-     * @param r the Reference to set.
-     */
-    public void setRefid(Reference r) {
-        if (loader != null || classpath != null) {
-            throw tooManyAttributes();
-        }
-        super.setRefid(r);
-    }
-
-    /**
-     * Learn whether this file exists.
-     * @return true if this resource exists.
-     */
-    public boolean isExists() {
-        InputStream is = null;
-        try {
-            return isReference() ? ((Resource) getCheckedRef()).isExists()
-                : (is = getInputStream()) != null;
-        } catch (IOException ex) {
-            return false;
-        } finally {
-            FileUtils.close(is);
-        }
-    }
-
-    /**
-     * Return an InputStream for reading the contents of this Resource.
-     * @return an InputStream object.
+     * open the inpout stream from a specific classloader
+     * @param cl the classloader to use. Will be null if the system classloader is used
+     * @return an open input stream for the resource
      * @throws IOException if an error occurs.
      */
-    public InputStream getInputStream() throws IOException {
-        if (isReference()) {
-            return ((Resource) getCheckedRef()).getInputStream();
-        }
-        ClassLoader cl = null;
-        if (loader != null) {
-            cl = (ClassLoader) loader.getReferencedObject();
-        }
-        if (cl == null) {
-            if (getClasspath() != null) {
-                cl = getProject().createClassLoader(classpath);
-            } else {
-                cl = JavaResource.class.getClassLoader();
-            }
-            if (loader != null && cl != null) {
-                getProject().addReference(loader.getRefId(), cl);
-            }
-        }
-
+    protected InputStream openInputStream(ClassLoader cl) throws IOException {
         return cl == null ? ClassLoader.getSystemResourceAsStream(getName())
             : cl.getResourceAsStream(getName());
     }
@@ -183,14 +73,15 @@ public class JavaResource extends Resource {
             if (!getName().equals(otherjr.getName())) {
                 return getName().compareTo(otherjr.getName());
             }
-            if (loader != otherjr.loader) {
-                if (loader == null) {
+            if (getLoader() != otherjr.getLoader()) {
+                if (getLoader() == null) {
                     return -1;
                 }
-                if (otherjr.loader == null) {
+                if (otherjr.getLoader() == null) {
                     return 1;
                 }
-                return loader.getRefId().compareTo(otherjr.loader.getRefId());
+                return getLoader().getRefId()
+                    .compareTo(otherjr.getLoader().getRefId());
             }
             Path p = getClasspath();
             Path op = otherjr.getClasspath();

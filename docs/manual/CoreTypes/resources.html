@@ -153,7 +153,7 @@ implementations are also usable as single-element
 
 <p>The classpath can also be specified as nested classpath element,
 where <b>&lt;classpath&gt;</b> is a <a
-href="../using.html#path">path-like</a> structure.</p>
+href="../using.html#path">path-like structure</a>.</p>
 
 <h4><a name="zipentry">zipentry</a></h4>
 
@@ -249,7 +249,8 @@ element.</p>
 
 <h4><a name="string">string</a></h4>
 
-<p>Represents a Java String. As such a string is readable but not writable.</p>
+<p>Represents a Java String. It can be written to, but only once, after which
+it will be an error to write to again.</p>
 
 <table border="1" cellpadding="2" cellspacing="0">
   <tr>
@@ -260,9 +261,19 @@ element.</p>
   <tr>
     <td valign="top">value</td>
     <td valign="top">The value of this resource</td>
-    <td align="center" valign="top">Yes</td>
+    <td align="center" valign="top">No</td>
   </tr>
 </table>
+
+<p>The resource also supports nested text, which can only be supplied if the <code>value</code> attribute is unset:
+  </p>
+<pre>
+  &lt;string>
+        self.log("Ant version =${ant.version}");
+  &lt;/string>
+</pre>
+    
+</p>
 
 <h4><a name="propertyresource">propertyresource</a></h4>
 
@@ -303,7 +314,16 @@ Ant's "legacy" datatypes have been modified to behave as Resource Collections:
     resources depending on configuration
   </li>
   <li><a href="propertyset.html">propertyset</a>
-    exposes <a href="#property">property</a> resources
+    exposes <a href="#propertyresource">property</a> resources
+  </li>
+</ul>
+</p>
+<p>Strangely, some tasks can even legitimately behave as resource collections:
+<ul>
+  <li><a href="../CoreTasks/concat.html">concat</a>
+    exposes a concatenated resource, and adds e.g.
+    <a href="filterchain.html">filtering</a>
+    to Ant's resource-related capabilities.
   </li>
 </ul>
 </p>
@@ -316,6 +336,8 @@ Ant's "legacy" datatypes have been modified to behave as Resource Collections:
     to include only resources meeting specified criteria</li>
   <li><a href="#sort">sort</a> - sorted resource collection</li>
   <li><a href="#first">first</a> - first <i>n</i> resources from a
+    nested collection</li>
+  <li><a href="#last">last</a> - last <i>n</i> resources from a
     nested collection</li>
   <li><a href="#tokens">tokens</a> - <a href="#string">string</a> tokens
     gathered from a nested collection</li>
@@ -417,7 +439,7 @@ platforms.
 </p>
 
 <h4><a name="restrict">restrict</a></h4>
-<p>Restricts another nested resource collection using resource selectors:
+<p>Restricts a nested resource collection using resource selectors:
 <blockquote>
   <table border="1" cellpadding="2" cellspacing="0">
     <tr>
@@ -465,6 +487,10 @@ platforms.
       resources whose contents match a particular regular expression.</li>
     <li><a href="#rsel.compare">compare</a> - select resources
       based on comparison to other resources.</li>
+    <li><a href="selectors.html#readable">readable</a> -
+      Select files (resources must be files) if they are readable.</li>
+    <li><a href="selectors.html#writable">writable</a> -
+      Select files (resources must be files) if they are writable.</li>
   </ul>
 
   <h4><a name="rsel.name">name</a></h4>
@@ -477,8 +503,14 @@ platforms.
     </tr>
     <tr>
       <td valign="top">name</td>
-      <td valign="top">The name pattern to test</td>
-      <td align="center" valign="top">Yes</td>
+      <td valign="top">The name pattern to test using standard Ant
+        patterns.</td>
+      <td valign="top" align="center" rowspan="2">Exactly one of
+        the two</td>
+    </tr>
+    <tr>
+      <td valign="top">regex</td>
+      <td valign="top">The regular expression matching files to select.</td>
     </tr>
     <tr>
       <td valign="top">casesensitive</td>
@@ -540,7 +572,7 @@ platforms.
     </tr>
     <tr>
       <td valign="top">type</td>
-      <td valign="top">One of "file", "dir"</td>
+      <td valign="top">One of "file", "dir", "any" (since Ant 1.8)</td>
       <td align="center" valign="top">Yes</td>
     </tr>
   </table>
@@ -650,7 +682,10 @@ platforms.
     using the nested &lt;control&gt; element, which denotes a
     <a href="#resources">resources</a> collection.</p>
   <h4>Examples</h4>
-  <p>The following selects files a, b, c, and d:</p>
+  <p>Assuming the namespace settings
+<pre><code>  rsel="antlib:org.apache.tools.ant.types.resources.selectors"
+  rcmp="antlib:org.apache.tools.ant.types.resources.comparators"
+</code></pre></p>
   <pre>
 &lt;restrict&gt;
   &lt;fileset dir="src" includes="a,b,c,d,e,f,g" /&gt;
@@ -660,12 +695,44 @@ platforms.
     &lt;/control&gt;
     &lt;rcmp:name /&gt;
   &lt;/rsel:compare&gt;
-&lt;/restrict&gt;</pre>
+&lt;/restrict&gt;
+  </pre>
+  <p>Selects files a, b, c, and d.</p>
+  <pre>
+    &lt;project rsel=&quot;antlib:org.apache.tools.ant.types.resources.selectors&quot;&gt;
+        &lt;macrodef name=&quot;copyFromPath&quot;&gt;
+            &lt;attribute name=&quot;todir&quot;/&gt;
+            &lt;attribute name=&quot;refid&quot;/&gt;
+            &lt;element name=&quot;nested-resource-selectors&quot; optional=&quot;yes&quot; implicit=&quot;true&quot;/&gt;
+            &lt;sequential&gt;
+                &lt;mkdir dir=&quot;@{todir}&quot; taskname=&quot;copyFromPath&quot;/&gt;
+                &lt;copy todir=&quot;@{todir}&quot; taskname=&quot;copyFromPath&quot;&gt;
+                    &lt;restrict&gt;
+                        &lt;path refid=&quot;@{refid}&quot;/&gt;
+                        &lt;rsel:or&gt;
+                            &lt;nested-resource-selectors/&gt;
+                        &lt;/rsel:or&gt;
+                    &lt;/restrict&gt;
+                    &lt;flattenmapper/&gt;
+                &lt;/copy&gt;
+            &lt;/sequential&gt;
+        &lt;/macrodef&gt;
+        &lt;copyFromPath refid=&quot;classpath&quot; todir=&quot;todir&quot;&gt;
+            &lt;rsel:name name=&quot;log4j.properties&quot;/&gt;
+            &lt;rsel:name name=&quot;default.properties&quot;/&gt;
+        &lt;/copyFromPath&gt;
+     &lt;/project&gt;
+  </pre>
+  <p>Creates the <tt>todir</tt> directory and copies (if present) the
+     files <tt>log4j.properties</tt> and <tt>default.properties</tt>
+     from the Classpath (already used while compiling).
+  </p>
+
 </blockquote>
 
 <h4><a name="sort">sort</a></h4>
 
-<p>Sorts another nested resource collection according to the resources'
+<p>Sorts a nested resource collection according to the resources'
    natural order, or by one or more nested <a href="#rcmp">resource
    comparators</a>:</p>
 <blockquote>
@@ -740,6 +807,35 @@ platforms.
   <h4><a name="rcmp.reverse">reverse</a></h4>
   <p>Reverse the natural sort order, or that of a single nested comparator.</p>
 
+  <h4>Examples</h4>
+  <pre>
+    &lt;property name=&quot;eol&quot; value=&quot;${line.separator}&quot; /&gt;
+    &lt;pathconvert property=&quot;sorted&quot; pathsep=&quot;${eol}&quot;&gt;
+      &lt;sort&gt;
+        &lt;tokens&gt;
+          &lt;string value=&quot;foo bar etc baz&quot; /&gt;
+          &lt;stringtokenizer /&gt;
+        &lt;/tokens&gt;
+      &lt;/sort&gt;
+    &lt;/pathconvert&gt;</pre>
+  <p>The resource of type string &quot;foo bar etc baz&quot; is split into four tokens by 
+  the stringtokenizer. These tokens are sorted and there <i>sorted</i> gets the value
+  of &quot;bar baz etc foo&quot;.</p>
+  
+  <pre>
+    &lt;sort&gt;
+      &lt;fileset dir=&quot;foo&quot; /&gt;
+      &lt;reverse xmlns=&quot;antlib:org.apache.tools.ant.types.resources.comparators&quot;&gt;
+        &lt;date /&gt;
+      &lt;/reverse&gt;
+    &lt;/sort&gt;</pre>
+  <p>This takes all files from <i>foo</i>
+     and sorts them by modification date in reverse order.
+     Because the resource comparators used (<code>&lt;reverse&gt;</code>
+     and <code>&lt;date&gt;</code>) are in an internal antlib
+     their namespace must be set explicitly.
+  </p>
+
 </blockquote>
 
 <h4><a name="first">first</a></h4>
@@ -770,10 +866,38 @@ larger collection.</p>
   <p>A single resource collection is required.</p>
 </blockquote>
 
+<h4><a name="last">last</a></h4>
+<p>Includes the last <i>count</i> resources from a nested resource collection.
+This can be used in conjunction with the <a href="#sort">sort</a> collection,
+for example, to select the last few oldest, largest, etc. resources from a
+larger collection. <strong>Since Ant 1.7.1</strong>.</p>
+<blockquote>
+  <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+      <td valign="top"><b>Attribute</b></td>
+      <td valign="top"><b>Description</b></td>
+      <td align="center" valign="top"><b>Required</b></td>
+    </tr>
+    <tr>
+      <td valign="top">count</td>
+      <td valign="top">The number of resources to include</td>
+      <td valign="top" align="center">No, default 1</td>
+    </tr>
+    <tr>
+      <td valign="top">cache</td>
+      <td valign="top">Whether to cache results; disabling
+        may seriously impact performance</td>
+      <td valign="top" align="center">No, default <i>true</i></td>
+    </tr>
+  </table>
+  <h4>Parameters specified as nested elements</h4>
+  <p>A single resource collection is required.</p>
+</blockquote>
+
 <h4><a name="tokens">tokens</a></h4>
 <p>Includes the <a href="#string">string</a> tokens gathered from a nested
  resource collection. Uses the same tokenizers supported by the
-<a href="filterchain.html#tokenfilter">TokenFilter</a>. Hint: imaginative
+<a href="filterchain.html#tokenfilter">TokenFilter</a>. Imaginative
   use of this resource collection can implement equivalents for such Unix
   functions as <code>sort</code>, <code>grep -c</code>, <code>wc</code> and
   <code>wc -l</code>.</p>
@@ -797,7 +921,25 @@ larger collection.</p>
     </tr>
   </table>
   <h4>Parameters specified as nested elements</h4>
-  <p>A single resource collection is required.</p>
+  <ul>
+    <li>A single resource collection is required.</li>
+    <li>One nested tokenizer may be specified.  If omitted, a
+        <a href="filterchain.html#linetokenizer">LineTokenizer</a> will be used.
+    </li>
+  </ul>
+  <h4>Examples</h4>
+  <pre>&lt;concat&gt;
+  &lt;union&gt;
+    &lt;sort&gt;
+      &lt;tokens&gt;
+        &lt;resources refid="input" /&gt;
+        &lt;linetokenizer includedelims="true" /&gt;
+      &lt;/tokens&gt;
+    &lt;/sort&gt;
+  &lt;/union&gt;
+&lt;/concat&gt;
+  </pre>
+  <p>Implements Unix <i>sort -u</i> against resource collection <i>input</i>.</p>
 </blockquote>
 
 <h4><a name="setlogic">Set operations</a></h4>
@@ -833,6 +975,29 @@ larger collection.</p>
       <td valign="top" align="center">No, default <i>true</i></td>
     </tr>
   </table>
+  
+  <h4>Examples</h4>
+  <pre>
+    &lt;resources id=&quot;A&quot;&gt;
+        &lt;string value=&quot;a&quot;/&gt;
+        &lt;string value=&quot;b&quot;/&gt;
+    &lt;/resources&gt;
+    &lt;resources id=&quot;B&quot;&gt;
+        &lt;string value=&quot;b&quot;/&gt;
+        &lt;string value=&quot;c&quot;/&gt;
+    &lt;/resources&gt;
+    &lt;union id=&quot;union&quot;&gt;&lt;resources refid=&quot;A&quot;/&gt;&lt;resources refid=&quot;B&quot;/&gt;&lt;/union&gt;
+    &lt;intersect id=&quot;intersect&quot;&gt;&lt;resources refid=&quot;A&quot;/&gt;&lt;resources refid=&quot;B&quot;/&gt;&lt;/intersect&gt;
+    &lt;difference id=&quot;difference&quot;&gt;&lt;resources refid=&quot;A&quot;/&gt;&lt;resources refid=&quot;B&quot;/&gt;&lt;/difference&gt;
+    &lt;echo&gt;
+      A: ${toString:A}                    = a;b
+      B: ${toString:B}                    = b;c
+
+      union     : ${toString:union}       = a;b;c
+      intersect : ${toString:intersect}   = b
+      difference: ${toString:difference}  = a;c
+    &lt;/echo&gt;
+  </pre>
 </blockquote>
 
 

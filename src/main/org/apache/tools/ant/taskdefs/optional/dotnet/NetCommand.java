@@ -55,7 +55,7 @@ import org.apache.tools.ant.types.Commandline;
  */
 
 public class NetCommand {
-
+    private static final int DEFAULT_RESPONSE_THRESHOLD = 64;
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
     // CheckStyle:VisibilityModifier OFF - bc
 
@@ -115,7 +115,7 @@ public class NetCommand {
     /**
      * internal threshold for auto-switch
      */
-    private int automaticResponseFileThreshold = 64;
+    private int automaticResponseFileThreshold = DEFAULT_RESPONSE_THRESHOLD;
 
     /**
      *  constructor
@@ -346,7 +346,7 @@ public class NetCommand {
             //afterwards
             FileOutputStream fos = null;
 
-            temporaryCommandFile = FILE_UTILS.createTempFile("cmd", ".txt", null);
+            temporaryCommandFile = FILE_UTILS.createTempFile("cmd", ".txt", null, false, true);
             owner.log("Using response file " + temporaryCommandFile, Project.MSG_VERBOSE);
 
             try {

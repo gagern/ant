@@ -265,39 +265,10 @@ public class MacroDef extends AntlibDefinition  {
                 throw new BuildException(
                     "the name \"" + attribute.getName()
                         + "\" has already been used in "
-                        + (att instanceof DefineAttribute ? "a define element"
-                           : "another attribute element"));
+                        + "another attribute element");
             }
         }
         attributes.add(attribute);
-    }
-
-    /**
-     * Add a define element.
-     *
-     * @param def a define nested element.
-     */
-    public void addConfiguredDefine(DefineAttribute def) {
-        if (def.getName() == null) {
-            throw new BuildException(
-                "the define nested element needed a \"name\" attribute");
-        }
-        if (def.getName().equals(textName)) {
-            throw new BuildException(
-                "the name \"" + def.getName()
-                + "\" has already been used by the text element");
-        }
-        for (int i = 0; i < attributes.size(); ++i) {
-            Attribute att = (Attribute) attributes.get(i);
-            if (att.getName().equals(def.getName())) {
-                throw new BuildException(
-                    "the name \"" + def.getName()
-                    + "\" has already been used in "
-                    + (att instanceof DefineAttribute ? "another define element"
-                       : "an attribute element"));
-            }
-        }
-        attributes.add(def);
     }
 
     /**
@@ -348,96 +319,6 @@ public class MacroDef extends AntlibDefinition  {
         log("creating macro  " + name, Project.MSG_VERBOSE);
     }
 
-    /**
-     * Base class for a macro's attributes, elements, and text element.
-     *
-     * @since ant 1.7
-     */
-    public static class Member {
-
-        private String name;
-        private String description;
-
-        /**
-         * Sets the name of this member.
-         *
-         * @param name the name of the attribute
-         */
-        public void setName(String name) {
-            if (!isValidName(name)) {
-                throw new BuildException(
-                    "Illegal name [" + name + "] for macro member");
-            }
-            this.name = name.toLowerCase(Locale.US);
-        }
-
-        /**
-         * Gets the name of this macro member.
-         *
-         * @return the name of the member.
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Sets a textual description of this member,
-         * for build documentation purposes only.
-         *
-         * @param desc Description of the element.
-         * @since ant 1.6.1
-         */
-        public void setDescription(String desc) {
-            description = desc;
-        }
-
-        /**
-         * Gets the description of this member.
-         *
-         * @return the description of the element, or <code>null</code> if
-         *         no description is available.
-         * @since ant 1.6.1
-         */
-        public String getDescription() {
-            return description;
-        }
-
-        /**
-         * equality method.
-         *
-         * @param obj an <code>Object</code> value
-         * @return a <code>boolean</code> value
-         */
-        public boolean equals(Object obj) {
-            if (obj == this) {
-              return true;
-            }
-            if (obj != null && obj.getClass().equals(getClass())) {
-              return equals((Member) obj);
-            }
-            return false;
-        }
-
-        /**
-         * Equality method once it has been ascertain the object
-         * to compare to is not ourselves and is of the same type.
-         *
-         * @param m macro member guaranteed to be of the same type as this.
-         * @return a <code>boolean</code> value
-         */
-        protected boolean equals(Member m) {
-            return (name == null) ? m.name == null : name.equals(m.name);
-        }
-
-        /**
-         * Gets the hash code of this member, consistent with equals.
-         * @return a hash code value for this object.
-         */
-        public int hashCode() {
-            return objectHashCode(name);
-        }
-
-    }
 
     /**
      * An attribute for the MacroDef task.
@@ -542,63 +423,6 @@ public class MacroDef extends AntlibDefinition  {
     }
 
     /**
-     * A nested define element for the MacroDef task.
-     *
-     * It provides an attribute with a guaranteed unique value
-     * on every instantiation of the macro. This allows to use
-     * this uniquely named attribute in property names used
-     * internally by the macro, thus creating unique property
-     * names and side-stepping Ant's property immutability rules.
-     * <p>
-     * Of course, this work around as the side effect of littering
-     * the global Ant property namespace, so is far for ideal, but
-     * will have to make do awaiting a better fix...
-     *
-     * @since ant 1.7
-     */
-    public static class DefineAttribute extends Attribute {
-
-        private static long count = 0;
-        private String prefix = "";
-
-        /**
-         * Sets a prefix for the generated name.
-         *
-         * @param prefixValue the prefix to use.
-         */
-        public void setPrefix(String prefixValue) {
-            prefix = prefixValue;
-        }
-
-        /**
-         * Sets the default value.
-         *
-         * This is not allowed for the define nested element.
-         *
-         * @param defaultValue not used
-         * @throws BuildException always
-         */
-        public void setDefault(String defaultValue) {
-            throw new BuildException(
-                "Illegal attribute \"default\" for define element");
-        }
-
-        /**
-         * Gets the default value for this attibute.
-         *
-         * @return the generated <em>unique</em> name, of the form
-         *         "prefix#this classname#&lt;aCounter&gt;".
-         */
-        public String getDefault() {
-            synchronized (DefineAttribute.class) {
-                // Make sure counter is managed globally
-                return prefix + "#" + getClass().getName() + "#" + (++count);
-            }
-        }
-
-    }
-
-    /**
      * A nested text element for the MacroDef task.
      * @since ant 1.6.1
      */
@@ -607,6 +431,7 @@ public class MacroDef extends AntlibDefinition  {
         private boolean optional;
         private boolean trim;
         private String  description;
+        private String  defaultString;
 
         /**
          * The name of the attribute.
@@ -677,6 +502,20 @@ public class MacroDef extends AntlibDefinition  {
         }
 
         /**
+         * @param defaultString default text for the string.
+         */
+        public void setDefault(String defaultString) {
+            this.defaultString = defaultString;
+        }
+
+        /**
+         * @return the default text if set, null otherwise.
+         */
+        public String getDefault() {
+            return defaultString;
+        }
+
+        /**
          * equality method
          *
          * @param obj an <code>Object</code> value
@@ -690,20 +529,10 @@ public class MacroDef extends AntlibDefinition  {
                 return false;
             }
             Text other = (Text) obj;
-            if (name == null) {
-                if (other.name != null) {
-                    return false;
-                }
-            } else if (!name.equals(other.name)) {
-                return false;
-            }
-            if (optional != other.optional) {
-                return false;
-            }
-            if (trim != other.trim) {
-                return false;
-            }
-            return true;
+            return safeCompare(name, other.name)
+                && optional == other.optional
+                && trim == other.trim
+                && safeCompare(defaultString, other.defaultString);
         }
 
         /**
@@ -714,13 +543,63 @@ public class MacroDef extends AntlibDefinition  {
         }
     }
 
+    private static boolean safeCompare(Object a, Object b) {
+        return a == null ? b == null : a.equals(b);
+    }
+
     /**
      * A nested element for the MacroDef task.
      */
-    public static class TemplateElement extends Member {
+    public static class TemplateElement {
 
+        private String name;
+        private String description;
         private boolean optional = false;
         private boolean implicit = false;
+
+        /**
+         * Sets the name of this element.
+         *
+         * @param name the name of the element
+         */
+        public void setName(String name) {
+            if (!isValidName(name)) {
+                throw new BuildException(
+                    "Illegal name [" + name + "] for macro element");
+            }
+            this.name = name.toLowerCase(Locale.US);
+        }
+
+        /**
+         * Gets the name of this element.
+         *
+         * @return the name of the element.
+         */
+        public String getName() {
+            return name;
+        }
+
+        /**
+         * Sets a textual description of this element,
+         * for build documentation purposes only.
+         *
+         * @param desc Description of the element.
+         * @since ant 1.6.1
+         */
+        public void setDescription(String desc) {
+            description = desc;
+        }
+
+        /**
+         * Gets the description of this element.
+         *
+         * @return the description of the element, or <code>null</code> if
+         *         no description is available.
+         * @since ant 1.6.1
+         */
+        public String getDescription() {
+            return description;
+        }
 
         /**
          * Sets whether this element is optional.
@@ -760,18 +639,32 @@ public class MacroDef extends AntlibDefinition  {
             return implicit;
         }
 
-        /** {@inheritDoc}. */
-        protected boolean equals(Member m) {
-            TemplateElement t = (TemplateElement) m;
-            return super.equals(m)
-                && optional == t.optional && implicit == t.implicit;
+        /**
+         * equality method.
+         *
+         * @param obj an <code>Object</code> value
+         * @return a <code>boolean</code> value
+         */
+        public boolean equals(Object obj) {
+            if (obj == this) {
+              return true;
+            }
+            if (obj == null || !obj.getClass().equals(getClass())) {
+                return false;
+            }
+            TemplateElement t = (TemplateElement) obj;
+            return
+                (name == null ? t.name == null : name.equals(t.name))
+                && optional == t.optional
+                && implicit == t.implicit;
         }
 
         /**
          * @return a hash code value for this object.
          */
         public int hashCode() {
-            return super.hashCode() + (optional ? 1 : 0) + (implicit ? 1 : 0);
+            return objectHashCode(name)
+                + (optional ? 1 : 0) + (implicit ? 1 : 0);
         }
 
     } // END static class TemplateElement

@@ -21,15 +21,15 @@ package org.apache.tools.ant.taskdefs;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -42,13 +42,16 @@ import java.util.TreeMap;
 import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.taskdefs.Manifest.Section;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.ZipFileSet;
 import org.apache.tools.ant.types.spi.Service;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.zip.JarMarker;
 import org.apache.tools.zip.ZipExtraField;
 import org.apache.tools.zip.ZipOutputStream;
@@ -74,6 +77,7 @@ public class Jar extends Zip {
 
     /** merged manifests added through addConfiguredManifest */
     private Manifest configuredManifest;
+
     /** shadow of the above if upToDate check alters the value */
     private Manifest savedConfiguredManifest;
 
@@ -139,6 +143,15 @@ public class Jar extends Zip {
      */
     private Path indexJars;
 
+    // CheckStyle:LineLength OFF - Link is too long.
+    /**
+     * Strict mode for checking rules of the JAR-Specification.
+     * @see http://java.sun.com/j2se/1.3/docs/guide/versioning/spec/VersioningSpecification.html#PackageVersioning
+     */
+    private StrictMode strict = new StrictMode("ignore");
+
+    // CheckStyle:LineLength ON
+
     /**
      * Extra fields needed to make Solaris recognize the archive as a jar file.
      *
@@ -147,10 +160,6 @@ public class Jar extends Zip {
     private static final ZipExtraField[] JAR_MARKER = new ZipExtraField[] {
         JarMarker.getInstance()
     };
-
-    // CheckStyle:VisibilityModifier OFF - bc
-    protected String emptyBehavior = "create";
-    // CheckStyle:VisibilityModifier ON
 
     /** constructor */
     public Jar() {
@@ -183,6 +192,16 @@ public class Jar extends Zip {
      */
     public void setWhenmanifestonly(WhenEmpty we) {
         emptyBehavior = we.getValue();
+    }
+
+    /**
+     * Activate the strict mode. When set to <i>true</i> a BuildException
+     * will be thrown if the Jar-Packaging specification was broken.
+     * @param strict New value of the strict mode.
+     * @since Ant 1.7.1
+     */
+    public void setStrict(StrictMode strict) {
+        this.strict = strict;
     }
 
     /**
@@ -267,13 +286,7 @@ public class Jar extends Zip {
                                      + manifestFile
                                      + " (" + e.getMessage() + ")", e);
         } finally {
-            if (isr != null) {
-                try {
-                    isr.close();
-                } catch (IOException e) {
-                    // do nothing
-                }
-            }
+            FileUtils.close(isr);
         }
         return newManifest;
     }
@@ -327,6 +340,29 @@ public class Jar extends Zip {
         return newManifest;
     }
 
+    private boolean jarHasIndex(File jarFile) throws IOException {
+        ZipFile zf = null;
+        try {
+            zf = new ZipFile(jarFile);
+            Enumeration e = zf.entries();
+            while (e.hasMoreElements()) {
+                ZipEntry ze = (ZipEntry) e.nextElement();
+                if (ze.getName().equalsIgnoreCase(INDEX_NAME)) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            if (zf != null) {
+                try {
+                    zf.close();
+                } catch (IOException e) {
+                    // XXX - log an error?  throw an exception?
+                }
+            }
+        }
+    }
+    
     /**
      * Behavior when a Manifest is found in a zipfileset or zipgroupfileset file.
      * Valid values are "skip", "merge", and "mergewithoutmain".
@@ -397,7 +433,7 @@ public class Jar extends Zip {
            service = (Service) serviceIterator.next();
            //stolen from writeManifest
            super.zipFile(service.getAsStream(), zOut,
-                         "META-INF/service/" + service.getType(),
+                         "META-INF/services/" + service.getType(),
                          System.currentTimeMillis(), null,
                          ZipFileSet.DEFAULT_FILE_MODE);
         }
@@ -460,7 +496,7 @@ public class Jar extends Zip {
         throws IOException {
         for (Enumeration e = manifest.getWarnings();
              e.hasMoreElements();) {
-            log("Manifest warning: " + (String) e.nextElement(),
+            log("Manifest warning: " + e.nextElement(),
                 Project.MSG_WARN);
         }
 
@@ -471,7 +507,7 @@ public class Jar extends Zip {
         OutputStreamWriter osw = new OutputStreamWriter(baos, Manifest.JAR_ENCODING);
         PrintWriter writer = new PrintWriter(osw);
         manifest.write(writer);
-        writer.flush();
+        writer.close();
 
         ByteArrayInputStream bais =
             new ByteArrayInputStream(baos.toByteArray());
@@ -553,7 +589,7 @@ public class Jar extends Zip {
             }
         }
 
-        writer.flush();
+        writer.close();
         ByteArrayInputStream bais =
             new ByteArrayInputStream(baos.toByteArray());
         super.zipFile(bais, zOut, INDEX_NAME, System.currentTimeMillis(), null,
@@ -575,12 +611,12 @@ public class Jar extends Zip {
                            long lastModified, File fromArchive, int mode)
         throws IOException {
         if (MANIFEST_NAME.equalsIgnoreCase(vPath))  {
-            if (!doubleFilePass || (doubleFilePass && skipWriting)) {
+            if (!doubleFilePass || skipWriting) {
                 filesetManifest(fromArchive, is);
             }
         } else if (INDEX_NAME.equalsIgnoreCase(vPath) && index) {
             log("Warning: selected " + archiveType
-                + " files include a META-INF/INDEX.LIST which will"
+                + " files include a " + INDEX_NAME + " which will"
                 + " be replaced by a newly generated one.", Project.MSG_WARN);
         } else {
             if (index && vPath.indexOf("/") == -1) {
@@ -721,6 +757,14 @@ public class Jar extends Zip {
         }
 
         createEmpty = needsUpdate;
+        if (!needsUpdate && index) {
+            try {
+                needsUpdate = !jarHasIndex(zipFile);
+            } catch (IOException e) {
+                //if we couldn't read it, we might as well recreate it?
+                needsUpdate = true;
+            }
+        }
         return super.getResourcesToAdd(rcs, zipFile, needsUpdate);
     }
 
@@ -767,13 +811,7 @@ public class Jar extends Zip {
                                      getLocation());
         } finally {
             // Close the output stream.
-            try {
-                if (zOut != null) {
-                    zOut.close();
-                }
-            } catch (IOException ex) {
-                // Ignore close exception
-            }
+            FileUtils.close(zOut);
             createEmpty = false;
         }
         return true;
@@ -787,15 +825,57 @@ public class Jar extends Zip {
      */
     protected void cleanUp() {
         super.cleanUp();
+        checkJarSpec();
 
         // we want to save this info if we are going to make another pass
-        if (!doubleFilePass || (doubleFilePass && !skipWriting)) {
+        if (!doubleFilePass || !skipWriting) {
             manifest = null;
             configuredManifest = savedConfiguredManifest;
             filesetManifest = null;
             originalManifest = null;
         }
         rootEntries.removeAllElements();
+    }
+
+    // CheckStyle:LineLength OFF - Link is too long.
+    /**
+     * Check against packaging spec
+     * @see http://java.sun.com/j2se/1.3/docs/guide/versioning/spec/VersioningSpecification.html#PackageVersioning
+     */
+    // CheckStyle:LineLength ON
+    private void checkJarSpec() {
+        String br = System.getProperty("line.separator");
+        StringBuffer message = new StringBuffer();
+        Section mainSection = (configuredManifest == null)
+                            ? null
+                            : configuredManifest.getMainSection();
+
+        if (mainSection == null) {
+            message.append("No Implementation-Title set.");
+            message.append("No Implementation-Version set.");
+            message.append("No Implementation-Vendor set.");
+        } else {
+            if (mainSection.getAttribute("Implementation-Title") == null) {
+                message.append("No Implementation-Title set.");
+            }
+            if (mainSection.getAttribute("Implementation-Version") == null) {
+                message.append("No Implementation-Version set.");
+            }
+            if (mainSection.getAttribute("Implementation-Vendor") == null) {
+                message.append("No Implementation-Vendor set.");
+            }
+        }
+
+        if (message.length() > 0) {
+            message.append(br);
+            message.append("Location: ").append(getLocation());
+            message.append(br);
+            if (strict.getValue().equalsIgnoreCase("fail")) {
+                throw new BuildException(message.toString(), getLocation());
+            } else {
+                log(message.toString(), strict.getLogLevel());
+            }
+        }
     }
 
     /**
@@ -899,7 +979,7 @@ public class Jar extends Zip {
      * @return the matching entry, or null if the file is not found
      * @since Ant 1.6.2
      */
-    protected static final String findJarName(String fileName,
+    protected static String findJarName(String fileName,
                                               String[] classpath) {
         if (classpath == null) {
             return (new File(fileName)).getName();
@@ -946,7 +1026,7 @@ public class Jar extends Zip {
      * @since Ant 1.7
      * @throws IOException on error
      */
-    protected static final void grabFilesAndDirs(String file, List dirs,
+    protected static void grabFilesAndDirs(String file, List dirs,
                                                  List files)
         throws IOException {
         org.apache.tools.zip.ZipFile zf = null;
@@ -980,6 +1060,33 @@ public class Jar extends Zip {
             if (zf != null) {
                 zf.close();
             }
+        }
+    }
+
+    /** The strict enumerated type. */
+    public static class StrictMode extends EnumeratedAttribute {
+        /** Public no arg constructor. */
+        public StrictMode() {
+        }
+        /**
+         * Constructor with an arg.
+         * @param value the enumerated value as a string.
+         */
+        public StrictMode(String value) {
+            setValue(value);
+        }
+        /**
+         * Get List of valid strings.
+         * @return the list of values.
+         */
+        public String[] getValues() {
+            return new String[]{"fail", "warn", "ignore"};
+        }
+        /**
+         * @return The log level according to the strict mode.
+         */
+        public int getLogLevel() {
+            return (getValue().equals("ignore")) ? Project.MSG_VERBOSE : Project.MSG_WARN;
         }
     }
 }

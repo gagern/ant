@@ -43,7 +43,9 @@ import org.w3c.dom.Text;
  */
 public class DOMElementWriter {
 
-    /** prefix for genefrated prefixes */
+    private static final int HEX = 16;
+
+    /** prefix for generated prefixes */
     private static final String NS = "ns";
 
     /** xml declaration is on by default */
@@ -475,8 +477,10 @@ public class DOMElementWriter {
         int cdEnd = result.indexOf("]]>");
         while (cdEnd != -1) {
             sb.setLength(cdEnd);
+            // CheckStyle:MagicNumber OFF
             sb.append("&#x5d;&#x5d;&gt;")
                 .append(result.substring(cdEnd + 3));
+            // CheckStyle:MagicNumber ON
             result = sb.substring(0);
             cdEnd = result.indexOf("]]>");
         }
@@ -497,7 +501,9 @@ public class DOMElementWriter {
         if (ent.charAt(1) == '#') {
             if (ent.charAt(2) == 'x') {
                 try {
-                    Integer.parseInt(ent.substring(3, ent.length() - 1), 16);
+                    // CheckStyle:MagicNumber OFF
+                    Integer.parseInt(ent.substring(3, ent.length() - 1), HEX);
+                    // CheckStyle:MagicNumber ON
                     return true;
                 } catch (NumberFormatException nfe) {
                     return false;
@@ -532,6 +538,7 @@ public class DOMElementWriter {
      * @since 1.10, Ant 1.5
      */
     public boolean isLegalCharacter(char c) {
+        // CheckStyle:MagicNumber OFF
         if (c == 0x9 || c == 0xA || c == 0xD) {
             return true;
         } else if (c < 0x20) {
@@ -543,6 +550,7 @@ public class DOMElementWriter {
         } else if (c <= 0xFFFD) {
             return true;
         }
+        // CheckStyle:MagicNumber ON
         return false;
     }
 

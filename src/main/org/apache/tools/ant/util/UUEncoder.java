@@ -33,6 +33,7 @@ import java.io.PrintStream;
 public class UUEncoder {
     protected static final int DEFAULT_MODE = 644;
     private static final int MAX_CHARS_PER_LINE = 45;
+    private static final int INPUT_BUFFER_SIZE = MAX_CHARS_PER_LINE * 100;
     private OutputStream out;
     private String name;
 
@@ -60,7 +61,7 @@ public class UUEncoder {
         throws IOException {
         this.out = out;
         encodeBegin();
-        byte[] buffer = new byte[MAX_CHARS_PER_LINE * 100];
+        byte[] buffer = new byte[INPUT_BUFFER_SIZE];
         int count;
         while ((count = is.read(buffer, 0, buffer.length)) != -1) {
             int pos = 0;
@@ -108,7 +109,9 @@ public class UUEncoder {
         byte[] data, int offset, int length, OutputStream out)
         throws IOException {
         // write out the number of characters encoded in this line.
+        // CheckStyle:MagicNumber OFF
         out.write((byte) ((length & 0x3F) + ' '));
+        // CheckStyle:MagicNumber ON
         byte a;
         byte b;
         byte c;
@@ -126,10 +129,12 @@ public class UUEncoder {
                 }
             }
 
+            // CheckStyle:MagicNumber OFF
             byte d1 = (byte) (((a >>> 2) & 0x3F) + ' ');
             byte d2 = (byte) ((((a << 4) & 0x30) | ((b >>> 4) & 0x0F)) + ' ');
             byte d3 = (byte) ((((b << 2) & 0x3C) | ((c >>> 6) & 0x3)) + ' ');
             byte d4 = (byte) ((c & 0x3F) + ' ');
+            // CheckStyle:MagicNumber ON
 
             out.write(d1);
             out.write(d2);

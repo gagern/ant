@@ -49,7 +49,7 @@ import java.util.zip.ZipException;
 public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
 
     private static final ZipShort HEADER_ID = new ZipShort(0x756E);
-
+    private static final int      WORD = 4;
     /**
      * Standard Unix stat(2) file mode.
      *
@@ -110,9 +110,9 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
      * @since 1.1
      */
     public ZipShort getLocalFileDataLength() {
-        return new ZipShort(4         // CRC
+        return new ZipShort(WORD         // CRC
                           + 2         // Mode
-                          + 4         // SizDev
+                          + WORD         // SizDev
                           + 2         // UID
                           + 2         // GID
                           + getLinkedFile().getBytes().length);
@@ -135,12 +135,13 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
      */
     public byte[] getLocalFileDataData() {
         // CRC will be added later
-        byte[] data = new byte[getLocalFileDataLength().getValue() - 4];
+        byte[] data = new byte[getLocalFileDataLength().getValue() - WORD];
         System.arraycopy(ZipShort.getBytes(getMode()), 0, data, 0, 2);
 
         byte[] linkArray = getLinkedFile().getBytes();
+        // CheckStyle:MagicNumber OFF
         System.arraycopy(ZipLong.getBytes(linkArray.length),
-                         0, data, 2, 4);
+                         0, data, 2, WORD);
 
         System.arraycopy(ZipShort.getBytes(getUserId()),
                          0, data, 6, 2);
@@ -148,14 +149,15 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
                          0, data, 8, 2);
 
         System.arraycopy(linkArray, 0, data, 10, linkArray.length);
+        // CheckStyle:MagicNumber ON
 
         crc.reset();
         crc.update(data);
         long checksum = crc.getValue();
 
-        byte[] result = new byte[data.length + 4];
-        System.arraycopy(ZipLong.getBytes(checksum), 0, result, 0, 4);
-        System.arraycopy(data, 0, result, 4, data.length);
+        byte[] result = new byte[data.length + WORD];
+        System.arraycopy(ZipLong.getBytes(checksum), 0, result, 0, WORD);
+        System.arraycopy(data, 0, result, WORD, data.length);
         return result;
     }
 
@@ -287,8 +289,8 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
         throws ZipException {
 
         long givenChecksum = ZipLong.getValue(data, offset);
-        byte[] tmp = new byte[length - 4];
-        System.arraycopy(data, offset + 4, tmp, 0, length - 4);
+        byte[] tmp = new byte[length - WORD];
+        System.arraycopy(data, offset + WORD, tmp, 0, length - WORD);
         crc.reset();
         crc.update(tmp);
         long realChecksum = crc.getValue();
@@ -300,6 +302,7 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
         }
 
         int newMode = ZipShort.getValue(tmp, 0);
+        // CheckStyle:MagicNumber OFF
         byte[] linkArray = new byte[(int) ZipLong.getValue(tmp, 2)];
         uid = ZipShort.getValue(tmp, 6);
         gid = ZipShort.getValue(tmp, 8);
@@ -310,6 +313,7 @@ public class AsiExtraField implements ZipExtraField, UnixStat, Cloneable {
             System.arraycopy(tmp, 10, linkArray, 0, linkArray.length);
             link = new String(linkArray);
         }
+        // CheckStyle:MagicNumber ON
         setDirectory((newMode & DIR_FLAG) != 0);
         setMode(newMode);
     }

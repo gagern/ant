@@ -24,6 +24,7 @@ import java.util.Vector;
 
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.types.resources.FileResource;
 
 /**
  * <p>This is a utility class used by selectors and DirectoryScanner. The
@@ -37,7 +38,13 @@ import org.apache.tools.ant.util.FileUtils;
  */
 public final class SelectorUtils {
 
-    private static SelectorUtils instance = new SelectorUtils();
+    /**
+     * The pattern that matches an arbitrary number of directories.
+     * @since Ant 1.8.0
+     */
+    public static final String DEEP_TREE_MATCH = "**";
+
+    private static final SelectorUtils instance = new SelectorUtils();
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     /**
@@ -105,7 +112,30 @@ public final class SelectorUtils {
 
         String[] patDirs = tokenizePathAsArray(pattern);
         String[] strDirs = tokenizePathAsArray(str);
+        return matchPatternStart(patDirs, strDirs, isCaseSensitive);
+    }
 
+
+    /**
+     * Tests whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     * <p>
+     * This is not a general purpose test and should only be used if you
+     * can live with false positives. For example, <code>pattern=**\a</code>
+     * and <code>str=b</code> will yield <code>true</code>.
+     *
+     * @param patDirs The tokenized pattern to match against. Must not be
+     *                <code>null</code>.
+     * @param strDirs The tokenized path to match. Must not be
+     *                <code>null</code>.
+     * @param isCaseSensitive Whether or not matching should be performed
+     *                        case sensitively.
+     *
+     * @return whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     */
+    static boolean matchPatternStart(String[] patDirs, String[] strDirs,
+                                     boolean isCaseSensitive) {
         int patIdxStart = 0;
         int patIdxEnd = patDirs.length - 1;
         int strIdxStart = 0;
@@ -114,7 +144,7 @@ public final class SelectorUtils {
         // up to first '**'
         while (patIdxStart <= patIdxEnd && strIdxStart <= strIdxEnd) {
             String patDir = patDirs[patIdxStart];
-            if (patDir.equals("**")) {
+            if (patDir.equals(DEEP_TREE_MATCH)) {
                 break;
             }
             if (!match(patDir, strDirs[strIdxStart], isCaseSensitive)) {
@@ -124,6 +154,9 @@ public final class SelectorUtils {
             strIdxStart++;
         }
 
+        // CheckStyle:SimplifyBooleanReturnCheck OFF
+        // Check turned off as the code needs the comments for the various
+        // code paths.
         if (strIdxStart > strIdxEnd) {
             // String is exhausted
             return true;
@@ -140,6 +173,11 @@ public final class SelectorUtils {
     /**
      * Tests whether or not a given path matches a given pattern.
      *
+     * If you need to call this method multiple times with the same 
+     * pattern you should rather use PathPattern
+     *
+     * @see PathPattern
+     * 
      * @param pattern The pattern to match against. Must not be
      *                <code>null</code>.
      * @param str     The path to match, as a String. Must not be
@@ -149,12 +187,18 @@ public final class SelectorUtils {
      *         or <code>false</code> otherwise.
      */
     public static boolean matchPath(String pattern, String str) {
-        return matchPath(pattern, str, true);
+        String[] patDirs = tokenizePathAsArray(pattern);
+        return matchPath(patDirs, tokenizePathAsArray(str), true);
     }
 
     /**
      * Tests whether or not a given path matches a given pattern.
+     * 
+     * If you need to call this method multiple times with the same 
+     * pattern you should rather use PathPattern
      *
+     * @see PathPattern
+     * 
      * @param pattern The pattern to match against. Must not be
      *                <code>null</code>.
      * @param str     The path to match, as a String. Must not be
@@ -168,22 +212,27 @@ public final class SelectorUtils {
     public static boolean matchPath(String pattern, String str,
                                     boolean isCaseSensitive) {
         String[] patDirs = tokenizePathAsArray(pattern);
-        String[] strDirs = tokenizePathAsArray(str);
+        return matchPath(patDirs, tokenizePathAsArray(str), isCaseSensitive);
+    }
 
+    /**
+     * Core implementation of matchPath.  It is isolated so that it
+     * can be called from TokenizedPattern.
+     */
+    static boolean matchPath(String[] tokenizedPattern, String[] strDirs,
+                             boolean isCaseSensitive) {
         int patIdxStart = 0;
-        int patIdxEnd = patDirs.length - 1;
+        int patIdxEnd = tokenizedPattern.length - 1;
         int strIdxStart = 0;
         int strIdxEnd = strDirs.length - 1;
 
         // up to first '**'
         while (patIdxStart <= patIdxEnd && strIdxStart <= strIdxEnd) {
-            String patDir = patDirs[patIdxStart];
-            if (patDir.equals("**")) {
+            String patDir = tokenizedPattern[patIdxStart];
+            if (patDir.equals(DEEP_TREE_MATCH)) {
                 break;
             }
             if (!match(patDir, strDirs[strIdxStart], isCaseSensitive)) {
-                patDirs = null;
-                strDirs = null;
                 return false;
             }
             patIdxStart++;
@@ -192,9 +241,7 @@ public final class SelectorUtils {
         if (strIdxStart > strIdxEnd) {
             // String is exhausted
             for (int i = patIdxStart; i <= patIdxEnd; i++) {
-                if (!patDirs[i].equals("**")) {
-                    patDirs = null;
-                    strDirs = null;
+                if (!tokenizedPattern[i].equals(DEEP_TREE_MATCH)) {
                     return false;
                 }
             }
@@ -202,21 +249,17 @@ public final class SelectorUtils {
         } else {
             if (patIdxStart > patIdxEnd) {
                 // String not exhausted, but pattern is. Failure.
-                patDirs = null;
-                strDirs = null;
                 return false;
             }
         }
 
         // up to last '**'
         while (patIdxStart <= patIdxEnd && strIdxStart <= strIdxEnd) {
-            String patDir = patDirs[patIdxEnd];
-            if (patDir.equals("**")) {
+            String patDir = tokenizedPattern[patIdxEnd];
+            if (patDir.equals(DEEP_TREE_MATCH)) {
                 break;
             }
             if (!match(patDir, strDirs[strIdxEnd], isCaseSensitive)) {
-                patDirs = null;
-                strDirs = null;
                 return false;
             }
             patIdxEnd--;
@@ -225,9 +268,7 @@ public final class SelectorUtils {
         if (strIdxStart > strIdxEnd) {
             // String is exhausted
             for (int i = patIdxStart; i <= patIdxEnd; i++) {
-                if (!patDirs[i].equals("**")) {
-                    patDirs = null;
-                    strDirs = null;
+                if (!tokenizedPattern[i].equals(DEEP_TREE_MATCH)) {
                     return false;
                 }
             }
@@ -237,7 +278,7 @@ public final class SelectorUtils {
         while (patIdxStart != patIdxEnd && strIdxStart <= strIdxEnd) {
             int patIdxTmp = -1;
             for (int i = patIdxStart + 1; i <= patIdxEnd; i++) {
-                if (patDirs[i].equals("**")) {
+                if (tokenizedPattern[i].equals(DEEP_TREE_MATCH)) {
                     patIdxTmp = i;
                     break;
                 }
@@ -255,7 +296,7 @@ public final class SelectorUtils {
             strLoop:
                         for (int i = 0; i <= strLength - patLength; i++) {
                             for (int j = 0; j < patLength; j++) {
-                                String subPat = patDirs[patIdxStart + j + 1];
+                                String subPat = tokenizedPattern[patIdxStart + j + 1];
                                 String subStr = strDirs[strIdxStart + i + j];
                                 if (!match(subPat, subStr, isCaseSensitive)) {
                                     continue strLoop;
@@ -267,8 +308,6 @@ public final class SelectorUtils {
                         }
 
             if (foundIdx == -1) {
-                patDirs = null;
-                strDirs = null;
                 return false;
             }
 
@@ -277,9 +316,7 @@ public final class SelectorUtils {
         }
 
         for (int i = patIdxStart; i <= patIdxEnd; i++) {
-            if (!patDirs[i].equals("**")) {
-                patDirs = null;
-                strDirs = null;
+            if (!tokenizedPattern[i].equals(DEEP_TREE_MATCH)) {
                 return false;
             }
         }
@@ -315,7 +352,7 @@ public final class SelectorUtils {
      *                Must not be <code>null</code>.
      * @param str     The string which must be matched against the pattern.
      *                Must not be <code>null</code>.
-     * @param isCaseSensitive Whether or not matching should be performed
+     * @param caseSensitive Whether or not matching should be performed
      *                        case sensitively.
      *
      *
@@ -323,7 +360,7 @@ public final class SelectorUtils {
      *         or <code>false</code> otherwise.
      */
     public static boolean match(String pattern, String str,
-                                boolean isCaseSensitive) {
+                                boolean caseSensitive) {
         char[] patArr = pattern.toCharArray();
         char[] strArr = str.toCharArray();
         int patIdxStart = 0;
@@ -348,12 +385,8 @@ public final class SelectorUtils {
             for (int i = 0; i <= patIdxEnd; i++) {
                 ch = patArr[i];
                 if (ch != '?') {
-                    if (isCaseSensitive && ch != strArr[i]) {
+                    if (different(caseSensitive, ch, strArr[i])) {
                         return false; // Character mismatch
-                    }
-                    if (!isCaseSensitive && Character.toUpperCase(ch)
-                            != Character.toUpperCase(strArr[i])) {
-                        return false;  // Character mismatch
                     }
                 }
             }
@@ -365,13 +398,13 @@ public final class SelectorUtils {
         }
 
         // Process characters before first star
-        while ((ch = patArr[patIdxStart]) != '*' && strIdxStart <= strIdxEnd) {
+        while (true) {
+            ch = patArr[patIdxStart];
+            if (ch == '*' || strIdxStart > strIdxEnd) {
+                break;
+            }
             if (ch != '?') {
-                if (isCaseSensitive && ch != strArr[strIdxStart]) {
-                    return false; // Character mismatch
-                }
-                if (!isCaseSensitive && Character.toUpperCase(ch)
-                        != Character.toUpperCase(strArr[strIdxStart])) {
+                if (different(caseSensitive, ch, strArr[strIdxStart])) {
                     return false; // Character mismatch
                 }
             }
@@ -381,22 +414,17 @@ public final class SelectorUtils {
         if (strIdxStart > strIdxEnd) {
             // All characters in the string are used. Check if only '*'s are
             // left in the pattern. If so, we succeeded. Otherwise failure.
-            for (int i = patIdxStart; i <= patIdxEnd; i++) {
-                if (patArr[i] != '*') {
-                    return false;
-                }
-            }
-            return true;
+            return allStars(patArr, patIdxStart, patIdxEnd);
         }
 
         // Process characters after last star
-        while ((ch = patArr[patIdxEnd]) != '*' && strIdxStart <= strIdxEnd) {
+        while (true) {
+            ch = patArr[patIdxEnd];
+            if (ch == '*' || strIdxStart > strIdxEnd) {
+                break;
+            }
             if (ch != '?') {
-                if (isCaseSensitive && ch != strArr[strIdxEnd]) {
-                    return false; // Character mismatch
-                }
-                if (!isCaseSensitive && Character.toUpperCase(ch)
-                        != Character.toUpperCase(strArr[strIdxEnd])) {
+                if (different(caseSensitive, ch, strArr[strIdxEnd])) {
                     return false; // Character mismatch
                 }
             }
@@ -406,12 +434,7 @@ public final class SelectorUtils {
         if (strIdxStart > strIdxEnd) {
             // All characters in the string are used. Check if only '*'s are
             // left in the pattern. If so, we succeeded. Otherwise failure.
-            for (int i = patIdxStart; i <= patIdxEnd; i++) {
-                if (patArr[i] != '*') {
-                    return false;
-                }
-            }
-            return true;
+            return allStars(patArr, patIdxStart, patIdxEnd);
         }
 
         // process pattern between stars. padIdxStart and patIdxEnd point
@@ -439,13 +462,8 @@ public final class SelectorUtils {
                 for (int j = 0; j < patLength; j++) {
                     ch = patArr[patIdxStart + j + 1];
                     if (ch != '?') {
-                        if (isCaseSensitive && ch != strArr[strIdxStart + i
-                                + j]) {
-                            continue strLoop;
-                        }
-                        if (!isCaseSensitive
-                            && Character.toUpperCase(ch)
-                                != Character.toUpperCase(strArr[strIdxStart + i + j])) {
+                        if (different(caseSensitive, ch,
+                                      strArr[strIdxStart + i + j])) {
                             continue strLoop;
                         }
                     }
@@ -465,12 +483,23 @@ public final class SelectorUtils {
 
         // All characters in the string are used. Check if only '*'s are left
         // in the pattern. If so, we succeeded. Otherwise failure.
-        for (int i = patIdxStart; i <= patIdxEnd; i++) {
-            if (patArr[i] != '*') {
+        return allStars(patArr, patIdxStart, patIdxEnd);
+    }
+
+    private static boolean allStars(char[] chars, int start, int end) {
+        for (int i = start; i <= end; ++i) {
+            if (chars[i] != '*') {
                 return false;
             }
         }
         return true;
+    }
+
+    private static boolean different(
+        boolean caseSensitive, char ch, char other) {
+        return caseSensitive
+            ? ch != other
+            : Character.toUpperCase(ch) != Character.toUpperCase(other);
     }
 
     /**
@@ -511,7 +540,7 @@ public final class SelectorUtils {
     /**
      * Same as {@link #tokenizePath tokenizePath} but hopefully faster.
      */
-    private static String[] tokenizePathAsArray(String path) {
+    /*package*/ static String[] tokenizePathAsArray(String path) {
         String root = null;
         if (FileUtils.isAbsolutePath(path)) {
             String[] s = FILE_UTILS.dissect(path);
@@ -620,16 +649,18 @@ public final class SelectorUtils {
      */
     public static boolean isOutOfDate(Resource src, Resource target,
                                       long granularity) {
-        if (!src.isExists()) {
-            return false;
-        }
-        if (!target.isExists()) {
+        long sourceLastModified = src.getLastModified();
+        // Check if source exists - use sourceLastModified for file resources
+        // as it is quicker than checking exists() again, however string resources
+        // have a last modified time of 0
+        boolean sourceExists = (src instanceof FileResource)
+            ? sourceLastModified != 0L : src.isExists();
+
+        long targetLastModified = target.getLastModified();
+        if (targetLastModified == 0L) {
             return true;
         }
-        if ((src.getLastModified() - granularity) > target.getLastModified()) {
-            return true;
-        }
-        return false;
+        return (sourceLastModified - granularity) > targetLastModified;
     }
 
     /**
@@ -666,18 +697,7 @@ public final class SelectorUtils {
      * @return the leftmost part of the pattern without wildcards
      */
     public static String rtrimWildcardTokens(String input) {
-        String[] tokens = tokenizePathAsArray(input);
-        StringBuffer sb = new StringBuffer();
-        for (int i = 0; i < tokens.length; i++) {
-            if (hasWildcards(tokens[i])) {
-                break;
-            }
-            if (i > 0 && sb.charAt(sb.length() - 1) != File.separatorChar) {
-                sb.append(File.separator);
-            }
-            sb.append(tokens[i]);
-        }
-        return sb.toString();
+        return new TokenizedPattern(input).rtrimWildcardTokens().toString();
     }
 }
 

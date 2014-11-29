@@ -24,6 +24,8 @@ import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.apache.tools.ant.types.resources.FileProvider;
+
 /**
  * Describes a "File-like" resource (File, ZipEntry, etc.).
  *
@@ -34,8 +36,7 @@ import java.util.NoSuchElementException;
  * @since Ant 1.5.2
  * @see org.apache.tools.ant.types.resources.Touchable
  */
-public class Resource extends DataType
-    implements Cloneable, Comparable, ResourceCollection {
+public class Resource extends DataType implements Cloneable, Comparable, ResourceCollection {
 
     /** Constant unknown size */
     public static final long UNKNOWN_SIZE = -1;
@@ -102,8 +103,7 @@ public class Resource extends DataType
      * @param lastmodified the last modification time of the resource
      * @param directory    if true, this resource is a directory
      */
-    public Resource(String name, boolean exists, long lastmodified,
-                    boolean directory) {
+    public Resource(String name, boolean exists, long lastmodified, boolean directory) {
         this(name, exists, lastmodified, directory, UNKNOWN_SIZE);
     }
 
@@ -117,8 +117,7 @@ public class Resource extends DataType
      * @param directory    if true, this resource is a directory
      * @param size the size of this resource.
      */
-    public Resource(String name, boolean exists, long lastmodified,
-                    boolean directory, long size) {
+    public Resource(String name, boolean exists, long lastmodified, boolean directory, long size) {
         this.name = name;
         setName(name);
         setExists(exists);
@@ -154,7 +153,7 @@ public class Resource extends DataType
     }
 
     /**
-     * The exists attribute tells whether a file exists.
+     * The exists attribute tells whether a resource exists.
      * @return true if this resource exists.
      */
     public boolean isExists() {
@@ -175,10 +174,14 @@ public class Resource extends DataType
     }
 
     /**
-     * Tells the modification time in milliseconds since 01.01.1970 .
+     * Tells the modification time in milliseconds since 01.01.1970 (the "epoch").
      *
-     * @return 0 if the resource does not exist to mirror the behavior
-     * of {@link java.io.File File}.
+     * @return the modification time, if that is meaningful
+     *            (e.g. for a file resource which exists);
+     *         0 if the resource does not exist, to mirror the behavior
+     *         of {@link java.io.File#lastModified};
+     *         or 0 if the notion of modification time is meaningless for this class
+     *           of resource (e.g. an inline string)
      */
     public long getLastModified() {
         if (isReference()) {
@@ -372,12 +375,12 @@ public class Resource extends DataType
 
     /**
      * Fulfill the ResourceCollection contract.
-     * @return whether this Resource is a FileResource.
+     * @return whether this Resource is a FileProvider.
      * @since Ant 1.7
      */
     public boolean isFilesystemOnly() {
-        //default false:
-        return isReference() && ((Resource) getCheckedRef()).isFilesystemOnly();
+        return (isReference() && ((Resource) getCheckedRef()).isFilesystemOnly())
+                || this instanceof FileProvider;
     }
 
     /**

@@ -30,7 +30,7 @@ import org.apache.tools.zip.UnixStat;
  * context of archiving tasks.
  *
  * It includes a prefix attribute which is prepended to each entry in
- * the output archive file as well as a fullpath ttribute.  It also
+ * the output archive file as well as a fullpath attribute.  It also
  * supports Unix file permissions for files and directories.
  *
  * @since Ant 1.7
@@ -45,7 +45,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @since Ant 1.5.2
      */
     public static final int DEFAULT_DIR_MODE =
-        UnixStat.DIR_FLAG  | UnixStat.DEFAULT_DIR_PERM;
+        UnixStat.DIR_FLAG | UnixStat.DEFAULT_DIR_PERM;
 
     /**
      * Default value for the filemode attribute.
@@ -103,10 +103,9 @@ public abstract class ArchiveFileSet extends FileSet {
         checkAttributesAllowed();
         if (src != null) {
             throw new BuildException("Cannot set both dir and src attributes");
-        } else {
-            super.setDir(dir);
-            hasDir = true;
         }
+        super.setDir(dir);
+        hasDir = true;
     }
 
     /**
@@ -130,7 +129,6 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param srcFile The archive from which to extract entries.
      */
     public void setSrc(File srcFile) {
-        checkAttributesAllowed();
         setSrcResource(new FileResource(srcFile));
     }
 
@@ -141,7 +139,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param src The archive from which to extract entries.
      */
     public void setSrcResource(Resource src) {
-        checkAttributesAllowed();
+        checkArchiveAttributesAllowed();
         if (hasDir) {
             throw new BuildException("Cannot set both dir and src attributes");
         }
@@ -178,8 +176,8 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param prefix The prefix to prepend to entries in the archive file.
      */
     public void setPrefix(String prefix) {
-        checkAttributesAllowed();
-        if (!prefix.equals("") && !fullpath.equals("")) {
+        checkArchiveAttributesAllowed();
+        if (!"".equals(prefix) && !"".equals(fullpath)) {
             throw new BuildException("Cannot set both fullpath and prefix attributes");
         }
         this.prefix = prefix;
@@ -204,8 +202,8 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param fullpath the full pathname of the single entry in this fileset.
      */
     public void setFullpath(String fullpath) {
-        checkAttributesAllowed();
-        if (!prefix.equals("") && !fullpath.equals("")) {
+        checkArchiveAttributesAllowed();
+        if (!"".equals(prefix) && !"".equals(fullpath)) {
             throw new BuildException("Cannot set both fullpath and prefix attributes");
         }
         this.fullpath = fullpath;
@@ -231,7 +229,7 @@ public abstract class ArchiveFileSet extends FileSet {
 
     /**
      * Return the DirectoryScanner associated with this FileSet.
-     * If the ArchiveFileSet defines a source Archive file, then a ArchiveScanner
+     * If the ArchiveFileSet defines a source Archive file, then an ArchiveScanner
      * is returned instead.
      * @param p the project to use
      * @return a directory scanner
@@ -244,10 +242,12 @@ public abstract class ArchiveFileSet extends FileSet {
             return super.getDirectoryScanner(p);
         }
         if (!src.isExists()) {
-            throw new BuildException("the archive doesn't exist");
+            throw new BuildException(
+                "the archive " + src.getName() + " doesn't exist");
         }
         if (src.isDirectory()) {
-            throw new BuildException("the archive can't be a directory");
+            throw new BuildException("the archive " + src.getName()
+                                     + " can't be a directory");
         }
         ArchiveScanner as = newArchiveScanner();
         as.setSrc(src);
@@ -270,7 +270,7 @@ public abstract class ArchiveFileSet extends FileSet {
             return super.iterator();
         }
         ArchiveScanner as = (ArchiveScanner) getDirectoryScanner(getProject());
-        return as.getResourceFiles();
+        return as.getResourceFiles(getProject());
     }
 
     /**
@@ -308,7 +308,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param octalString a <code>String</code> value
      */
     public void setFileMode(String octalString) {
-        checkAttributesAllowed();
+        checkArchiveAttributesAllowed();
         integerSetFileMode(Integer.parseInt(octalString, BASE_OCTAL));
     }
 
@@ -357,7 +357,7 @@ public abstract class ArchiveFileSet extends FileSet {
      * @param octalString a <code>String</code> value
      */
     public void setDirMode(String octalString) {
-        checkAttributesAllowed();
+        checkArchiveAttributesAllowed();
         integerSetDirMode(Integer.parseInt(octalString, BASE_OCTAL));
     }
 
@@ -422,25 +422,21 @@ public abstract class ArchiveFileSet extends FileSet {
     public Object clone() {
         if (isReference()) {
             return ((ArchiveFileSet) getRef(getProject())).clone();
-        } else {
-            return super.clone();
         }
+        return super.clone();
     }
 
     /**
-     * for file based zipfilesets, return the same as for normal filesets
-     * else just return the path of the zip
-     * @return  for file based archivefilesets, included files as a list
+     * For file-based archivefilesets, return the same as for normal filesets;
+     * else just return the path of the zip.
+     * @return for file based archivefilesets, included files as a list
      * of semicolon-separated filenames. else just the name of the zip.
      */
     public String toString() {
         if (hasDir && getProject() != null) {
             return super.toString();
-        } else if (src != null) {
-            return src.getName();
-        } else {
-            return null;
         }
+        return src == null ? null : src.getName();
     }
 
     /**
@@ -477,4 +473,21 @@ public abstract class ArchiveFileSet extends FileSet {
         return dirMode;
     }
 
+    /**
+     * A check attributes for archiveFileSet.
+     * If there is a reference, and
+     * it is a ArchiveFileSet, the archive fileset attributes
+     * cannot be used.
+     * (Note, we can only see if the reference is an archive
+     * fileset if the project has been set).
+     */
+    private void checkArchiveAttributesAllowed() {
+        if (getProject() == null
+            || (isReference()
+                && (getRefid().getReferencedObject(
+                        getProject())
+                    instanceof ArchiveFileSet))) {
+            checkAttributesAllowed();
+        }
+    }
 }

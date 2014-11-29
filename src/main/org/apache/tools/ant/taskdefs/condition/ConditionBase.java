@@ -20,9 +20,6 @@ package org.apache.tools.ant.taskdefs.condition;
 
 import java.util.Enumeration;
 import java.util.Vector;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.DynamicElement;
-import org.apache.tools.ant.ComponentHelper;
 import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.taskdefs.Available;
 import org.apache.tools.ant.taskdefs.Checksum;
@@ -35,11 +32,7 @@ import org.apache.tools.ant.taskdefs.UpToDate;
  *
  * @since Ant 1.4
  */
-public abstract class ConditionBase extends ProjectComponent
-    implements DynamicElement {
-
-    private static final String CONDITION_ANTLIB
-        = "antlib:org.apache.tools.ant.types.conditions:";
+public abstract class ConditionBase extends ProjectComponent {
 
     /**
      * name of the component
@@ -282,25 +275,6 @@ public abstract class ConditionBase extends ProjectComponent
      */
     public void add(Condition c) {
         conditions.addElement(c);
-    }
-
-    /**
-     * Create a dynamically discovered condition.  Built-in conditions can
-     * be discovered from the org.apache.tools.ant.taskdefs.condition
-     * antlib.
-     * @param name the condition to create.
-     * @return the dynamic condition if found, null otherwise.
-     */
-    public Object createDynamicElement(String name) {
-        Object cond = ComponentHelper.getComponentHelper(getProject())
-            .createComponent(CONDITION_ANTLIB + name);
-        if (!(cond instanceof Condition)) {
-            return null;
-        }
-        log("Dynamically discovered '" + name + "' " + cond,
-            Project.MSG_DEBUG);
-        add((Condition) cond);
-        return cond;
     }
 
 }

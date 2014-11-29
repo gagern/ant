@@ -29,7 +29,7 @@ import java.util.Vector;
  * @since Ant 1.5
  */
 class ProcessDestroyer implements Runnable {
-
+    private static final int THREAD_DIE_TIMEOUT = 20000;
     private Vector processes = new Vector();
     // methods to register and unregister shutdown hooks
     private Method addShutdownHookMethod;
@@ -70,10 +70,10 @@ class ProcessDestroyer implements Runnable {
      * removing a process results in an empty list, the
      * <code>ProcessDestroyer</code> is removed as a shutdown hook.
      */
-    public ProcessDestroyer() {
+    ProcessDestroyer() {
         try {
             // check to see if the shutdown hook methods exists
-            // (support pre-JDK 1.3 VMs)
+            // (support pre-JDK 1.3 and Non-Sun VMs)
             Class[] paramTypes = {Thread.class};
             addShutdownHookMethod =
                 Runtime.class.getMethod("addShutdownHook", paramTypes);
@@ -150,7 +150,7 @@ class ProcessDestroyer implements Runnable {
             }
             // this should return quickly, since it basically is a NO-OP.
             try {
-                destroyProcessThread.join(20000);
+                destroyProcessThread.join(THREAD_DIE_TIMEOUT);
             } catch (InterruptedException ie) {
                 // the thread didn't die in time
                 // it should not kill any processes unexpectedly

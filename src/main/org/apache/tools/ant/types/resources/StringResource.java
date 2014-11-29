@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.types.resources;
 
 import java.io.IOException;
@@ -26,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Reference;
 
@@ -52,7 +52,18 @@ public class StringResource extends Resource {
      * @param value the value of this StringResource.
      */
     public StringResource(String value) {
-        setValue(value);
+        this(null, value);
+    }
+
+    /**
+     * Construct a StringResource with the supplied project and value,
+     * doing property replacement against the project if non-null.
+     * @param project the owning Project.
+     * @param value the value of this StringResource.
+     */
+    public StringResource(Project project, String value) {
+        setProject(project);
+        setValue(project == null ? value : project.replaceProperties(value));
     }
 
     /**
@@ -83,7 +94,7 @@ public class StringResource extends Resource {
     }
 
     /**
-     * Get the value of this StringResource.
+     * Get the value of this StringResource, resolving to the root reference if needed.
      * @return the represented String.
      */
     public synchronized String getValue() {
@@ -91,10 +102,31 @@ public class StringResource extends Resource {
     }
 
     /**
+     * The exists attribute tells whether a resource exists.
+     *
+     * @return true if this resource exists.
+     */
+    public boolean isExists() {
+        return getValue() != null;
+    }
+
+    /**
+     * Add nested text to this resource.
+     * Properties will be expanded during this process.
+     * @since Ant 1.7.1
+     * @param text text to use as the string resource
+     */
+    public void addText(String text) {
+        checkChildrenAllowed();
+        setValue(getProject().replaceProperties(text));
+    }
+
+    /**
      * Set the encoding to be used for this StringResource.
      * @param s the encoding name.
      */
     public synchronized void setEncoding(String s) {
+        checkAttributesAllowed();
         encoding = s;
     }
 
@@ -112,9 +144,8 @@ public class StringResource extends Resource {
      *         compatibility with java.io.File), or UNKNOWN_SIZE if not known.
      */
     public synchronized long getSize() {
-        return isReference()
-            ? ((Resource) getCheckedRef()).getSize()
-            : (long) getContent().length();
+        return isReference() ? ((Resource) getCheckedRef()).getSize()
+                : getContent().length();
     }
 
     /**
@@ -129,15 +160,12 @@ public class StringResource extends Resource {
     }
 
     /**
-     * Get the string.
+     * Get the string. See {@link #getContent()}
      *
      * @return the string contents of the resource.
      * @since Ant 1.7
      */
     public String toString() {
-        if (isReference()) {
-            return getCheckedRef().toString();
-        }
         return String.valueOf(getContent());
     }
 
@@ -153,11 +181,12 @@ public class StringResource extends Resource {
         if (isReference()) {
             return ((Resource) getCheckedRef()).getInputStream();
         }
-        //I can't get my head around this; is encoding treatment needed here?
-        return
-            //new oata.util.ReaderInputStream(new InputStreamReader(
-            new ByteArrayInputStream(getContent().getBytes());
-            //, encoding), encoding);
+        String content = getContent();
+        if (content == null) {
+            throw new IllegalStateException("unset string value");
+        }
+        return new ByteArrayInputStream(encoding == null
+                ? content.getBytes() : content.getBytes(encoding));
     }
 
     /**
@@ -175,14 +204,7 @@ public class StringResource extends Resource {
         if (getValue() != null) {
             throw new ImmutableResourceException();
         }
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        return new FilterOutputStream(baos) {
-            public void close() throws IOException {
-                super.close();
-                StringResource.this.setValue(encoding == null
-                    ? baos.toString() : baos.toString(encoding));
-            }
-        };
+        return new StringResourceFilterOutputStream();
     }
 
     /**
@@ -197,20 +219,42 @@ public class StringResource extends Resource {
     }
 
     /**
-     * Get the content of this StringResource.
-     * @return a String; if the Project has been set properties
-     *         replacement will be attempted.
+     * Get the content of this StringResource. See {@link #getValue()}
+     * @return a String or null if there is no value.
      */
     protected synchronized String getContent() {
-        if (isReference()) {
-            return ((StringResource) getCheckedRef()).getContent();
-        }
-        String value = getValue();
-        if (value == null) {
-            return value;
-        }
-        return getProject() == null
-            ? value : getProject().replaceProperties(value);
+        return getValue();
     }
 
+    /**
+     * This method is only for use by our private helper output stream.
+     * It contains specific logic for expanding properties.
+     * @param output the output
+     */
+    private void setValueFromOutputStream(String output) {
+        String value;
+        if (getProject() != null) {
+            value = getProject().replaceProperties(output);
+        } else {
+            value = output;
+        }
+        setValue(value);
+    }
+
+    private class StringResourceFilterOutputStream extends FilterOutputStream {
+        private final ByteArrayOutputStream baos;
+
+        public StringResourceFilterOutputStream() {
+            super(new ByteArrayOutputStream());
+            baos = (ByteArrayOutputStream) out;
+        }
+
+        public void close() throws IOException {
+            super.close();
+            String result = encoding == null
+                    ? baos.toString() : baos.toString(encoding);
+
+            StringResource.this.setValueFromOutputStream(result);
+        }
+    }
 }

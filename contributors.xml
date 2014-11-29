@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 <!DOCTYPE contributors
 [
 <!ELEMENT name (first?, middle?, last)>
@@ -15,6 +31,14 @@
   These are some of the many people who have helped Ant become so successful.
   </introduction>
   <name>
+    <first>Adam</first>
+    <last>Blinkinsop</last>
+  </name>
+  <name>
+    <first>Adam</first>
+    <last>Bryzak</last>
+  </name>
+  <name>
     <first>Aleksandr</first>
     <last>Ishutin</last>
   </name>
@@ -25,6 +49,10 @@
   <name>
     <first>Alexey</first>
     <last>Solofnenko</last>
+  </name>
+  <name>
+    <first>Alison</first>
+    <last>Winters</last>
   </name>
   <name>
     <first>Andreas</first>
@@ -39,6 +67,10 @@
     <last>Urazov</last>
   </name>
   <name>
+    <first>Andy</first>
+    <last>Wood</last>
+  </name>
+  <name>
     <first>Anil</first>
     <middle>K.</middle>
     <last>Vijendran</last>
@@ -50,6 +82,10 @@
   <name>
     <first>Anthony</first>
     <last>Green</last>
+  </name>
+  <name>
+    <first>Antoine</first>
+    <last>Baudoux</last>
   </name>
   <name>
     <first>Antoine</first>
@@ -111,6 +147,10 @@
   </name>
   <name>
     <first>Brian</first>
+    <last>Curnow</last>
+  </name>
+  <name>
+    <first>Brian</first>
     <last>Deitte</last>
   </name>
   <name>
@@ -155,6 +195,10 @@
     <last>Charlier</last>
   </name>
   <name>
+    <first>Clemens</first>
+    <last>Hammacher</last>
+  </name>
+  <name>
     <first>Conor</first>
     <last>MacNeill</last>
   </name>
@@ -176,6 +220,10 @@
     <last>Ryan</last>
   </name>
   <name>
+    <first>Craig</first>
+    <last>Sandvik</last>
+  </name>
+  <name>
     <first>Curtis</first>
     <last>White</last>
   </name>
@@ -184,12 +232,20 @@
     <last>Morvan</last>
   </name>
   <name>
+    <first>D'Arcy</first>
+    <last>Smith</last>
+  </name>
+  <name>
     <first>Dale</first>
     <last>Anson</last>
   </name>
   <name>
     <first>Dan</first>
     <last>Armbrust</last>
+  </name>
+  <name>
+    <first>Daniel</first>
+    <last>Henrique</last>
   </name>
   <name>
     <first>Daniel</first>
@@ -202,6 +258,10 @@
   <name>
     <first>Danno</first>
     <last>Ferrin</last>
+  </name>
+  <name>
+    <first>Dante</first>
+    <last>Briones</last>
   </name>
   <name>
     <first>Davanum</first>
@@ -229,7 +289,16 @@
   </name>
   <name>
     <first>David</first>
+    <middle>S.</middle>
+    <last>Johnson</last>
+  </name>
+  <name>
+    <first>David</first>
     <last>Kavanagh</last>
+  </name>
+  <name>
+    <first>David</first>
+    <last>LeRoy</last>
   </name>
   <name>
     <first>David</first>
@@ -280,6 +349,10 @@
     <last>Sudell</last>
   </name>
   <name>
+    <first>Eduard</first>
+    <last>Wirch</last>
+  </name>
+  <name>
     <first>Edwin</first>
     <last>Woudt</last>
   </name>
@@ -328,6 +401,10 @@
     <last>Zeyda</last>
   </name>
   <name>
+    <first>Frédéric</first>
+    <last>Bothamy</last>
+  </name>
+  <name>
     <first>Frederic</first>
     <last>Lavigne</last>
   </name>
@@ -347,6 +424,10 @@
   <name>
     <first>Gerrit</first>
     <last>Riessen</last>
+  </name>
+  <name>
+    <first>Gilles</first>
+    <last>Scokart</last>
   </name>
   <name>
     <first>Glenn</first>
@@ -456,6 +537,10 @@
     <last>D</last>
   </name>
   <name>
+    <first>Jean-Francois</first>
+    <last>Brousseau</last>
+  </name>
+  <name>
     <first>Jeff</first>
     <last>Gettle</last>
   </name>
@@ -500,6 +585,10 @@
     <last>Wassmer</last>
   </name>
   <name>
+    <first>Joey</first>
+    <last>Richey</last>
+  </name>
+  <name>
     <first>Jon</first>
     <last>Dickinson</last>
   </name>
@@ -528,6 +617,10 @@
   <name>
     <first>Julian</first>
     <last>Simpson</last>
+  </name>
+  <name>
+    <first>Justin</first>
+    <last>Vallon</last>
   </name>
   <name>
     <first>Keiron</first>
@@ -685,6 +778,10 @@
   </name>
   <name>
     <first>Michael</first>
+    <last>Bayne</last>
+  </name>
+  <name>
+    <first>Michael</first>
     <last>Davey</last>
   </name>
   <name>
@@ -702,10 +799,18 @@
   </name>
   <name>
     <first>Michael</first>
+    <last>Nygard</last>
+  </name>
+  <name>
+    <first>Michael</first>
     <last>Saunders</last>
   </name>
   <name>
     <last>Miha</last>
+  </name>
+  <name>
+    <first>Mike</first>
+    <last>Davis</last>
   </name>
   <name>
     <first>Mike</first>
@@ -808,6 +913,10 @@
     <last>Reilly</last>
   </name>
   <name>
+    <first>Philip</first>
+    <last>Hourihane</last>
+  </name>
+  <name>
     <first>Phillip</first>
     <last>Wells</last>
   </name>
@@ -880,6 +989,10 @@
     <last>Vaughn</last>
   </name>
   <name>
+    <first>Roman</first>
+    <last>Ivashin</last>
+  </name>
+  <name>
     <first>Ronen</first>
     <last>Mashal</last>
   </name>
@@ -892,8 +1005,20 @@
     <last>Ruby</last>
   </name>
   <name>
+    <first>Sandra</first>
+    <last>Metz</last>
+  </name>
+  <name>
     <first>Scott</first>
     <last>Carlson</last>
+  </name>
+  <name>
+    <first>Scott</first>
+    <last>Ellsworth</last>
+  </name>
+  <name>
+    <first>Scott</first>
+    <last>Johnson</last>
   </name>
   <name>
     <first>Scott</first>
@@ -932,6 +1057,10 @@
   <name>
     <first>Stefano</first>
     <last>Mazzocchi</last>
+  </name>
+  <name>
+    <first>Stephan</first>
+    <last>Strittmatter</last>
   </name>
   <name>
     <first>Stephane</first>
@@ -983,6 +1112,10 @@
   </name>
   <name>
     <first>Thomas</first>
+    <last>Aglassinger</last>
+  </name>
+  <name>
+    <first>Thomas</first>
     <last>Butz</last>
   </name>
   <name>
@@ -996,6 +1129,10 @@
   <name>
     <first>Thomas</first>
     <last>Haas</last>
+  </name>
+  <name>
+    <first>Thomas</first>
+    <last>Quas</last>
   </name>
   <name>
     <first>Tim</first>
@@ -1041,6 +1178,10 @@
   <name>
     <first>Victor</first>
     <last>Toni</last>
+  </name>
+  <name>
+    <first>Vincent</first>
+    <last>Legoll</last>
   </name>
   <name>
     <first>Will</first>

@@ -22,12 +22,12 @@ import org.apache.oro.text.regex.Substitution;
 import org.apache.oro.text.regex.Util;
 import org.apache.tools.ant.BuildException;
 
-
-
 /***
  * Regular expression implementation using the Jakarta Oro package
  */
 public class JakartaOroRegexp extends JakartaOroMatcher implements Regexp {
+
+    private static final int DECIMAL = 10;
 
     /** Constructor for JakartaOroRegexp */
     public JakartaOroRegexp() {
@@ -54,7 +54,7 @@ public class JakartaOroRegexp extends JakartaOroMatcher implements Regexp {
             } else if (c == '\\') {
                 if (++i < argument.length()) {
                     c = argument.charAt(i);
-                    int value = Character.digit(c, 10);
+                    int value = Character.digit(c, DECIMAL);
                     if (value > -1) {
                         subst.append("$").append(value);
                     } else {
@@ -68,7 +68,6 @@ public class JakartaOroRegexp extends JakartaOroMatcher implements Regexp {
                 subst.append(c);
             }
         }
-
 
         // Do the substitution
         Substitution s =

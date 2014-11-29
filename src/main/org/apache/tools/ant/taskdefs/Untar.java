@@ -39,8 +39,6 @@ import org.apache.tools.tar.TarInputStream;
 
 /**
  * Untar a file.
- * <p>For JDK 1.1 &quot;last modified time&quot; field is set to current time instead of being
- * carried from the archive file.</p>
  * <p>PatternSets are used to select files to extract
  * <I>from</I> the archive.  If no patternset is used, all files are extracted.
  * </p>
@@ -94,11 +92,18 @@ public class Untar extends Expand {
     /** {@inheritDoc} */
     protected void expandFile(FileUtils fileUtils, File srcF, File dir) {
         FileInputStream fis = null;
+        if (!srcF.exists()) {
+            throw new BuildException("Unable to untar "
+                    + srcF
+                    + " as the file does not exist",
+                    getLocation());
+        }
         try {
             fis = new FileInputStream(srcF);
             expandStream(srcF.getPath(), fis, dir);
         } catch (IOException ioe) {
-            throw new BuildException("Error while expanding " + srcF.getPath(),
+            throw new BuildException("Error while expanding " + srcF.getPath()
+                                     + "\n" + ioe.toString(),
                                      ioe, getLocation());
         } finally {
             FileUtils.close(fis);
@@ -113,6 +118,13 @@ public class Untar extends Expand {
      * @since Ant 1.7
      */
     protected void expandResource(Resource srcR, File dir) {
+        if (!srcR.isExists()) {
+            throw new BuildException("Unable to untar "
+                                     + srcR.getName()
+                                     + " as the it does not exist",
+                                     getLocation());
+        }
+
         InputStream i = null;
         try {
             i = srcR.getInputStream();
@@ -137,11 +149,16 @@ public class Untar extends Expand {
                                                           new BufferedInputStream(stream)));
             log("Expanding: " + name + " into " + dir, Project.MSG_INFO);
             TarEntry te = null;
+            boolean empty = true;
             FileNameMapper mapper = getMapper();
             while ((te = tis.getNextEntry()) != null) {
+                empty = false;
                 extractFile(FileUtils.getFileUtils(), null, dir, tis,
                             te.getName(), te.getModTime(),
                             te.isDirectory(), mapper);
+            }
+            if (empty && getFailOnEmptyArchive()) {
+                throw new BuildException("archive '" + name + "' is empty");
             }
             log("expand complete", Project.MSG_VERBOSE);
         } finally {

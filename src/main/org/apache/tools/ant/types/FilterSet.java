@@ -370,7 +370,7 @@ public class FilterSet extends DataType implements Cloneable {
               }
            } catch (Exception ex) {
               throw new BuildException("Could not read filters from file: "
-                  + filtersFile);
+                  + filtersFile, ex);
            } finally {
               FileUtils.close(in);
            }
@@ -581,8 +581,8 @@ public class FilterSet extends DataType implements Cloneable {
         }
         passedTokens.addElement(parent);
         String value = iReplaceTokens(line);
-        if (value.indexOf(beginToken) == -1 && !duplicateToken) {
-            duplicateToken = false;
+        if (value.indexOf(beginToken) == -1 && !duplicateToken
+                && recurseDepth == 1) {
             passedTokens = null;
         } else if (duplicateToken) {
             // should always be the case...
@@ -593,6 +593,9 @@ public class FilterSet extends DataType implements Cloneable {
                     duplicateToken = false;
                 }
             }
+        } else if (passedTokens.size() > 0) {
+            // remove last seen token when crawling out of recursion 
+            passedTokens.remove(passedTokens.size() - 1);
         }
         recurseDepth--;
         return value;

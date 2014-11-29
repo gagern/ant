@@ -52,11 +52,32 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * @ant.task category="control"
  */
 public class WaitFor extends ConditionBase {
-    /** default max wait time */
-    private long maxWaitMillis = 1000L * 60L * 3L;
-    private long maxWaitMultiplier = 1L;
-    private long checkEveryMillis = 500L;
-    private long checkEveryMultiplier = 1L;
+    /** a millisecond */
+    public static final long ONE_MILLISECOND = 1L;
+    /** a second in milliseconds */
+    public static final long ONE_SECOND = 1000L;
+    /** a minute in milliseconds */
+    public static final long ONE_MINUTE = ONE_SECOND * 60L;
+    /** an hour in milliseconds */
+    public static final long ONE_HOUR   = ONE_MINUTE * 60L;
+    /** a day in milliseconds */
+    public static final long ONE_DAY    = ONE_HOUR * 24L;
+    /** a week in milliseconds */
+    public static final long ONE_WEEK   = ONE_DAY * 7L;
+
+    /** default wait time */
+    public static final long DEFAULT_MAX_WAIT_MILLIS = ONE_MINUTE * 3L;
+    /** default check time */
+    public static final long DEFAULT_CHECK_MILLIS = 500L;
+
+    /** default max wait time in the current unit*/
+    private long maxWait = DEFAULT_MAX_WAIT_MILLIS;
+    private long maxWaitMultiplier = ONE_MILLISECOND;
+    /**
+     * check time in the current unit
+     */
+    private long checkEvery = DEFAULT_CHECK_MILLIS;
+    private long checkEveryMultiplier = ONE_MILLISECOND;
     private String timeoutProperty;
 
     /**
@@ -66,13 +87,25 @@ public class WaitFor extends ConditionBase {
         super("waitfor");
     }
 
+
+    /**
+     * Constructor that takes the name of the task in the task name.
+     *
+     * @param taskName the name of the task.
+     * @since Ant 1.8
+     */
+    public WaitFor(String taskName) {
+        super(taskName);
+    }
+
     /**
      * Set the maximum length of time to wait.
      * @param time a <code>long</code> value
      */
     public void setMaxWait(long time) {
-        maxWaitMillis = time;
+        maxWait = time;
     }
+
 
     /**
      * Set the max wait time unit
@@ -82,12 +115,14 @@ public class WaitFor extends ConditionBase {
         maxWaitMultiplier = unit.getMultiplier();
     }
 
+
+
     /**
      * Set the time between each check
      * @param time a <code>long</code> value
      */
     public void setCheckEvery(long time) {
-        checkEveryMillis = time;
+        checkEvery = time;
     }
 
     /**
@@ -122,12 +157,9 @@ public class WaitFor extends ConditionBase {
                                      + getTaskName());
         }
         Condition c = (Condition) getConditions().nextElement();
-
-        long savedMaxWaitMillis = maxWaitMillis;
-        long savedCheckEveryMillis = checkEveryMillis;
         try {
-            maxWaitMillis *= maxWaitMultiplier;
-            checkEveryMillis *= checkEveryMultiplier;
+            long maxWaitMillis = calculateMaxWaitMillis();
+            long checkEveryMillis = calculateCheckEveryMillis();
             long start = System.currentTimeMillis();
             long end = start + maxWaitMillis;
 
@@ -136,17 +168,31 @@ public class WaitFor extends ConditionBase {
                     processSuccess();
                     return;
                 }
-                try {
-                    Thread.sleep(checkEveryMillis);
-                } catch (InterruptedException e) {
-                    // ignore
-                }
+                Thread.sleep(checkEveryMillis);
             }
-            processTimeout();
-        } finally {
-            maxWaitMillis = savedMaxWaitMillis;
-            checkEveryMillis = savedCheckEveryMillis;
+        } catch (InterruptedException e) {
+            log("Task " + getTaskName()
+                    + " interrupted, treating as timed out.");
         }
+        processTimeout();
+    }
+
+    /**
+     * Get the check wait time, in milliseconds.
+     * @since Ant 1.8
+     * @return how long to wait between checks
+     */
+    public long calculateCheckEveryMillis() {
+        return checkEvery * checkEveryMultiplier;
+    }
+
+    /**
+     * Get the maxiumum wait time, in milliseconds.
+     * @since Ant 1.8
+     * @return how long to wait before timing out
+     */
+    public long calculateMaxWaitMillis() {
+        return maxWait * maxWaitMultiplier;
     }
 
     /**
@@ -201,11 +247,11 @@ public class WaitFor extends ConditionBase {
         /** Constructor the Unit enumerated type. */
         public Unit() {
             timeTable.put(MILLISECOND, new Long(1L));
-            timeTable.put(SECOND,      new Long(1000L));
-            timeTable.put(MINUTE,      new Long(1000L * 60L));
-            timeTable.put(HOUR,        new Long(1000L * 60L * 60L));
-            timeTable.put(DAY,         new Long(1000L * 60L * 60L * 24L));
-            timeTable.put(WEEK,        new Long(1000L * 60L * 60L * 24L * 7L));
+            timeTable.put(SECOND,      new Long(ONE_SECOND));
+            timeTable.put(MINUTE,      new Long(ONE_MINUTE));
+            timeTable.put(HOUR,        new Long(ONE_HOUR));
+            timeTable.put(DAY,         new Long(ONE_DAY));
+            timeTable.put(WEEK,        new Long(ONE_WEEK));
         }
 
         /**

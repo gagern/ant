@@ -238,8 +238,8 @@ public class AggregateTransformer {
         File outputFile = null;
         if (format.equals(FRAMES)) {
             String tempFileProperty = getClass().getName() + String.valueOf(counter++);
-            File tmp = FILE_UTILS.resolveFile(project.getBaseDir(),
-                    project.getProperty("java.io.tmpdir"));
+            File tmp = FILE_UTILS.resolveFile(project.getBaseDir(), project
+                    .getProperty("java.io.tmpdir"));
             tempFileTask.setDestDir(tmp);
             tempFileTask.setProperty(tempFileProperty);
             tempFileTask.execute();
@@ -263,8 +263,7 @@ public class AggregateTransformer {
         try {
             xsltTask.execute();
         } catch (Exception e) {
-            throw new BuildException("Errors while applying transformations: "
-                    + e.getMessage(), e);
+            throw new BuildException("Errors while applying transformations: " + e.getMessage(), e);
         }
         final long dt = System.currentTimeMillis() - t0;
         task.log("Transform time: " + dt + "ms");
@@ -288,20 +287,14 @@ public class AggregateTransformer {
         if (styleDir == null) {
             // If style dir is not specified we have to retrieve
             // the stylesheet from the classloader
-            URLResource stylesheet = new URLResource();
             URL stylesheetURL = getClass().getClassLoader().getResource(
                     "org/apache/tools/ant/taskdefs/optional/junit/xsl/" + xslname);
-            stylesheet.setURL(stylesheetURL);
-            return stylesheet;
+            return new URLResource(stylesheetURL);
         }
         // If we are here, then the style dir is here and we
         // should read the stylesheet from the filesystem
-        FileResource stylesheet = new FileResource();
-        File stylesheetFile = new File(styleDir, xslname);
-        stylesheet.setFile(stylesheetFile);
-        return stylesheet;
+        return new FileResource(new File(styleDir, xslname));
     }
-
 
     /** check for invalid options
      * @throws BuildException if something goes wrong.

@@ -54,7 +54,7 @@ attribute.  If this attribute is set to <i>true</i> (its default is
 is loaded:
 <ul>
   <li>Property references are resolved.</li>
-  <li>The following attriubtes are treated differently:
+  <li>The following attributes are treated differently:
     <ul>
       <li><b>id</b>: The property is associated with the given id value.</li>
       <li><b>location</b>: The property is treated as a file location</li>
@@ -145,6 +145,11 @@ is roughly equivalent to the following fragments in a build.xml file:
     <td valign="top">The directory to use for resolving file references. Ignored
                      if <i>semanticAttributes</i> is not set to <i>true</i>.</td>
     <td valign="top" align="center">No, default is <i>${basedir}</i>.</td>
+  </tr>
+  <tr>
+    <td valign="top">delimiter</td>
+    <td valign="top">Delimiter for splitting multiple values.<br><i>since Ant 1.7.1</i></td>
+    <td valign="top" align="center">No, defaults to comma</td>
   </tr>
 </table>
 

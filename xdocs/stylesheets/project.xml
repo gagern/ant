@@ -53,7 +53,13 @@
             <menu name="Contributing">
                 <item name="Mailing Lists"         href="/mail.html"/>
                 <item name="Subversion Repositories"      href="/svn.html"/>
+                <item name="Nightly Builds"      href="/nightlies.html"/>
                 <item name="Bug Database"          href="/bugs.html"/>
+            </menu>
+
+            <menu name="Sponsorship">
+                <item name="Thanks"                href="http://www.apache.org/foundation/thanks.html"/>
+                <item name="Sponsorship"           href="http://www.apache.org/foundation/sponsorship.html"/>
                 <item name="Donations"             href="http://www.apache.org/foundation/contributing.html"/>
             </menu>
 
@@ -76,6 +82,12 @@
                 <item name="Sandbox Ant Libraries" href="/antlibs/sandbox.html"/>
                 <item name="Binary Distributions" href="http://ant.apache.org/antlibs/bindownload.cgi"/>
                 <item name="Source Distributions" href="http://ant.apache.org/antlibs/srcdownload.cgi"/>
+            </menu>
+            <menu name="Ivy">
+                <item name="Introduction"         href="/projects/ivy.html"/>
+                <item name="Homepage"             href="http://ant.apache.org/ivy/"/>
+                <item name="Distributions"        href="http://ant.apache.org/ivy/download.cgi"/>
+                <item name="Wiki"                 href="http://wiki.apache.org/ivy/"/>
             </menu>
         </menusection>
     </body>

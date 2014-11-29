@@ -109,14 +109,16 @@ public class Watchdog implements Runnable {
      * has been interrupted, the watch dog listeners are informed.
      */
     public synchronized void run() {
-        final long until = System.currentTimeMillis() + timeout;
-        long now;
-        while (!stopped && until > (now = System.currentTimeMillis())) {
-            try {
+        long now = System.currentTimeMillis();
+        final long until = now + timeout;
+
+        try {
+            while (!stopped && until > now) {
                 wait(until - now);
-            } catch (InterruptedException e) {
-                // Ignore exception
+                now = System.currentTimeMillis();
             }
+        } catch (InterruptedException e) {
+            // Ignore exception
         }
         if (!stopped) {
             fireTimeoutOccured();

@@ -66,6 +66,7 @@ public abstract class Definer extends DefBase {
     private String classname;
     private File file;
     private String resource;
+    private boolean restrict = false;
 
     private   int    format = Format.PROPERTIES;
     private   boolean definerSet = false;
@@ -143,6 +144,16 @@ public abstract class Definer extends DefBase {
             return new String[] {"properties", "xml"};
         }
     }
+
+    /**
+     * The restrict attribute.
+     * If this is true, only use this definition in add(X).
+     * @param restrict the value to set.
+     */
+     protected void setRestrict(boolean restrict) {
+         this.restrict = restrict;
+     }
+
 
     /**
      * What to do if there is an error in loading the class.
@@ -329,14 +340,14 @@ public abstract class Definer extends DefBase {
         if (message == null && !(file.isFile())) {
             message = "File " + file + " is not a file";
         }
-        try {
-            if (message == null) {
-                return file.toURL();
+        if (message == null) {
+            try {
+                return FileUtils.getFileUtils().getFileURL(file);
+            } catch (Exception ex) {
+                message =
+                    "File " + file + " cannot use as URL: "
+                    + ex.toString();
             }
-        } catch (Exception ex) {
-            message =
-                "File " + file + " cannot use as URL: "
-                + ex.toString();
         }
         // Here if there is an error
         switch (onError) {
@@ -597,6 +608,7 @@ public abstract class Definer extends DefBase {
                 def.setClass(cl);
                 def.setAdapterClass(adapterClass);
                 def.setAdaptToClass(adaptToClass);
+                def.setRestrict(restrict);
                 def.setClassLoader(al);
                 if (cl != null) {
                     def.checkClass(getProject());

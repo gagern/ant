@@ -39,16 +39,13 @@ import org.apache.tools.ant.types.TimeComparison;
 import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.FilterSetCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.resources.Restrict;
 import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.Touchable;
-import org.apache.tools.ant.types.resources.selectors.Or;
-import org.apache.tools.ant.types.resources.selectors.And;
-import org.apache.tools.ant.types.resources.selectors.Not;
 import org.apache.tools.ant.types.resources.selectors.Date;
-import org.apache.tools.ant.types.resources.selectors.Type;
-import org.apache.tools.ant.types.resources.selectors.Exists;
 import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 
@@ -61,21 +58,8 @@ import org.apache.tools.ant.types.selectors.SelectorUtils;
  */
 public class ResourceUtils {
 
-    private static final class Outdated implements ResourceSelector {
-        private Resource control;
-        private long granularity;
-        private Outdated(Resource control, long granularity) {
-            this.control = control;
-            this.granularity = granularity;
-        }
-        public boolean isSelected(Resource r) {
-            return SelectorUtils.isOutOfDate(control, r, granularity);
-        }
-    }
     /** Utilities used for file operations */
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
-
-    private static final ResourceSelector NOT_EXISTS = new Not(new Exists());
 
     /**
      * Tells which source files should be reprocessed based on the
@@ -144,7 +128,7 @@ public class ResourceUtils {
                                                             ResourceCollection source,
                                                             FileNameMapper mapper,
                                                             ResourceFactory targets,
-                                                            long granularity) {
+                                                            final long granularity) {
         if (source.size() == 0) {
             logTo.log("No sources found.", Project.MSG_VERBOSE);
             return Resources.NONE;
@@ -154,13 +138,20 @@ public class ResourceUtils {
 
         Union result = new Union();
         for (Iterator iter = source.iterator(); iter.hasNext();) {
-            Resource sr = (Resource) iter.next();
-            String[] targetnames = mapper.mapFileName(
-                sr.getName().replace('/', File.separatorChar));
+            final Resource sr = (Resource) iter.next();
+            String srName = sr.getName();
+            srName = srName == null
+                ? srName : srName.replace('/', File.separatorChar);
 
+            String[] targetnames = null;
+            try {
+                targetnames = mapper.mapFileName(srName);
+            } catch (Exception e) {
+                logTo.log("Caught " + e + " mapping resource " + sr,
+                    Project.MSG_VERBOSE);
+            }
             if (targetnames == null || targetnames.length == 0) {
-                logTo.log(sr.getName()
-                      + " skipped - don\'t know how to handle it",
+                logTo.log(sr + " skipped - don\'t know how to handle it",
                       Project.MSG_VERBOSE);
                 continue;
             }
@@ -171,8 +162,16 @@ public class ResourceUtils {
             }
             //find the out-of-date targets:
             Restrict r = new Restrict();
-            r.add(new And(new ResourceSelector[] {Type.FILE, new Or(
-                new ResourceSelector[] {NOT_EXISTS, new Outdated(sr, granularity)})}));
+            r.add(new ResourceSelector() {
+                public boolean isSelected(Resource target) {
+                    /* Extra I/O, probably wasted:
+                    if (target.isDirectory()) {
+                        return false;
+                    }
+                     */
+                    return SelectorUtils.isOutOfDate(sr, target, granularity);
+                }
+            });
             r.add(targetColl);
             if (r.size() > 0) {
                 result.add(sr);
@@ -431,8 +430,13 @@ public class ResourceUtils {
         if (r1.equals(r2)) {
             return true;
         }
-        if (!text && r1.getSize() != r2.getSize()) {
-            return false;
+        if (!text) {
+            long s1 = r1.getSize();
+            long s2 = r2.getSize();
+            if (s1 != Resource.UNKNOWN_SIZE && s2 != Resource.UNKNOWN_SIZE
+                    && s1 != s2) {
+                return false;
+            }
         }
         return compareContent(r1, r2, text) == 0;
     }
@@ -471,6 +475,22 @@ public class ResourceUtils {
             return d1 ? -1 : 1;
         }
         return text ? textCompare(r1, r2) : binaryCompare(r1, r2);
+    }
+
+    /**
+     * Convenience method to turn any fileProvider into a basic FileResource with the
+     * file's immediate parent as the basedir, for tasks that need one.
+     * @param fileProvider input
+     * @return fileProvider if it is a FileResource instance, or a new FileResource with fileProvider's file.
+     * @since Ant 1.8
+     */
+    public static FileResource asFileResource(FileProvider fileProvider) {
+        if (fileProvider instanceof FileResource || fileProvider == null) {
+            return (FileResource) fileProvider;
+        }
+        FileResource result = new FileResource(fileProvider.getFile());
+        result.setProject(Project.getProject(fileProvider));
+        return result;
     }
 
     /**

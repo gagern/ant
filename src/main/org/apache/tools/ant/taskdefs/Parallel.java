@@ -26,6 +26,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Location;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.TaskContainer;
+import org.apache.tools.ant.property.LocalProperties;
 import org.apache.tools.ant.util.StringUtils;
 
 /**
@@ -48,6 +49,8 @@ import org.apache.tools.ant.util.StringUtils;
  */
 public class Parallel extends Task
                       implements TaskContainer {
+
+    private static final int NUMBER_TRIES = 100;
 
     /** Class which holds a list of tasks to execute */
     public static class TaskList implements TaskContainer {
@@ -248,6 +251,7 @@ public class Parallel extends Task
         TaskRunnable[] runnables = new TaskRunnable[numTasks];
         stillRunning = true;
         timedOut = false;
+        boolean interrupted = false;
 
         int threadNumber = 0;
         for (Enumeration e = nestedTasks.elements(); e.hasMoreElements();
@@ -314,50 +318,48 @@ public class Parallel extends Task
                 timeoutThread.start();
             }
 
-            // now find available running slots for the remaining threads
-            outer:
-            while (threadNumber < numTasks && stillRunning) {
-                for (int i = 0; i < maxRunning; i++) {
-                    if (running[i] == null || running[i].isFinished()) {
-                        running[i] = runnables[threadNumber++];
-                        Thread thread =  new Thread(group, running[i]);
-                        thread.start();
-                        // continue on outer while loop to get another
-                        // available slot
-                        continue outer;
-                    }
-                }
-
-                // if we got here all slots in use, so sleep until
-                // something happens
-                try {
-                    semaphore.wait();
-                } catch (InterruptedException ie) {
-                    // doesn't java know interruptions are rude?
-                    // just pretend it didn't happen and go about out business.
-                    // sheesh!
-                }
-            }
-
-            // are all threads finished
-            outer2:
-            while (stillRunning) {
-                for (int i = 0; i < maxRunning; ++i) {
-                    if (running[i] != null && !running[i].isFinished()) {
-                        //System.out.println("Thread " + i + " is still alive ");
-                        // still running - wait for it
-                        try {
-                            semaphore.wait();
-                        } catch (InterruptedException ie) {
-                            // who would interrupt me at a time like this?
+            try {
+                // now find available running slots for the remaining threads
+                outer: while (threadNumber < numTasks && stillRunning) {
+                    for (int i = 0; i < maxRunning; i++) {
+                        if (running[i] == null || running[i].isFinished()) {
+                            running[i] = runnables[threadNumber++];
+                            Thread thread = new Thread(group, running[i]);
+                            thread.start();
+                            // continue on outer while loop to get another
+                            // available slot
+                            continue outer;
                         }
-                        continue outer2;
                     }
+
+                    // if we got here all slots in use, so sleep until
+                    // something happens
+                    semaphore.wait();
                 }
-                stillRunning = false;
+
+                // are all threads finished
+                outer2: while (stillRunning) {
+                    for (int i = 0; i < maxRunning; ++i) {
+                        if (running[i] != null && !running[i].isFinished()) {
+                            // System.out.println("Thread " + i + " is still
+                            // alive ");
+                            // still running - wait for it
+                            semaphore.wait();
+                            continue outer2;
+                        }
+                    }
+                    stillRunning = false;
+                }
+            } catch (InterruptedException ie) {
+                interrupted = true;
             }
+
+            killAll(running);
         }
 
+        if (interrupted) {
+            throw new BuildException("Parallel execution interrupted.");
+        }
         if (timedOut) {
             throw new BuildException("Parallel execution timed out");
         }
@@ -383,7 +385,31 @@ public class Parallel extends Task
     }
 
     /**
-     * Determine the number of processors. Only effective on later VMs
+     * Doesn't do anything if all threads where already gone,
+     * else it tries to interrupt the threads 100 times.
+     * @param running The list of tasks that may currently be running.
+     */
+    private void killAll(TaskRunnable[] running) {
+        boolean oneAlive;
+        int tries = 0;
+        do {
+            oneAlive = false;
+            for (int i = 0; i < running.length; i++) {
+                if (running[i] != null && !running[i].isFinished()) {
+                    running[i].interrupt();
+                    Thread.yield();
+                    oneAlive = true;
+                }
+            }
+            if (oneAlive) {
+                tries++;
+                Thread.yield();
+            }
+        } while (oneAlive && tries < NUMBER_TRIES);
+    }
+
+    /**
+     * Determine the number of processors. Only effective on Java 1.4+
      *
      * @return the number of processors available or 0 if not determinable.
      */
@@ -409,6 +435,7 @@ public class Parallel extends Task
         private Throwable exception;
         private Task task;
         private boolean finished;
+        private volatile Thread thread;
 
         /**
          * Construct a new TaskRunnable.<p>
@@ -425,6 +452,8 @@ public class Parallel extends Task
          */
         public void run() {
             try {
+                LocalProperties.get(getProject()).copy();
+                thread = Thread.currentThread();
                 task.perform();
             } catch (Throwable t) {
                 exception = t;
@@ -453,6 +482,10 @@ public class Parallel extends Task
          */
         boolean isFinished() {
             return finished;
+        }
+
+        void interrupt() {
+            thread.interrupt();
         }
     }
 

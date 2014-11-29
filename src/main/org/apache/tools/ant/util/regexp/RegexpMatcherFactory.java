@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.util.regexp;
 
 import org.apache.tools.ant.Project;
@@ -25,13 +24,12 @@ import org.apache.tools.ant.util.ClasspathUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 
 /**
- * Simple Factory Class that produces an implementation of
- * RegexpMatcher based on the system property
- * <code>ant.regexp.regexpimpl</code> and the classes
- * available.
+ * Simple Factory Class that produces an implementation of RegexpMatcher based on the system
+ * property <code>ant.regexp.regexpimpl</code> and the classes available.
  *
- * <p>In a more general framework this class would be abstract and
- * have a static newInstance method.</p>
+ * <p>
+ * In a more general framework this class would be abstract and have a static newInstance method.
+ * </p>
  *
  */
 public class RegexpMatcherFactory {
@@ -56,8 +54,7 @@ public class RegexpMatcherFactory {
      * @return the matcher
      * @throws BuildException on error
      */
-    public RegexpMatcher newRegexpMatcher(Project p)
-        throws BuildException {
+    public RegexpMatcher newRegexpMatcher(Project p) throws BuildException {
         String systemDefault = null;
         if (p == null) {
             systemDefault = System.getProperty(MagicNames.REGEXP_IMPL);
@@ -77,7 +74,9 @@ public class RegexpMatcherFactory {
             testAvailability("java.util.regex.Matcher");
             return createInstance("org.apache.tools.ant.util.regexp.Jdk14RegexpMatcher");
         } catch (BuildException be) {
-            cause = orCause(cause, be, JavaEnvUtils.getJavaVersionNumber() < 14);
+            cause = orCause(
+                cause, be,
+                JavaEnvUtils.getJavaVersionNumber() < JavaEnvUtils.VERSION_1_4);
         }
 
         try {
@@ -93,11 +92,9 @@ public class RegexpMatcherFactory {
         } catch (BuildException be) {
             cause = orCause(cause, be, true);
         }
-
-        throw new BuildException(
-            "No supported regular expression matcher found"
-            + (cause != null ? ": " + cause : ""), cause);
-   }
+        throw new BuildException("No supported regular expression matcher found"
+                + (cause != null ? ": " + cause : ""), cause);
+    }
 
     static Throwable orCause(Throwable deflt, BuildException be, boolean ignoreCnfe) {
         if (deflt != null) {
@@ -114,10 +111,9 @@ public class RegexpMatcherFactory {
      * @return a <code>RegexpMatcher</code> value
      * @exception BuildException if an error occurs
      */
-    protected RegexpMatcher createInstance(String className)
-        throws BuildException {
-        return (RegexpMatcher) ClasspathUtils.newInstance(className,
-                RegexpMatcherFactory.class.getClassLoader(), RegexpMatcher.class);
+    protected RegexpMatcher createInstance(String className) throws BuildException {
+        return (RegexpMatcher) ClasspathUtils.newInstance(className, RegexpMatcherFactory.class
+                .getClassLoader(), RegexpMatcher.class);
     }
 
     /**
@@ -131,6 +127,22 @@ public class RegexpMatcherFactory {
             Class.forName(className);
         } catch (Throwable t) {
             throw new BuildException(t);
+        }
+    }
+
+    /**
+     * Checks if a RegExp-Matcher is available.
+     * @param project  The project to check for (may be <code>null</code>)
+     * @return <code>true</code> if available otherwise <code>false</code>
+     */
+    public static boolean regexpMatcherPresent(Project project) {
+        try {
+            // The factory throws a BuildException if no usable matcher
+            // cant be instantiated. We dont need the matcher itself here.
+            new RegexpMatcherFactory().newRegexpMatcher(project);
+            return true;
+        } catch (Throwable ex) {
+            return false;
         }
     }
 }

@@ -20,18 +20,19 @@ package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Enumeration;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
-import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.taskdefs.Manifest.Attribute;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.util.FileUtils;
 
 /**
  * Creates a manifest file for inclusion in a JAR, Ant task wrapper
@@ -43,6 +44,13 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
  * @ant.task category="java"
  */
 public class ManifestTask extends Task {
+
+    /**
+     * Specifies the valid characters which can be used in attribute names.
+     * {@value}
+     */
+    public static final String VALID_ATTRIBUTE_CHARS =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
 
     /**
      * Holds the real data.
@@ -95,6 +103,12 @@ public class ManifestTask extends Task {
      */
     public void addConfiguredSection(Manifest.Section section)
          throws ManifestException {
+        Enumeration attributeKeys = section.getAttributeKeys();
+        while (attributeKeys.hasMoreElements()) {
+            Attribute attribute = section.getAttribute(
+                (String) attributeKeys.nextElement());
+            checkAttribute(attribute);
+        }
         nestedManifest.addConfiguredSection(section);
     }
 
@@ -107,7 +121,41 @@ public class ManifestTask extends Task {
      */
     public void addConfiguredAttribute(Manifest.Attribute attribute)
          throws ManifestException {
+        checkAttribute(attribute);
         nestedManifest.addConfiguredAttribute(attribute);
+    }
+
+    /**
+     * Checks the attribute agains the Jar-specification.
+     *
+     * Jar-Specification <i>"Name-Value pairs and Sections"</i>: <pre>
+     *   name:       alphanum *headerchar
+     *   alphanum:   {A-Z} | {a-z} | {0-9}
+     *   headerchar: alphanum | - | _
+     * </pre>
+     * So the resulting regexp would be <tt>[A-Za-z0-9][A-Za-z0-9-_]*</tt>.
+     *
+     * Because of JDK 1.2 compliance and the possible absence of a
+     * regexp matcher we can not use regexps here. Instead we have to
+     * check each character.
+     *
+     * @param attribute The attribute to check
+     * @throws BuildException if the check fails
+     */
+    private void checkAttribute(Manifest.Attribute attribute) throws BuildException {
+        String name = attribute.getName();
+        char ch = name.charAt(0);
+
+        if (ch == '-' || ch == '_') {
+            throw new BuildException("Manifest attribute names must not start with '" + ch + "'.");
+        }
+
+        for (int i = 0; i < name.length(); i++) {
+            ch = name.charAt(i);
+            if (VALID_ATTRIBUTE_CHARS.indexOf(ch) < 0) {
+                throw new BuildException("Manifest attribute names must not contain '" + ch + "'");
+            }
+        }
     }
 
     /**
@@ -207,10 +255,7 @@ public class ManifestTask extends Task {
             throw new BuildException("Failed to write " + manifestFile,
                                      e, getLocation());
         } finally {
-            if (w != null) {
-                w.close();
-            }
+            FileUtils.close(w);
         }
     }
-
 }

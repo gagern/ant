@@ -21,11 +21,15 @@ package org.apache.tools.ant.taskdefs.rmic;
 import java.io.File;
 import java.util.Random;
 import java.util.Vector;
+import java.util.List;
+import java.util.ArrayList;
+
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Rmic;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.util.FileNameMapper;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * This is the default implementation for the RmicAdapter interface.
@@ -39,18 +43,31 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
     private Rmic attributes;
     private FileNameMapper mapper;
     private static final Random RAND = new Random();
-    /** suffix denoting a stub file */
+    /** suffix denoting a stub file: {@value} */
     public static final String RMI_STUB_SUFFIX = "_Stub";
-    /** suffix denoting a skel file */
+    /** suffix denoting a skel file: {@value} */
     public static final String RMI_SKEL_SUFFIX = "_Skel";
-    /** suffix denoting a tie file */
+    /** suffix denoting a tie file: {@value} */
     public static final String RMI_TIE_SUFFIX = "_Tie";
-    /** arg for compat */
+    /** arg for compat: {@value} */
     public static final String STUB_COMPAT = "-vcompat";
-    /** arg for 1.1 */
+    /** arg for 1.1: {@value} */
     public static final String STUB_1_1 = "-v1.1";
-    /** arg for 1.2 */
+    /** arg for 1.2: {@value} */
     public static final String STUB_1_2 = "-v1.2";
+
+    /**
+     * option for stub 1.1 in the rmic task: {@value}
+     */
+    public static final String STUB_OPTION_1_1 = "1.1";
+    /**
+     * option for stub 1.2 in the rmic task: {@value}
+     */
+    public static final String STUB_OPTION_1_2 = "1.2";
+    /**
+     * option for stub compat in the rmic task: {@value}
+     */
+    public static final String STUB_OPTION_COMPAT = "compat";
 
     /**
      * Default constructor
@@ -192,35 +209,13 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
 
         cmd.createArgument().setValue("-classpath");
         cmd.createArgument().setPath(classpath);
-
-        //handle the many different stub options.
-        String stubVersion = attributes.getStubVersion();
-        //default is compatibility
-        String stubOption = null;
-        if (null != stubVersion) {
-            if ("1.1".equals(stubVersion)) {
-                stubOption = STUB_1_1;
-            } else if ("1.2".equals(stubVersion)) {
-                stubOption = STUB_1_2;
-            } else if ("compat".equals(stubVersion)) {
-                stubOption = STUB_COMPAT;
-            } else {
-                //anything else
-                attributes.log("Unknown stub option " + stubVersion);
-                //do nothing with the value? or go -v+stubVersion??
-            }
-        }
-        //for java1.5+, we generate compatible stubs, that is, unless
-        //the caller asked for IDL or IIOP support.
-        if (stubOption == null
-            && !attributes.getIiop()
-            && !attributes.getIdl()) {
-            stubOption = STUB_COMPAT;
-        }
+        String stubOption = addStubVersionOptions();
         if (stubOption != null) {
             //set the non-null stubOption
             cmd.createArgument().setValue(stubOption);
         }
+
+
         if (null != attributes.getSourceBase()) {
             cmd.createArgument().setValue("-keepgenerated");
         }
@@ -249,11 +244,82 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
             cmd.createArgument().setValue("-g");
         }
 
-        cmd.addArguments(attributes.getCurrentCompilerArgs());
+        String[] compilerArgs = attributes.getCurrentCompilerArgs();
+        compilerArgs = preprocessCompilerArgs(compilerArgs);
+        cmd.addArguments(compilerArgs);
 
         logAndAddFilesToCompile(cmd);
         return cmd;
      }
+
+    /**
+     * This is an override point; get the stub version off the rmic command and
+     * translate that into a compiler-specific argument
+     * @return a string to use for the stub version; can be null
+     * @since Ant1.7.1
+     */
+    protected String addStubVersionOptions() {
+        //handle the many different stub options.
+        String stubVersion = attributes.getStubVersion();
+        //default is compatibility
+        String stubOption = null;
+        if (null != stubVersion) {
+            if (STUB_OPTION_1_1.equals(stubVersion)) {
+                stubOption = STUB_1_1;
+            } else if (STUB_OPTION_1_2.equals(stubVersion)) {
+                stubOption = STUB_1_2;
+            } else if (STUB_OPTION_COMPAT.equals(stubVersion)) {
+                stubOption = STUB_COMPAT;
+            } else {
+                //anything else
+                attributes.log("Unknown stub option " + stubVersion);
+                //do nothing with the value? or go -v+stubVersion??
+            }
+        }
+        //for java1.5+, we generate compatible stubs, that is, unless
+        //the caller asked for IDL or IIOP support.
+        if (stubOption == null
+            && !attributes.getIiop()
+            && !attributes.getIdl()) {
+            stubOption = STUB_COMPAT;
+        }
+        return stubOption;
+    }
+
+    /**
+     * Preprocess the compiler arguments in any way you see fit.
+     * This is to allow compiler adapters to validate or filter the arguments.
+     * The base implementation returns the original compiler arguments unchanged.
+     * @param compilerArgs the original compiler arguments
+     * @return the filtered set.
+     */
+    protected String[] preprocessCompilerArgs(String[] compilerArgs) {
+        return compilerArgs;
+    }
+
+
+    /**
+     * Strip out all -J args from the command list. Invoke this from
+     * {@link #preprocessCompilerArgs(String[])} if you have a non-forking
+     * compiler.
+     * @param compilerArgs the original compiler arguments
+     * @return the filtered set.
+     */
+    protected String[] filterJvmCompilerArgs(String[] compilerArgs) {
+        int len = compilerArgs.length;
+        List args = new ArrayList(len);
+        for (int i = 0; i < len; i++) {
+            String arg = compilerArgs[i];
+            if (!arg.startsWith("-J")) {
+                args.add(arg);
+            } else {
+                attributes.log("Dropping " + arg + " from compiler arguments");
+            }
+        }
+        int count = args.size();
+        return (String[]) args.toArray(new String[count]);
+    }
+
 
     /**
      * Logs the compilation parameters, adds the files to compile and logs the
@@ -325,7 +391,7 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
             }
 
             // we know that name.endsWith(".class")
-            String base = name.substring(0, name.length() - 6);
+            String base = StringUtils.removeSuffix(name, ".class");
 
             String classname = base.replace(File.separatorChar, '.');
             if (attributes.getVerify()
@@ -345,7 +411,7 @@ public abstract class DefaultRmicAdapter implements RmicAdapter {
 
             if (!attributes.getIiop() && !attributes.getIdl()) {
                 // JRMP with simple naming convention
-                if ("1.2".equals(attributes.getStubVersion())) {
+                if (STUB_OPTION_1_2.equals(attributes.getStubVersion())) {
                     target = new String[] {
                         base + getStubClassSuffix() + ".class"
                     };

@@ -37,6 +37,7 @@ import org.apache.tools.ant.Target;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.TaskContainer;
 import org.apache.tools.ant.UnknownElement;
+import org.apache.tools.ant.property.LocalProperties;
 
 /**
  * The class to be placed in the ant type definition.
@@ -242,7 +243,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         this.text = text;
     }
 
-    private UnknownElement copy(UnknownElement ue) {
+    private UnknownElement copy(UnknownElement ue, boolean nested) {
         UnknownElement ret = new UnknownElement(ue.getTag());
         ret.setNamespace(ue.getNamespace());
         ret.setProject(getProject());
@@ -281,8 +282,8 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             }
             MacroDef.TemplateElement templateElement =
                 (MacroDef.TemplateElement) getNsElements().get(tag);
-            if (templateElement == null) {
-                UnknownElement child = copy(unknownElement);
+            if (templateElement == null || nested) {
+                UnknownElement child = copy(unknownElement, nested);
                 rc.addChild(child.getWrapper());
                 ret.addChild(child);
             } else if (templateElement.isImplicit()) {
@@ -293,7 +294,8 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                 }
                 for (Iterator i = unknownElements.iterator();
                      i.hasNext();) {
-                    UnknownElement child = copy((UnknownElement) i.next());
+                    UnknownElement child
+                        = copy((UnknownElement) i.next(), true);
                     rc.addChild(child.getWrapper());
                     ret.addChild(child);
                 }
@@ -317,7 +319,8 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
                 if (list != null) {
                     for (Iterator i = list.iterator();
                          i.hasNext();) {
-                        UnknownElement child = copy((UnknownElement) i.next());
+                        UnknownElement child
+                            = copy((UnknownElement) i.next(), true);
                         rc.addChild(child.getWrapper());
                         ret.addChild(child);
                     }
@@ -348,9 +351,6 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
             if (value == null) {
                 value = attribute.getDefault();
                 value = macroSubs(value, localAttributes);
-            } else if (attribute instanceof MacroDef.DefineAttribute) {
-                // Do not process given value, will fail as unknown attribute
-                continue;
             }
             if (value == null) {
                 throw new BuildException(
@@ -364,11 +364,12 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         }
         if (macroDef.getText() != null) {
             if (text == null) {
-                if (!macroDef.getText().getOptional()) {
+                String defaultText =  macroDef.getText().getDefault();
+                if (!macroDef.getText().getOptional() && defaultText == null) {
                     throw new BuildException(
                         "required text missing");
                 }
-                text = "";
+                text = defaultText == null ? "" : defaultText;
             }
             if (macroDef.getText().getTrim()) {
                 text = text.trim();
@@ -388,8 +389,11 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         }
 
         // need to set the project on unknown element
-        UnknownElement c = copy(macroDef.getNestedTask());
+        UnknownElement c = copy(macroDef.getNestedTask(), false);
         c.init();
+        LocalProperties localProperties
+            = LocalProperties.get(getProject());
+        localProperties.enterScope();
         try {
             c.perform();
         } catch (BuildException ex) {
@@ -403,6 +407,7 @@ public class MacroInstance extends Task implements DynamicAttribute, TaskContain
         } finally {
             presentElements = null;
             localAttributes = null;
+            localProperties.exitScope();
         }
     }
 }

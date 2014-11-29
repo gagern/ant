@@ -38,7 +38,7 @@ import org.apache.tools.ant.types.Mapper;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.selectors.SelectorUtils;
 import org.apache.tools.ant.util.FileNameMapper;
@@ -58,6 +58,7 @@ import org.apache.tools.zip.ZipFile;
  *           name="unwar"
  */
 public class Expand extends Task {
+    private static final int BUFFER_SIZE = 1024;
     private File dest; //req
     private File source; // req
     private boolean overwrite = true;
@@ -65,6 +66,8 @@ public class Expand extends Task {
     private Vector patternsets = new Vector();
     private Union resources = new Union();
     private boolean resourcesSpecified = false;
+    private boolean failOnEmptyArchive = false;
+    private boolean stripAbsolutePathSpec = false;
 
     private static final String NATIVE_ENCODING = "native-encoding";
 
@@ -73,6 +76,24 @@ public class Expand extends Task {
     public static final String ERROR_MULTIPLE_MAPPERS = "Cannot define more than one mapper";
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
+
+    /**
+     * Whether try ing to expand an empty archive would be an error.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setFailOnEmptyArchive(boolean b) {
+        failOnEmptyArchive = b;
+    }
+
+    /**
+     * Whether try ing to expand an empty archive would be an error.
+     *
+     * @since Ant 1.8.0
+     */
+    public boolean getFailOnEmptyArchive() {
+        return failOnEmptyArchive;
+    }
 
     /**
      * Do the work.
@@ -102,6 +123,10 @@ public class Expand extends Task {
             if (source.isDirectory()) {
                 throw new BuildException("Src must not be a directory."
                     + " Use nested filesets instead.", getLocation());
+            } else if (!source.exists()) {
+                throw new BuildException("src '" + source + "' doesn't exist.");
+            } else if (!source.canRead()) {
+                throw new BuildException("src '" + source + "' cannot be read.");
             } else {
                 expandFile(FILE_UTILS, source, dest);
             }
@@ -110,11 +135,12 @@ public class Expand extends Task {
         while (iter.hasNext()) {
             Resource r = (Resource) iter.next();
             if (!r.isExists()) {
+                log("Skipping '" + r.getName() + "' because it doesn't exist.");
                 continue;
             }
 
-            if (r instanceof FileResource) {
-                expandFile(FILE_UTILS, ((FileResource) r).getFile(), dest);
+            if (r instanceof FileProvider) {
+                expandFile(FILE_UTILS, ((FileProvider) r).getFile(), dest);
             } else {
                 expandResource(r, dest);
             }
@@ -132,20 +158,32 @@ public class Expand extends Task {
         log("Expanding: " + srcF + " into " + dir, Project.MSG_INFO);
         ZipFile zf = null;
         FileNameMapper mapper = getMapper();
+        if (!srcF.exists()) {
+            throw new BuildException("Unable to expand "
+                    + srcF
+                    + " as the file does not exist",
+                    getLocation());
+        }
         try {
             zf = new ZipFile(srcF, encoding);
+            boolean empty = true;
             Enumeration e = zf.getEntries();
             while (e.hasMoreElements()) {
+                empty = false;
                 ZipEntry ze = (ZipEntry) e.nextElement();
                 extractFile(fileUtils, srcF, dir, zf.getInputStream(ze),
                             ze.getName(), new Date(ze.getTime()),
                             ze.isDirectory(), mapper);
             }
-
+            if (empty && getFailOnEmptyArchive()) {
+                throw new BuildException("archive '" + srcF + "' is empty");
+            }
             log("expand complete", Project.MSG_VERBOSE);
         } catch (IOException ioe) {
-            throw new BuildException("Error while expanding " + srcF.getPath(),
-                                     ioe);
+            throw new BuildException(
+                "Error while expanding " + srcF.getPath()
+                + "\n" + ioe.toString(),
+                ioe);
         } finally {
             ZipFile.closeQuietly(zf);
         }
@@ -176,6 +214,7 @@ public class Expand extends Task {
         return mapper;
     }
 
+    // CheckStyle:ParameterNumberCheck OFF - bc
     /**
      * extract a file to a directory
      * @param fileUtils             a fileUtils object
@@ -194,9 +233,19 @@ public class Expand extends Task {
                                boolean isDirectory, FileNameMapper mapper)
                                throws IOException {
 
+        if (stripAbsolutePathSpec && entryName.length() > 0
+            && (entryName.charAt(0) == File.separatorChar
+                || entryName.charAt(0) == '/'
+                || entryName.charAt(0) == '\\')) {
+            log("stripped absolute path spec from " + entryName,
+                Project.MSG_VERBOSE);
+            entryName = entryName.substring(1);
+        }
+
         if (patternsets != null && patternsets.size() > 0) {
             String name = entryName.replace('/', File.separatorChar)
                 .replace('\\', File.separatorChar);
+
             boolean included = false;
             Set includePatterns = new HashSet();
             Set excludePatterns = new HashSet();
@@ -272,7 +321,7 @@ public class Expand extends Task {
             if (isDirectory) {
                 f.mkdirs();
             } else {
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[BUFFER_SIZE];
                 int length = 0;
                 FileOutputStream fos = null;
                 try {
@@ -292,10 +341,13 @@ public class Expand extends Task {
 
             fileUtils.setFileLastModified(f, entryDate.getTime());
         } catch (FileNotFoundException ex) {
-            log("Unable to expand to file " + f.getPath(), Project.MSG_WARN);
+            log("Unable to expand to file " + f.getPath(),
+                    ex,
+                    Project.MSG_WARN);
         }
 
     }
+    // CheckStyle:ParameterNumberCheck ON
 
     /**
      * Set the destination directory. File will be unzipped into the
@@ -389,6 +441,15 @@ public class Expand extends Task {
             encoding = null;
         }
         this.encoding = encoding;
+    }
+
+    /**
+     * Whether leading path separators should be stripped.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setStripAbsolutePathSpec(boolean b) {
+        stripAbsolutePathSpec = b;
     }
 
 }

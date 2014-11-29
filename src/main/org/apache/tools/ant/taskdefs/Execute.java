@@ -49,6 +49,8 @@ import org.apache.tools.ant.util.StringUtils;
  */
 public class Execute {
 
+    private static final int ONE_SECOND = 1000;
+
     /** Invalid exit code.
      * set to {@link Integer#MAX_VALUE}
      */
@@ -518,7 +520,7 @@ public class Execute {
                                        useVMLauncher);
         if (Os.isFamily("windows")) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(ONE_SECOND);
             } catch (InterruptedException e) {
                 project.log("interruption in the sleep after having spawned a"
                             + " process", Project.MSG_VERBOSE);
@@ -625,24 +627,32 @@ public class Execute {
         }
         Vector osEnv = (Vector) getProcEnvironment().clone();
         for (int i = 0; i < env.length; i++) {
+            String keyValue = env[i];
             // Get key including "="
-            String key = env[i].substring(0, env[i].indexOf('=') + 1);
+            String key = keyValue.substring(0, keyValue.indexOf('=') + 1);
             if (environmentCaseInSensitive) {
                 // Nb: using default locale as key is a env name
                 key = key.toLowerCase();
             }
             int size = osEnv.size();
+            // Find the key in the current enviroment copy
+            // and remove it.
             for (int j = 0; j < size; j++) {
                 String osEnvItem = (String) osEnv.elementAt(j);
-                if (environmentCaseInSensitive) {
-                    osEnvItem = osEnvItem.toLowerCase();
-                }
-                if (osEnvItem.startsWith(key)) {
+                String convertedItem = environmentCaseInSensitive
+                    ? osEnvItem.toLowerCase() : osEnvItem;
+                if (convertedItem.startsWith(key)) {
                     osEnv.removeElementAt(j);
+                    if (environmentCaseInSensitive) {
+                        // Use the original casiness of the key
+                        keyValue = osEnvItem.substring(0, key.length())
+                            + keyValue.substring(key.length());
+                    }
                     break;
                 }
             }
-            osEnv.addElement(env[i]);
+            // Add the key to the enviromnent copy
+            osEnv.addElement(keyValue);
         }
         return (String[]) (osEnv.toArray(new String[osEnv.size()]));
     }
@@ -702,6 +712,7 @@ public class Execute {
         HashMap logicals = new HashMap();
         String logName = null, logValue = null, newLogName;
         String line = null;
+        // CheckStyle:MagicNumber OFF
         while ((line = in.readLine()) != null) {
             // parse the VMS logicals into required format ("VAR=VAL[,VAL2]")
             if (line.startsWith("\t=")) {
@@ -725,6 +736,7 @@ public class Execute {
                 }
             }
         }
+        // CheckStyle:MagicNumber ON
         // Since we "look ahead" before adding, there's one last env var.
         if (logName != null) {
             logicals.put(logName, logValue);
@@ -903,6 +915,7 @@ public class Execute {
             final int preCmdLength = 7;
             final String cmdDir = commandDir.getAbsolutePath();
             String[] newcmd = new String[cmd.length + preCmdLength];
+            // CheckStyle:MagicNumber OFF - do not bother
             newcmd[0] = "cmd";
             newcmd[1] = "/c";
             newcmd[2] = cmdDir.substring(0, 2);
@@ -910,6 +923,7 @@ public class Execute {
             newcmd[4] = "cd";
             newcmd[5] = cmdDir.substring(2);
             newcmd[6] = "&&";
+            // CheckStyle:MagicNumber ON
             System.arraycopy(cmd, 0, newcmd, preCmdLength, cmd.length);
 
             return exec(project, newcmd, env);
@@ -951,12 +965,14 @@ public class Execute {
             // the command
             final int preCmdLength = 6;
             String[] newcmd = new String[cmd.length + preCmdLength];
+            // CheckStyle:MagicNumber OFF - do not bother
             newcmd[0] = "cmd";
             newcmd[1] = "/c";
             newcmd[2] = "cd";
             newcmd[3] = "/d";
             newcmd[4] = commandDir.getAbsolutePath();
             newcmd[5] = "&&";
+            // CheckStyle:MagicNumber ON
             System.arraycopy(cmd, 0, newcmd, preCmdLength, cmd.length);
 
             return exec(project, newcmd, env);
@@ -1039,7 +1055,7 @@ public class Execute {
 
             // Build the command
             File commandDir = workingDir;
-            if (workingDir == null && project != null) {
+            if (workingDir == null) {
                 commandDir = project.getBaseDir();
             }
             String[] newcmd = new String[cmd.length + 2];
@@ -1098,14 +1114,16 @@ public class Execute {
 
             // Build the command
             File commandDir = workingDir;
-            if (workingDir == null && project != null) {
+            if (workingDir == null) {
                 commandDir = project.getBaseDir();
             }
+            // CheckStyle:MagicNumber OFF
             String[] newcmd = new String[cmd.length + 3];
             newcmd[0] = "perl";
             newcmd[1] = antRun;
             newcmd[2] = commandDir.getAbsolutePath();
             System.arraycopy(cmd, 0, newcmd, 3, cmd.length);
+            // CheckStyle:MagicNumber ON
 
             return exec(project, newcmd, env);
         }
@@ -1172,8 +1190,7 @@ public class Execute {
          */
         private File createCommandFile(String[] cmd, String[] env)
             throws IOException {
-            File script = FILE_UTILS.createTempFile("ANT", ".COM", null);
-            script.deleteOnExit();
+            File script = FILE_UTILS.createTempFile("ANT", ".COM", null, true, true);
             PrintWriter out = null;
             try {
                 out = new PrintWriter(new FileWriter(script));

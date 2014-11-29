@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
@@ -36,8 +35,10 @@ import org.apache.tools.ant.types.XMLCatalog;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.Union;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.util.FileNameMapper;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.ResourceUtils;
 
 /**
  * Processes a set of XML documents via XSLT. This is
@@ -205,8 +206,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     public void addMapper(Mapper mapper) {
         if (mapperElement != null) {
-            throw new BuildException("Cannot define more than one mapper",
-                                     getLocation());
+            throw new BuildException("Cannot define more than one mapper", getLocation());
         }
         mapperElement = mapper;
     }
@@ -229,8 +229,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      */
     public void addConfiguredStyle(Resources rc) {
         if (rc.size() != 1) {
-            throw new BuildException("The style element must be specified"
-                    + " with exactly one nested resource.");
+            throw new BuildException(
+                    "The style element must be specified with exactly one nested resource.");
         }
         setXslResource((Resource) rc.iterator().next());
     }
@@ -267,43 +267,36 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             log("Warning: the task name <style> is deprecated. Use <xslt> instead.",
                     Project.MSG_WARN);
         }
-
         File savedBaseDir = baseDir;
 
         DirectoryScanner scanner;
         String[]         list;
         String[]         dirs;
 
-        if (xslResource == null && xslFile == null) {
-            throw new BuildException("specify the "
-                + "stylesheet either as a filename in style "
-                + "attribute or as a nested resource", getLocation());
+        String baseMessage =
+            "specify the stylesheet either as a filename in style attribute "
+            + "or as a nested resource";
 
+        if (xslResource == null && xslFile == null) {
+            throw new BuildException(baseMessage, getLocation());
         }
         if (xslResource != null && xslFile != null) {
-            throw new BuildException("specify the "
-                + "stylesheet either as a filename in style "
-                + "attribute or as a nested resource but not "
-                + "as both", getLocation());
+            throw new BuildException(baseMessage + " but not as both", getLocation());
         }
-
         if (inFile != null && !inFile.exists()) {
-            throw new BuildException(
-                "input file " + inFile.toString() + " does not exist", getLocation());
+            throw new BuildException("input file " + inFile + " does not exist", getLocation());
         }
-
         try {
+            Resource styleResource;
             if (baseDir == null) {
-                baseDir = getProject().resolveFile(".");
+                baseDir = getProject().getBaseDir();
             }
-
             liaison = getLiaison();
 
             // check if liaison wants to log errors using us as logger
             if (liaison instanceof XSLTLoggerAware) {
                 ((XSLTLoggerAware) liaison).setLogger(this);
             }
-
             log("Using " + liaison.getClass().toString(), Project.MSG_VERBOSE);
 
             if (xslFile != null) {
@@ -317,23 +310,23 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                      * the wrong version has been used.
                      */
                     if (stylesheet.exists()) {
-                        log("DEPRECATED - the 'style' attribute should be relative "
-                                + "to the project's");
+                        log("DEPRECATED - the 'style' attribute should be "
+                            + "relative to the project's");
                         log("             basedir, not the tasks's basedir.");
                     }
                 }
                 FileResource fr = new FileResource();
                 fr.setProject(getProject());
                 fr.setFile(stylesheet);
-                xslResource = fr;
+                styleResource = fr;
+            } else {
+                styleResource = xslResource;
             }
-
             // if we have an in file and out then process them
             if (inFile != null && outFile != null) {
-                process(inFile, outFile, xslResource);
+                process(inFile, outFile, styleResource);
                 return;
             }
-
             /*
              * if we get here, in and out have not been specified, we are
              * in batch processing mode.
@@ -349,7 +342,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 // Process all the files marked for styling
                 list = scanner.getIncludedFiles();
                 for (int i = 0; i < list.length; ++i) {
-                    process(baseDir, list[i], destDir, xslResource);
+                    process(baseDir, list[i], destDir, styleResource);
                 }
                 if (performDirectoryScan) {
                     // Process all the directories marked for styling
@@ -357,8 +350,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                     for (int j = 0; j < dirs.length; ++j) {
                         list = new File(baseDir, dirs[j]).list();
                         for (int i = 0; i < list.length; ++i) {
-                            process(baseDir, dirs[j] + File.separator + list[i],
-                                    destDir, xslResource);
+                            process(baseDir, dirs[j] + File.separator + list[i], destDir,
+                                    styleResource);
                         }
                     }
                 }
@@ -367,7 +360,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                     throw new BuildException("no resources specified");
                 }
             }
-            processResources(xslResource);
+            processResources(styleResource);
         } finally {
             if (loader != null) {
                 loader.resetThreadContextLoader();
@@ -546,12 +539,10 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     private Class loadClass(String classname) throws Exception {
         if (classpath == null) {
             return Class.forName(classname);
-        } else {
-            loader = getProject().createClassLoader(classpath);
-            loader.setThreadContextLoader();
-            Class c = Class.forName(classname, true, loader);
-            return c;
         }
+        loader = getProject().createClassLoader(classpath);
+        loader.setThreadContextLoader();
+        return Class.forName(classname, true, loader);
     }
 
     /**
@@ -589,6 +580,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
     /**
      * Styles all existing resources.
      *
+     * @param stylesheet style sheet to use
      * @since Ant 1.7
      */
     private void processResources(Resource stylesheet) {
@@ -600,8 +592,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             }
             File base = baseDir;
             String name = r.getName();
-            if (r instanceof FileResource) {
-                FileResource f = (FileResource) r;
+            if (r instanceof FileProvider) {
+                FileResource f = ResourceUtils.asFileResource((FileProvider) r);
                 base = f.getBaseDir();
                 if (base == null) {
                     name = f.getFile().getAbsolutePath();
@@ -621,9 +613,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @param stylesheet the stylesheet to use.
      * @exception BuildException if the processing fails.
      */
-    private void process(File baseDir, String xmlFile, File destDir,
-                         Resource stylesheet)
-        throws BuildException {
+    private void process(File baseDir, String xmlFile, File destDir, Resource stylesheet)
+            throws BuildException {
 
         File   outF = null;
         File   inF = null;
@@ -633,11 +624,9 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             inF = new File(baseDir, xmlFile);
 
             if (inF.isDirectory()) {
-                log("Skipping " + inF + " it is a directory.",
-                    Project.MSG_VERBOSE);
+                log("Skipping " + inF + " it is a directory.", Project.MSG_VERBOSE);
                 return;
             }
-
             FileNameMapper mapper = null;
             if (mapperElement != null) {
                 mapper = mapperElement.getImplementation();
@@ -647,23 +636,18 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
 
             String[] outFileName = mapper.mapFileName(xmlFile);
             if (outFileName == null || outFileName.length == 0) {
-                log("Skipping " + inFile + " it cannot get mapped to output.",
-                    Project.MSG_VERBOSE);
+                log("Skipping " + inFile + " it cannot get mapped to output.", Project.MSG_VERBOSE);
                 return;
             } else if (outFileName == null || outFileName.length > 1) {
-                log("Skipping " + inFile + " its mapping is ambiguos.",
-                    Project.MSG_VERBOSE);
+                log("Skipping " + inFile + " its mapping is ambiguos.", Project.MSG_VERBOSE);
                 return;
             }
-
             outF = new File(destDir, outFileName[0]);
 
-            if (force
-                || inF.lastModified() > outF.lastModified()
-                || styleSheetLastModified > outF.lastModified()) {
+            if (force || inF.lastModified() > outF.lastModified()
+                    || styleSheetLastModified > outF.lastModified()) {
                 ensureDirectoryFor(outF);
                 log("Processing " + inF + " to " + outF);
-
                 configureLiaison(stylesheet);
                 setLiaisonDynamicFileParameters(liaison, inF);
                 liaison.transform(inF, outF);
@@ -689,28 +673,22 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @param stylesheet the stylesheet to use.
      * @exception BuildException if the processing fails.
      */
-    private void process(File inFile, File outFile, Resource stylesheet)
-         throws BuildException {
+    private void process(File inFile, File outFile, Resource stylesheet) throws BuildException {
         try {
             long styleSheetLastModified = stylesheet.getLastModified();
-            log("In file " + inFile + " time: " + inFile.lastModified(),
-                Project.MSG_DEBUG);
-            log("Out file " + outFile + " time: " + outFile.lastModified(),
-                Project.MSG_DEBUG);
-            log("Style file " + xslFile + " time: " + styleSheetLastModified,
-                Project.MSG_DEBUG);
+            log("In file " + inFile + " time: " + inFile.lastModified(), Project.MSG_DEBUG);
+            log("Out file " + outFile + " time: " + outFile.lastModified(), Project.MSG_DEBUG);
+            log("Style file " + xslFile + " time: " + styleSheetLastModified, Project.MSG_DEBUG);
             if (force || inFile.lastModified() >= outFile.lastModified()
-                || styleSheetLastModified >= outFile.lastModified()) {
+                    || styleSheetLastModified >= outFile.lastModified()) {
                 ensureDirectoryFor(outFile);
-                log("Processing " + inFile + " to " + outFile,
-                    Project.MSG_INFO);
+                log("Processing " + inFile + " to " + outFile, Project.MSG_INFO);
                 configureLiaison(stylesheet);
                 setLiaisonDynamicFileParameters(liaison, inFile);
                 liaison.transform(inFile, outFile);
             } else {
-                log("Skipping input file " + inFile
-                    + " because it is older than output file " + outFile
-                    + " and so is the stylesheet " + stylesheet, Project.MSG_DEBUG);
+                log("Skipping input file " + inFile + " because it is older than output file "
+                        + outFile + " and so is the stylesheet " + stylesheet, Project.MSG_DEBUG);
             }
         } catch (Exception ex) {
             log("Failed to process " + inFile, Project.MSG_INFO);
@@ -727,13 +705,12 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @param targetFile the file for which the directories are required.
      * @exception BuildException if the directories cannot be created.
      */
-    private void ensureDirectoryFor(File targetFile)
-         throws BuildException {
+    private void ensureDirectoryFor(File targetFile) throws BuildException {
         File directory = targetFile.getParentFile();
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
                 throw new BuildException("Unable to create directory: "
-                                         + directory.getAbsolutePath());
+                        + directory.getAbsolutePath());
             }
         }
     }
@@ -888,6 +865,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         public void setUnless(String unlessProperty) {
             this.unlessProperty = unlessProperty;
         }
+
         /**
          * Ensures that the param passes the conditions placed
          * on it with <code>if</code> and <code>unless</code> properties.
@@ -896,15 +874,13 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         public boolean shouldUse() {
             if (ifProperty != null && project.getProperty(ifProperty) == null) {
                 return false;
-            } else if (unlessProperty != null
-                    && project.getProperty(unlessProperty) != null) {
+            }
+            if (unlessProperty != null && project.getProperty(unlessProperty) != null) {
                 return false;
             }
-
             return true;
         }
     } // Param
-
 
     /**
      * Create an instance of an output property to be configured.
@@ -916,7 +892,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         outputProperties.addElement(p);
         return p;
     }
-
 
     /**
      * Specify how the result tree should be output as specified
@@ -985,6 +960,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
         fr.setFile(stylesheet);
         configureLiaison(fr);
     }
+
     /**
      * Loads the stylesheet and set xsl:param parameters.
      *
@@ -1005,7 +981,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             if (liaison instanceof XSLTLiaison2) {
                 ((XSLTLiaison2) liaison).configure(this);
             }
-
             if (liaison instanceof XSLTLiaison3) {
                 // If we are here we can set the stylesheet as a
                 // resource
@@ -1014,13 +989,11 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 // If we are here we cannot set the stylesheet as
                 // a resource, but we can set it as a file. So,
                 // we make an attempt to get it as a file
-                if (stylesheet instanceof FileResource) {
-                    liaison.setStylesheet(
-                            ((FileResource) stylesheet).getFile());
+                if (stylesheet instanceof FileProvider) {
+                    liaison.setStylesheet(((FileProvider) stylesheet).getFile());
                 } else {
                     throw new BuildException(liaison.getClass().toString()
-                            + " accepts the stylesheet only as a file",
-                            getLocation());
+                            + " accepts the stylesheet only as a file", getLocation());
                 }
             }
             for (Enumeration e = params.elements(); e.hasMoreElements();) {
@@ -1030,8 +1003,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 }
             }
         } catch (Exception ex) {
-            log("Failed to transform using stylesheet " + stylesheet,
-                 Project.MSG_INFO);
+            log("Failed to transform using stylesheet " + stylesheet, Project.MSG_INFO);
             throw new BuildException(ex);
         }
     }
@@ -1047,9 +1019,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
      * @since Ant 1.7
      */
     private void setLiaisonDynamicFileParameters(
-        XSLTLiaison liaison,
-        File inFile
-    ) throws Exception {
+        XSLTLiaison liaison, File inFile) throws Exception {
         if (fileNameParameter != null) {
             liaison.addParam(fileNameParameter, inFile.getName());
         }
@@ -1058,10 +1028,8 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
             File file = new File(fileName);
             // Give always a slash as file separator, so the stylesheet could be sure about that
             // Use '.' so a dir+"/"+name would not result in an absolute path
-            liaison.addParam(
-                fileDirParameter,
-                (file.getParent() != null)
-                ? file.getParent().replace('\\', '/') : ".");
+            liaison.addParam(fileDirParameter, file.getParent() != null ? file.getParent().replace(
+                    '\\', '/') : ".");
         }
     }
 
@@ -1170,8 +1138,7 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
              * @param value the value of the attribute
              * @throws BuildException on error
              */
-            public void setDynamicAttribute(String name, String value)
-                    throws BuildException {
+            public void setDynamicAttribute(String name, String value) throws BuildException {
                 // only 'name' and 'value' exist.
                 if ("name".equalsIgnoreCase(name)) {
                     this.name = value;
@@ -1194,7 +1161,6 @@ public class XSLTProcess extends MatchingTask implements XSLTLogger {
                 }
             }
         } // -- class Attribute
-
     } // -- class Factory
 
     /**

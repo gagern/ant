@@ -18,9 +18,10 @@
 package org.apache.tools.ant.taskdefs;
 
 
+import org.apache.tools.ant.BuildFileTest;
 import org.apache.tools.ant.taskdefs.condition.Os;
 import org.apache.tools.ant.util.JavaEnvUtils;
-import org.apache.tools.ant.BuildFileTest;
+import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
 
 /**
  * Tests &lt;bm:manifestclasspath&gt;.
@@ -97,8 +98,11 @@ public class ManifestClassPathTest
     }
 
     public void testPseudoTahoeRefid() {
+        if (!RegexpMatcherFactory.regexpMatcherPresent(project)) {
+            System.out.println("Test 'testPseudoTahoeRefid' skipped because no regexp matcher is present.");
+            return;
+        }
         executeTarget("test-pseudo-tahoe-refid");
-
         assertPropertyEquals("jar.classpath", "classes/dsp-core/ " +
                                               "classes/dsp-pres/ " +
                                               "classes/dsp-void/ " +
@@ -108,8 +112,11 @@ public class ManifestClassPathTest
     }
 
     public void testPseudoTahoeNested() {
+        if (!RegexpMatcherFactory.regexpMatcherPresent(project)) {
+            System.out.println("Test 'testPseudoTahoeNested' skipped because no regexp matcher is present.");
+            return;
+        }
         executeTarget("test-pseudo-tahoe-nested");
-
         assertPropertyEquals("jar.classpath", "classes/dsp-core/ " +
                                               "classes/dsp-pres/ " +
                                               "classes/dsp-void/ " +
@@ -134,8 +141,7 @@ public class ManifestClassPathTest
                                               "../../resources/dsp-void/");
     }
     public void testInternationalGerman() {
-        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4))
-        {
+        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4)) {
             System.out.println("Test with international characters skipped under pre 1.4 jvm.");
             return;
         }
@@ -144,7 +150,7 @@ public class ManifestClassPathTest
             
     }
     public void testInternationalHebrew() {
-        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4))        {
+        if (!JavaEnvUtils.isAtLeastJavaVersion(JavaEnvUtils.JAVA_1_4)) {
             System.out.println("Test with international characters skipped under pre 1.4 jvm.");
             return;
         }

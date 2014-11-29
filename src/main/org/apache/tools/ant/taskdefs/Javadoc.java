@@ -46,7 +46,7 @@ import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.PatternSet;
 import org.apache.tools.ant.types.Reference;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 
@@ -74,6 +74,15 @@ import org.apache.tools.ant.util.JavaEnvUtils;
  * @ant.task category="java"
  */
 public class Javadoc extends Task {
+    // Whether *this VM* is 1.4+ (but also check executable != null).
+
+    private static final boolean JAVADOC_4 =
+        !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2)
+        && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3);
+
+    private static final boolean JAVADOC_5 = JAVADOC_4
+        && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4);
+
     /**
      * Inner class used to manage doclet parameters.
      */
@@ -1172,6 +1181,7 @@ public class Javadoc extends Task {
         private String href;
         private boolean offline = false;
         private File packagelistLoc;
+        private URL packagelistURL;
         private boolean resolveLink = false;
 
         /** Constructor for LinkArguement */
@@ -1209,6 +1219,22 @@ public class Javadoc extends Task {
          */
         public File getPackagelistLoc() {
             return packagelistLoc;
+        }
+
+        /**
+         * Set the packetlist location attribute.
+         * @param src an <code>URL</code> value
+         */
+        public void setPackagelistURL(URL src) {
+            packagelistURL = src;
+        }
+
+        /**
+         * Get the packetList location attribute.
+         * @return the packetList location attribute.
+         */
+        public URL getPackagelistURL() {
+            return packagelistURL;
         }
 
         /**
@@ -1399,9 +1425,10 @@ public class Javadoc extends Task {
             if (getDescription() != null) {
                 return name + ":" + (enabled ? "" : "X")
                     + scope + ":" + getDescription();
+            } else if (!enabled || !"a".equals(scope)) {
+                return name + ":" + (enabled ? "" : "X") + scope;
             } else {
-                return name + ":" + (enabled ? "" : "X")
-                    + scope + ":" + name;
+                return name;
             }
         }
     }
@@ -1613,47 +1640,24 @@ public class Javadoc extends Task {
      * @throws BuildException on error
      */
     public void execute() throws BuildException {
-        if ("javadoc2".equals(getTaskType())) {
-            log("Warning: the task name <javadoc2> is deprecated. Use <javadoc> instead.",
-                Project.MSG_WARN);
-        }
-
-        // Whether *this VM* is 1.4+ (but also check executable != null).
-        boolean javadoc4 =
-            !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_2)
-            && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_3);
-        boolean javadoc5 = javadoc4
-            && !JavaEnvUtils.isJavaVersion(JavaEnvUtils.JAVA_1_4);
+        checkTaskName();
 
         Vector packagesToDoc = new Vector();
         Path sourceDirs = new Path(getProject());
 
-        if (packageList != null && sourcePath == null) {
-            String msg = "sourcePath attribute must be set when "
-                + "specifying packagelist.";
-            throw new BuildException(msg);
-        }
+        checkPackageAndSourcePath();
 
         if (sourcePath != null) {
             sourceDirs.addExisting(sourcePath);
         }
 
         parsePackages(packagesToDoc, sourceDirs);
-
-        if (packagesToDoc.size() != 0 && sourceDirs.size() == 0) {
-            String msg = "sourcePath attribute must be set when "
-                + "specifying package names.";
-            throw new BuildException(msg);
-        }
+        checkPackages(packagesToDoc, sourceDirs);
 
         Vector sourceFilesToDoc = (Vector) sourceFiles.clone();
         addSourceFiles(sourceFilesToDoc);
 
-        if (packageList == null && packagesToDoc.size() == 0
-            && sourceFilesToDoc.size() == 0) {
-            throw new BuildException("No source files and no packages have "
-                                     + "been specified.");
-        }
+        checkPackagesToDoc(packagesToDoc, sourceFilesToDoc);
 
         log("Generating Javadoc", Project.MSG_INFO);
 
@@ -1664,317 +1668,26 @@ public class Javadoc extends Task {
             toExecute.setExecutable(JavaEnvUtils.getJdkExecutable("javadoc"));
         }
 
-        // ------------------------------------------ general Javadoc arguments
-        if (doctitle != null) {
-            toExecute.createArgument().setValue("-doctitle");
-            toExecute.createArgument().setValue(expand(doctitle.getText()));
-        }
-        if (header != null) {
-            toExecute.createArgument().setValue("-header");
-            toExecute.createArgument().setValue(expand(header.getText()));
-        }
-        if (footer != null) {
-            toExecute.createArgument().setValue("-footer");
-            toExecute.createArgument().setValue(expand(footer.getText()));
-        }
-        if (bottom != null) {
-            toExecute.createArgument().setValue("-bottom");
-            toExecute.createArgument().setValue(expand(bottom.getText()));
-        }
-
-        if (classpath == null) {
-            classpath = (new Path(getProject())).concatSystemClasspath("last");
-        } else {
-            classpath = classpath.concatSystemClasspath("ignore");
-        }
-
-        if (classpath.size() > 0) {
-            toExecute.createArgument().setValue("-classpath");
-            toExecute.createArgument().setPath(classpath);
-        }
-        if (sourceDirs.size() > 0) {
-            toExecute.createArgument().setValue("-sourcepath");
-            toExecute.createArgument().setPath(sourceDirs);
-        }
-
-        if (version && doclet == null) {
-            toExecute.createArgument().setValue("-version");
-        }
-        if (author && doclet == null) {
-            toExecute.createArgument().setValue("-author");
-        }
-
-        if (doclet == null && destDir == null) {
-            throw new BuildException("destdir attribute must be set!");
-        }
-
-        // ---------------------------- javadoc2 arguments for default doclet
-
-        if (doclet != null) {
-            if (doclet.getName() == null) {
-                throw new BuildException("The doclet name must be "
-                                         + "specified.", getLocation());
-            } else {
-                toExecute.createArgument().setValue("-doclet");
-                toExecute.createArgument().setValue(doclet.getName());
-                if (doclet.getPath() != null) {
-                    Path docletPath
-                        = doclet.getPath().concatSystemClasspath("ignore");
-                    if (docletPath.size() != 0) {
-                        toExecute.createArgument().setValue("-docletpath");
-                        toExecute.createArgument().setPath(docletPath);
-                    }
-                }
-                for (Enumeration e = doclet.getParams();
-                     e.hasMoreElements();) {
-                    DocletParam param = (DocletParam) e.nextElement();
-                    if (param.getName() == null) {
-                        throw new BuildException("Doclet parameters must "
-                                                 + "have a name");
-                    }
-
-                    toExecute.createArgument().setValue(param.getName());
-                    if (param.getValue() != null) {
-                        toExecute.createArgument()
-                            .setValue(param.getValue());
-                    }
-                }
-            }
-        }
-        Path bcp = new Path(getProject());
-        if (bootclasspath != null) {
-            bcp.append(bootclasspath);
-        }
-        bcp = bcp.concatSystemBootClasspath("ignore");
-        if (bcp.size() > 0) {
-            toExecute.createArgument().setValue("-bootclasspath");
-            toExecute.createArgument().setPath(bcp);
-        }
-
-        // add the links arguments
-        if (links.size() != 0) {
-            for (Enumeration e = links.elements(); e.hasMoreElements();) {
-                LinkArgument la = (LinkArgument) e.nextElement();
-
-                if (la.getHref() == null || la.getHref().length() == 0) {
-                    log("No href was given for the link - skipping",
-                        Project.MSG_VERBOSE);
-                    continue;
-                }
-                String link = null;
-                if (la.shouldResolveLink()) {
-                    File hrefAsFile =
-                        getProject().resolveFile(la.getHref());
-                    if (hrefAsFile.exists()) {
-                        try {
-                            link = FILE_UTILS.getFileURL(hrefAsFile)
-                                .toExternalForm();
-                        } catch (MalformedURLException ex) {
-                            // should be impossible
-                            log("Warning: link location was invalid "
-                                + hrefAsFile, Project.MSG_WARN);
-                        }
-                    }
-                }
-                if (link == null) {
-                    // is the href a valid URL
-                    try {
-                        URL base = new URL("file://.");
-                        new URL(base, la.getHref());
-                        link = la.getHref();
-                    } catch (MalformedURLException mue) {
-                        // ok - just skip
-                        log("Link href \"" + la.getHref()
-                            + "\" is not a valid url - skipping link",
-                            Project.MSG_WARN);
-                        continue;
-                    }
-                }
-
-                if (la.isLinkOffline()) {
-                    File packageListLocation = la.getPackagelistLoc();
-                    if (packageListLocation == null) {
-                        throw new BuildException("The package list"
-                                                 + " location for link "
-                                                 + la.getHref()
-                                                 + " must be provided "
-                                                 + "because the link is "
-                                                 + "offline");
-                    }
-                    File packageListFile =
-                        new File(packageListLocation, "package-list");
-                    if (packageListFile.exists()) {
-                        try {
-                            String packageListURL =
-                                FILE_UTILS.getFileURL(packageListLocation)
-                                .toExternalForm();
-                            toExecute.createArgument()
-                                .setValue("-linkoffline");
-                            toExecute.createArgument()
-                                .setValue(link);
-                            toExecute.createArgument()
-                                .setValue(packageListURL);
-                        } catch (MalformedURLException ex) {
-                            log("Warning: Package list location was "
-                                + "invalid " + packageListLocation,
-                                Project.MSG_WARN);
-                        }
-                    } else {
-                        log("Warning: No package list was found at "
-                            + packageListLocation, Project.MSG_VERBOSE);
-                    }
-                } else {
-                    toExecute.createArgument().setValue("-link");
-                    toExecute.createArgument().setValue(link);
-                }
-            }
-        }
-
-        // add the single group arguments
-        // Javadoc 1.2 rules:
-        //   Multiple -group args allowed.
-        //   Each arg includes 3 strings: -group [name] [packagelist].
-        //   Elements in [packagelist] are colon-delimited.
-        //   An element in [packagelist] may end with the * wildcard.
-
-        // Ant javadoc task rules for group attribute:
-        //   Args are comma-delimited.
-        //   Each arg is 2 space-delimited strings.
-        //   E.g., group="XSLT_Packages org.apache.xalan.xslt*,
-        //                XPath_Packages org.apache.xalan.xpath*"
-        if (group != null) {
-            StringTokenizer tok = new StringTokenizer(group, ",", false);
-            while (tok.hasMoreTokens()) {
-                String grp = tok.nextToken().trim();
-                int space = grp.indexOf(" ");
-                if (space > 0) {
-                    String name = grp.substring(0, space);
-                    String pkgList = grp.substring(space + 1);
-                    toExecute.createArgument().setValue("-group");
-                    toExecute.createArgument().setValue(name);
-                    toExecute.createArgument().setValue(pkgList);
-                }
-            }
-        }
-
-        // add the group arguments
-        if (groups.size() != 0) {
-            for (Enumeration e = groups.elements(); e.hasMoreElements();) {
-                GroupArgument ga = (GroupArgument) e.nextElement();
-                String title = ga.getTitle();
-                String packages = ga.getPackages();
-                if (title == null || packages == null) {
-                    throw new BuildException("The title and packages must "
-                                             + "be specified for group "
-                                             + "elements.");
-                }
-                toExecute.createArgument().setValue("-group");
-                toExecute.createArgument().setValue(expand(title));
-                toExecute.createArgument().setValue(packages);
-            }
-        }
+        //  Javadoc arguments
+        generalJavadocArguments(toExecute);  // general Javadoc arguments
+        doSourcePath(toExecute, sourceDirs); // sourcepath
+        doDoclet(toExecute);   // arguments for default doclet
+        doBootPath(toExecute); // bootpath
+        doLinks(toExecute);    // links arguments
+        doGroup(toExecute);    // group attribute
+        doGroups(toExecute);  // groups attribute
 
         // Javadoc 1.4 parameters
-        if (javadoc4 || executable != null) {
-            for (Enumeration e = tags.elements(); e.hasMoreElements();) {
-                Object element = e.nextElement();
-                if (element instanceof TagArgument) {
-                    TagArgument ta = (TagArgument) element;
-                    File tagDir = ta.getDir(getProject());
-                    if (tagDir == null) {
-                        // The tag element is not used as a fileset,
-                        // but specifies the tag directly.
-                        toExecute.createArgument().setValue ("-tag");
-                        toExecute.createArgument()
-                            .setValue (ta.getParameter());
-                    } else {
-                        // The tag element is used as a
-                        // fileset. Parse all the files and create
-                        // -tag arguments.
-                        DirectoryScanner tagDefScanner =
-                            ta.getDirectoryScanner(getProject());
-                        String[] files = tagDefScanner.getIncludedFiles();
-                        for (int i = 0; i < files.length; i++) {
-                            File tagDefFile = new File(tagDir, files[i]);
-                            try {
-                                BufferedReader in
-                                    = new BufferedReader(
-                                          new FileReader(tagDefFile)
-                                          );
-                                String line = null;
-                                while ((line = in.readLine()) != null) {
-                                    toExecute.createArgument()
-                                        .setValue("-tag");
-                                    toExecute.createArgument()
-                                        .setValue(line);
-                                }
-                                in.close();
-                            } catch (IOException ioe) {
-                                throw new BuildException("Couldn't read "
-                                    + " tag file from "
-                                    + tagDefFile.getAbsolutePath(), ioe);
-                            }
-                        }
-                    }
-                } else {
-                    ExtensionInfo tagletInfo = (ExtensionInfo) element;
-                    toExecute.createArgument().setValue("-taglet");
-                    toExecute.createArgument().setValue(tagletInfo
-                                                        .getName());
-                    if (tagletInfo.getPath() != null) {
-                        Path tagletPath = tagletInfo.getPath()
-                            .concatSystemClasspath("ignore");
-                        if (tagletPath.size() != 0) {
-                            toExecute.createArgument()
-                                .setValue("-tagletpath");
-                            toExecute.createArgument().setPath(tagletPath);
-                        }
-                    }
-                }
-            }
-
-            String sourceArg = source != null ? source
-                : getProject().getProperty(MagicNames.BUILD_JAVAC_SOURCE);
-            if (sourceArg != null) {
-                toExecute.createArgument().setValue("-source");
-                toExecute.createArgument().setValue(sourceArg);
-            }
-
-            if (linksource && doclet == null) {
-                toExecute.createArgument().setValue("-linksource");
-            }
-            if (breakiterator && (doclet == null || javadoc5)) {
+        if (JAVADOC_4 || executable != null) {
+            doJava14(toExecute);
+            if (breakiterator && (doclet == null || JAVADOC_5)) {
                 toExecute.createArgument().setValue("-breakiterator");
             }
-            if (noqualifier != null && doclet == null) {
-                toExecute.createArgument().setValue("-noqualifier");
-                toExecute.createArgument().setValue(noqualifier);
-            }
         } else {
-            // Not 1.4+.
-            if (!tags.isEmpty()) {
-                log("-tag and -taglet options not supported on Javadoc < 1.4",
-                     Project.MSG_VERBOSE);
-            }
-            if (source != null) {
-                log("-source option not supported on Javadoc < 1.4",
-                     Project.MSG_VERBOSE);
-            }
-            if (linksource) {
-                log("-linksource option not supported on Javadoc < 1.4",
-                     Project.MSG_VERBOSE);
-            }
-            if (breakiterator) {
-                log("-breakiterator option not supported on Javadoc < 1.4",
-                     Project.MSG_VERBOSE);
-            }
-            if (noqualifier != null) {
-                log("-noqualifier option not supported on Javadoc < 1.4",
-                     Project.MSG_VERBOSE);
-            }
+            doNotJava14();
         }
         // Javadoc 1.2/1.3 parameters:
-        if (!javadoc4 || executable != null) {
+        if (!JAVADOC_4 || executable != null) {
             if (old) {
                 toExecute.createArgument().setValue("-1.1");
             }
@@ -1985,7 +1698,7 @@ public class Javadoc extends Task {
             }
         }
         // If using an external file, write the command line options to it
-        if (useExternalFile && javadoc4) {
+        if (useExternalFile && JAVADOC_4) {
             writeExternalArgs(toExecute);
         }
 
@@ -1993,54 +1706,22 @@ public class Javadoc extends Task {
         PrintWriter srcListWriter = null;
 
         try {
-
             /**
              * Write sourcefiles and package names to a temporary file
              * if requested.
              */
             if (useExternalFile) {
-                if (tmpList == null) {
-                    tmpList = FILE_UTILS.createTempFile("javadoc", "", null);
-                    tmpList.deleteOnExit();
-                    toExecute.createArgument()
-                        .setValue("@" + tmpList.getAbsolutePath());
-                }
+                tmpList = FILE_UTILS.createTempFile("javadoc", "", null, true, true);
+                toExecute.createArgument()
+                    .setValue("@" + tmpList.getAbsolutePath());
                 srcListWriter = new PrintWriter(
-                                    new FileWriter(tmpList.getAbsolutePath(),
-                                                   true));
+                    new FileWriter(tmpList.getAbsolutePath(),
+                                   true));
             }
 
-            Enumeration e = packagesToDoc.elements();
-            while (e.hasMoreElements()) {
-                String packageName = (String) e.nextElement();
-                if (useExternalFile) {
-                    srcListWriter.println(packageName);
-                } else {
-                    toExecute.createArgument().setValue(packageName);
-                }
-            }
-
-            e = sourceFilesToDoc.elements();
-            while (e.hasMoreElements()) {
-                SourceFile sf = (SourceFile) e.nextElement();
-                String sourceFileName = sf.getFile().getAbsolutePath();
-                if (useExternalFile) {
-                    // XXX what is the following doing?
-                    //     should it run if !javadoc4 && executable != null?
-                    if (javadoc4 && sourceFileName.indexOf(" ") > -1) {
-                        String name = sourceFileName;
-                        if (File.separatorChar == '\\') {
-                            name = sourceFileName.replace(File.separatorChar, '/');
-                        }
-                        srcListWriter.println("\"" + name + "\"");
-                    } else {
-                        srcListWriter.println(sourceFileName);
-                    }
-                } else {
-                    toExecute.createArgument().setValue(sourceFileName);
-                }
-            }
-
+            doSourceAndPackageNames(
+                toExecute, packagesToDoc, sourceFilesToDoc,
+                useExternalFile, tmpList, srcListWriter);
         } catch (IOException e) {
             tmpList.delete();
             throw new BuildException("Error creating temporary file",
@@ -2096,14 +1777,128 @@ public class Javadoc extends Task {
         }
     }
 
+    private void checkTaskName() {
+        if ("javadoc2".equals(getTaskType())) {
+            log("Warning: the task name <javadoc2> is deprecated."
+                + " Use <javadoc> instead.",
+                Project.MSG_WARN);
+        }
+    }
+
+    private void checkPackageAndSourcePath() {
+        if (packageList != null && sourcePath == null) {
+            String msg = "sourcePath attribute must be set when "
+                + "specifying packagelist.";
+            throw new BuildException(msg);
+        }
+    }
+
+    private void checkPackages(Vector packagesToDoc, Path sourceDirs) {
+        if (packagesToDoc.size() != 0 && sourceDirs.size() == 0) {
+            String msg = "sourcePath attribute must be set when "
+                + "specifying package names.";
+            throw new BuildException(msg);
+        }
+    }
+
+    private void checkPackagesToDoc(
+        Vector packagesToDoc, Vector sourceFilesToDoc) {
+        if (packageList == null && packagesToDoc.size() == 0
+            && sourceFilesToDoc.size() == 0) {
+            throw new BuildException("No source files and no packages have "
+                                     + "been specified.");
+        }
+    }
+
+    private void doSourcePath(Commandline toExecute, Path sourceDirs) {
+        if (sourceDirs.size() > 0) {
+            toExecute.createArgument().setValue("-sourcepath");
+            toExecute.createArgument().setPath(sourceDirs);
+        }
+    }
+
+    private void generalJavadocArguments(Commandline toExecute) {
+        if (doctitle != null) {
+            toExecute.createArgument().setValue("-doctitle");
+            toExecute.createArgument().setValue(expand(doctitle.getText()));
+        }
+        if (header != null) {
+            toExecute.createArgument().setValue("-header");
+            toExecute.createArgument().setValue(expand(header.getText()));
+        }
+        if (footer != null) {
+            toExecute.createArgument().setValue("-footer");
+            toExecute.createArgument().setValue(expand(footer.getText()));
+        }
+        if (bottom != null) {
+            toExecute.createArgument().setValue("-bottom");
+            toExecute.createArgument().setValue(expand(bottom.getText()));
+        }
+
+        if (classpath == null) {
+            classpath = (new Path(getProject())).concatSystemClasspath("last");
+        } else {
+            classpath = classpath.concatSystemClasspath("ignore");
+        }
+
+        if (classpath.size() > 0) {
+            toExecute.createArgument().setValue("-classpath");
+            toExecute.createArgument().setPath(classpath);
+        }
+
+        if (version && doclet == null) {
+            toExecute.createArgument().setValue("-version");
+        }
+        if (author && doclet == null) {
+            toExecute.createArgument().setValue("-author");
+        }
+
+        if (doclet == null && destDir == null) {
+            throw new BuildException("destdir attribute must be set!");
+        }
+    }
+
+    private void doDoclet(Commandline toExecute) {
+        if (doclet != null) {
+            if (doclet.getName() == null) {
+                throw new BuildException("The doclet name must be "
+                                         + "specified.", getLocation());
+            } else {
+                toExecute.createArgument().setValue("-doclet");
+                toExecute.createArgument().setValue(doclet.getName());
+                if (doclet.getPath() != null) {
+                    Path docletPath
+                        = doclet.getPath().concatSystemClasspath("ignore");
+                    if (docletPath.size() != 0) {
+                        toExecute.createArgument().setValue("-docletpath");
+                        toExecute.createArgument().setPath(docletPath);
+                    }
+                }
+                for (Enumeration e = doclet.getParams();
+                     e.hasMoreElements();) {
+                    DocletParam param = (DocletParam) e.nextElement();
+                    if (param.getName() == null) {
+                        throw new BuildException("Doclet parameters must "
+                                                 + "have a name");
+                    }
+
+                    toExecute.createArgument().setValue(param.getName());
+                    if (param.getValue() != null) {
+                        toExecute.createArgument()
+                            .setValue(param.getValue());
+                    }
+                }
+            }
+        }
+    }
+
     private void writeExternalArgs(Commandline toExecute) {
         // If using an external file, write the command line options to it
         File optionsTmpFile = null;
         PrintWriter optionsListWriter = null;
         try {
             optionsTmpFile = FILE_UTILS.createTempFile(
-                "javadocOptions", "", null);
-            optionsTmpFile.deleteOnExit();
+                "javadocOptions", "", null, true, true);
             String[] listOpt = toExecute.getArguments();
             toExecute.clearArgs();
             toExecute.createArgument().setValue(
@@ -2132,7 +1927,290 @@ public class Javadoc extends Task {
                 "Error creating or writing temporary file for javadoc options",
                 ex, getLocation());
         } finally {
-            FILE_UTILS.close(optionsListWriter);
+            FileUtils.close(optionsListWriter);
+        }
+    }
+
+    private void doBootPath(Commandline toExecute) {
+        Path bcp = new Path(getProject());
+        if (bootclasspath != null) {
+            bcp.append(bootclasspath);
+        }
+        bcp = bcp.concatSystemBootClasspath("ignore");
+        if (bcp.size() > 0) {
+            toExecute.createArgument().setValue("-bootclasspath");
+            toExecute.createArgument().setPath(bcp);
+        }
+    }
+
+    private void doLinks(Commandline toExecute) {
+        if (links.size() != 0) {
+            for (Enumeration e = links.elements(); e.hasMoreElements();) {
+                LinkArgument la = (LinkArgument) e.nextElement();
+
+                if (la.getHref() == null || la.getHref().length() == 0) {
+                    log("No href was given for the link - skipping",
+                        Project.MSG_VERBOSE);
+                    continue;
+                }
+                String link = null;
+                if (la.shouldResolveLink()) {
+                    File hrefAsFile =
+                        getProject().resolveFile(la.getHref());
+                    if (hrefAsFile.exists()) {
+                        try {
+                            link = FILE_UTILS.getFileURL(hrefAsFile)
+                                .toExternalForm();
+                        } catch (MalformedURLException ex) {
+                            // should be impossible
+                            log("Warning: link location was invalid "
+                                + hrefAsFile, Project.MSG_WARN);
+                        }
+                    }
+                }
+                if (link == null) {
+                    // is the href a valid URL
+                    try {
+                        URL base = new URL("file://.");
+                        new URL(base, la.getHref());
+                        link = la.getHref();
+                    } catch (MalformedURLException mue) {
+                        // ok - just skip
+                        log("Link href \"" + la.getHref()
+                            + "\" is not a valid url - skipping link",
+                            Project.MSG_WARN);
+                        continue;
+                    }
+                }
+
+                if (la.isLinkOffline()) {
+                    File packageListLocation = la.getPackagelistLoc();
+                    URL packageListURL = la.getPackagelistURL();
+                    if (packageListLocation == null
+                        && packageListURL == null) {
+                        throw new BuildException("The package list"
+                                                 + " location for link "
+                                                 + la.getHref()
+                                                 + " must be provided "
+                                                 + "because the link is "
+                                                 + "offline");
+                    }
+                    if (packageListLocation != null) {
+                        File packageListFile =
+                            new File(packageListLocation, "package-list");
+                        if (packageListFile.exists()) {
+                            try {
+                                packageListURL =
+                                    FILE_UTILS.getFileURL(packageListLocation);
+                            } catch (MalformedURLException ex) {
+                                log("Warning: Package list location was "
+                                    + "invalid " + packageListLocation,
+                                    Project.MSG_WARN);
+                            }
+                        } else {
+                            log("Warning: No package list was found at "
+                                + packageListLocation, Project.MSG_VERBOSE);
+                        }
+                    }
+                    if (packageListURL != null) {
+                        toExecute.createArgument().setValue("-linkoffline");
+                        toExecute.createArgument().setValue(link);
+                        toExecute.createArgument()
+                            .setValue(packageListURL.toExternalForm());
+                    }
+                } else {
+                    toExecute.createArgument().setValue("-link");
+                    toExecute.createArgument().setValue(link);
+                }
+            }
+        }
+    }
+
+    private void doGroup(Commandline toExecute) {
+        // add the single group arguments
+        // Javadoc 1.2 rules:
+        //   Multiple -group args allowed.
+        //   Each arg includes 3 strings: -group [name] [packagelist].
+        //   Elements in [packagelist] are colon-delimited.
+        //   An element in [packagelist] may end with the * wildcard.
+
+        // Ant javadoc task rules for group attribute:
+        //   Args are comma-delimited.
+        //   Each arg is 2 space-delimited strings.
+        //   E.g., group="XSLT_Packages org.apache.xalan.xslt*,
+        //                XPath_Packages org.apache.xalan.xpath*"
+        if (group != null) {
+            StringTokenizer tok = new StringTokenizer(group, ",", false);
+            while (tok.hasMoreTokens()) {
+                String grp = tok.nextToken().trim();
+                int space = grp.indexOf(" ");
+                if (space > 0) {
+                    String name = grp.substring(0, space);
+                    String pkgList = grp.substring(space + 1);
+                    toExecute.createArgument().setValue("-group");
+                    toExecute.createArgument().setValue(name);
+                    toExecute.createArgument().setValue(pkgList);
+                }
+            }
+        }
+    }
+
+    // add the group arguments
+    private void doGroups(Commandline toExecute) {
+        if (groups.size() != 0) {
+            for (Enumeration e = groups.elements(); e.hasMoreElements();) {
+                GroupArgument ga = (GroupArgument) e.nextElement();
+                String title = ga.getTitle();
+                String packages = ga.getPackages();
+                if (title == null || packages == null) {
+                    throw new BuildException("The title and packages must "
+                                             + "be specified for group "
+                                             + "elements.");
+                }
+                toExecute.createArgument().setValue("-group");
+                toExecute.createArgument().setValue(expand(title));
+                toExecute.createArgument().setValue(packages);
+            }
+        }
+    }
+
+    // Do java1.4 arguments
+    private void doJava14(Commandline toExecute) {
+        for (Enumeration e = tags.elements(); e.hasMoreElements();) {
+            Object element = e.nextElement();
+            if (element instanceof TagArgument) {
+                TagArgument ta = (TagArgument) element;
+                File tagDir = ta.getDir(getProject());
+                if (tagDir == null) {
+                    // The tag element is not used as a fileset,
+                    // but specifies the tag directly.
+                    toExecute.createArgument().setValue ("-tag");
+                    toExecute.createArgument()
+                        .setValue (ta.getParameter());
+                } else {
+                    // The tag element is used as a
+                    // fileset. Parse all the files and create
+                    // -tag arguments.
+                    DirectoryScanner tagDefScanner =
+                        ta.getDirectoryScanner(getProject());
+                    String[] files = tagDefScanner.getIncludedFiles();
+                    for (int i = 0; i < files.length; i++) {
+                        File tagDefFile = new File(tagDir, files[i]);
+                        try {
+                            BufferedReader in
+                                = new BufferedReader(
+                                    new FileReader(tagDefFile)
+                                                     );
+                            String line = null;
+                            while ((line = in.readLine()) != null) {
+                                toExecute.createArgument()
+                                    .setValue("-tag");
+                                toExecute.createArgument()
+                                    .setValue(line);
+                            }
+                            in.close();
+                        } catch (IOException ioe) {
+                            throw new BuildException(
+                                "Couldn't read "
+                                + " tag file from "
+                                + tagDefFile.getAbsolutePath(), ioe);
+                        }
+                    }
+                }
+            } else {
+                ExtensionInfo tagletInfo = (ExtensionInfo) element;
+                toExecute.createArgument().setValue("-taglet");
+                toExecute.createArgument().setValue(tagletInfo
+                                                    .getName());
+                if (tagletInfo.getPath() != null) {
+                    Path tagletPath = tagletInfo.getPath()
+                        .concatSystemClasspath("ignore");
+                    if (tagletPath.size() != 0) {
+                        toExecute.createArgument()
+                            .setValue("-tagletpath");
+                        toExecute.createArgument().setPath(tagletPath);
+                    }
+                }
+            }
+        }
+
+        String sourceArg = source != null ? source
+            : getProject().getProperty(MagicNames.BUILD_JAVAC_SOURCE);
+        if (sourceArg != null) {
+            toExecute.createArgument().setValue("-source");
+            toExecute.createArgument().setValue(sourceArg);
+        }
+
+        if (linksource && doclet == null) {
+            toExecute.createArgument().setValue("-linksource");
+        }
+        if (noqualifier != null && doclet == null) {
+            toExecute.createArgument().setValue("-noqualifier");
+            toExecute.createArgument().setValue(noqualifier);
+        }
+    }
+
+    private void doNotJava14() {
+        // Not 1.4+.
+        if (!tags.isEmpty()) {
+            log("-tag and -taglet options not supported on Javadoc < 1.4",
+                Project.MSG_VERBOSE);
+        }
+        if (source != null) {
+            log("-source option not supported on Javadoc < 1.4",
+                Project.MSG_VERBOSE);
+        }
+        if (linksource) {
+            log("-linksource option not supported on Javadoc < 1.4",
+                Project.MSG_VERBOSE);
+        }
+        if (breakiterator) {
+            log("-breakiterator option not supported on Javadoc < 1.4",
+                Project.MSG_VERBOSE);
+        }
+        if (noqualifier != null) {
+            log("-noqualifier option not supported on Javadoc < 1.4",
+                Project.MSG_VERBOSE);
+        }
+    }
+
+    private void doSourceAndPackageNames(
+        Commandline toExecute,
+        Vector packagesToDoc,
+        Vector sourceFilesToDoc,
+        boolean useExternalFile,
+        File    tmpList,
+        PrintWriter srcListWriter)
+        throws IOException {
+        Enumeration e = packagesToDoc.elements();
+        while (e.hasMoreElements()) {
+            String packageName = (String) e.nextElement();
+            if (useExternalFile) {
+                srcListWriter.println(packageName);
+            } else {
+                toExecute.createArgument().setValue(packageName);
+            }
+        }
+
+        e = sourceFilesToDoc.elements();
+        while (e.hasMoreElements()) {
+            SourceFile sf = (SourceFile) e.nextElement();
+            String sourceFileName = sf.getFile().getAbsolutePath();
+            if (useExternalFile) {
+                // XXX what is the following doing?
+                //     should it run if !javadoc4 && executable != null?
+                if (JAVADOC_4 && sourceFileName.indexOf(" ") > -1) {
+                    String name = sourceFileName;
+                    if (File.separatorChar == '\\') {
+                        name = sourceFileName.replace(File.separatorChar, '/');
+                    }
+                    srcListWriter.println("\"" + name + "\"");
+                } else {
+                    srcListWriter.println(sourceFileName);
+                }
+            } else {
+                toExecute.createArgument().setValue(sourceFileName);
+            }
         }
     }
 
@@ -2199,16 +2277,17 @@ public class Javadoc extends Task {
             if (rc instanceof FileSet) {
                 FileSet fs = (FileSet) rc;
                 if (!fs.hasPatterns() && !fs.hasSelectors()) {
-                    fs = (FileSet) fs.clone();
-                    fs.createInclude().setName("**/*.java");
+                    FileSet fs2 = (FileSet) fs.clone();
+                    fs2.createInclude().setName("**/*.java");
                     if (includeNoSourcePackages) {
-                        fs.createInclude().setName("**/package.html");
+                        fs2.createInclude().setName("**/package.html");
                     }
+                    rc = fs2;
                 }
             }
             Iterator iter = rc.iterator();
             while (iter.hasNext()) {
-                sf.addElement(new SourceFile(((FileResource) iter.next())
+                sf.addElement(new SourceFile(((FileProvider) iter.next())
                                              .getFile()));
             }
         }

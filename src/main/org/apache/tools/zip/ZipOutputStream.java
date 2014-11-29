@@ -54,6 +54,19 @@ import java.util.zip.ZipException;
  */
 public class ZipOutputStream extends FilterOutputStream {
 
+    private static final int BYTE_MASK = 0xFF;
+    private static final int SHORT = 2;
+    private static final int WORD = 4;
+    private static final int BUFFER_SIZE = 512;
+    /* 
+     * Apparently Deflater.setInput gets slowed down a lot on Sun JVMs
+     * when it gets handed a really big buffer.  See
+     * https://issues.apache.org/bugzilla/show_bug.cgi?id=45396
+     *
+     * Using a buffer size of 8 kB proved to be a good compromise
+     */
+    private static final int DEFLATER_BLOCK_SIZE = 8192;
+
     /**
      * Compression method for deflated entries.
      *
@@ -217,7 +230,7 @@ public class ZipOutputStream extends FilterOutputStream {
      *
      * @since 1.14
      */
-    protected byte[] buf = new byte[512];
+    protected byte[] buf = new byte[BUFFER_SIZE];
 
     // CheckStyle:VisibilityModifier ON
 
@@ -477,9 +490,21 @@ public class ZipOutputStream extends FilterOutputStream {
         if (entry.getMethod() == DEFLATED) {
             if (length > 0) {
                 if (!def.finished()) {
-                    def.setInput(b, offset, length);
-                    while (!def.needsInput()) {
-                        deflate();
+                    if (length <= DEFLATER_BLOCK_SIZE) {
+                        def.setInput(b, offset, length);
+                        deflateUntilInputIsNeeded();
+                    } else {
+                        final int fullblocks = length / DEFLATER_BLOCK_SIZE;
+                        for (int i = 0; i < fullblocks; i++) {
+                            def.setInput(b, offset + i * DEFLATER_BLOCK_SIZE,
+                                         DEFLATER_BLOCK_SIZE);
+                            deflateUntilInputIsNeeded();
+                        }
+                        final int done = fullblocks * DEFLATER_BLOCK_SIZE;
+                        if (done < length) {
+                            def.setInput(b, offset + done, length - done);
+                            deflateUntilInputIsNeeded();
+                        }
                     }
                 }
             }
@@ -500,7 +525,7 @@ public class ZipOutputStream extends FilterOutputStream {
      */
     public void write(int b) throws IOException {
         byte[] buff = new byte[1];
-        buff[0] = (byte) (b & 0xff);
+        buff[0] = (byte) (b & BYTE_MASK);
         write(buff, 0, 1);
     }
 
@@ -587,13 +612,14 @@ public class ZipOutputStream extends FilterOutputStream {
         offsets.put(ze, ZipLong.getBytes(written));
 
         writeOut(LFH_SIG);
-        written += 4;
+        written += WORD;
 
         //store method in local variable to prevent multiple method calls
         final int zipMethod = ze.getMethod();
 
         // version needed to extract
         // general purpose bit flag
+        // CheckStyle:MagicNumber OFF
         if (zipMethod == DEFLATED && raf == null) {
             // requires version 2 as we are going to store length info
             // in the data descriptor
@@ -605,15 +631,16 @@ public class ZipOutputStream extends FilterOutputStream {
             writeOut(ZipShort.getBytes(10));
             writeOut(ZERO);
         }
-        written += 4;
+        // CheckStyle:MagicNumber ON
+        written += WORD;
 
         // compression method
         writeOut(ZipShort.getBytes(zipMethod));
-        written += 2;
+        written += SHORT;
 
         // last mod. time and date
         writeOut(toDosTime(ze.getTime()));
-        written += 4;
+        written += WORD;
 
         // CRC
         // compressed length
@@ -628,17 +655,19 @@ public class ZipOutputStream extends FilterOutputStream {
             writeOut(ZipLong.getBytes(ze.getSize()));
             writeOut(ZipLong.getBytes(ze.getSize()));
         }
+        // CheckStyle:MagicNumber OFF
         written += 12;
+        // CheckStyle:MagicNumber ON
 
         // file name length
         byte[] name = getBytes(ze.getName());
         writeOut(ZipShort.getBytes(name.length));
-        written += 2;
+        written += SHORT;
 
         // extra field length
         byte[] extra = ze.getLocalFileDataExtra();
         writeOut(ZipShort.getBytes(extra.length));
-        written += 2;
+        written += SHORT;
 
         // file name
         writeOut(name);
@@ -666,7 +695,9 @@ public class ZipOutputStream extends FilterOutputStream {
         writeOut(ZipLong.getBytes(entry.getCrc()));
         writeOut(ZipLong.getBytes(entry.getCompressedSize()));
         writeOut(ZipLong.getBytes(entry.getSize()));
+        // CheckStyle:MagicNumber OFF
         written += 16;
+        // CheckStyle:MagicNumber ON
     }
 
     /**
@@ -678,11 +709,12 @@ public class ZipOutputStream extends FilterOutputStream {
      */
     protected void writeCentralFileHeader(ZipEntry ze) throws IOException {
         writeOut(CFH_SIG);
-        written += 4;
+        written += WORD;
 
         // version made by
+        // CheckStyle:MagicNumber OFF
         writeOut(ZipShort.getBytes((ze.getPlatform() << 8) | 20));
-        written += 2;
+        written += SHORT;
 
         // version needed to extract
         // general purpose bit flag
@@ -697,15 +729,16 @@ public class ZipOutputStream extends FilterOutputStream {
             writeOut(ZipShort.getBytes(10));
             writeOut(ZERO);
         }
-        written += 4;
+        // CheckStyle:MagicNumber ON
+        written += WORD;
 
         // compression method
         writeOut(ZipShort.getBytes(ze.getMethod()));
-        written += 2;
+        written += SHORT;
 
         // last mod. time and date
         writeOut(toDosTime(ze.getTime()));
-        written += 4;
+        written += WORD;
 
         // CRC
         // compressed length
@@ -713,17 +746,19 @@ public class ZipOutputStream extends FilterOutputStream {
         writeOut(ZipLong.getBytes(ze.getCrc()));
         writeOut(ZipLong.getBytes(ze.getCompressedSize()));
         writeOut(ZipLong.getBytes(ze.getSize()));
+        // CheckStyle:MagicNumber OFF
         written += 12;
+        // CheckStyle:MagicNumber ON
 
         // file name length
         byte[] name = getBytes(ze.getName());
         writeOut(ZipShort.getBytes(name.length));
-        written += 2;
+        written += SHORT;
 
         // extra field length
         byte[] extra = ze.getCentralDirectoryExtra();
         writeOut(ZipShort.getBytes(extra.length));
-        written += 2;
+        written += SHORT;
 
         // file comment length
         String comm = ze.getComment();
@@ -732,23 +767,23 @@ public class ZipOutputStream extends FilterOutputStream {
         }
         byte[] commentB = getBytes(comm);
         writeOut(ZipShort.getBytes(commentB.length));
-        written += 2;
+        written += SHORT;
 
         // disk number start
         writeOut(ZERO);
-        written += 2;
+        written += SHORT;
 
         // internal file attributes
         writeOut(ZipShort.getBytes(ze.getInternalAttributes()));
-        written += 2;
+        written += SHORT;
 
         // external file attributes
         writeOut(ZipLong.getBytes(ze.getExternalAttributes()));
-        written += 4;
+        written += WORD;
 
         // relative offset of LFH
         writeOut((byte[]) offsets.get(ze));
-        written += 4;
+        written += WORD;
 
         // file name
         writeOut(name);
@@ -818,6 +853,8 @@ public class ZipOutputStream extends FilterOutputStream {
      */
     protected static byte[] toDosTime(long t) {
         Date time = new Date(t);
+        // CheckStyle:MagicNumberCheck OFF - I do not think that using constants
+        //                                   here will improve the readablity
         int year = time.getYear() + 1900;
         if (year < 1980) {
             return DOS_TIME_MIN;
@@ -830,6 +867,7 @@ public class ZipOutputStream extends FilterOutputStream {
             |         (time.getMinutes() << 5)
             |         (time.getSeconds() >> 1);
         return ZipLong.getBytes(value);
+        // CheckStyle:MagicNumberCheck ON
     }
 
     /**
@@ -894,6 +932,12 @@ public class ZipOutputStream extends FilterOutputStream {
             return 2 * ((long) Integer.MAX_VALUE) + 2 + i;
         } else {
             return i;
+        }
+    }
+
+    private void deflateUntilInputIsNeeded() throws IOException {
+        while (!def.needsInput()) {
+            deflate();
         }
     }
 

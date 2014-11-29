@@ -29,12 +29,14 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.types.ResourceFactory;
 
 /**
  * A Resource representation of a File.
  * @since Ant 1.7
  */
-public class FileResource extends Resource implements Touchable {
+public class FileResource extends Resource implements Touchable, FileProvider,
+        ResourceFactory {
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
     private static final int NULL_FILE
@@ -68,14 +70,24 @@ public class FileResource extends Resource implements Touchable {
     }
 
     /**
+     * Create a new FileResource.
+     * @param p Project
+     * @param f File represented
+     * @since Ant 1.8
+     */
+    public FileResource(Project p, File f) {
+        setProject(p);
+        setFile(f);
+    }
+
+    /**
      * Constructor for Ant attribute introspection.
      * @param p the Project against which to resolve <code>s</code>.
      * @param s the absolute or Project-relative filename as a String.
      * @see org.apache.tools.ant.IntrospectionHelper
      */
     public FileResource(Project p, String s) {
-        this(p.resolveFile(s));
-        setProject(p);
+        this(p, p.resolveFile(s));
     }
 
     /**
@@ -226,13 +238,12 @@ public class FileResource extends Resource implements Touchable {
         if (this.equals(another)) {
             return 0;
         }
-        if (another.getClass().equals(getClass())) {
-            FileResource otherfr = (FileResource) another;
+        if (another instanceof FileProvider) {
             File f = getFile();
             if (f == null) {
                 return -1;
             }
-            File of = otherfr.getFile();
+            File of = ((FileProvider) another).getFile();
             if (of == null) {
                 return 1;
             }
@@ -321,4 +332,18 @@ public class FileResource extends Resource implements Touchable {
         return getFile();
     }
 
+    /**
+     * Create a new resource that matches a relative or absolute path.
+     * If the current instance has a baseDir attribute, it is copied.
+     * @param path relative/absolute path to a resource
+     * @return a new resource of type FileResource
+     * @throws BuildException if desired
+     * @since Ant1.8
+     */
+    public Resource getResource(String path) {
+        File newfile = FILE_UTILS.resolveFile(getFile(), path);
+        FileResource fileResource = new FileResource(newfile);
+        fileResource.setBaseDir(getBaseDir());
+        return fileResource;
+    }
 }

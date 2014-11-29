@@ -23,6 +23,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.ProjectHelper;
+import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.taskdefs.DefBase;
 
 import java.util.Map;
@@ -36,7 +37,8 @@ import java.util.HashSet;
 import java.io.File;
 
 import org.apache.tools.ant.util.ClasspathUtils;
-import org.apache.tools.ant.util.optional.ScriptRunner;
+import org.apache.tools.ant.util.ScriptRunnerBase;
+import org.apache.tools.ant.util.ScriptRunnerHelper;
 
 /**
  * Define a task using a script
@@ -44,8 +46,15 @@ import org.apache.tools.ant.util.optional.ScriptRunner;
  * @since Ant 1.6
  */
 public class ScriptDef extends DefBase {
+    /**
+     * script runner helper
+     */
+    private ScriptRunnerHelper helper = new ScriptRunnerHelper();
+    /**
+     * script runner.
+     */
     /** Used to run the script */
-    private ScriptRunner runner = new ScriptRunner();
+    private ScriptRunnerBase   runner = null;
 
     /** the name by which this script will be activated */
     private String name;
@@ -61,6 +70,16 @@ public class ScriptDef extends DefBase {
 
     /** The nested element definitions indexed by their names */
     private Map nestedElementMap;
+
+    /**
+     * Set the project.
+     * @param project the project that this def belows to.
+     */
+    public void setProject(Project project) {
+        super.setProject(project);
+        helper.setProjectComponent(this);
+        helper.setSetBeans(false);
+    }
 
     /**
      * set the name under which this script will be activated in a build
@@ -113,7 +132,7 @@ public class ScriptDef extends DefBase {
      * Class to represent a nested element definition
      */
     public static class NestedElement {
-        /** The name of the neseted element */
+        /** The name of the nested element */
         private String name;
 
         /** The Ant type to which this nested element corresponds. */
@@ -174,10 +193,18 @@ public class ScriptDef extends DefBase {
                 + "name the script");
         }
 
-        if (runner.getLanguage() == null) {
+        if (helper.getLanguage() == null) {
             throw new BuildException("<scriptdef> requires a language attribute "
                 + "to specify the script language");
         }
+
+        // Check if need to set the loader
+        if (getAntlibClassLoader() != null || hasCpDelegate()) {
+            helper.setClassLoader(createLoader());
+        }
+
+        // Now create the scriptRunner
+        runner = helper.getScriptRunner();
 
         attributeSet = new HashSet();
         for (Iterator i = attributes.iterator(); i.hasNext();) {
@@ -224,18 +251,7 @@ public class ScriptDef extends DefBase {
         }
 
         // find the script repository - it is stored in the project
-        Map scriptRepository = null;
-        Project p = getProject();
-        synchronized (p) {
-            scriptRepository =
-                (Map) p.getReference(MagicNames.SCRIPT_REPOSITORY);
-            if (scriptRepository == null) {
-                scriptRepository = new HashMap();
-                p.addReference(MagicNames.SCRIPT_REPOSITORY,
-                    scriptRepository);
-            }
-        }
-
+        Map scriptRepository = lookupScriptRepository();
         name = ProjectHelper.genComponentName(getURI(), name);
         scriptRepository.put(name, this);
         AntTypeDefinition def = new AntTypeDefinition();
@@ -243,6 +259,26 @@ public class ScriptDef extends DefBase {
         def.setClass(ScriptDefBase.class);
         ComponentHelper.getComponentHelper(
             getProject()).addDataTypeDefinition(def);
+    }
+
+    /**
+     * Find or create the script repository - it is stored in the project.
+     * This method is synchronized on the project under {@link MagicNames#SCRIPT_REPOSITORY}
+     * @return the current script repository registered as a reference.
+     */
+    private Map lookupScriptRepository() {
+        Map scriptRepository = null;
+        Project p = getProject();
+        synchronized (p) {
+            scriptRepository =
+                    (Map) p.getReference(MagicNames.SCRIPT_REPOSITORY);
+            if (scriptRepository == null) {
+                scriptRepository = new HashMap();
+                p.addReference(MagicNames.SCRIPT_REPOSITORY,
+                        scriptRepository);
+            }
+        }
+        return scriptRepository;
     }
 
     /**
@@ -321,6 +357,14 @@ public class ScriptDef extends DefBase {
         runner.executeScript("scriptdef_" + name);
     }
 
+    /**
+     * Defines the manager.
+     *
+     * @param manager the scripting manager.
+     */
+    public void setManager(String manager) {
+        helper.setManager(manager);
+    }
 
     /**
      * Defines the language (required).
@@ -328,7 +372,7 @@ public class ScriptDef extends DefBase {
      * @param language the scripting language name for the script.
      */
     public void setLanguage(String language) {
-        runner.setLanguage(language);
+        helper.setLanguage(language);
     }
 
     /**
@@ -337,7 +381,7 @@ public class ScriptDef extends DefBase {
      * @param file the file containing the script source.
      */
     public void setSrc(File file) {
-        runner.setSrc(file);
+        helper.setSrc(file);
     }
 
     /**
@@ -346,7 +390,16 @@ public class ScriptDef extends DefBase {
      * @param text a component of the script text to be added.
      */
     public void addText(String text) {
-        runner.addText(text);
+        helper.addText(text);
+    }
+
+    /**
+     * Add any source resource.
+     * @since Ant1.7.1
+     * @param resource source of script
+     */
+    public void add(ResourceCollection resource) {
+        helper.add(resource);
     }
 }
 

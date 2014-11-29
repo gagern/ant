@@ -110,6 +110,8 @@ current JDK is 1.2+.  If you use
 switch <code>-depend</code> instead of <code>-Xdepend</code>.</p>
 <p>This task will drop all entries that point to non-existent
 files/directories from the classpath it passes to the compiler.</p>
+<p>The working directory for a forked executable (if any) is the
+  project's base directory.</p>
 <p><strong>Windows Note:</strong>When the modern compiler is used
 in unforked mode on Windows, it locks up the files present in the
 classpath of the <code>&lt;javac&gt;</code> task, and does not release them.
@@ -173,7 +175,11 @@ invoking the compiler.</p>
   </tr>
   <tr>
     <td valign="top">bootclasspath</td>
-    <td valign="top">Location of bootstrap class files.</td>
+    <td valign="top">
+      Location of bootstrap class files. (See <a href="#bootstrap">below</a>
+      for using the -X and -J-X parameters for specifing
+      the bootstrap classpath).
+    </td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -291,7 +297,11 @@ invoking the compiler.</p>
     <td valign="top">includeJavaRuntime</td>
     <td valign="top">Whether to include the default run-time
       libraries from the executing VM in the classpath;
-      defaults to <code>no</code>.</td>
+      defaults to <code>no</code>.<br/>
+      <b>Note:</b> In some setups the run-time libraries may be part
+      of the "Ant run-time libraries" so you may need to explicitly
+      set includeAntRuntime to false to ensure that the Java
+      run-time libraries are not included.</td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -332,6 +342,14 @@ invoking the compiler.</p>
     <td valign="top">failonerror</td>
     <td valign="top">Indicates whether compilation errors
         will fail the build; defaults to <code>true</code>.</td>
+    <td align="center" valign="top">No</td>
+  </tr>
+  <tr>
+    <td valign="top">errorProperty</td>
+    <td valign="top">
+      The property to set (to the value "true") if compilation fails.
+      <em>Since Ant 1.7.1</em>.
+    </td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -380,6 +398,39 @@ invoking the compiler.</p>
     <td align="center" valign="top">
       No; default is <i>java.io.tmpdir</i>.
     </td>
+  </tr>
+  <tr>
+    <td valign="top">updatedProperty</td>
+    <td valign="top">
+      The property to set (to the value "true") 
+      if compilation has taken place
+      and has been successful.
+      <em>Since Ant 1.7.1</em>.
+    </td>
+    <td align="center" valign="top">No</td>
+  </tr>
+  <tr>
+    <td valign="top">includeDestClasses</td>
+    <td valign="top">
+      This attribute controls whether to include the
+      destination classes directory in the classpath
+      given to the compiler.
+      The default value of this is "true" and this
+      means that previously compiled classes are on
+      the classpath for the compiler. This means that "greedy" compilers
+      will not recompile dependant classes that are already compiled.
+      In general this is a good thing as it stops the compiler
+      for doing unnecessary work. However, for some edge cases,
+      involving generics, the javac compiler
+      needs to compile the dependant classes to get the generics
+      information. One example is documented in the bug report:
+      <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=40776">
+        Bug 40776 - a problem compiling a Java 5 project with generics</a>.
+      Setting the attribute to "false" will cause the compiler
+      to recompile dependent classes.
+      <em>Since Ant 1.7.1</em>.
+    </td>
+    <td align="center" valign="top">No - default is "true"</td>
   </tr>
 </table>
 
@@ -564,17 +615,29 @@ the non-example files refers to them.
 If you wish to compile with a special JDK (another than the one Ant is currently using),
 set the <code>executable</code> and <code>fork</code> attribute. Using <code>taskname</code>
 could show in the log, that these settings are fix.
-<pre>  &lt;javac srcdir=&quot.&quot 
-         destdir=&quot.&quot 
-         executable=&quotpath-to-java14-home/bin/javac&quot 
-         fork=&quottrue&quot
-         taskname=&quotjavac1.4&quot /&gt;</pre>
+<pre>  &lt;javac srcdir=&quot;&quot; 
+         destdir=&quot;&quot;
+         executable=&quot;path-to-java14-home/bin/javac&quot; 
+         fork=&quot;true&quot;
+         taskname=&quot;javac1.4&quot; /&gt;</pre>
 </p>
 
 
 <p><b>Note:</b> If you are using Ant on Windows and a new DOS window pops up
 for every use of an external compiler, this may be a problem of the JDK you are
 using.  This problem may occur with all JDKs &lt; 1.2.</p>
+
+
+<p>
+If you want to activate other compiler options like <i>lint</i> you could use
+the <tt>&lt;compilerarg&gt;</tt> element:
+<pre>  &lt;javac srcdir="${src.dir}"
+         destdir="${classes.dir}"
+         classpathref="libraries"&gt;
+    &lt;compilerarg value="-Xlint"/&gt;
+  &lt;/javac&gt; </pre>
+</p>  
+
 
 <h3>Jikes Notes</h3>
 
@@ -654,7 +717,86 @@ while all others are <code>false</code>.</p>
 <code>build.compiler.jvc.extensions</code> to false before invoking
 <code>&lt;javac&gt;</code>.</p>
 
+<h3><a name="bootstrap">Bootstrap Options</h3>
+<p>
+  The Sun javac compiler has a <em>bootclasspath</em> command
+  line option - this corresponds to the "bootclasspath" attribute/element
+  of the &lt;javac&gt; task. The Sun compiler also allows more
+  control over the boot classpath using the -X and -J-X attributes.
+  One can set these by using the &lt;compilerarg&gt;. Since Ant 1.6.0,
+  there is a shortcut to convert path references to strings that
+  can by used in an OS independent fashion (see
+  <a href="../using.html#pathshortcut">pathshortcut</a>). For example:
+</p>
+<pre>
+  &lt;path id="lib.path.ref"&gt;
+    &lt;fileset dir="lib" includes="*.jar"/&gt;
+  &lt;/path&gt;
+  &lt;javac srcdir="src" destdir="classes"&gt;
+    &lt;compilerarg arg="-Xbootstrap/p:${toString:lib.path.ref}"/&gt;
+  &lt;/javac&gt;
+</pre>
 
+  
+</p>
+
+<h3>OpenJDK Notes</h3>
+<p>
+  The <a href="https://openjdk.dev.java.net/">openjdk</a>
+  project has provided the javac
+  <a href="https://openjdk.dev.java.net/compiler/">compiler</a>
+  as an opensource project. The output of this project is a
+  <code>javac.jar</code> which contains the javac compiler.
+  This compiler may be used with the <code>&lt;javac&gt;</code> task with
+  the use of a "-Xbootstrapclass/p" java argument. The argument needs
+  to be given to the runtime system of the javac executable, so it needs
+  to be prepended with a "-J". For example:
+
+<blockquote><pre>
+  &lt;property name="patched.javac.jar"
+            location="${my.patched.compiler}/dist/lib/javac.jar"/&gt;
+
+  &lt;presetdef name="patched.javac"&gt;
+    &lt;javac fork="yes"&gt;
+      &lt;compilerarg value="-J-Xbootclasspath/p:${patched.javac.jar}"/&gt;
+    &lt;/javac&gt;
+  &lt;/presetdef&gt;
+
+
+  &lt;patched.javac srcdir="src/java" destdir="build/classes"
+                 debug="yes"/&gt;
+</pre></blockquote>
+
+  <h3>Note on package-info.java</h3>
+  <p>
+    <code>package-info.java</code> files were introduced in Java5 to
+    allow package level annotations. On compilation, if the java file
+    does not contain runtime annotations, there will be no .class file
+    for the java file. Up to <b>Ant 1.7.1</b>, when the &lt;javac&gt;
+    task is run again, the
+    task will try to compile the package-info java files again.
+  </p>
+  <p>
+    In <b>Ant 1.7.1</b> the package-info.java will only be compiled if:
+    <ol>
+      <li>
+        If a <code>package-info.class</code> file exists and is older than
+        the <code>package-info.java</code> file.
+      </li>
+      <li>
+        If the directory for the 
+        <code>package-info.class</code> file does not exist.
+      </li>
+      <li>
+        If the directory for the
+        <code>package-info.class</code> file exists, and has an older
+        modification time than the
+        the <code>package-info.java</code> file. In this case
+        &lt;javac&gt; will touch the corresponding .class directory
+        on successful compilation.
+      </li>
+    </ol>
+  </p>
 
 </body>
 </html>

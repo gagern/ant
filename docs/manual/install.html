@@ -25,9 +25,97 @@
 <body>
 <h1>Installing Ant</h1>
 <h2><a name="getting">Getting Ant</a></h2>
+
+<h3>Download Area Layout</h3>
+<table>
+<tr>
+  <th>Filename or Path</th>
+  <th>Description</th>
+</tr>
+<tr>
+  <td>KEYS</td>
+  <td>PGP-Keysfile. It contains the PGP-keys of Ant developers so you can 'trust' the distribution. </td>
+</tr>
+<tr>
+  <td>RELEASE-NOTES-{version}.html</td>
+  <td>
+    Release notes of the given version in HTML format. When upgrading your Ant installation you
+    should have a look at the <i>Changes that could break older environments</i> section.
+  </td>
+</tr>
+<tr>
+  <td>ant-current-bin.zip</td>
+  <td>
+    ZIP-Archive containing the compiled version of Ant in the last released version. This is the file
+    most users will want to download.
+  </td>
+</tr>
+<tr>
+  <td>ant-current-src.zip</td>
+  <td>
+    ZIP-Archive containing the sources of Ant. If you have this you could compile Ant itself.
+    If you do not have the <i>required</i> dependencies, the classes depeding on them are just not
+    build.
+  </td>
+</tr>
+<tr>
+  <td>ant-current-*.asc</td>
+  <td>
+    Security file for checking the correctness of the zip file. This one is the
+    <a href="http://en.wikipedia.org/wiki/Pretty_Good_Privacy" target="_blank">PGP</a> key.
+  </td>
+</tr>
+<tr>
+  <td>ant-current-*.md5</td>
+  <td>
+    Security file for checking the correctness of the zip file. This one is the
+    <a href="http://en.wikipedia.org/wiki/Md5" target="_blank">MD5</a> key.
+  </td>
+</tr>
+<tr>
+  <td>ant-current-*.sha1</td>
+  <td>
+    Security file for checking the correctness of the zip file. This one is the
+    <a href="http://en.wikipedia.org/wiki/SHA-1" target="_blank">SHA1</a> key.
+  </td>
+</tr>
+<tr>
+  <td>antlibs/</td>
+  <td>
+    This directory holds the Antlibs that are made of available by the Apache Ant project.
+    Antlibs are bundles of Ant tasks that are not delivered as part of the Ant core but are
+    available as optional downloads.
+  </td>
+</tr>
+<tr>
+  <td>binaries/</td>
+  <td>
+    The binaries directory holds specific Ant releases bundled in both ZIP and tar.gz compression
+    formats. The named releases are in contrast to the ant-current-bin.zip file in the parent 
+    directory, which is always guaranteed to be the most current release of Ant.
+  </td>
+</tr>
+<tr>
+  <td>common/</td>
+  <td>
+    The common directory holds various files, such as the Apache License file that Ant is licensed
+    under, that people may wish to examine without having to download the whole Ant distribution.
+  </td>
+</tr>
+<tr>
+  <td>source/</td>
+  <td>
+    The source directory holds the source code for specific Ant releases bundled in both ZIP and 
+    tar.gz compression formats. The named releases are in contrast to the ant-current-src.zip file
+    in the parent directory, which is always guaranteed to hold the source code for the most current 
+    release of Ant.
+  </td>
+</tr>
+</table>
+
 <h3>Binary Edition</h3>
 <p>The latest stable version of Ant is available from the Ant web page <a
-href="http://ant.apache.org/">http://ant.apache.org/</a>.
+href="http://ant.apache.org/" target="_top">http://ant.apache.org/</a>.
 
 <h3>As a binary in an RPM Package</h3>
 
@@ -38,7 +126,7 @@ href="http://ant.apache.org/">http://ant.apache.org/</a>.
     All the main Java IDEs ship with Ant, products such as Eclipse, NetBeans
     and IntelliJ IDEA. If you install Ant this way you usually get the most recent
     release of Ant at the time the IDE was released. Some of the IDEs (Eclipse
-    and NetBeans in particular) ship with extra tasks that only work if 
+    and NetBeans in particular) ship with extra tasks that only work if
     IDE-specific tools are on Ant's path. To use these on command-line versions
     of Ant, the relevant JARs need to be added to the command-line Ant as
     extra libraries/tasks. Note that if it is an IDE task or extension that is
@@ -47,40 +135,40 @@ href="http://ant.apache.org/">http://ant.apache.org/</a>.
 </p>
 <p>
     IDE's can invariably be pointed at different Ant installations. This lets
-    developers upgrade to a new release of Ant, and eliminate inconsistencies 
-    between command-line and IDE Ant. 
+    developers upgrade to a new release of Ant, and eliminate inconsistencies
+    between command-line and IDE Ant.
 </p>
 
 <h3>Bundled in Java applications</h3>
 
 <p>
-    Many Java applications, most particularly application servers, ship with 
+    Many Java applications, most particularly application servers, ship with
     a version of Ant. These are primarily for internal use by the application,
     using the Java APIs to delegate tasks such as JSP page compilation to the Ant
     runtime. Such distributions are usually unsupported by everyone. Particularly
     troublesome are those products that non only ship with their own Ant release,
-    they add their own version of ANT.BAT or ant.sh to the PATH. If Ant starts 
-    behaving wierdly after installing something, try the 
+    they add their own version of ANT.BAT or ant.sh to the PATH. If Ant starts
+    behaving wierdly after installing something, try the
     <a href="#diagnostics">diagnostics</a> advice.
 </p>
 
 <h3>Source Edition</h3>
 
-<p>If you prefer the source edition, you can download the source for the latest 
-Ant release from 
-<a href="http://ant.apache.org/srcdownload.cgi">http://ant.apache.org/srcdownload.cgi</a>.
+<p>If you prefer the source edition, you can download the source for the latest
+Ant release from
+<a href="http://ant.apache.org/srcdownload.cgi" target="_top">http://ant.apache.org/srcdownload.cgi</a>.
 
 If you prefer the leading-edge code, you can access
 the code as it is being developed via SVN. The Ant website has details on
-<a href="http://ant.apache.org/svn.html" target="_top">accessing SVN</a>. 
+<a href="http://ant.apache.org/svn.html" target="_top">accessing SVN</a>.
 All bug fixes will go in against the HEAD of the source tree, and the first
-response to many bugreps will be "have you tried the latest version". 
+response to many bugreps will be "have you tried the latest version".
 Don't be afraid to download and build a prererelease edition, as everything
 other than new features are usually stable.
     </p>
 <p>
-    
-    
+
+
 See the section <a href="#buildingant">Building Ant</a> on how to
 build Ant from the source code.
 You can also access the
@@ -100,7 +188,7 @@ To build and use Ant, you must have a JAXP-compliant XML parser installed and
 available on your classpath, such as Xerces.</p>
 <p>
 The binary distribution of Ant includes the latest version of the
-<a href="http://xml.apache.org/xerces2-j/index.html">Apache Xerces2</a> XML parser.
+<a href="http://xml.apache.org/xerces2-j/index.html" target="_top">Apache Xerces2</a> XML parser.
 Please see
 <a href="http://java.sun.com/xml/" target="_top">http://java.sun.com/xml/</a>
 for more information about JAXP.
@@ -109,7 +197,7 @@ If you wish to use a different JAXP-compliant parser, you should remove
 from Ant's <code>lib</code> directory.
 <p>
 You can then either put the JARs of your preferred parser into Ant's
-<code>lib</code> directory or put the jars on the system classpath. 
+<code>lib</code> directory or put the jars on the system classpath.
 Some parts of Ant will fail if you use an old parser, especially one
 that is not namespace-aware. In particular, avoid the Crimson parser.</p>
 
@@ -117,21 +205,25 @@ that is not namespace-aware. In particular, avoid the Crimson parser.</p>
 
 <p>
 For the current version of Ant, you will also need a JDK installed on
-your system, version 1.2 or later required, 1.5 or later strongly recommended. 
+your system, version 1.3 or later required, 1.5 or later strongly recommended.
 The later the version of Java , the more Ant tasks you get.
 </p>
 <p>
-<strong>Note #2: </strong>If a JDK is not present, only the JRE runtime, then many tasks will not work.
+  <strong>Note: </strong>If a JDK is not present, only the JRE runtime, then many tasks will not work.
+</p>
+<p>
+  <strong>Note: </strong>
+  Ant 1.7.* works with jdk1.3 and higher, Ant 1.6.* works with jdk 1.2 and higher,
+  Ant 1.2 to Ant 1.5.* work with jdk 1.1 and higher.
 </p>
 
 <h3>Open Source Java Runtimes</h3>
 <p>
     The Ant team strongly supports users running Ant on Kaffe and other
     open source Java runtimes, and so strives to have a product that works
-    well on those platforms. What appears to work well is Kaffe with 
-    Gnu Classpath and the Xerces and Xalan libraries. 
+    well on those platforms. What appears to work well is Kaffe with
+    Gnu Classpath and the Xerces and Xalan libraries.
 </p>
-
 <hr>
 <h2><a name="installing">Installing Ant</a></h2>
 <p>The binary distribution of Ant consists of the following directory layout:
@@ -194,7 +286,7 @@ installed in a <b>short</b>, 8.3 path, such as C:\Ant. </i>
 <h3>Setup</h3>
 <p>
 Before you can run Ant there is some additional set up you
-will need to do unless you are installing the <a href="#jpackage">RPM 
+will need to do unless you are installing the <a href="#jpackage">RPM
 version from jpackage.org</a>:</p>
 <ul>
 <li>Add the <code>bin</code> directory to your path.</li>
@@ -221,12 +313,29 @@ restrictions on the classes which may be loaded by an extension.</p>
   <td width="5%">&nbsp;</td>
   <td>
     The ant.bat script makes use of three environment variables -
-    ANT_HOME, CLASSPATH and JAVA_HOME. <b>Ensure</b> that if
-    these variables are set, they do <b><u>not</u></b> have quotes (either
-    ' or &quot;) and they do <b><u>not</u></b> end with \ or with /.
+    ANT_HOME, CLASSPATH and JAVA_HOME. <b>Ensure</b> that ANT_HOME and JAVA_HOME variables are set, 
+    and that they do <b><u>not</u></b> have quotes (either
+    ' or &quot;) and they do <b><u>not</u></b> end with \ or with /. CLASSPATH should be unset or 
+    empty.
   </td>
 </tr>
 </table>
+
+<h3><a name="checkInstallation">Check Installation</a></h3>
+<p>You can check the basic installation with opening a new shell and typing <tt>ant</tt>. You
+should get a message like this
+<pre>
+Buildfile: build.xml does not exist!
+Build failed
+</pre>
+So Ant works. This message is there because you need to write an individual buildfile for your 
+project. With a <tt>ant -version</tt> you should get an output like
+<pre>
+Apache Ant version 1.7.0 compiled on December 13 2006
+</pre> 
+
+
+</p>
 
 <h3><a name="optionalTasks">Optional Tasks</a></h3>
 <p>Ant supports a number of optional tasks. An optional task is a task which
@@ -235,27 +344,46 @@ packaged together with the core Ant tasks.</p>
 
 <p>The external libraries required by each of the optional tasks is detailed
 in the <a href="#librarydependencies">Library Dependencies</a> section. These external
-libraries must be added to Ant's classpath, in any of the following ways 
+libraries must be added to Ant's classpath, in any of the following ways:
 </p>
 <ul>
-    <li>In ANT_HOME/lib. This makes the JAR files available to all
-    Ant users and builds</li>
-    
-    <li>
-        In ${user.home}/.ant/lib . This is a new feature since Ant1.6, 
-        and allows different users to add new libraries to Ant. All JAR files
+    <li><p>
+        In <code><i>ANT_HOME</i>/lib</code>. This makes the JAR files available to all
+        Ant users and builds.
+    </p></li>
+
+    <li><p>
+        In <code>${user.home}/.ant/lib</code> (as of Ant 1.6). This
+        allows different users to add new libraries to Ant. All JAR files
         added to this directory are available to command-line Ant.
-    </li>
-    
-    <li>
+    </p></li>
+
+    <li><p>
         On the command line with a <code>-lib</code> parameter. This lets
         you add new JAR files on a case-by-case basis.
-    </li>
-    
-    <li>In the CLASSPATH environment variable. Avoid this; it makes
+    </p></li>
+
+    <li><p>
+        In the <code>CLASSPATH</code> environment variable. Avoid this; it makes
         the JAR files visible to <i>all</i> Java applications, and causes
-        no end of support calls.
+        no end of support calls. See <a href="#classpath">below</a> for details.
+        </p>
     </li>
+
+    <li><p>
+        In some <code>&lt;classpath&gt;</code> accepted by the task itself.
+        For example, as of Ant 1.7.0 you can run the <code>&lt;junit&gt;</code>
+        task without <code>junit.jar</code> in Ant's own classpath, so long as
+        it is included (along with your program and tests) in the classpath
+        passed when running the task.
+        </p><p>
+        Where possible, this option is generally
+        to be preferred, as the Ant script itself can determine the best path
+        to load the library from: via relative path from the basedir (if you
+        keep the library under version control with your project), according
+        to Ant properties, environment variables, Ivy downloads, whatever you like.
+    </p></li>
+
 </ul>
 
 <p>
@@ -264,10 +392,10 @@ libraries must be added to Ant's classpath, in any of the following ways
     added to a project are automatically added to ant's classpath.
 </p>
 
-<h3><a name="classpath">The CLASSPATH environment variable</a></h3>
+<h3><a name="classpath">The <code>CLASSPATH</code> environment variable</a></h3>
 <p>
 
-The CLASSPATH environment variable is a source of many Ant support queries. As
+The <code>CLASSPATH</code> environment variable is a source of many Ant support queries. As
 the round trip time for diagnosis on the Ant user mailing list can be slow, and
 because filing bug reports complaining about 'ant.bat' not working will be
 rejected by the developers as WORKSFORME "this is a configuration problem, not a
@@ -277,21 +405,21 @@ simple steps.
 </p>
 <ol>
 
-<li>Do not ever set CLASSPATH. Ant does not need it, it only causes confusion
+<li>Do not ever set <code>CLASSPATH</code>. Ant does not need it, it only causes confusion
 and breaks things.
 
 </li>
 
 <li>If you ignore the previous rule, do not ever, ever, put quotes in the
-CLASSPATH, even if there is a space in a directory. This will break Ant, and it
+<code>CLASSPATH</code>, even if there is a space in a directory. This will break Ant, and it
 is not needed. </li>
 
 <li>If you ignore the first rule, do not ever, ever, have a trailing backslash
-in a CLASSPATH, as it breaks Ant's ability to quote the string. Again, this is
-not needed for the correct operation of the CLASSPATH environment variable, even
+in a <code>CLASSPATH</code>, as it breaks Ant's ability to quote the string. Again, this is
+not needed for the correct operation of the <code>CLASSPATH</code> environment variable, even
 if a DOS directory is to be added to the path. </li>
 
-<li>You can stop Ant using the CLASSPATH environment variable by setting the
+<li>You can stop Ant using the <code>CLASSPATH</code> environment variable by setting the
 <code>-noclasspath</code> option on the command line. This is an easy way
 to test for classpath-related problems.</li>
 
@@ -299,14 +427,29 @@ to test for classpath-related problems.</li>
 
 <p>
 
-The usual symptom of CLASSPATH problems is that ant will not run with some error
-about not being able to find <code>org.apache.tools.Ant.main</code>, or, if you have got the
+The usual symptom of <code>CLASSPATH</code> problems is that ant will not run with some error
+about not being able to find <code>org.apache.tools.ant.launch.Launcher</code>, or, if you have got the
 quotes/backslashes wrong, some very weird Java startup error. To see if this is
-the case, run <code>ant -noclasspath</code> or unset the CLASSPATH environment
+the case, run <code>ant -noclasspath</code> or unset the <code>CLASSPATH</code> environment
 variable.
 
 </p>
 
+<p>
+You can also make your Ant script reject this environment
+variable just by placing the following at the top of the script (or in an init target):
+</p>
+<pre>
+&lt;property environment="env."/&gt;
+&lt;property name="env.CLASSPATH" value=""/&gt;
+&lt;fail message="Unset $CLASSPATH / %CLASSPATH% before running Ant!"&gt;
+    &lt;condition&gt;
+        &lt;not&gt;
+            &lt;equals arg1="${env.CLASSPATH}" arg2=""/&gt;
+        &lt;/not&gt;
+    &lt;/condition&gt;
+&lt;/fail&gt;
+</pre>
 
 <h3><a name="proxy">Proxy Configuration</a></h3>
 
@@ -317,19 +460,17 @@ this. </p>
 
 <ul>
 
-<li><b>With Java1.5</b><br>. 
+<li><b>With Java1.5</b><br>
 
-When you run Ant on Java1.5, it tries to use the automatic proxy setup
-mechanism. If this works -and it is a big if, as we see little evidence of it
-doing so on Linux or WinXP-, then your proxy is set up without you doing
-anything. You can disable this feature with the <code>-noproxy</code> option.
+When you run Ant on Java1.5, you could try to use the automatic proxy setup
+mechanism with <code>-autoproxy</code>. 
 
 </li>
 
-<li><b>With explicit JVM properties.</b><br>.
+<li><b>With explicit JVM properties.</b><br>
 
 These are documented <a
-href="http://java.sun.com/j2se/1.5.0/docs/guide/net/properties.html">by Sun</a>,
+href="http://java.sun.com/j2se/1.5.0/docs/guide/net/properties.html" target="_top">by Sun</a>,
 and control the proxy behaviour of the entire JVM. To set them in Ant, declare
 them in the <code>ANT_OPTS</code> environment variable. This is the best option
 for a non-mobile system. For a laptop, you have to change these settings as you
@@ -357,7 +498,7 @@ JVM options. This means the following does not set up the command line:
 
 <pre>ant -Dhttp.proxyHost=proxy -Dhttp.proxyPort=81</pre>
 
-<p> All it does is set up two Ant properties.</p> 
+<p> All it does is set up two Ant properties.</p>
 
 <p>One other troublespot with
 proxies is with authenticating proxies. Ant cannot go beyond what the JVM does
@@ -390,8 +531,8 @@ Having a symbolic link set up to point to the JVM/JSK version makes updates more
 <a name="jpackage"></a>
 <h3>RPM version from jpackage.org</h3>
 <p>
-The <a href="http://www.jpackage.org">JPackage project</a> distributes an RPM version of Ant.  
-With this version, it is not necessary to set <code> JAVA_HOME </code>or 
+The <a href="http://www.jpackage.org" target="_top">JPackage project</a> distributes an RPM version of Ant.
+With this version, it is not necessary to set <code> JAVA_HOME </code>or
 <code> ANT_HOME </code>environment variables and the RPM installer will correctly
 place the Ant executable on your path.
 </p>
@@ -402,28 +543,28 @@ place the Ant executable on your path.
   </p>
   <p>
 Optional jars for the JPackage version are handled in two ways.  The easiest, and
-best way is to get these external libraries from JPackage if JPackage has them 
-available.  (Note: for each such library, you will have to get both the external 
-package itself (e.g. <code>oro-2.0.8-2jpp.noarch.rpm</code>) and the small library that links 
+best way is to get these external libraries from JPackage if JPackage has them
+available.  (Note: for each such library, you will have to get both the external
+package itself (e.g. <code>oro-2.0.8-2jpp.noarch.rpm</code>) and the small library that links
 ant and the external package (e.g. <code>ant-apache-oro-1.6.2-3jpp.noarch.rpm</code>).
 </p><p>
 However, JPackage does not package proprietary software, and since some of the
-optional packages depend on proprietary jars, they must be handled as follows.  
+optional packages depend on proprietary jars, they must be handled as follows.
 This may violate the spirit of JPackage, but it is necessary if you need these proprietary packages.
-For example, suppose you want to install support for starteam, which jpackage does not 
+For example, suppose you want to install support for starteam, which jpackage does not
 support:
 <ol>
-<li>Decide where you want to deploy the extra jars.  One option is in <code>$ANT_HOME/lib</code>, 
+<li>Decide where you want to deploy the extra jars.  One option is in <code>$ANT_HOME/lib</code>,
 which, for JPackage is usually <code>/usr/share/ant/lib</code>.  Another, less messy option
-is to create an <code>.ant/lib</code> subdirectory of your home directory and place your 
+is to create an <code>.ant/lib</code> subdirectory of your home directory and place your
 non-jpackage ant jars there, thereby avoiding mixing jpackage
 libraries with non-jpacakge stuff in the same folder.
-More information on where Ant finds its libraries is available 
+More information on where Ant finds its libraries is available
 <a href="http://ant.apache.org/manual/running.html#libs">here</a></li>
-<li>Download a non-jpackage binary distribution from the regular 
-    <a href="http://ant.apache.org/bindownload.cgi">Apache Ant site</a></li>
+<li>Download a non-jpackage binary distribution from the regular
+    <a href="http://ant.apache.org/bindownload.cgi" target="_top">Apache Ant site</a></li>
 <li>Unzip or untar the distribution into a temporary directory</li>
-<li>Copy the linking jar, in this case <code>ant-starteam.jar</code>, into the library directory you 
+<li>Copy the linking jar, in this case <code>ant-starteam.jar</code>, into the library directory you
 chose in step 1 above.</li>
 <li>Copy the proprietary jar itself into the same directory.</li>
 </ol>
@@ -506,13 +647,13 @@ used for the remainder of the build steps. </li>
 <li>Invokes the bootstrapped Ant with the parameters passed to the build script. In
 this case, these parameters define an Ant property value and specify the &quot;dist&quot; target
 in Ant's own <code>build.xml</code> file.</li>
-    
+
 <li>Create the ant.jar and ant-launcher.jar JAR files</li>
-    
-<li>Create optional JARs for which the build had the relevant libraries. If 
+
+<li>Create optional JARs for which the build had the relevant libraries. If
 a particular library is missing from ANT_HOME/lib/optional, then the matching
 ant- JAR file will not be created. For example, ant-junit.jar is only built
-if there is a junit.jar in the optional directory.</li>    
+if there is a junit.jar in the optional directory.</li>
 </ul>
 
 <p>On most occasions you will not need to explicitly bootstrap Ant since the build
@@ -540,7 +681,7 @@ the current Ant version in <code>ANT_HOME</code>.</p>
 
 <hr>
 <h2><a name="librarydependencies">Library Dependencies</a></h2>
-<p>The following libraries are needed in Ant's classpath 
+<p>The following libraries are needed in Ant's classpath
 if you are using the
 indicated feature. Note that only one of the regexp libraries is
 needed for use with the mappers
@@ -592,7 +733,7 @@ you need jakarta-oro 2.0.8 or later, and <a href="#commons-net">commons-net</a><
   <tr>
     <td>stylebook.jar</td>
     <td>stylebook task</td>
-    <td>CVS repository of <a href="http://xml.apache.org/cvs.html" target="_top">http://xml.apache.org/cvs.html</a></td>
+    <td>SVN repository of <a href="http://xml.apache.org/svn.html" target="_top">http://xml.apache.org/svn.html</a></td>
   </tr>
   <tr>
     <td>antlr.jar</td>
@@ -600,10 +741,21 @@ you need jakarta-oro 2.0.8 or later, and <a href="#commons-net">commons-net</a><
     <td><a href="http://www.antlr.org/" target="_top">http://www.antlr.org/</a></td>
   </tr>
   <tr>
-    <td >bsf.jar</td>
-    <td>script task<br>
-    <strong>Note</strong>: Ant 1.6 and later require Apache BSF, not
-    the IBM version.  I.e. you need BSF 2.3.0-rc1 or later.</td>
+    <td>bsf.jar</td>
+    <td>script task
+      <p>
+        <strong>Note</strong>: Ant 1.6 and later require Apache BSF, not
+        the IBM version.  I.e. you need BSF 2.3.0-rc1 or later.
+      </p>
+      <p>
+        <strong>Note</strong>: BSF 2.4.0 is needed to use a post 1.5R3 version
+        of rhino's javascript.
+      </p>
+      <p>
+        <strong>Note</strong>: BSF 2.4.0 uses jakarata-commons-logging
+        so it needs the commons-logging.jar.
+      </p>
+      </td>
     <td><a href="http://jakarta.apache.org/bsf/" target="_top">http://jakarta.apache.org/bsf/</a></td>
   </tr>
   <tr>
@@ -620,10 +772,10 @@ you need jakarta-oro 2.0.8 or later, and <a href="#commons-net">commons-net</a><
       It is called groovy-all-[version].jar.
     </td>
     <td>
-      <a href="http://groovy.codehaus.org/">http://groovy.codehaus.org/</a>
+      <a href="http://groovy.codehaus.org/" target="_top">http://groovy.codehaus.org/</a>
       <br>
       The asm jars are also available from the creators of asm -
-      <a href="http://asm.objectweb.org/">http://asm.objectweb.org/</a>
+      <a href="http://asm.objectweb.org/" target="_top">http://asm.objectweb.org/</a>
     </td>
   </tr>
   <tr>
@@ -636,7 +788,7 @@ you need jakarta-oro 2.0.8 or later, and <a href="#commons-net">commons-net</a><
     <td>js.jar</td>
     <td>Javascript with script task<br>
     If you use Apache BSF 2.3.0-rc1, you must use rhino 1.5R3 (later
-    versions of BSF work with 1.5R4 as well).</td>
+    versions of BSF (e.g. version 2.4.0) work with 1.5R4 and higher).</td>
     <td><a href="http://www.mozilla.org/rhino/" target="_top">http://www.mozilla.org/rhino/</a></td>
   </tr>
   <tr>
@@ -690,7 +842,7 @@ you need jakarta-oro 2.0.8 or later, and <a href="#commons-net">commons-net</a><
     <td><a name="commons-net">commons-net.jar</a></td>
     <td>ftp, rexec and telnet tasks<br>
     jakarta-oro 2.0.8 or later is required together with commons-net 1.4.0.<br>
-    For all users, a minimum version of commons-net of 1.4.0 is recommended.  Earlier 
+    For all users, a minimum version of commons-net of 1.4.0 is recommended.  Earlier
     versions did not support the full range of configuration options, and 1.4.0 is needed
     to compile Ant.
     </td>
@@ -769,12 +921,12 @@ code will check and print the following things. </p>
 
 <ul>
 
-<li>Where Ant is running from. Sometimes you can be surprised.</li>    
-    
+<li>Where Ant is running from. Sometimes you can be surprised.</li>
+
 <li>The version of ant.jar and of the ant-*.jar containing the optional tasks -
     and whether they match</li>
 
-<li>Which JAR files are int ANT_HOME/lib
+<li>Which JAR files are in ANT_HOME/lib
 
 <li>Which optional tasks are available. If a task is not listed as being
 available, either it is not present, or libraries that it depends on are
@@ -796,27 +948,27 @@ your location, then dependency logic may get confused.
 </ul>
 
 <p>
-    Running <code>ant -diagnostics</code> is a good way to check that ant is 
-    installed. It is also a first step towards self-diagnosis of any problem. 
-    Any configuration problem reported to the user mailing list will probably 
-    result ins someone asking you to run the command and show the results, so 
+    Running <code>ant -diagnostics</code> is a good way to check that ant is
+    installed. It is also a first step towards self-diagnosis of any problem.
+    Any configuration problem reported to the user mailing list will probably
+    result ins someone asking you to run the command and show the results, so
     save time by using it yourself.
 </p>
 
 <p>
-    For under-IDE diagostics, use the &lt;diagnostics&gt; task to run the same 
-    tests as an ant task. This can be added to a diagnostics target in a build 
-    file to see what tasks are available under the IDE, what the XML parser and 
-    classpath is, etc. 
+    For under-IDE diagostics, use the &lt;diagnostics&gt; task to run the same
+    tests as an ant task. This can be added to a diagnostics target in a build
+    file to see what tasks are available under the IDE, what the XML parser and
+    classpath is, etc.
 </p>
 
 <h3><a name="ant-user">user mailing list</a></h3>
 
 <p> If you cannot get Ant installed or working, the Ant user mailing list is the
 best place to start with any problem. Please do your homework first, make sure
-that it is not a <a href="#classpath">CLASSPATH</a> problem, and run a <a
+that it is not a <a href="#classpath"><code>CLASSPATH</code></a> problem, and run a <a
 href="#diagnostics">diagnostics check</a> to see what Ant thinks of its own
-state. Why the user list, and not the developer list? 
+state. Why the user list, and not the developer list?
 Because there are more users than developers, so more people who can help you. </p>
 
 <p>

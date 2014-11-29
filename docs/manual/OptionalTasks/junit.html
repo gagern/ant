@@ -143,7 +143,10 @@ elements</a>).</p>
     <td valign="top">timeout</td>
     <td valign="top">Cancel the individual tests if they don't finish
       in the given time (measured in milliseconds).  Ignored if
-      <code>fork</code> is disabled.</td>
+      <code>fork</code> is disabled.  When running multiple tests
+      inside the same Java VM (see forkMode), timeout applies to the
+      time that all tests use together, not to an individual
+      test.</td>
     <td align="center" valign="top">No</td>
   </tr>
   <tr>
@@ -342,7 +345,7 @@ The name of the file is determined by the
 name of the test and can be set by the <code>outfile</code> attribute
 of <code>&lt;test&gt;</code>.</p>
 
-<p>There are three predefined formatters - one prints the test results
+<p>There are four predefined formatters - one prints the test results
 in XML format, the other emits plain text.  The formatter named
 <code>brief</code> will only print detailed information for testcases
 that failed, while <code>plain</code> gives a little statistics line
@@ -353,6 +356,13 @@ can be specified.</p>
 <p>If you use the XML formatter, it may not include the same output
 that your tests have written as some characters are illegal in XML
 documents and will be dropped.</p>
+
+<p>The fourth formatter named <code>failure</code> (since Ant 1.8.0) 
+collects all failing <code>testXXX()</code>
+methods and creates a new <code>TestCase</code> which delegates only these
+failing methods. The name and the location can be specified via Java System property or Ant property
+<code>ant.junit.failureCollector</code>. The value has to point to the directory and 
+the name of the resulting class (without suffix). It defaults to <i>java-tmp-dir</i>/FailedTests.</p>
 
 <p><b>Note:</b> Please read the <a
 href="../../faq.html#junit-no-runtime-xml">Ant FAQ</a> if you want to
@@ -369,7 +379,7 @@ time.</p>
   <tr>
     <td valign="top">type</td>
     <td valign="top">Use a predefined formatter (either
-      <code>xml</code>, <code>plain</code>, or <code>brief</code>).</td>
+      <code>xml</code>, <code>plain</code>, <code>brief</code> or <code>failure</code>).</td>
     <td align="center" rowspan="2">Exactly one of these.</td>
   </tr>
   <tr>
@@ -559,6 +569,46 @@ supported.</p>
 <p>Batchtests can define their own formatters via nested
 <code>&lt;formatter&gt;</code> elements.</p>
 
+<h3>Forked tests and <code>tearDown</code></h3>
+
+<p>If a forked test runs into a timeout, Ant will terminate the Java
+  VM process it has created, which probably means the
+  test's <code>tearDown</code> method will never be called.  The same
+  is true if the forked VM crashes for some other reason.</p>
+
+<p>Starting with Ant 1.8.0, a special formatter is distributed with
+  Ant that tries to load the testcase that was in the forked VM and
+  invoke that class' <code>tearDown</code> method.  This formatter has
+  the following limitations:</p>
+
+<ul>
+  <li>It runs in the same Java VM as Ant itself, this is a different
+    Java VM than the one that was executing the test and it may see a
+    different classloader (and thus may be unable to load the tast
+    class).</li>
+  <li>It cannot determine which test was run when the timeout/crash
+    occured if the forked VM was running multiple test.  I.e. the
+    formatter cannot work with any <code>forkMode</code> other
+    than <code>perTest</code> and it won't do anything if the test
+    class contains a <code>suite()</code> method.</li>
+</ul>
+
+<p>If the formatter recognizes an incompatible <code>forkMode</code>
+  or a <code>suite</code> method or fails to load the test class it
+  will silently do nothing.</p>
+
+<p>The formatter doesn't have any effect on tests that were not
+  forked or didn't cause timeouts or VM crashes.</p>
+
+<p>To enable the formatter, add a <code>formatter</code> like</p>
+
+<pre>
+&lt;formatter classname="org.apache.tools.ant.taskdefs.optional.junit.TearDownOnVmCrash"
+           usefile="false"/&gt;
+</pre>
+
+<p>to your <code>junit</code> task.</p>
+
 <h3>Examples</h3>
 
 <pre>
@@ -615,6 +665,50 @@ test is run in a separate VM. If a test fails, the build process is
 aborted. Results are collected in files named
 <code>TEST-</code><em>name</em><code>.txt</code> and written to
 <code>${reports.tests}</code>.</p>
+
+<pre>
+&lt;target name=&quot;test&quot;&gt;
+    &lt;property name=&quot;collector.dir&quot; value=&quot;${build.dir}/failingTests&quot;/&gt;
+    &lt;property name=&quot;collector.class&quot; value=&quot;FailedTests&quot;/&gt;
+    &lt;!-- Delete 'old' collector classes --&gt;
+    &lt;delete&gt;
+        &lt;fileset dir=&quot;${collector.dir}&quot; includes=&quot;${collector.class}*.class&quot;/&gt;
+    &lt;/delete&gt;
+    &lt;!-- compile the FailedTests class if present --&gt; 
+    &lt;javac srcdir=&quot;${collector.dir}&quot; destdir=&quot;${collector.dir}&quot;/&gt;
+    &lt;available file=&quot;${collector.dir}/${collector.class}.class&quot; property=&quot;hasFailingTests&quot;/&gt;
+    &lt;junit haltonerror=&quot;false&quot; haltonfailure=&quot;false&quot;&gt;
+        &lt;sysproperty key=&quot;ant.junit.failureCollector&quot; value=&quot;${collector.dir}/${collector.class}&quot;/&gt;
+        &lt;classpath&gt;
+            &lt;pathelement location=&quot;${collector.dir}&quot;/&gt;
+        &lt;/classpath&gt;
+        &lt;batchtest todir=&quot;${collector.dir}&quot; unless=&quot;hasFailingTests&quot;&gt;
+            &lt;fileset dir=&quot;${collector.dir}&quot; includes=&quot;**/*.java&quot; excludes=&quot;**/${collector.class}.*&quot;/&gt;
+            &lt;!-- for initial creation of the FailingTests.java --&gt;
+            &lt;formatter type=&quot;failure&quot;/&gt;
+            &lt;!-- I want to see something ... --&gt;
+            &lt;formatter type=&quot;plain&quot; usefile=&quot;false&quot;/&gt;
+        &lt;/batchtest&gt;
+        &lt;test name=&quot;FailedTests&quot; if=&quot;hasFailingTests&quot;&gt;
+            &lt;!-- update the FailingTests.java --&gt;
+            &lt;formatter type=&quot;failure&quot;/&gt;
+            &lt;!-- again, I want to see something --&gt;
+            &lt;formatter type=&quot;plain&quot; usefile=&quot;false&quot;/&gt;
+        &lt;/test&gt;
+    &lt;/junit&gt;
+&lt;/target&gt;
+</pre>
+<p>On the first run all tests are collected via the <code>&lt;batchtest/&gt;</code>
+element. It's <code>plain</code> formatter shows the output on the console. The
+<code>failure</code> formatter creates a java source file in 
+<code>${build.dir}/failingTests/FailedTests.java</code> which extends 
+<code>junit.framework.TestCase</code> and returns from a <code>suite()</code>
+method a test suite for the failing tests. <br/>
+On a second run the collector class exists and instead of the <code>&lt;batchtest/&gt;</code>
+the single <code>&lt;test/&gt;</code> will run. So only the failing test cases are re-run.
+The two nested formatters are for displaying (for the user) and for updating the collector
+class.
+</p>
 
 
 </body>

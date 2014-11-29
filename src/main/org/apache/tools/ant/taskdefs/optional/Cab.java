@@ -44,7 +44,7 @@ import org.apache.tools.ant.util.FileUtils;
  */
 
 public class Cab extends MatchingTask {
-
+    private static final int DEFAULT_RESULT = -99;
     private File cabFile;
     private File baseDir;
     private Vector filesets = new Vector();
@@ -177,8 +177,7 @@ public class Cab extends MatchingTask {
      */
     protected File createListFile(Vector files)
         throws IOException {
-        File listFile = FILE_UTILS.createTempFile("ant", "", null);
-        listFile.deleteOnExit();
+        File listFile = FILE_UTILS.createTempFile("ant", "", null, true, true);
 
         PrintWriter writer = new PrintWriter(new FileOutputStream(listFile));
 
@@ -279,7 +278,8 @@ public class Cab extends MatchingTask {
                 out.flush();
                 out.close();
 
-                int result = -99; // A wild default for when the thread is interrupted
+                // A wild default for when the thread is interrupted
+                int result = DEFAULT_RESULT;
 
                 try {
                     // Wait for the process to finish
@@ -313,8 +313,7 @@ public class Cab extends MatchingTask {
                 exec.setDir(baseDir);
 
                 if (!doVerbose) {
-                    outFile = FILE_UTILS.createTempFile("ant", "", null);
-                    outFile.deleteOnExit();
+                    outFile = FILE_UTILS.createTempFile("ant", "", null, true, true);
                     exec.setOutput(outFile);
                 }
 

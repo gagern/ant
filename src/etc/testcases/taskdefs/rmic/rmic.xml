@@ -1,4 +1,20 @@
 <?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
 <project name="rmic" default="teardown" basedir=".">
 
   <property name="rmic.dir" location="." />
@@ -117,7 +133,7 @@
     <condition property="rmic6.present">
       <and>
         <isset property="rmic.present"/>
-        <available classname="java.util.Service"/>
+        <available classname="java.util.ServiceLoader"/>
       </and>
     </condition>
   </target>
@@ -153,19 +169,36 @@
     <assertBaseCompiled/>
   </target>
 
+
+  <target name="testRmicJArg" if="rmic.present" depends="init">
+    <base-rmic compiler="sun">
+      <compilerarg value="-J-mx256m" />
+    </base-rmic>
+    <assertBaseCompiled/>
+  </target>
+
   <target name="testKaffe" if="kaffe.present" depends="init">
     <base-rmic
       compiler="kaffe"
       />
     <assertBaseCompiled/>
   </target>
-
+	
+<!-- weblogic.rmic doesn't work without a global CLASSPATH
   <target name="testWlrmic" if="wlrmic.present" depends="init">
     <base-rmic
       compiler="weblogic"
       />
   </target>
 
+  <target name="testWlrmicJArg" if="wlrmic.present" depends="init">
+    <base-rmic
+        compiler="weblogic"
+        >
+      <compilerarg value="-J-mx256m" />
+    </base-rmic>
+  </target>
+-->
   <target name="testForking" if="rmic.present" depends="init">
     <base-rmic
       compiler="forking"
@@ -262,7 +295,10 @@
     <assertBaseCompiled/>
   </target>
 
-  <target name="testXnew" if="rmic5.present" depends="init">
+  <!--
+  This test stamps on the XML parser settings on java6, so it is disabled.
+  -->
+  <target name="testXnew" if="rmic5.present" unless="rmic6.present" depends="init">
     <base-rmic compiler="sun">
       <compilerarg value="-Xnew"/>
     </base-rmic>

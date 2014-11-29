@@ -48,8 +48,18 @@ public class NoBannerLogger extends DefaultLogger {
      * @param event A BuildEvent containing target information.
      *              Must not be <code>null</code>.
      */
-    public void targetStarted(BuildEvent event) {
-        targetName = event.getTarget().getName();
+    public synchronized void targetStarted(BuildEvent event) {
+        targetName = extractTargetName(event);
+    }
+
+    /**
+     * Override point, extract the target name
+     * @param event the event to work on
+     * @return the target name to print
+     * @since Ant1.7.1
+     */
+    protected String extractTargetName(BuildEvent event) {
+        return event.getTarget().getName();
     }
 
     /**
@@ -57,7 +67,7 @@ public class NoBannerLogger extends DefaultLogger {
      *
      * @param event Ignored in this implementation.
      */
-    public void targetFinished(BuildEvent event) {
+    public synchronized void targetFinished(BuildEvent event) {
         targetName = null;
     }
 
@@ -78,9 +88,11 @@ public class NoBannerLogger extends DefaultLogger {
                 return;
         }
 
-        if (null != targetName) {
-            out.println(StringUtils.LINE_SEP + targetName + ":");
-            targetName = null;
+        synchronized (this) {
+            if (null != targetName) {
+                out.println(StringUtils.LINE_SEP + targetName + ":");
+                targetName = null;
+            }
         }
 
         super.messageLogged(event);

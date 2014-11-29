@@ -73,14 +73,17 @@ attribute of a zipfileset in a Zip task. The one difference is that if the
 include an empty one for you.)</p>
 
 <p>Manifests are processed by the Jar task according to the
-<a href="http://java.sun.com/j2se/1.3/docs/guide/jar/jar.html">Jar file specification.</a>
+<a target="_blank" href="http://java.sun.com/j2se/1.3/docs/guide/jar/jar.html">Jar file specification.</a>
 Note in particular that this may result in manifest lines greater than 72 bytes
-being wrapped and continued on the next line.
-</p>
+being wrapped and continued on the next line.</p>
+
+<p>The Jar task checks whether you specified package information according to the
+<a target="_blank" href="http://java.sun.com/j2se/1.3/docs/guide/versioning/spec/VersioningSpecification.html#PackageVersioning">
+versioning specification</a>.</p>
 
 <p><b>Please note that the zip format allows multiple files of the same
-fully-qualified name to exist within a single archive.  This has been
-documented as causing various problems for unsuspecting users.  If you wish
+fully-qualified name to exist within a single archive. This has been
+documented as causing various problems for unsuspecting users. If you wish
 to avoid this behavior you must set the <code>duplicate</code> attribute
 to a value other than its default, <code>"add"</code>.</b></p>
 
@@ -225,6 +228,29 @@ to a value other than its default, <code>"add"</code>.</b></p>
     (maximum compression/slowest). <em>Since Ant 1.7</em></td>
     <td valign="top" align="center">No</td>
   </tr>
+  <tr>
+    <td valign="top">strict</td>
+    <td valign="top">Configures how to handle breaks of the packaging version
+    specification: <ul>
+    <li><b>fail</b> = throws a BuildException</li>
+    <li><b>warn</b> = logs a message on warn level</li>
+    <li><b>ignore</b> = logs a message on verbose level (default)</li>
+    </ul>
+    <em>Since Ant 1.7.1</em></td>
+    <td valign="top" align="center">No, defaults to <tt>ignore</tt>. </td>
+  </tr>
+  <tr>
+    <td valign="top">preserve0permissions</td>
+    <td valign="top">when updating an archive or adding entries from a
+    different archive Ant will assume that a Unix permissions value of
+    0 (nobody is allowed to do anything to the file/directory) means
+    that the permissions haven't been stored at all rather than real
+    permissions and will instead apply its own default values.<br/>
+    Set this attribute to true if you really want to preserve the
+      original permission field.<em>since Ant 1.8.0</em>
+    </td>
+    <td valign="top" align="center">No, default is false</td>
+  </tr>
 </table>
 
 <h3>Nested elements</h3>
@@ -263,7 +289,7 @@ completely ignored unless you set the index attribute of the task to
 true.</p>
 
 <p>The index created by this task will contain indices for the
-archives contained in this path, the names used for the archioves
+archives contained in this path, the names used for the archives
 depend on your manifest:</p>
 <ul>
   <li>If the generated jar's manifest contains no Class-Path
@@ -272,7 +298,7 @@ depend on your manifest:</p>
   <li>If the manifest contains a Class-Path attribute, this task will
   try to guess which part of the Class-Path belongs to a given
   archive.  If it cannot guess a name, the archive will be skipped,
-  otherwise tha name listed inside the Class-PAth attribute will be
+  otherwise the name listed inside the Class-Path attribute will be
   used.</li>
 </ul>
 
@@ -324,10 +350,14 @@ empty or only contain files inside the META-INF directory.</p>
     If a JAR file has more that one implementation of the service, a number of
     nested &lt;provider&gt; elements may be used.
   </p>
+  
+  
 <h3>Examples</h3>
+
 <pre>  &lt;jar destfile=&quot;${dist}/lib/app.jar&quot; basedir=&quot;${build}/classes&quot;/&gt;</pre>
 <p>jars all files in the <code>${build}/classes</code> directory into a file
 called <code>app.jar</code> in the <code>${dist}/lib</code> directory.</p>
+
 <pre>  &lt;jar destfile=&quot;${dist}/lib/app.jar&quot;
        basedir=&quot;${build}/classes&quot;
        excludes=&quot;**/Test.class&quot;
@@ -335,6 +365,7 @@ called <code>app.jar</code> in the <code>${dist}/lib</code> directory.</p>
 <p>jars all files in the <code>${build}/classes</code> directory into a file
 called <code>app.jar</code> in the <code>${dist}/lib</code> directory. Files
 with the name <code>Test.class</code> are excluded.</p>
+
 <pre>  &lt;jar destfile=&quot;${dist}/lib/app.jar&quot;
        basedir=&quot;${build}/classes&quot;
        includes=&quot;mypackage/test/**&quot;
@@ -344,6 +375,7 @@ with the name <code>Test.class</code> are excluded.</p>
 called <code>app.jar</code> in the <code>${dist}/lib</code> directory. Only
 files under the directory <code>mypackage/test</code> are used, and files with
 the name <code>Test.class</code> are excluded.</p>
+
 <pre>  &lt;jar destfile=&quot;${dist}/lib/app.jar&quot;&gt;
     &lt;fileset dir=&quot;${build}/classes&quot;
              excludes=&quot;**/Test.class&quot;
@@ -362,20 +394,29 @@ by Java).</p>
 <pre>  &lt;jar destfile=&quot;test.jar&quot; basedir=&quot;.&quot;&gt;
     &lt;include name=&quot;build&quot;/&gt;
     &lt;manifest&gt;
+      &lt;!-- Who is building this jar? --&gt;
       &lt;attribute name=&quot;Built-By&quot; value=&quot;${user.name}&quot;/&gt;
+      &lt;!-- Information about the program itself --&gt;
+      &lt;attribute name=&quot;Implementation-Vendor&quot; value=&quot;ACME inc.&quot;/&gt;
+      &lt;attribute name=&quot;Implementation-Title&quot; value=&quot;GreatProduct&quot;/&gt;
+      &lt;attribute name=&quot;Implementation-Version&quot; value=&quot;1.0.0beta2&quot;/&gt;
+      &lt;!-- details --&gt;
       &lt;section name=&quot;common/class1.class&quot;&gt;
         &lt;attribute name=&quot;Sealed&quot; value=&quot;false&quot;/&gt;
       &lt;/section&gt;
     &lt;/manifest&gt;
   &lt;/jar&gt;</pre>
 <p>
-This is an example of an inline manifest specification. Note that the Built-By
-attribute will take the value of the Ant property ${user.name}. The manifest
-produced by the above would look like this:
+This is an example of an inline manifest specification including the version of the build
+program (Implementation-Version). Note that the Built-By attribute will take the value of the Ant 
+property ${user.name}. The manifest produced by the above would look like this:
 </p>
 <pre><code>Manifest-Version: 1.0
 Built-By: conor
-Created-By: Apache Ant 1.6.5
+Implementation-Vendor: ACME inc.
+Implementation-Title: GreatProduct
+Implementation-Version: 1.0.0beta2
+Created-By: Apache Ant 1.7.0
 
 Name: common/MyClass.class
 Sealed: false</code></pre>
@@ -391,6 +432,7 @@ Sealed: false</code></pre>
            provider="org.acme.PinkyLanguage"/&gt;
 &lt;/jar&gt;
 </pre></blockquote>
+
 <p>
   The following shows how to create a jar file specifing a service
   with two implementations of the JDK6 scripting interface:
@@ -404,5 +446,8 @@ Sealed: false</code></pre>
   &lt;/service&gt;
 &lt;/jar&gt;
 </pre></blockquote>
+
+
+
 </body>
 </html>

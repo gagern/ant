@@ -15,21 +15,41 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.taskdefs.condition;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
 import org.apache.tools.ant.util.DeweyDecimal;
 
 /**
  * An Ant version condition.
  * @since Ant 1.7
  */
-public class AntVersion implements Condition {
+public class AntVersion extends Task implements Condition {
 
     private String atLeast = null;
     private String exactly = null;
+    private String propertyname = null;
+
+    /**
+     * Run as a task.
+     * @throws BuildException if an error occurs.
+     */
+    public void execute() throws BuildException {
+        if (propertyname == null) {
+            throw new BuildException("'property' must be set.");
+        }
+        if (atLeast != null || exactly != null) {
+            // If condition values are set, evaluate the condition
+            if (eval()) {
+                getProject().setNewProperty(propertyname, getVersion().toString());
+            }
+        } else {
+            // Raw task
+            getProject().setNewProperty(propertyname, getVersion().toString());
+        }
+    }
 
     /**
      * Evalute the condition.
@@ -56,14 +76,22 @@ public class AntVersion implements Condition {
         if (null == atLeast && null == exactly) {
             throw new BuildException("One of atleast or exactly must be set.");
         }
-        try {
-            if (atLeast != null) {
+        if (atLeast != null) {
+            try {
                 new DeweyDecimal(atLeast);
-            } else {
-                new DeweyDecimal(exactly);
+            } catch (NumberFormatException e) {
+                throw new BuildException(
+                    "The 'atleast' attribute is not a Dewey Decimal eg 1.1.0 : "
+                    + atLeast);
             }
-        } catch (NumberFormatException e) {
-            throw new BuildException("The argument is not a Dewey Decimal eg 1.1.0");
+        } else {
+            try {
+                new DeweyDecimal(exactly);
+            } catch (NumberFormatException e) {
+                throw new BuildException(
+                    "The 'exactly' attribute is not a Dewey Decimal eg 1.1.0 : "
+                    + exactly);
+            }
         }
     }
 
@@ -123,4 +151,21 @@ public class AntVersion implements Condition {
     public void setExactly(String exactly) {
         this.exactly = exactly;
     }
+
+    /**
+     * Get the name of the property to hold the ant version.
+     * @return the name of the property.
+     */
+    public String getProperty() {
+        return propertyname;
+    }
+
+    /**
+     * Set the name of the property to hold the ant version.
+     * @param propertyname the name of the property.
+     */
+    public void setProperty(String propertyname) {
+        this.propertyname = propertyname;
+    }
+
 }

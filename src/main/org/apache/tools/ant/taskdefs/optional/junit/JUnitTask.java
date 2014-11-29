@@ -26,8 +26,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.Locale;
 
 import org.apache.tools.ant.AntClassLoader;
 import org.apache.tools.ant.BuildException;
@@ -126,6 +129,8 @@ import org.apache.tools.ant.util.LoaderUtils;
  */
 public class JUnitTask extends Task {
 
+    private static final String LINE_SEP
+        = System.getProperty("line.separator");
     private static final String CLASSPATH = "CLASSPATH=";
     private CommandlineJava commandline;
     private Vector tests = new Vector();
@@ -158,6 +163,10 @@ public class JUnitTask extends Task {
 
     private boolean splitJunit = false;
     private JUnitTaskMirror delegate;
+    private ClassLoader mirrorLoader;
+
+    /** A boolean on whether to get the forked path for ant classes */
+    private boolean forkedPathChecked = false;
 
     //   Attributes for basetest
     private boolean haltOnError = false;
@@ -661,7 +670,7 @@ public class JUnitTask extends Task {
      */
     public void init() {
         antRuntimeClasses = new Path(getProject());
-        splitJunit = !addClasspathEntry("/junit/framework/TestCase.class");
+        splitJunit = !addClasspathResource("/junit/framework/TestCase.class");
         addClasspathEntry("/org/apache/tools/ant/launch/AntMain.class");
         addClasspathEntry("/org/apache/tools/ant/Task.class");
         addClasspathEntry("/org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner.class");
@@ -722,6 +731,7 @@ public class JUnitTask extends Task {
             "OutErrSummaryJUnitResultFormatter",
             "PlainJUnitResultFormatter",
             "SummaryJUnitResultFormatter",
+            "TearDownOnVmCrash",
             "XMLJUnitResultFormatter",
         };
 
@@ -739,23 +749,36 @@ public class JUnitTask extends Task {
     }
 
     /**
+     * Sets up the delegate that will actually run the tests.
+     *
+     * <p>Will be invoked implicitly once the delegate is needed.</p>
+     *
+     * @since Ant 1.7.1
+     */
+    protected void setupJUnitDelegate() {
+        ClassLoader myLoader = JUnitTask.class.getClassLoader();
+        if (splitJunit) {
+            Path path = new Path(getProject());
+            path.add(antRuntimeClasses);
+            Path extra = getCommandline().getClasspath();
+            if (extra != null) {
+                path.add(extra);
+            }
+            mirrorLoader = new SplitLoader(myLoader, path);
+        } else {
+            mirrorLoader = myLoader;
+        }
+        delegate = createMirror(this, mirrorLoader);
+    }
+
+    /**
      * Runs the testcase.
      *
      * @throws BuildException in case of test failures or errors
      * @since Ant 1.2
      */
     public void execute() throws BuildException {
-        ClassLoader myLoader = JUnitTask.class.getClassLoader();
-        ClassLoader mirrorLoader;
-        if (splitJunit) {
-            Path path = new Path(getProject());
-            path.add(antRuntimeClasses);
-            path.add(getCommandline().getClasspath());
-            mirrorLoader = new SplitLoader(myLoader, path);
-        } else {
-            mirrorLoader = myLoader;
-        }
-        delegate = createMirror(this, mirrorLoader);
+        setupJUnitDelegate();
 
         List testLists = new ArrayList();
 
@@ -783,11 +806,7 @@ public class JUnitTask extends Task {
                 }
             }
         } finally {
-            deleteClassLoader();
-            if (mirrorLoader instanceof SplitLoader) {
-                ((SplitLoader) mirrorLoader).cleanup();
-            }
-            delegate = null;
+            cleanup();
         }
     }
 
@@ -822,10 +841,10 @@ public class JUnitTask extends Task {
 
     /**
      * Execute a list of tests in a single forked Java VM.
-     * @param tests the list of tests to execute.
+     * @param testList the list of tests to execute.
      * @throws BuildException on error.
      */
-    protected void execute(List tests) throws BuildException {
+    protected void execute(List testList) throws BuildException {
         JUnitTest test = null;
         // Create a temporary file to pass the test cases to run to
         // the runner (one test case per line)
@@ -834,20 +853,28 @@ public class JUnitTask extends Task {
         try {
             writer =
                 new PrintWriter(new BufferedWriter(new FileWriter(casesFile)));
-            Iterator iter = tests.iterator();
+
+            log("Creating casesfile '" + casesFile.getAbsolutePath()
+                + "' with content: ", Project.MSG_VERBOSE);
+            PrintStream logWriter =
+                new PrintStream(new LogOutputStream(this, Project.MSG_VERBOSE));
+
+            Iterator iter = testList.iterator();
             while (iter.hasNext()) {
                 test = (JUnitTest) iter.next();
-                writer.print(test.getName());
+                printDual(writer, logWriter, test.getName());
                 if (test.getTodir() == null) {
-                    writer.print("," + getProject().resolveFile("."));
+                    printDual(writer, logWriter,
+                              "," + getProject().resolveFile("."));
                 } else {
-                    writer.print("," + test.getTodir());
+                    printDual(writer, logWriter, "," + test.getTodir());
                 }
 
                 if (test.getOutfile() == null) {
-                    writer.println("," + "TEST-" + test.getName());
+                    printlnDual(writer, logWriter,
+                                "," + "TEST-" + test.getName());
                 } else {
-                    writer.println("," + test.getOutfile());
+                    printlnDual(writer, logWriter, "," + test.getOutfile());
                 }
             }
             writer.flush();
@@ -863,9 +890,7 @@ public class JUnitTask extends Task {
             log(e.toString(), Project.MSG_ERR);
             throw new BuildException(e);
         } finally {
-            if (writer != null) {
-                writer.close();
-            }
+            FILE_UTILS.close(writer);
 
             try {
                 casesFile.delete();
@@ -886,6 +911,7 @@ public class JUnitTask extends Task {
      * the test could probably hang forever.
      * @param casesFile list of test cases to execute. Can be <tt>null</tt>,
      * in this case only one test is executed.
+     * @return the test results from the JVM itself.
      * @throws BuildException in case of error creating a temporary property file,
      * or if the junit process can not be forked
      */
@@ -899,7 +925,7 @@ public class JUnitTask extends Task {
                 Project.MSG_WARN);
         }
 
-        CommandlineJava cmd = null;
+        CommandlineJava cmd;
         try {
             cmd = (CommandlineJava) (getCommandline().clone());
         } catch (CloneNotSupportedException e) {
@@ -917,34 +943,9 @@ public class JUnitTask extends Task {
         cmd.createArgument().setValue(Constants.HALT_ON_ERROR + test.getHaltonerror());
         cmd.createArgument().setValue(Constants.HALT_ON_FAILURE
                                       + test.getHaltonfailure());
-        if (includeAntRuntime) {
-            Vector v = Execute.getProcEnvironment();
-            Enumeration e = v.elements();
-            while (e.hasMoreElements()) {
-                String s = (String) e.nextElement();
-                if (s.startsWith(CLASSPATH)) {
-                    cmd.createClasspath(getProject()).createPath()
-                        .append(new Path(getProject(),
-                                         s.substring(CLASSPATH.length()
-                                                     )));
-                }
-            }
-            log("Implicitly adding " + antRuntimeClasses + " to CLASSPATH",
-                Project.MSG_VERBOSE);
-            cmd.createClasspath(getProject()).createPath()
-                .append(antRuntimeClasses);
-        }
+        checkIncludeAntRuntime(cmd);
 
-        if (summary) {
-            String prefix = "";
-            if ("withoutanderr".equalsIgnoreCase(summaryValue)) {
-                prefix = "OutErr";
-            }
-            cmd.createArgument()
-                .setValue(Constants.FORMATTER
-                          + "org.apache.tools.ant.taskdefs.optional.junit."
-                          + prefix + "SummaryJUnitResultFormatter");
-        }
+        checkIncludeSummary(cmd);
 
         cmd.createArgument().setValue(Constants.SHOWOUTPUT
                                       + String.valueOf(showOutput));
@@ -1016,6 +1017,9 @@ public class JUnitTask extends Task {
         execute.setEnvironment(environment);
 
         log(cmd.describeCommand(), Project.MSG_VERBOSE);
+
+        checkForkedPath(cmd);
+
         TestResultHolder result = new TestResultHolder();
         try {
             result.exitCode = execute.execute();
@@ -1025,22 +1029,39 @@ public class JUnitTask extends Task {
             String vmCrashString = "unknown";
             BufferedReader br = null;
             try {
-                br = new BufferedReader(new FileReader(vmWatcher));
-                vmCrashString = br.readLine();
+                if (vmWatcher.exists()) {
+                    br = new BufferedReader(new FileReader(vmWatcher));
+                    vmCrashString = br.readLine();
+                } else {
+                    vmCrashString = "Monitor file ("
+                            + vmWatcher.getAbsolutePath()
+                            + ") missing, location not writable,"
+                            + " testcase not started or mixing ant versions?";
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 // ignored.
             } finally {
                 FileUtils.close(br);
+                if (vmWatcher.exists()) {
+                    vmWatcher.delete();
+                }
             }
+
+            boolean crash = (watchdog != null && watchdog.killedProcess())
+                || !Constants.TERMINATED_SUCCESSFULLY.equals(vmCrashString);
+
+            if (casesFile != null && crash) {
+                test = createDummyTestForBatchTest(test);
+            }
+
             if (watchdog != null && watchdog.killedProcess()) {
                 result.timedOut = true;
                 logTimeout(feArray, test, vmCrashString);
-            } else if (!Constants.TERMINATED_SUCCESSFULLY.equals(vmCrashString)) {
+            } else if (crash) {
                 result.crashed = true;
                 logVmCrash(feArray, test, vmCrashString);
             }
-            vmWatcher.delete();
 
             if (!propsFile.delete()) {
                 throw new BuildException("Could not delete temporary "
@@ -1049,6 +1070,91 @@ public class JUnitTask extends Task {
         }
 
         return result;
+    }
+
+    /**
+     * Adding ant runtime.
+     * @param cmd command to run
+     */
+    private void checkIncludeAntRuntime(CommandlineJava cmd) {
+        if (includeAntRuntime) {
+            Vector v = Execute.getProcEnvironment();
+            Enumeration e = v.elements();
+            while (e.hasMoreElements()) {
+                String s = (String) e.nextElement();
+                if (s.startsWith(CLASSPATH)) {
+                    cmd.createClasspath(getProject()).createPath()
+                        .append(new Path(getProject(),
+                                         s.substring(CLASSPATH.length()
+                                                     )));
+                }
+            }
+            log("Implicitly adding " + antRuntimeClasses + " to CLASSPATH",
+                Project.MSG_VERBOSE);
+            cmd.createClasspath(getProject()).createPath()
+                .append(antRuntimeClasses);
+        }
+    }
+
+
+    /**
+     * check for the parameter being "withoutanderr" in a locale-independent way.
+     * @param summaryOption the summary option -can be null
+     * @return true if the run should be withoutput and error
+     */
+    private boolean equalsWithOutAndErr(String summaryOption) {
+        return summaryOption != null && "withoutanderr".equals(
+            summaryOption.toLowerCase(Locale.ENGLISH));
+    }
+
+    private void checkIncludeSummary(CommandlineJava cmd) {
+        if (summary) {
+            String prefix = "";
+            if (equalsWithOutAndErr(summaryValue)) {
+                prefix = "OutErr";
+            }
+            cmd.createArgument()
+                .setValue(Constants.FORMATTER
+                          + "org.apache.tools.ant.taskdefs.optional.junit."
+                          + prefix + "SummaryJUnitResultFormatter");
+        }
+    }
+
+    /**
+     * Check the path for multiple different versions of
+     * ant.
+     * @param cmd command to execute
+     */
+    private void checkForkedPath(CommandlineJava cmd) {
+        if (forkedPathChecked) {
+            return;
+        }
+        forkedPathChecked = true;
+        if (!cmd.haveClasspath()) {
+            return;
+        }
+        AntClassLoader loader = new AntClassLoader(
+            getProject(), cmd.createClasspath(getProject()));
+        String projectResourceName = LoaderUtils.classNameToResource(
+            Project.class.getName());
+        URL previous = null;
+        try {
+            for (Enumeration e = loader.getResources(projectResourceName);
+                 e.hasMoreElements();) {
+                URL current = (URL) e.nextElement();
+                if (previous != null && !current.equals(previous)) {
+                    log("WARNING: multiple versions of ant detected "
+                        + "in path for junit "
+                        + LINE_SEP + "         " + previous
+                        + LINE_SEP + "     and " + current,
+                        Project.MSG_WARN);
+                    return;
+                }
+                previous = current;
+            }
+        } catch (Exception ex) {
+            // Ignore exception
+        }
     }
 
     /**
@@ -1062,7 +1168,7 @@ public class JUnitTask extends Task {
     private File createTempPropertiesFile(String prefix) {
         File propsFile =
             FILE_UTILS.createTempFile(prefix, ".properties",
-                tmpDir != null ? tmpDir : getProject().getBaseDir(), true);
+                tmpDir != null ? tmpDir : getProject().getBaseDir(), true, true);
         return propsFile;
     }
 
@@ -1176,8 +1282,13 @@ public class JUnitTask extends Task {
      * Execute inside VM.
      * @param arg one JUnitTest
      * @throws BuildException under unspecified circumstances
+     * @return the results
      */
     private TestResultHolder executeInVM(JUnitTest arg) throws BuildException {
+        if (delegate == null) {
+            setupJUnitDelegate();
+        }
+
         JUnitTest test = (JUnitTest) arg.clone();
         test.setProperties(getProject().getProperties());
         if (dir != null) {
@@ -1220,8 +1331,7 @@ public class JUnitTask extends Task {
 
                 JUnitTaskMirror.SummaryJUnitResultFormatterMirror f =
                     delegate.newSummaryJUnitResultFormatter();
-                f.setWithOutAndErr("withoutanderr"
-                                   .equalsIgnoreCase(summaryValue));
+                f.setWithOutAndErr(equalsWithOutAndErr(summaryValue));
                 f.setOutput(getDefaultOutput());
                 runner.addFormatter(f);
             }
@@ -1351,10 +1461,20 @@ public class JUnitTask extends Task {
      * getResource doesn't contain the name of the archive.</p>
      *
      * @param resource resource that one wants to lookup
-     * @return true if something was in fact added
      * @since Ant 1.4
      */
-    protected boolean addClasspathEntry(String resource) {
+    protected void addClasspathEntry(String resource) {
+        addClasspathResource(resource);
+    }
+
+    /**
+     * Implementation of addClasspathEntry.
+     *
+     * @param resource resource that one wants to lookup
+     * @return true if something was in fact added
+     * @since Ant 1.7.1
+     */
+    private boolean addClasspathResource(String resource) {
         /*
          * pre Ant 1.6 this method used to call getClass().getResource
          * while Ant 1.6 will call ClassLoader.getResource().
@@ -1383,19 +1503,19 @@ public class JUnitTask extends Task {
         }
     }
 
+    static final String TIMEOUT_MESSAGE = 
+        "Timeout occurred. Please note the time in the report does"
+        + " not reflect the time until the timeout.";
+
     /**
      * Take care that some output is produced in report files if the
      * watchdog kills the test.
      *
      * @since Ant 1.5.2
      */
-
-    private void logTimeout(FormatterElement[] feArray, JUnitTest test, String testCase) {
-        logVmExit(
-            feArray, test,
-            "Timeout occurred. Please note the time in the report does"
-            + " not reflect the time until the timeout.",
-            testCase);
+    private void logTimeout(FormatterElement[] feArray, JUnitTest test,
+                            String testCase) {
+        logVmExit(feArray, test, TIMEOUT_MESSAGE, testCase);
     }
 
     /**
@@ -1421,6 +1541,10 @@ public class JUnitTask extends Task {
      */
     private void logVmExit(FormatterElement[] feArray, JUnitTest test,
                            String message, String testCase) {
+        if (delegate == null) {
+            setupJUnitDelegate();
+        }
+
         try {
             log("Using System properties " + System.getProperties(),
                 Project.MSG_VERBOSE);
@@ -1437,15 +1561,24 @@ public class JUnitTask extends Task {
             test.setProperties(getProject().getProperties());
             for (int i = 0; i < feArray.length; i++) {
                 FormatterElement fe = feArray[i];
-                File outFile = getOutput(fe, test);
-                JUnitTaskMirror.JUnitResultFormatterMirror formatter =
-                    fe.createFormatter(classLoader);
-                if (outFile != null && formatter != null) {
-                    try {
-                        OutputStream out = new FileOutputStream(outFile);
-                        delegate.addVmExit(test, formatter, out, message, testCase);
-                    } catch (IOException e) {
-                        // ignore
+                if (fe.shouldUse(this)) {
+                    JUnitTaskMirror.JUnitResultFormatterMirror formatter =
+                        fe.createFormatter(classLoader);
+                    if (formatter != null) {
+                        OutputStream out = null;
+                        File outFile = getOutput(fe, test);
+                        if (outFile != null) {
+                            try {
+                                out = new FileOutputStream(outFile);
+                            } catch (IOException e) {
+                                // ignore
+                            }
+                        }
+                        if (out == null) {
+                            out = getDefaultOutput();
+                        }
+                        delegate.addVmExit(test, formatter, out, message,
+                                           testCase);
                     }
                 }
             }
@@ -1499,6 +1632,20 @@ public class JUnitTask extends Task {
     }
 
     /**
+     * Removes resources.
+     *
+     * <p>Is invoked in {@link #execute execute}.  Subclasses that
+     * don't invoke execute should invoke this method in a finally
+     * block.</p>
+     *
+     * @since Ant 1.7.1
+     */
+    protected void cleanup() {
+        deleteClassLoader();
+        delegate = null;
+    }
+
+    /**
      * Removes a classloader if needed.
      * @since Ant 1.7
      */
@@ -1507,6 +1654,10 @@ public class JUnitTask extends Task {
             classLoader.cleanup();
             classLoader = null;
         }
+        if (mirrorLoader instanceof SplitLoader) {
+            ((SplitLoader) mirrorLoader).cleanup();
+        }
+        mirrorLoader = null;
     }
 
     /**
@@ -1592,9 +1743,11 @@ public class JUnitTask extends Task {
          * @return hash code value
          */
         public int hashCode() {
+            // CheckStyle:MagicNumber OFF
             return (filterTrace ? 1 : 0)
                 + (haltOnError ? 2 : 0)
                 + (haltOnFailure ? 4 : 0);
+            // CheckStyle:MagicNumber ON
         }
     }
 
@@ -1727,7 +1880,7 @@ public class JUnitTask extends Task {
     }
 
     /**
-     * A value class that contains thee result of a test.
+     * A value class that contains the result of a test.
      */
     protected class TestResultHolder {
         // CheckStyle:VisibilityModifier OFF - bc
@@ -1788,5 +1941,43 @@ public class JUnitTask extends Task {
             super(new JUnitLogOutputStream(task, outlevel),
                   new LogOutputStream(task, errlevel));
         }
+    }
+
+    static final String NAME_OF_DUMMY_TEST = "Batch-With-Multiple-Tests";
+
+    /**
+     * Creates a JUnitTest instance that shares all flags with the
+     * passed in instance but has a more meaningful name.
+     *
+     * <p>If a VM running multiple tests crashes, we don't know which
+     * test failed.  Prior to Ant 1.8.0 Ant would log the error with
+     * the last test of the batch test, which caused some confusion
+     * since the log might look as if a test had been executed last
+     * that was never started.  With Ant 1.8.0 the test's name will
+     * indicate that something went wrong with a test inside the batch
+     * without giving it a real name.</p>
+     *
+     * @see https://issues.apache.org/bugzilla/show_bug.cgi?id=45227
+     */
+    private static JUnitTest createDummyTestForBatchTest(JUnitTest test) {
+        JUnitTest t = (JUnitTest) test.clone();
+        int index = test.getName().indexOf(".");
+        // make sure test looks as if it was in the same "package" as
+        // the last test of the batch
+        String pack = index > 0 ? test.getName().substring(0, index + 1) : "";
+        t.setName(pack + NAME_OF_DUMMY_TEST);
+        return t;
+    }
+
+    private static void printDual(PrintWriter w, PrintStream s, String text)
+        throws IOException {
+        w.print(text);
+        s.print(text);
+    }
+
+    private static void printlnDual(PrintWriter w, PrintStream s, String text)
+        throws IOException {
+        w.println(text);
+        s.println(text);
     }
 }

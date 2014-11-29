@@ -38,7 +38,7 @@ in the Ant distribution.  See <a
 href="../install.html#librarydependencies">Library Dependencies</a>
 for more information.  This task has been tested with jsch-0.1.2 and later.</p>
 
-<p>See also the <a href="scp.html">scp task</a></p>
+<p>See also the <a href="sshexec.html">sshexec task</a></p>
 
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
@@ -156,8 +156,7 @@ for more information.  This task has been tested with jsch-0.1.2 and later.</p>
   <tr>
     <td valign="top">passphrase</td>
      <td valign="top">Passphrase for your private key.</td>
-     <td valign="top" align="center">Yes, if you are using key based
-     authentication.</td>
+     <td valign="top" align="center">No, defaults to an empty string.</td>
   </tr>
   <tr>
     <td valign="top">verbose</td>
@@ -172,6 +171,15 @@ for more information.  This task has been tested with jsch-0.1.2 and later.</p>
     The sftp protocol is the file transfer protocol of SSH2.  It is
     recommended that this be set to true if you are copying to/from a
     server that doesn't support scp1. <em>since Ant 1.7</em></td>
+    <td valign="top" align="center">No; defaults to false.</td>
+  </tr>
+  <tr>
+    <td valign="top">preserveLastModified</td>
+    <td valign="top">Determines whether the last modification
+    timestamp of downloaded files is preserved.  It only works when
+    transferring from a remote to a local system and probably doesn't
+    work with a server that doesn't support SSH2.  <em>since Ant
+    1.8.0</em></td>
     <td valign="top" align="center">No; defaults to false.</td>
   </tr>
 </table>

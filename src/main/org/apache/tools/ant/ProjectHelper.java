@@ -15,19 +15,21 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.Hashtable;
 import java.util.Locale;
 import java.util.Vector;
+
+import org.xml.sax.AttributeList;
+
 import org.apache.tools.ant.helper.ProjectHelper2;
 import org.apache.tools.ant.util.LoaderUtils;
-import org.xml.sax.AttributeList;
 
 /**
  * Configures a Project (complete with Targets and Tasks) based on
@@ -64,20 +66,18 @@ public class ProjectHelper {
      * Name of JVM system property which provides the name of the
      * ProjectHelper class to use.
      */
-    public static final String HELPER_PROPERTY =
-        "org.apache.tools.ant.ProjectHelper";
+    public static final String HELPER_PROPERTY = MagicNames.PROJECT_HELPER_CLASS;
 
     /**
      * The service identifier in jars which provide Project Helper
      * implementations.
      */
-    public static final String SERVICE_ID =
-        "META-INF/services/org.apache.tools.ant.ProjectHelper";
+    public static final String SERVICE_ID = MagicNames.PROJECT_HELPER_SERVICE;
 
     /**
      * name of project helper reference that we add to a project
      */
-    public static final String PROJECTHELPER_REFERENCE = "ant.projectHelper";
+    public static final String PROJECTHELPER_REFERENCE = MagicNames.REFID_PROJECT_HELPER;
 
     /**
      * Configures the project with the contents of the specified XML file.
@@ -86,11 +86,9 @@ public class ProjectHelper {
      * @param buildFile An XML file giving the project's configuration.
      *                  Must not be <code>null</code>.
      *
-     * @exception BuildException if the configuration is invalid or cannot
-     *                           be read
+     * @exception BuildException if the configuration is invalid or cannot be read
      */
-    public static void configureProject(Project project, File buildFile)
-        throws BuildException {
+    public static void configureProject(Project project, File buildFile) throws BuildException {
         ProjectHelper helper = ProjectHelper.getProjectHelper();
         project.addReference(PROJECTHELPER_REFERENCE, helper);
         helper.parse(project, buildFile);
@@ -132,7 +130,6 @@ public class ProjectHelper {
         return importStack;
     }
 
-
     // --------------------  Parse method  --------------------
     /**
      * Parses the project file, configuring the project as it goes.
@@ -152,7 +149,6 @@ public class ProjectHelper {
             + "in a helper plugin " + this.getClass().getName());
     }
 
-
     /**
      * Discovers a project helper instance. Uses the same patterns
      * as JAXP, commons-logging, etc: a system property, a JDK1.3
@@ -165,8 +161,7 @@ public class ProjectHelper {
      * @exception BuildException if a specified helper class cannot
      * be loaded/instantiated.
      */
-    public static ProjectHelper getProjectHelper()
-        throws BuildException {
+    public static ProjectHelper getProjectHelper() throws BuildException {
         // Identify the class loader we will be using. Ant may be
         // in a webapp or embedded in a different app
         ProjectHelper helper = null;
@@ -195,7 +190,6 @@ public class ProjectHelper {
                 if (is == null) {
                     is = ClassLoader.getSystemResourceAsStream(SERVICE_ID);
                 }
-
                 if (is != null) {
                     // This code is needed by EBCDIC and other strange systems.
                     // It's a fix for bugs reported in xerces
@@ -210,23 +204,15 @@ public class ProjectHelper {
                     String helperClassName = rd.readLine();
                     rd.close();
 
-                    if (helperClassName != null
-                        && !"".equals(helperClassName)) {
-
+                    if (helperClassName != null && !"".equals(helperClassName)) {
                         helper = newHelper(helperClassName);
                     }
                 }
             } catch (Exception ex) {
-                System.out.println("Unable to load ProjectHelper "
-                    + "from service \"" + SERVICE_ID);
+                System.out.println("Unable to load ProjectHelper from service " + SERVICE_ID);
             }
         }
-
-        if (helper != null) {
-            return helper;
-        } else {
-            return new ProjectHelper2();
-        }
+        return helper == null ? new ProjectHelper2() : helper;
     }
 
     /**
@@ -264,8 +250,7 @@ public class ProjectHelper {
     }
 
     /**
-     * JDK1.1 compatible access to the context class loader.
-     * Cut&paste from JAXP.
+     * JDK1.1 compatible access to the context class loader. Cut & paste from JAXP.
      *
      * @deprecated since 1.6.x.
      *             Use LoaderUtils.getContextClassLoader()
@@ -274,11 +259,7 @@ public class ProjectHelper {
      * if the context class loader is unavailable.
      */
     public static ClassLoader getContextClassLoader() {
-        if (!LoaderUtils.isContextLoaderAvailable()) {
-            return null;
-        }
-
-        return LoaderUtils.getContextClassLoader();
+        return LoaderUtils.isContextLoaderAvailable() ? LoaderUtils.getContextClassLoader() : null;
     }
 
     // -------------------- Static utils, used by most helpers ----------------
@@ -304,18 +285,13 @@ public class ProjectHelper {
         if (target instanceof TypeAdapter) {
             target = ((TypeAdapter) target).getProxy();
         }
+        IntrospectionHelper ih = IntrospectionHelper.getHelper(project, target.getClass());
 
-        IntrospectionHelper ih =
-            IntrospectionHelper.getHelper(project, target.getClass());
-
-        for (int i = 0; i < attrs.getLength(); i++) {
+        for (int i = 0, length = attrs.getLength(); i < length; i++) {
             // reflect these into the target
-            String value = replaceProperties(project, attrs.getValue(i),
-                                             project.getProperties());
+            String value = replaceProperties(project, attrs.getValue(i), project.getProperties());
             try {
-                ih.setAttribute(project, target,
-                                attrs.getName(i).toLowerCase(Locale.US), value);
-
+                ih.setAttribute(project, target, attrs.getName(i).toLowerCase(Locale.US), value);
             } catch (BuildException be) {
                 // id attribute must be set externally
                 if (!attrs.getName(i).equals("id")) {
@@ -363,13 +339,10 @@ public class ProjectHelper {
         if (text == null) {
             return;
         }
-
         if (target instanceof TypeAdapter) {
             target = ((TypeAdapter) target).getProxy();
         }
-
-        IntrospectionHelper.getHelper(project, target.getClass()).addText(project,
-            target, text);
+        IntrospectionHelper.getHelper(project, target.getClass()).addText(project, target, text);
     }
 
     /**
@@ -385,10 +358,8 @@ public class ProjectHelper {
      *                May be <code>null</code>, in which case
      *                the child is not stored.
      */
-    public static void storeChild(Project project, Object parent,
-         Object child, String tag) {
-        IntrospectionHelper ih
-            = IntrospectionHelper.getHelper(project, parent.getClass());
+    public static void storeChild(Project project, Object parent, Object child, String tag) {
+        IntrospectionHelper ih = IntrospectionHelper.getHelper(project, parent.getClass());
         ih.storeElement(project, parent, child, tag);
     }
 
@@ -412,8 +383,7 @@ public class ProjectHelper {
      *             Use project.replaceProperties().
      * @since 1.5
      */
-     public static String replaceProperties(Project project, String value)
-            throws BuildException {
+     public static String replaceProperties(Project project, String value) throws BuildException {
         // needed since project properties are not accessible
          return project.replaceProperties(value);
      }
@@ -438,8 +408,8 @@ public class ProjectHelper {
      * @deprecated since 1.6.x.
      *             Use PropertyHelper.
      */
-     public static String replaceProperties(Project project, String value,
-         Hashtable keys) throws BuildException {
+     public static String replaceProperties(Project project, String value, Hashtable keys)
+             throws BuildException {
         PropertyHelper ph = PropertyHelper.getPropertyHelper(project);
         return ph.replaceProperties(null, value, keys);
     }
@@ -460,15 +430,13 @@ public class ProjectHelper {
      * @deprecated since 1.6.x.
      *             Use PropertyHelper.
      * @exception BuildException if the string contains an opening
-     *                           <code>${</code> without a closing
-     *                           <code>}</code>
+     *                           <code>${</code> without a closing <code>}</code>
      */
-    public static void parsePropertyString(String value, Vector fragments,
-                                           Vector propertyRefs)
-        throws BuildException {
-        PropertyHelper.parsePropertyStringDefault(value, fragments,
-                propertyRefs);
+    public static void parsePropertyString(String value, Vector fragments, Vector propertyRefs)
+            throws BuildException {
+        PropertyHelper.parsePropertyStringDefault(value, fragments, propertyRefs);
     }
+
     /**
      * Map a namespaced {uri,name} to an internal string format.
      * For BC purposes the names from the ant core uri will be
@@ -526,7 +494,7 @@ public class ProjectHelper {
      *         did not have a location, just return the build exception
      */
     public static BuildException addLocationToBuildException(
-        BuildException ex, Location newLocation) {
+            BuildException ex, Location newLocation) {
         if (ex.getLocation() == null || ex.getMessage() == null) {
             return ex;
         }
@@ -537,9 +505,40 @@ public class ProjectHelper {
             + ex.getMessage();
         if (newLocation == null) {
             return new BuildException(errorMessage, ex);
-        } else {
-            return new BuildException(
-                errorMessage, ex, newLocation);
         }
+        return new BuildException(errorMessage, ex, newLocation);
+    }
+
+    /**
+     * Whether this instance of ProjectHelper can parse an Antlib
+     * descriptor given by the URL and return its content as an
+     * UnknownElement ready to be turned into an Antlib task.
+     *
+     * <p>This method should not try to parse the content of the
+     * descriptor, the URL is only given as an argument to allow
+     * subclasses to decide whether they can support a given URL
+     * scheme or not.</p>
+     *
+     * <p>Subclasses that return true in this method must also
+     * override {@link #parseAntlibDescriptor
+     * parseAntlibDescriptor}.</p>
+     *
+     * <p>This implementation returns false.</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public boolean canParseAntlibDescriptor(URL url) {
+        return false;
+    }
+
+    /**
+     * Parse the given URL as an antlib descriptor and return the
+     * content as something that can be turned into an Antlib task.
+     *
+     * @since ant 1.8.0
+     */
+    public UnknownElement parseAntlibDescriptor(Project containingProject,
+                                                URL source) {
+        throw new BuildException("can't parse antlib descriptors");
     }
 }

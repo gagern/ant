@@ -62,6 +62,9 @@ public final class HeadFilter extends BaseParamFilterReader
     /** the position in the current line */
     private int       linePos   = 0;
 
+    /** Whether this filter is finished */
+    private boolean eof;
+
     /**
      * Constructor for "dummy" instances.
      *
@@ -107,6 +110,9 @@ public final class HeadFilter extends BaseParamFilterReader
                 return -1;
             }
             line = headFilter(line);
+            if (eof) {
+                return -1;
+            }
             linePos = 0;
         }
 
@@ -182,11 +188,11 @@ public final class HeadFilter extends BaseParamFilterReader
         if (params != null) {
             for (int i = 0; i < params.length; i++) {
                 if (LINES_KEY.equals(params[i].getName())) {
-                    lines = new Long(params[i].getValue()).longValue();
+                    lines = Long.parseLong(params[i].getValue());
                     continue;
                 }
                 if (SKIP_KEY.equals(params[i].getName())) {
-                    skip = new Long(params[i].getValue()).longValue();
+                    skip = Long.parseLong(params[i].getValue());
                     continue;
                 }
             }
@@ -206,6 +212,7 @@ public final class HeadFilter extends BaseParamFilterReader
 
         if (lines > 0) {
             if (linesRead > (lines + skip)) {
+                eof = true;
                 return null;
             }
         }

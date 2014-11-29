@@ -73,6 +73,12 @@ public abstract class BaseResourceCollectionWrapper
             throw oneNested();
         }
         rc = c;
+        if (Project.getProject(rc) == null) {
+            Project p = getProject();
+            if (p != null) {
+                p.setProjectReference(rc);
+            }
+        }
         setChecked(false);
     }
 
@@ -116,7 +122,7 @@ public abstract class BaseResourceCollectionWrapper
         /* now check each Resource in case the child only
            lets through files from any children IT may have: */
         for (Iterator i = cacheCollection().iterator(); i.hasNext();) {
-            if (!(i.next() instanceof FileResource)) {
+            if (!(i.next() instanceof FileProvider)) {
                 return false;
             }
         }

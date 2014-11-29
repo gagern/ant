@@ -212,6 +212,16 @@
             <td>1.6.5</td>
             <td>2 June 2005</td>
           </tr>
+
+          <tr>
+            <td>1.7.0</td>
+            <td>19 December 2006</td>
+          </tr>
+          
+          <tr>
+            <td>1.7.1</td>
+            <td>27 June 2008</td>
+          </tr>
         </table>
       </answer>
     </faq>
@@ -219,6 +229,23 @@
   </faqsection>
 
   <faqsection title="Installation">
+    <faq id="java-version">
+      <question>Which version of Java is required to run
+        Ant?</question>
+      <answer>
+
+        <p>You will need Java installed on your system, version 1.3 or
+          later required, 1.5 or later strongly recommended. The later
+          the version of Java, the more Ant tasks you get.</p>
+
+        <p>If only the JRE is present but not a full JDK then many
+          tasks will not work.</p>
+
+        <p>Ant 1.6.* works with jdk 1.2 and higher, Ant 1.1 to Ant
+          1.5.* work with jdk 1.1 and higher.</p>
+      </answer>
+    </faq>
+
     <faq id="no-gnu-tar">
       <question>I get checksum errors when I try to extract the
       <code>tar.gz</code> distribution file. Why?</question>
@@ -273,7 +300,7 @@ Apache Ant version 1.6.2 compiled on July 16 2004
       <answer>
         <p>The core idea is using property files which name accords to the
         os-name. Then simply use the build-in property <tt>os.name</tt>.</p>
-        <p>For better use you should also provide a file with defaul values.
+        <p>For better use you should also provide a file with default values.
         But be careful with the correct os-names. For test simply &lt;echo&gt;
         the ${os.name} on all machines and you can be sure to use the right
         file names.</p>
@@ -676,10 +703,46 @@ shell-prompt> m4 foo.m4 > foo
 ]]></source>
       </answer>
     </faq>
+
+    <faq id="delete-directory-children-only">
+      <question>How can I delete everything beneath a particular directory,
+    preserving the directory itself?</question>
+      <answer>
+<p>Most users who go down this path have no problem figuring out that
+  <code>&lt;delete includeemptydirs="true" /&gt;</code> will help them.  The
+  seemingly tricky part is preserving the base directory itself,
+  which Ant includes in the directory scan. Fortunately the answer is simple:
+</p>
+        <source><![CDATA[
+<delete includeemptydirs="true">
+  <fileset dir="dirtokeep" includes="**/*" />
+</delete>
+]]></source>
+      </answer>
+    </faq>
+
+    <faq id="delete-directory-only-if-empty">
+      <question>How can I delete a particular directory,
+        if and only if it is empty?</question>
+      <answer>
+        <p>Most users who go down this path have no problem figuring
+          out that
+          <code>&lt;delete includeemptydirs="true" /&gt;</code> will
+          help them.  The seemingly tricky part is preserving the
+          non-empty directories, which Ant includes in the directory
+          scan. Fortunately the answer is simple:</p>
+
+        <source><![CDATA[
+<delete includeemptydirs="true">
+  <fileset dir="dirtokeepifnotempty" excludes="**/*" />
+</delete>
+]]></source>
+      </answer>
+    </faq>
   </faqsection>
 
   <faqsection title="It doesn&apos;t work (as expected)">
-    <faq id="genral-advice">
+    <faq id="general-advice">
       <question>General Advice</question>
       <answer>
 
@@ -1324,6 +1387,87 @@ public void buildFinished(BuildEvent e) {
   </faqsection>
 
   <faqsection title="Known Problems">
+    <faq id="input-makes-exec-hang">
+      <question><code>&lt;exec&gt;</code> causes other tasks to hang
+        or leads to strange behaviour of <code>&lt;input&gt;</code>
+        tasks.</question>
+
+      <answer>
+
+        <p>When Ant forks a new process for example by using the
+          <code>&lt;exec&gt;</code>, <code>&lt;apply&gt;</code>
+          or <code>&lt;java&gt;</code> tasks, it will also start a
+          new thread reading from standard input and sending
+          everything that it has read to that process.</p>
+
+        <p>Unfortunately Ant has no way to know whether the forked
+          process is ever going to read any input, so it will start such
+          a thread even if the process doesn't need one.</p>
+
+        <p>This behaviour leads to strange side effects like the Ant
+          process
+          being <a href="https://issues.apache.org/bugzilla/show_bug.cgi?id=34461">suspended
+          when a build forking new process is run as a background
+          process</a> on Unix-like systems or
+          <code>&lt;input&gt;</code>
+          tasks <a href="https://issues.apache.org/bugzilla/show_bug.cgi?id=41024">requiring
+          additional inputs</a> if they come after
+          an <code>&lt;exec&gt;</code> task.</p>
+
+        <p>Fortunately there is a workaround for this, always specify
+          <code>inputstring=""</code> for
+          any <code>&lt;exec&gt;</code> task (or one of its sibblings)
+          if you know the forked process doesn't consume any
+          input.</p>
+      </answer>
+    </faq>
+
+    <faq id="javac-stackoverflow">
+      <question><code>&lt;javac&gt;</code> causes a
+        StackOverflowError</question>
+
+      <answer>
+
+        <p>For some Java source files it is possible
+          that <a href="https://issues.apache.org/bugzilla/show_bug.cgi?id=45370">causes
+          a StackOverlowError</a> is thrown inside Sun's javac
+          compiler.  As far as we can tell this is not triggered by a
+          bug in Ant.</p>
+
+        <p>It is possible to work around this problem by setting 
+          <code>&lt;javac&gt;</code>'s fork attribute to true.</p>
+      </answer>
+    </faq>
+
+    <faq id="170-requires-junit">
+      <question>Ant 1.7.0 doesn't build from sources without
+        JUnit</question>
+
+      <answer>
+
+        <p>When building Ant 1.7.0 from the source release without
+        junit.jar the build fails with the message "We cannot build
+        the test jar unless JUnit is present".</p>
+
+        <p>With Ant 1.7.0 we've started to add ant-testutil.jar as
+        part of the distribution and this causes a hard dependency on
+        JUnit - at least in version 1.7.0.  Unfortunately the
+        installation docs don't say so.</p>
+
+        <p>There are two workarounds:</p>
+
+        <ol>
+
+          <li>Add junit.jar to your CLASSPATH when building Ant.</li>
+
+          <li>Change Ant's buildfile and remove test-jar from the
+          depends list of the dist-lite target.</li>
+
+        </ol>
+
+      </answer>
+    </faq>
+
     <faq id="remove-cr">
       <question>&lt;chmod&gt; or &lt;exec&gt; doesn&apos;t work in Ant
         1.3 on Unix</question>

@@ -18,8 +18,7 @@
   <head>
     <meta http-equiv="Content-Language" content="en-us">
     <link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
-<title>Selectors in Ant</title>
-    <link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
+    <title>Selectors in Ant</title>
   </head>
 
   <body>
@@ -87,8 +86,13 @@
         they are signed, and optionally if they have a signature of a certain name.
       </li>
       <li><a href="#scriptselector"><code>&lt;scriptselector&gt;</code></a> - 
-        Use a BSF scripting language to create your own selector
+        Use a BSF or JSR 223 scripting language to create
+        your own selector
       </li>
+      <li><a href="#readable"><code>&lt;readable&gt;</code></a> -
+        Select files if they are readable.</li>
+      <li><a href="#writable"><code>&lt;writable&gt;</code></a> -
+        Select files if they are writable.</li>
     </ul>
 
     <a name="containsselect"></a>
@@ -379,7 +383,7 @@
         <td valign="top">ignoreContents</td>
         <td valign="top">Whether to do a byte per byte compare.
           Default is false (contents are compared).
-          Since ant 1.6.3
+          Since Ant 1.6.3
         </td>
         <td valign="top" align="center">No</td>
       </tr>
@@ -431,7 +435,12 @@
         <td valign="top">The name of files to select. The name parameter
           can contain the standard Ant wildcard characters.
         </td>
-        <td valign="top" align="center">Yes</td>
+        <td valign="top" align="center" rowspan="2">Exactly one of
+          the two</td>
+      </tr>
+      <tr>
+        <td valign="top">regex</td>
+        <td valign="top">The regular expression matching files to select.</td>
       </tr>
       <tr>
         <td valign="top">casesensitive</td>
@@ -524,7 +533,7 @@
     <h4>Regular Expression Selector</h4>
 
     <p>The <code>&lt;containsregexp&gt;</code> tag in a FileSet limits
-    the files defined by that fileset to only those which contain a
+    the files defined by that fileset to only those which contents contain a
     match to the regular expression specified by the <code>expression</code> attribute.
     </p>
     <p>The <code>&lt;containsregexp&gt;</code> selector can be used as a
@@ -969,6 +978,24 @@
         </tr>
       </table>
 
+      <a name="readable"></a>
+      <h4>Readable Selector</h4>
+
+      <p>The <code>&lt;readable&gt;</code> selector selects only files
+        that are readable.  Ant only invokes
+        <code>java.io.File#canRead</code> so if a file is unreadable
+        but the Java VM cannot detect this state, this selector will
+        still select the file.</p>
+
+      <a name="writable"></a>
+      <h4>Writable Selector</h4>
+
+      <p>The <code>&lt;writable&gt;</code> selector selects only files
+        that are writable.  Ant only invokes
+        <code>java.io.File#canWrite</code> so if a file is unwritable
+        but the Java VM cannot detect this state, this selector will
+        still select the file.</p>
+
       <a name="scriptselector"></a>
       <h4>Script Selector</h4>
 
@@ -976,6 +1003,8 @@
         The <code>&lt;scriptselector&gt;</code> element enables you
         to write a complex selection algorithm in any
         <a href="http://jakarta.apache.org/bsf" target="_top">Apache BSF</a>
+        or
+        <a href="https://scripting.dev.java.net">JSR 223</a>
         supported language.</p>
         See the <a href="../OptionalTasks/script.html">Script</a> task for
         an explanation of scripts and dependencies.
@@ -995,11 +1024,44 @@
           <td valign="top" align="center">yes</td>
         </tr>
         <tr>
+          <td valign="top">manager</td>
+          <td valign="top">
+            The script engine manager to use.
+            See the <a href="../OptionalTasks/script.html">script</a> task
+            for using this attribute.
+          </td>
+          <td valign="top" align="center">No - default is "auto"</td>
+        </tr>
+        <tr>
           <td valign="top">src</td>
           <td valign="top">filename of the script</td>
           <td valign="top" align="center">no</td>
         </tr>
+        <tr>
+          <td valign="top">setbeans</td>
+          <td valign="top">whether to have all properties, references and targets as
+            global variables in the script.</td>
+          <td valign="top" align="center">No, default is "true".</td>
+        </tr>
+        <tr>
+          <td valign="top">classpath</td>
+          <td valign="top">
+            The classpath to pass into the script.
+          </td>
+          <td align="center" valign="top">No</td>
+        </tr>
+        <tr>
+          <td valign="top">classpathref</td>
+          <td valign="top">The classpath to use, given as a
+            <a href="../using.html#references">reference</a> to a path defined elsewhere.
+            <td align="center" valign="top">No</td>
+          </tr>
       </table>
+  <p>
+    This selector can take a nested &lt;classpath&gt; element.
+    See the <a href="../OptionalTasks/script.html">script</a> task
+    on how to use this element.
+  </p>
       <p>
       If no <code>src</code> attribute is supplied, the script must be nested
       inside the selector declaration.

@@ -24,6 +24,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 
 /**
@@ -83,16 +84,21 @@ public abstract class Unpack extends Task {
      */
     public void setSrcResource(Resource src) {
         if (!src.isExists()) {
-            throw new BuildException("the archive doesn't exist");
+            throw new BuildException(
+                "the archive " + src.getName() + " doesn't exist");
         }
         if (src.isDirectory()) {
-            throw new BuildException("the archive can't be a directory");
+            throw new BuildException(
+                "the archive " + src.getName() + " can't be a directory");
         }
-        if (src instanceof FileResource) {
-            source = ((FileResource) src).getFile();
+        if (src instanceof FileProvider) {
+            source = ((FileProvider) src).getFile();
         } else if (!supportsNonFileResources()) {
-            throw new BuildException("Only FileSystem resources are"
-                                     + " supported.");
+            throw new BuildException(
+                "The source " + src.getName()
+                + " is not a FileSystem "
+                + "Only FileSystem resources are"
+                + " supported.");
         }
         srcResource = src;
     }

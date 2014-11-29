@@ -1,4 +1,20 @@
 <?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
 
 <!-- Manifest tests build file
      author: Conor MacNeill -->
@@ -178,8 +194,6 @@
       </patternset>
     </unjar>
   </target>
-
-  
   
   <target name="testReplace">
     <copy file="manifests/test2.mf" toFile="mftest.mf" />
@@ -205,7 +219,6 @@
     </manifest>
   </target>
 
-
   <target name="testFrom">
     <manifest file="mftestfrom.mf" >
       <section name="Test">
@@ -213,6 +226,38 @@
         <attribute name="From" value="illegal"/>
         <attribute name="after" value="after" />
       </section>
+    </manifest>
+  </target>
+  
+  <target name="testIllegalName">
+    <manifest file="mftestillegalname.mf">
+      <attribute name="has blank" value="value"/>
+    </manifest>
+  </target>
+
+  <target name="testIllegalNameInSection">
+    <manifest file="mftestillegalnameinsection.mf">
+      <section name="s1">
+        <attribute name="has blank" value="value"/>
+      </section>
+    </manifest>
+  </target>
+
+  <target name="testIllegalNameBegin">
+    <manifest file="mftestillegalnamebegin.mf">
+      <attribute name="-name" value="value"/>
+    </manifest>
+  </target>
+
+  <target name="testIllegalName2">
+    <manifest file="mftestillegalnamebegin.mf">
+      <attribute name="has.point" value="value"/>
+    </manifest>
+  </target>
+
+  <target name="testIllegalName3">
+    <manifest file="mftestillegalnamebegin.mf">
+      <attribute name="has*star" value="value"/>
     </manifest>
   </target>
 

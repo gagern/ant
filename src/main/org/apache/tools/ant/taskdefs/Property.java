@@ -15,17 +15,19 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.taskdefs;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Stack;
 import java.util.Vector;
 
 import org.apache.tools.ant.BuildException;
@@ -34,6 +36,8 @@ import org.apache.tools.ant.PropertyHelper;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Reference;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.property.ResolvePropertyMap;
 
 /**
  * Sets a property by name, or set of properties (from file or
@@ -81,6 +85,7 @@ public class Property extends Task {
     protected Reference ref;
     protected String prefix;
     private Project fallback;
+    private Object untypedValue;
 
     protected boolean userProperty; // set read-only properties
     // CheckStyle:VisibilityModifier ON
@@ -143,14 +148,28 @@ public class Property extends Task {
         setValue(location.getAbsolutePath());
     }
 
+    /* the following method is first in source so IH will pick it up first:
+     * Hopefully we'll never get any classes compiled by wise-guy compilers that behave otherwise...
+     */
+
     /**
-     * The value of the property.
+     * Set the value of the property.
+     * @param value the value to use.
+     */
+    public void setValue(Object value) {
+        this.untypedValue = value;
+        //preserve protected string value for subclasses :(
+        this.value = value == null ? null : value.toString();
+    }
+
+    /**
+     * Set the value of the property as a String.
      * @param value value to assign
      *
      * @ant.attribute group="name"
      */
     public void setValue(String value) {
-        this.value = value;
+        setValue((Object) value);
     }
 
     /**
@@ -365,7 +384,7 @@ public class Property extends Task {
         }
 
         if (name != null) {
-            if (value == null && ref == null) {
+            if (untypedValue == null && ref == null) {
                 throw new BuildException("You must specify value, location or "
                                          + "refid with the name attribute",
                                          getLocation());
@@ -383,8 +402,8 @@ public class Property extends Task {
                                      + "a url, file or resource", getLocation());
         }
 
-        if ((name != null) && (value != null)) {
-            addProperty(name, value);
+        if (name != null && untypedValue != null) {
+            addProperty(name, untypedValue);
         }
 
         if (file != null) {
@@ -429,7 +448,7 @@ public class Property extends Task {
         try {
             InputStream is = url.openStream();
             try {
-                props.load(is);
+                loadProperties(props, is, url.getFile().endsWith(".xml"));
             } finally {
                 if (is != null) {
                     is.close();
@@ -441,6 +460,39 @@ public class Property extends Task {
         }
     }
 
+    /**
+     * Loads the properties defined in the InputStream into the given
+     * property. On Java5+ it supports reading from XML based property
+     * definition.
+     * @param props The property object to load into
+     * @param is    The input stream from where to load
+     * @param isXml <tt>true</tt> if we should try to load from xml
+     * @throws IOException if something goes wrong
+     * @since 1.7.1
+     * @see http://java.sun.com/dtd/properties.dtd
+     * @see java.util.Properties#loadFromXML(InputStream)
+     */
+    private void loadProperties(
+        Properties props, InputStream is, boolean isXml) throws IOException {
+        if (isXml) {
+            // load the xml based property definition
+            // use reflection because of bwc to Java 1.3
+            try {
+                Method loadXmlMethod = props.getClass().getMethod("loadFromXML",
+                        new Class[] {InputStream.class});
+                loadXmlMethod.invoke(props, new Object[] {is});
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+                log("Can not load xml based property definition on Java < 5");
+            } catch (Exception e) {
+                // no-op
+                e.printStackTrace();
+            }
+        } else {
+            // load ".properties" format
+            props.load(is);
+        }
+    }
 
     /**
      * load properties from a file
@@ -452,18 +504,17 @@ public class Property extends Task {
         log("Loading " + file.getAbsolutePath(), Project.MSG_VERBOSE);
         try {
             if (file.exists()) {
-                FileInputStream fis = new FileInputStream(file);
+                FileInputStream  fis = null;
                 try {
-                    props.load(fis);
+                    fis = new FileInputStream(file);
+                    loadProperties(props, fis, file.getName().endsWith(".xml"));
                 } finally {
-                    if (fis != null) {
-                        fis.close();
-                    }
+                    FileUtils.close(fis);
                 }
                 addProperties(props);
             } else {
                 log("Unable to find property file: " + file.getAbsolutePath(),
-                    Project.MSG_VERBOSE);
+                        Project.MSG_VERBOSE);
             }
         } catch (IOException ex) {
             throw new BuildException(ex, getLocation());
@@ -494,7 +545,7 @@ public class Property extends Task {
             }
 
             if (is != null) {
-                props.load(is);
+                loadProperties(props, is, name.endsWith(".xml"));
                 addProperties(props);
             } else {
                 log("Unable to find resource " + name, Project.MSG_WARN);
@@ -510,7 +561,6 @@ public class Property extends Task {
                 }
             }
         }
-
     }
 
     /**
@@ -543,19 +593,17 @@ public class Property extends Task {
      * @param props the properties to iterate over
      */
     protected void addProperties(Properties props) {
-        resolveAllProperties(props);
-        Enumeration e = props.keys();
-        while (e.hasMoreElements()) {
-            String propertyName = (String) e.nextElement();
-            String propertyValue = props.getProperty(propertyName);
-
-            String v = getProject().replaceProperties(propertyValue);
-
-            if (prefix != null) {
-                propertyName = prefix + propertyName;
+        HashMap m = new HashMap(props);
+        resolveAllProperties(m);
+        for (Iterator it = m.keySet().iterator(); it.hasNext();) {
+            Object k = it.next();
+            if (k instanceof String) {
+                String propertyName = (String) k;
+                if (prefix != null) {
+                    propertyName = prefix + propertyName;
+                }
+                addProperty(propertyName, m.get(k));
             }
-
-            addProperty(propertyName, v);
         }
     }
 
@@ -565,14 +613,25 @@ public class Property extends Task {
      * @param v value to set
      */
     protected void addProperty(String n, String v) {
+        addProperty(n, (Object) v);
+    }
+
+    /**
+     * add a name value pair to the project property set
+     * @param n name of property
+     * @param v value to set
+     * @since Ant 1.8
+     */
+    protected void addProperty(String n, Object v) {
+        PropertyHelper ph = PropertyHelper.getPropertyHelper(getProject());
         if (userProperty) {
-            if (getProject().getUserProperty(n) == null) {
-                getProject().setInheritedProperty(n, v);
+            if (ph.getUserProperty(n) == null) {
+                ph.setInheritedProperty(n, v);
             } else {
                 log("Override ignored for " + n, Project.MSG_VERBOSE);
             }
         } else {
-            getProject().setNewProperty(n, v);
+            ph.setNewProperty(n, v);
         }
     }
 
@@ -580,62 +639,13 @@ public class Property extends Task {
      * resolve properties inside a properties hashtable
      * @param props properties object to resolve
      */
-    private void resolveAllProperties(Properties props) throws BuildException {
-        for (Enumeration e = props.keys(); e.hasMoreElements();) {
-            String propertyName = (String) e.nextElement();
-            Stack referencesSeen = new Stack();
-            resolve(props, propertyName, referencesSeen);
-        }
+    private void resolveAllProperties(Map props) throws BuildException {
+        PropertyHelper propertyHelper
+            = (PropertyHelper) PropertyHelper.getPropertyHelper(getProject());
+        new ResolvePropertyMap(
+            getProject(),
+            propertyHelper,
+            propertyHelper.getExpanders()).resolveAllProperties(props);
     }
 
-    /**
-     * Recursively expand the named property using the project's
-     * reference table and the given set of properties - fail if a
-     * circular definition is detected.
-     *
-     * @param props properties object to resolve
-     * @param name of the property to resolve
-     * @param referencesSeen stack of all property names that have
-     * been tried to expand before coming here.
-     */
-    private void resolve(Properties props, String name, Stack referencesSeen)
-        throws BuildException {
-        if (referencesSeen.contains(name)) {
-            throw new BuildException("Property " + name + " was circularly "
-                                     + "defined.");
-        }
-
-        String propertyValue = props.getProperty(name);
-        Vector fragments = new Vector();
-        Vector propertyRefs = new Vector();
-        PropertyHelper.getPropertyHelper(
-            this.getProject()).parsePropertyString(
-                propertyValue, fragments, propertyRefs);
-
-        if (propertyRefs.size() != 0) {
-            referencesSeen.push(name);
-            StringBuffer sb = new StringBuffer();
-            Enumeration i = fragments.elements();
-            Enumeration j = propertyRefs.elements();
-            while (i.hasMoreElements()) {
-                String fragment = (String) i.nextElement();
-                if (fragment == null) {
-                    String propertyName = (String) j.nextElement();
-                    fragment = getProject().getProperty(propertyName);
-                    if (fragment == null) {
-                        if (props.containsKey(propertyName)) {
-                            resolve(props, propertyName, referencesSeen);
-                            fragment = props.getProperty(propertyName);
-                        } else {
-                            fragment = "${" + propertyName + "}";
-                        }
-                    }
-                }
-                sb.append(fragment);
-            }
-            propertyValue = sb.toString();
-            props.put(name, propertyValue);
-            referencesSeen.pop();
-        }
-    }
 }

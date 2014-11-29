@@ -17,35 +17,26 @@
  */
 package org.apache.tools.ant.util.optional;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-
 import org.apache.bsf.BSFException;
 import org.apache.bsf.BSFManager;
+import org.apache.bsf.BSFEngine;
+
+import java.util.Iterator;
+import java.util.Hashtable;
 
 import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.ProjectComponent;
 import org.apache.tools.ant.Project;
 
-import org.apache.tools.ant.util.FileUtils;
-
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Iterator;
-import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.util.ReflectUtil;
+import org.apache.tools.ant.util.ScriptRunnerBase;
 
 /**
  * This class is used to run BSF scripts
  *
  */
-public class ScriptRunner {
-
-    // Register Groovy ourselves, since BSF does not
-    // natively support it (yet).
-    // This "hack" can be removed once BSF has been
-    // modified to support Groovy or more dynamic
-    // registration.
+public class ScriptRunner extends ScriptRunnerBase {
+    // Register Groovy ourselves, since BSF did not
+    // natively support it in versions previous to 1.2.4.
     static {
         BSFManager.registerScriptingEngine(
             "groovy",
@@ -53,203 +44,136 @@ public class ScriptRunner {
             new String[] {"groovy", "gy"});
     }
 
-    /** Script language */
-    private String language;
-
-    /** Script content */
-    private String script = "";
-
-    /** Beans to be provided to the script */
-    private Map beans = new HashMap();
-
-    /** Classpath to be used when running the script. */
-    private Path classpath = null;
-
-    /** Project this runner is used in */
-    private Project project = null;
+    private BSFEngine  engine;
+    private BSFManager manager;
 
     /**
-     * Add a list of named objects to the list to be exported to the script
-     *
-     * @param dictionary a map of objects to be placed into the script context
-     *        indexed by String names.
+     * Get the name of the manager prefix.
+     * @return "bsf"
      */
-    public void addBeans(Map dictionary) {
-        for (Iterator i = dictionary.keySet().iterator(); i.hasNext();) {
-            String key = (String) i.next();
-            try {
-                Object val = dictionary.get(key);
-                addBean(key, val);
-            } catch (BuildException ex) {
-                // The key is in the dictionary but cannot be retrieved
-                // This is usually due references that refer to tasks
-                // that have not been taskdefed in the current run.
-                // Ignore
-            }
-        }
+    public String getManagerName() {
+        return "bsf";
     }
 
     /**
-     * Add a single object into the script context.
-     *
-     * @param key the name in the context this object is to stored under.
-     * @param bean the object to be stored in the script context.
+     * Check if bsf supports the language.
+     * @return true if bsf can create an engine for this language.
      */
-    public void addBean(String key, Object bean) {
-        boolean isValid = key.length() > 0
-            && Character.isJavaIdentifierStart(key.charAt(0));
-
-        for (int i = 1; isValid && i < key.length(); i++) {
-            isValid = Character.isJavaIdentifierPart(key.charAt(i));
+    public boolean supportsLanguage() {
+        Hashtable table = (Hashtable) ReflectUtil.getField(
+            new BSFManager(), "registeredEngines");
+        String engineClassName = (String) table.get(getLanguage());
+        if (engineClassName == null) {
+            getProject().log(
+                "This is no BSF engine class for language '"
+                + getLanguage() + "'",
+                Project.MSG_VERBOSE);
+            return false;
         }
-
-        if (isValid) {
-            beans.put(key, bean);
+        try {
+            getScriptClassLoader().loadClass(engineClassName);
+            return true;
+        } catch (Throwable ex) {
+            getProject().log(
+                "unable to create BSF engine class for language '"
+                + getLanguage() + "'",
+                ex,
+                Project.MSG_VERBOSE);
+            return false;
         }
     }
 
     /**
      * Do the work.
      *
-     * @param execName the name that will be passed to BSF for this script
-     *        execution.
-     *
-     * @exception BuildException if someting goes wrong exectuing the script.
+     * @param execName the name that will be passed to BSF for this script execution.
+     * @exception BuildException if something goes wrong executing the script.
      */
     public void executeScript(String execName) throws BuildException {
-        if (language == null) {
-            throw new BuildException("script language must be specified");
-        }
-
-        ClassLoader origContextClassLoader =
-            Thread.currentThread().getContextClassLoader();
-        ClassLoader scriptLoader = getClass().getClassLoader();
-        if (classpath != null && project != null) {
-            scriptLoader = project.createClassLoader(
-                scriptLoader, classpath);
-        }
+        checkLanguage();
+        ClassLoader origLoader = replaceContextLoader();
         try {
-            Thread.currentThread().setContextClassLoader(scriptLoader);
-            BSFManager manager = new BSFManager ();
-            manager.setClassLoader(scriptLoader);
-
-            for (Iterator i = beans.keySet().iterator(); i.hasNext();) {
-                String key = (String) i.next();
-                Object value = beans.get(key);
-                if (value != null) {
-                    manager.declareBean(key, value, value.getClass());
-                } else {
-                    // BSF uses a hashtable to store values
-                    // so cannot declareBean with a null value
-                    // So need to remove any bean of this name as
-                    // that bean should not be visible
-                    manager.undeclareBean(key);
-                }
-            }
-
+            BSFManager m = createManager();
+            declareBeans(m);
             // execute the script
-            manager.exec(language, execName, 0, 0, script);
-        } catch (BSFException be) {
-            Throwable t = be;
-            Throwable te = be.getTargetException();
-            if (te != null) {
-                if  (te instanceof BuildException) {
-                    throw (BuildException) te;
-                } else {
-                    t = te;
-                }
+            if (engine == null) {
+                m.exec(getLanguage(), execName, 0, 0, getScript());
+            } else {
+                engine.exec(execName, 0, 0, getScript());
             }
-            throw new BuildException(t);
+        } catch (BSFException be) {
+            throw getBuildException(be);
         } finally {
-             Thread.currentThread().setContextClassLoader(
-                 origContextClassLoader);
+            restoreContextLoader(origLoader);
         }
     }
 
     /**
-     * Defines the language (required).
+     * Evaluate the script.
      *
-     * @param language the scripting language name for the script.
+     * @param execName the name that will be passed to BSF for this script execution.
+     * @return the result of the evaluation
+     * @exception BuildException if something goes wrong executing the script.
      */
-    public void setLanguage(String language) {
-        this.language = language;
-    }
-
-    /**
-     * Get the script language
-     *
-     * @return the script language
-     */
-    public String getLanguage() {
-        return language;
-    }
-
-    /**
-     * Set the class path to be used.
-     * @param classpath the path to use.
-     */
-    public void setClasspath(Path classpath) {
-        this.classpath = classpath;
-    }
-
-    /**
-     * Load the script from an external file ; optional.
-     *
-     * @param file the file containing the script source.
-     */
-    public void setSrc(File file) {
-        if (!file.exists()) {
-            throw new BuildException("file " + file.getPath() + " not found.");
-        }
-
-        int count = (int) file.length();
-        byte[] data = new byte[count];
-        FileInputStream inStream = null;
+    public Object evaluateScript(String execName) throws BuildException {
+        checkLanguage();
+        ClassLoader origLoader = replaceContextLoader();
         try {
-            inStream = new FileInputStream(file);
-            inStream.read(data);
-        } catch (IOException e) {
-            throw new BuildException(e);
+            BSFManager m = createManager();
+            declareBeans(m);
+            // execute the script
+            if (engine == null) {
+                return m.eval(getLanguage(), execName, 0, 0, getScript());
+            }
+            return engine.eval(execName, 0, 0, getScript());
+        } catch (BSFException be) {
+            throw getBuildException(be);
         } finally {
-            FileUtils.close(inStream);
+            restoreContextLoader(origLoader);
         }
-
-        script += new String(data);
     }
 
     /**
-     * Set the script text.
-     *
-     * @param text a component of the script text to be added.
+     * Get/create a BuildException from a BSFException.
+     * @param be BSFException to convert.
+     * @return BuildException the converted exception.
      */
-    public void addText(String text) {
-        this.script += text;
+    private BuildException getBuildException(BSFException be) {
+        Throwable t = be;
+        Throwable te = be.getTargetException();
+        if (te instanceof BuildException) {
+            return (BuildException) te;
+        }
+        return new BuildException(te == null ? t : te);
     }
 
-    /**
-     * Bind the runner to a project component.
-     * Properties, targets and references are all added as beans;
-     * project is bound to project, and self to the component.
-     * @param component to become <code>self</code>
-     */
-    public void bindToComponent(ProjectComponent component) {
-        project = component.getProject();
-        addBeans(project.getProperties());
-        addBeans(project.getUserProperties());
-        addBeans(project.getTargets());
-        addBeans(project.getReferences());
-        addBean("project", project);
-        addBean("self", component);
+    private void declareBeans(BSFManager m) throws BSFException {
+        for (Iterator i = getBeans().keySet().iterator(); i.hasNext();) {
+            String key = (String) i.next();
+            Object value = getBeans().get(key);
+            if (value != null) {
+                m.declareBean(key, value, value.getClass());
+            } else {
+                // BSF uses a hashtable to store values
+                // so cannot declareBean with a null value
+                // So need to remove any bean of this name as
+                // that bean should not be visible
+                m.undeclareBean(key);
+            }
+        }
     }
 
-    /**
-     * Bind the runner to a project component.
-     * The project and self are the only beans set.
-     * @param component to become <code>self</code>
-     */
-    public void bindToComponentMinimum(ProjectComponent component) {
-        project = component.getProject();
-        addBean("project", project);
-        addBean("self", component);
+    private BSFManager createManager() throws BSFException {
+        if (manager != null) {
+            return manager;
+        }
+        BSFManager m = new BSFManager();
+        m.setClassLoader(getScriptClassLoader());
+        if (getKeepEngine()) {
+            BSFEngine e = manager.loadScriptingEngine(getLanguage());
+            this.manager = m;
+            this.engine  = e;
+        }
+        return m;
     }
 }

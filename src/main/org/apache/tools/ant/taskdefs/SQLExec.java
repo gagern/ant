@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant.taskdefs;
 
 import org.apache.tools.ant.BuildException;
@@ -26,10 +25,12 @@ import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Union;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -41,15 +42,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
+import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.Types;
 
 /**
  * Executes a series of SQL statements on a database using JDBC.
@@ -103,7 +107,7 @@ public class SQLExec extends JDBCTask {
     /**
      * files to load
      */
-    private Union resources = new Union();
+    private Union resources;
 
     /**
      * SQL statement
@@ -152,14 +156,13 @@ public class SQLExec extends JDBCTask {
     private boolean showtrailers = true;
 
     /**
-     * Results Output file.
+     * Results Output Resource.
      */
-    private File output = null;
-
+    private Resource output = null;
 
     /**
      * Action to perform if an error is found
-     **/
+     */
     private String onError = "abort";
 
     /**
@@ -190,7 +193,60 @@ public class SQLExec extends JDBCTask {
      *
      * @since Ant 1.7
      */
-    private boolean expandProperties = false;
+    private boolean expandProperties = true;
+
+    /**
+     * should we print raw BLOB data?
+     * @since Ant 1.7.1
+     */
+    private boolean rawBlobs;
+
+    /**
+     * delimers must match in case and whitespace is significant.
+     * @since Ant 1.8.0
+     */
+    private boolean strictDelimiterMatching = true;
+
+    /**
+     * whether to show SQLWarnings as WARN messages.
+     * @since Ant 1.8.0
+     */
+    private boolean showWarnings = false;
+
+    /**
+     * The column separator used when printing the results.
+     *
+     * <p>Defaults to ","</p>
+     *
+     * @since Ant 1.8.0
+     */
+    private String csvColumnSep = ",";
+
+    /**
+     * The character used to quote column values.
+     *
+     * <p>If set, columns that contain either the column separator or
+     * the quote character itself will be surrounded by the quote
+     * character.  The quote character itself will be doubled if it
+     * appears inside of the column's value.</p>
+     *
+     * <p>If this value is not set (the default), no column values
+     * will be quoted, not even if they contain the column
+     * separator.</p>
+     *
+     * <p><b>Note:<b> BLOB values will never be quoted.</p>
+     *
+     * <p>Defaults to "not set"</p>
+     *
+     * @since Ant 1.8.0
+     */
+    private String csvQuoteChar = null;
+
+    /**
+     * Whether a warning is an error - in which case onError aplies.
+     * @since Ant 1.8.0
+     */
+    private boolean treatWarningsAsErrors = false;
 
     /**
      * Set the name of the SQL file to be run.
@@ -249,6 +305,14 @@ public class SQLExec extends JDBCTask {
      * @since Ant 1.7
      */
     public void add(ResourceCollection rc) {
+        if (rc == null) {
+            throw new BuildException("Cannot add null ResourceCollection");
+        }
+        synchronized (this) {
+            if (resources == null) {
+                resources = new Union();
+            }
+        }
         resources.add(rc);
     }
 
@@ -330,6 +394,16 @@ public class SQLExec extends JDBCTask {
      * @param output the output file to use for logging messages.
      */
     public void setOutput(File output) {
+        setOutput(new FileResource(getProject(), output));
+    }
+
+    /**
+     * Set the output Resource;
+     * optional, defaults to the Ant log.
+     * @param output the output Resource to store results.
+     * @since Ant 1.8
+     */
+    public void setOutput(Resource output) {
         this.output = output;
     }
 
@@ -374,6 +448,78 @@ public class SQLExec extends JDBCTask {
     }
 
     /**
+     * Set whether to print raw BLOBs rather than their string (hex) representations.
+     * @param rawBlobs whether to print raw BLOBs.
+     * @since Ant 1.7.1
+     */
+    public void setRawBlobs(boolean rawBlobs) {
+        this.rawBlobs = rawBlobs;
+    }
+
+    /**
+     * If false, delimiters will be searched for in a case-insesitive
+     * manner (i.e. delimer="go" matches "GO") and surrounding
+     * whitespace will be ignored (delimter="go" matches "GO ").
+     * @since Ant 1.8.0
+     */
+    public void setStrictDelimiterMatching(boolean b) {
+        strictDelimiterMatching = b;
+    }
+
+    /**
+     * whether to show SQLWarnings as WARN messages.
+     * @since Ant 1.8.0
+     */
+    public void setShowWarnings(boolean b) {
+        showWarnings = b;
+    }
+
+    /**
+     * Whether a warning is an error - in which case onError aplies.
+     * @since Ant 1.8.0
+     */
+    public void setTreatWarningsAsErrors(boolean b) {
+        treatWarningsAsErrors =  b;
+    }
+
+    /**
+     * The column separator used when printing the results.
+     *
+     * <p>Defaults to ","</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setCsvColumnSeparator(String s) {
+        csvColumnSep = s;
+    }
+
+    /**
+     * The character used to quote column values.
+     *
+     * <p>If set, columns that contain either the column separator or
+     * the quote character itself will be surrounded by the quote
+     * character.  The quote character itself will be doubled if it
+     * appears inside of the column's value.</p>
+     *
+     * <p>If this value is not set (the default), no column values
+     * will be quoted, not even if they contain the column
+     * separator.</p>
+     *
+     * <p><b>Note:<b> BLOB values will never be quoted.</p>
+     *
+     * <p>Defaults to "not set"</p>
+     *
+     * @since Ant 1.8.0
+     */
+    public void setCsvQuoteCharacter(String s) {
+        if (s != null && s.length() > 1) {
+            throw new BuildException("The quote character must be a single"
+                                     + " character.");
+        }
+        csvQuoteChar = s;
+    }
+
+    /**
      * Load the sql file and then execute it
      * @throws BuildException on error.
      */
@@ -384,51 +530,55 @@ public class SQLExec extends JDBCTask {
         sqlCommand = sqlCommand.trim();
 
         try {
-            if (srcFile == null && sqlCommand.length() == 0
-                && resources.size() == 0) {
+            if (srcFile == null && sqlCommand.length() == 0 && resources == null) {
                 if (transactions.size() == 0) {
-                    throw new BuildException("Source file or resource "
-                                             + "collection, "
+                    throw new BuildException("Source file or resource collection, "
                                              + "transactions or sql statement "
                                              + "must be set!", getLocation());
                 }
             }
 
-            if (srcFile != null && !srcFile.exists()) {
-                throw new BuildException("Source file does not exist!", getLocation());
+            if (srcFile != null && !srcFile.isFile()) {
+                throw new BuildException("Source file " + srcFile
+                        + " is not a file!", getLocation());
             }
 
-            // deal with the resources
-            Iterator iter = resources.iterator();
-            while (iter.hasNext()) {
-                Resource r = (Resource) iter.next();
-                // Make a transaction for each resource
-                Transaction t = createTransaction();
-                t.setSrcResource(r);
+            if (resources != null) {
+                // deal with the resources
+                Iterator iter = resources.iterator();
+                while (iter.hasNext()) {
+                    Resource r = (Resource) iter.next();
+                    // Make a transaction for each resource
+                    Transaction t = createTransaction();
+                    t.setSrcResource(r);
+                }
             }
 
             // Make a transaction group for the outer command
             Transaction t = createTransaction();
             t.setSrc(srcFile);
             t.addText(sqlCommand);
-            conn = getConnection();
-            if (!isValidRdbms(conn)) {
+
+            if (getConnection() == null) {
+                // not a valid rdbms
                 return;
             }
-            try {
-                statement = conn.createStatement();
-                statement.setEscapeProcessing(escapeProcessing);
 
+            try {
                 PrintStream out = System.out;
                 try {
                     if (output != null) {
-                        log("Opening PrintStream to output file " + output,
-                            Project.MSG_VERBOSE);
-                        out = new PrintStream(
-                                  new BufferedOutputStream(
-                                      new FileOutputStream(output
-                                                           .getAbsolutePath(),
-                                                           append)));
+                        log("Opening PrintStream to output Resource " + output, Project.MSG_VERBOSE);
+                        OutputStream os;
+                        if (output instanceof FileProvider) {
+                            os = new FileOutputStream(((FileProvider) output).getFile(), append);
+                        } else {
+                            os = output.getOutputStream();
+                            if (append) {
+                                log("Ignoring append=true for non-file resource " + output, Project.MSG_WARN);
+                            }
+                        }
+                        out = new PrintStream(new BufferedOutputStream(os));
                     }
 
                     // Process all transactions
@@ -438,35 +588,40 @@ public class SQLExec extends JDBCTask {
                         ((Transaction) e.nextElement()).runTransaction(out);
                         if (!isAutocommit()) {
                             log("Committing transaction", Project.MSG_VERBOSE);
-                            conn.commit();
+                            getConnection().commit();
                         }
                     }
                 } finally {
-                    if (out != null && out != System.out) {
-                        out.close();
-                    }
+                    FileUtils.close(out);
                 }
             } catch (IOException e) {
                 closeQuietly();
-                throw new BuildException(e, getLocation());
+                if (onError.equals("abort")) {
+                    throw new BuildException(e, getLocation());
+                }
             } catch (SQLException e) {
                 closeQuietly();
-                throw new BuildException(e, getLocation());
+                if (onError.equals("abort")) {
+                    throw new BuildException(e, getLocation());
+                }
             } finally {
                 try {
-                    if (statement != null) {
-                        statement.close();
+                    if (getStatement() != null) {
+                        getStatement().close();
                     }
-                    if (conn != null) {
-                        conn.close();
+                } catch (SQLException ex) {
+                    // ignore
+                }
+                try {
+                    if (getConnection() != null) {
+                        getConnection().close();
                     }
                 } catch (SQLException ex) {
                     // ignore
                 }
             }
 
-            log(goodSql + " of " + totalSql
-                + " SQL statements executed successfully");
+            log(goodSql + " of " + totalSql + " SQL statements executed successfully");
         } finally {
             transactions = savedTransaction;
             sqlCommand = savedSqlCommand;
@@ -491,7 +646,9 @@ public class SQLExec extends JDBCTask {
             if (!keepformat) {
                 line = line.trim();
             }
-            line = getProject().replaceProperties(line);
+            if (expandProperties) {
+                line = getProject().replaceProperties(line);
+            }
             if (!keepformat) {
                 if (line.startsWith("//")) {
                     continue;
@@ -508,29 +665,17 @@ public class SQLExec extends JDBCTask {
                 }
             }
 
-            if (!keepformat) {
-                sql.append(" ");
-                sql.append(line);
-            } else {
-                sql.append("\n");
-                sql.append(line);
-            }
+            sql.append(keepformat ? "\n" : " ").append(line);
 
             // SQL defines "--" as a comment to EOL
             // and in Oracle it may contain a hint
             // so we cannot just remove it, instead we must end it
-            if (!keepformat) {
-                if (line.indexOf("--") >= 0) {
-                    sql.append("\n");
-                }
+            if (!keepformat && line.indexOf("--") >= 0) {
+                sql.append("\n");
             }
-            if ((delimiterType.equals(DelimiterType.NORMAL)
-                 && StringUtils.endsWith(sql, delimiter))
-                ||
-                (delimiterType.equals(DelimiterType.ROW)
-                 && line.equals(delimiter))) {
-                execSQL(sql.substring(0, sql.length() - delimiter.length()),
-                        out);
+            int lastDelimPos = lastDelimiterPosition(sql, line);
+            if (lastDelimPos > -1) {
+                execSQL(sql.substring(0, lastDelimPos), out);
                 sql.replace(0, sql.length(), "");
             }
         }
@@ -539,7 +684,6 @@ public class SQLExec extends JDBCTask {
             execSQL(sql.toString(), out);
         }
     }
-
 
     /**
      * Exec the sql statement.
@@ -561,49 +705,51 @@ public class SQLExec extends JDBCTask {
             boolean ret;
             int updateCount = 0, updateCountTotal = 0;
 
-            ret = statement.execute(sql);
-            updateCount = statement.getUpdateCount();
-            resultSet = statement.getResultSet();
+            ret = getStatement().execute(sql);
+            updateCount = getStatement().getUpdateCount();
             do {
-                if (!ret) {
-                    if (updateCount != -1) {
-                        updateCountTotal += updateCount;
-                    }
-                } else {
+                if (updateCount != -1) {
+                    updateCountTotal += updateCount;
+                }
+                if (ret) {
+                    resultSet = getStatement().getResultSet();
+                    printWarnings(resultSet.getWarnings(), false);
+                    resultSet.clearWarnings();
                     if (print) {
                         printResults(resultSet, out);
                     }
                 }
-                ret = statement.getMoreResults();
-                if (ret) {
-                    updateCount = statement.getUpdateCount();
-                    resultSet = statement.getResultSet();
-                }
-            } while (ret);
+                ret = getStatement().getMoreResults();
+                updateCount = getStatement().getUpdateCount();
+            } while (ret || updateCount != -1);
 
-            log(updateCountTotal + " rows affected",
-                Project.MSG_VERBOSE);
+            printWarnings(getStatement().getWarnings(), false);
+            getStatement().clearWarnings();
+
+            log(updateCountTotal + " rows affected", Project.MSG_VERBOSE);
 
             if (print && showtrailers) {
                 out.println(updateCountTotal + " rows affected");
             }
-
-            SQLWarning warning = conn.getWarnings();
-            while (warning != null) {
-                log(warning + " sql warning", Project.MSG_VERBOSE);
-                warning = warning.getNextWarning();
-            }
-            conn.clearWarnings();
+            SQLWarning warning = getConnection().getWarnings();
+            printWarnings(warning, true);
+            getConnection().clearWarnings();
             goodSql++;
         } catch (SQLException e) {
             log("Failed to execute: " + sql, Project.MSG_ERR);
+            if (!onError.equals("abort")) {
+                log(e.toString(), Project.MSG_ERR);
+            }
             if (!onError.equals("continue")) {
                 throw e;
             }
-            log(e.toString(), Project.MSG_ERR);
         } finally {
             if (resultSet != null) {
-                resultSet.close();
+                try {
+                    resultSet.close();
+                } catch (SQLException e) {
+                    //ignore
+                }
             }
         }
     }
@@ -617,7 +763,7 @@ public class SQLExec extends JDBCTask {
      * @throws SQLException on SQL problems.
      */
     protected void printResults(PrintStream out) throws SQLException {
-        ResultSet rs = statement.getResultSet();
+        ResultSet rs = getStatement().getResultSet();
         try {
             printResults(rs, out);
         } finally {
@@ -634,42 +780,63 @@ public class SQLExec extends JDBCTask {
      * @throws SQLException on SQL problems.
      * @since Ant 1.6.3
      */
-    protected void printResults(ResultSet rs, PrintStream out)
-        throws SQLException {
+    protected void printResults(ResultSet rs, PrintStream out) throws SQLException {
         if (rs != null) {
             log("Processing new result set.", Project.MSG_VERBOSE);
             ResultSetMetaData md = rs.getMetaData();
             int columnCount = md.getColumnCount();
-            StringBuffer line = new StringBuffer();
-            if (showheaders) {
-                for (int col = 1; col < columnCount; col++) {
-                     line.append(md.getColumnName(col));
-                     line.append(",");
-                }
-                line.append(md.getColumnName(columnCount));
-                out.println(line);
-                line = new StringBuffer();
-            }
-            while (rs.next()) {
-                boolean first = true;
-                for (int col = 1; col <= columnCount; col++) {
-                    String columnValue = rs.getString(col);
-                    if (columnValue != null) {
-                        columnValue = columnValue.trim();
+            if (columnCount > 0) {
+                if (showheaders) {
+                    out.print(md.getColumnName(1));
+                    for (int col = 2; col <= columnCount; col++) {
+                         out.print(csvColumnSep);
+                         out.print(maybeQuote(md.getColumnName(col)));
                     }
-
-                    if (first) {
-                        first = false;
-                    } else {
-                        line.append(",");
-                    }
-                    line.append(columnValue);
+                    out.println();
                 }
-                out.println(line);
-                line = new StringBuffer();
+                while (rs.next()) {
+                    printValue(rs, 1, out);
+                    for (int col = 2; col <= columnCount; col++) {
+                        out.print(csvColumnSep);
+                        printValue(rs, col, out);
+                    }
+                    out.println();
+                    printWarnings(rs.getWarnings(), false);
+                }
             }
         }
         out.println();
+    }
+
+    private void printValue(ResultSet rs, int col, PrintStream out)
+            throws SQLException {
+        if (rawBlobs && rs.getMetaData().getColumnType(col) == Types.BLOB) {
+            Blob blob = rs.getBlob(col);
+            if (blob != null) {
+                new StreamPumper(rs.getBlob(col).getBinaryStream(), out).run();
+            }
+        } else {
+            out.print(maybeQuote(rs.getString(col)));
+        }
+    }
+
+    private String maybeQuote(String s) {
+        if (csvQuoteChar == null || s == null
+            || (s.indexOf(csvColumnSep) == -1 && s.indexOf(csvQuoteChar) == -1)
+            ) {
+            return s;
+        }
+        StringBuffer sb = new StringBuffer(csvQuoteChar);
+        int len = s.length();
+        char q = csvQuoteChar.charAt(0);
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i);
+            if (c == q) {
+                sb.append(q);
+            }
+            sb.append(c);
+        }
+        return sb.append(csvQuoteChar).toString();
     }
 
     /*
@@ -678,15 +845,55 @@ public class SQLExec extends JDBCTask {
      * @since Ant 1.7
      */
     private void closeQuietly() {
-        if (!isAutocommit() && conn != null && onError.equals("abort")) {
+        if (!isAutocommit() && getConnection() != null && onError.equals("abort")) {
             try {
-                conn.rollback();
+                getConnection().rollback();
             } catch (SQLException ex) {
                 // ignore
             }
         }
     }
 
+
+    /**
+     * Caches the connection returned by the base class's getConnection method.
+     *
+     * <p>Subclasses that need to provide a different connection than
+     * the base class would, should override this method but keep in
+     * mind that this class expects to get the same connection
+     * instance on consecutive calls.</p>
+     *
+     * <p>returns null if the connection does not connect to the
+     * expected RDBMS.</p>
+     */
+    protected Connection getConnection() {
+        if (conn == null) {
+            conn = super.getConnection();
+            if (!isValidRdbms(conn)) {
+                conn = null;
+            }
+        }
+        return conn;
+    }
+
+    /**
+     * Creates and configures a Statement instance which is then
+     * cached for subsequent calls.
+     *
+     * <p>Subclasses that want to provide different Statement
+     * instances, should override this method but keep in mind that
+     * this class expects to get the same connection instance on
+     * consecutive calls.</p>
+     */
+    protected Statement getStatement() throws SQLException {
+        if (statement == null) {
+            statement = getConnection().createStatement();
+            statement.setEscapeProcessing(escapeProcessing);
+        }
+
+        return statement;
+    }
+        
     /**
      * The action a task should perform on an error,
      * one of "continue", "stop" and "abort"
@@ -738,9 +945,6 @@ public class SQLExec extends JDBCTask {
          */
         public void addText(String sql) {
             if (sql != null) {
-                if (getExpandProperties()) {
-                    sql = getProject().replaceProperties(sql);
-                }
                 this.tSqlCommand += sql;
             }
         }
@@ -775,8 +979,7 @@ public class SQLExec extends JDBCTask {
                 Reader reader = null;
                 try {
                     is = tSrcResource.getInputStream();
-                    reader =
-                        (encoding == null) ? new InputStreamReader(is)
+                    reader = (encoding == null) ? new InputStreamReader(is)
                         : new InputStreamReader(is, encoding);
                     runStatements(reader, out);
                 } finally {
@@ -784,6 +987,62 @@ public class SQLExec extends JDBCTask {
                     FileUtils.close(reader);
                 }
             }
+        }
+    }
+
+    public int lastDelimiterPosition(StringBuffer buf, String currentLine) {
+        if (strictDelimiterMatching) {
+            if ((delimiterType.equals(DelimiterType.NORMAL)
+                 && StringUtils.endsWith(buf, delimiter)) ||
+                (delimiterType.equals(DelimiterType.ROW)
+                 && currentLine.equals(delimiter))) {
+                return buf.length() - delimiter.length();
+            }
+            // no match
+            return -1;
+        } else {
+            String d = delimiter.trim().toLowerCase(Locale.US);
+            if (delimiterType.equals(DelimiterType.NORMAL)) {
+                // still trying to avoid wasteful copying, see
+                // StringUtils.endsWith
+                int endIndex = delimiter.length() - 1;
+                int bufferIndex = buf.length() - 1;
+                while (bufferIndex >= 0
+                       && Character.isWhitespace(buf.charAt(bufferIndex))) {
+                    --bufferIndex;
+                }
+                if (bufferIndex < endIndex) {
+                    return -1;
+                }
+                while (endIndex >= 0) {
+                    if (buf.substring(bufferIndex, bufferIndex + 1)
+                        .toLowerCase(Locale.US).charAt(0)
+                        != d.charAt(endIndex)) {
+                        return -1;
+                    }
+                    bufferIndex--;
+                    endIndex--;
+                }
+                return bufferIndex + 1;
+            } else {
+                return currentLine.trim().toLowerCase(Locale.US).equals(d)
+                    ? buf.length() - currentLine.length() : -1;
+            }
+        }
+    }
+
+    private void printWarnings(SQLWarning warning, boolean force)
+        throws SQLException {
+        SQLWarning initialWarning = warning;
+        if (showWarnings || force) {
+            while (warning != null) {
+                log(warning + " sql warning",
+                    showWarnings ? Project.MSG_WARN : Project.MSG_VERBOSE);
+                warning = warning.getNextWarning();
+            }
+        }
+        if (treatWarningsAsErrors && initialWarning != null) {
+            throw initialWarning;
         }
     }
 }

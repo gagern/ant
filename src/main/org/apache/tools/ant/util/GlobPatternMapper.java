@@ -18,6 +18,8 @@
 
 package org.apache.tools.ant.util;
 
+import org.apache.tools.ant.BuildException;
+
 /**
  * Implementation of FileNameMapper that does simple wildcard pattern
  * replacements.
@@ -95,16 +97,20 @@ public class GlobPatternMapper implements FileNameMapper {
      * @param from a string
      */
     public void setFrom(String from) {
-        int index = from.lastIndexOf("*");
-        if (index == -1) {
-            fromPrefix = from;
-            fromPostfix = "";
+        if (from != null) {
+            int index = from.lastIndexOf("*");
+            if (index == -1) {
+                fromPrefix = from;
+                fromPostfix = "";
+            } else {
+                fromPrefix = from.substring(0, index);
+                fromPostfix = from.substring(index + 1);
+            }
+            prefixLength = fromPrefix.length();
+            postfixLength = fromPostfix.length();
         } else {
-            fromPrefix = from.substring(0, index);
-            fromPostfix = from.substring(index + 1);
+            throw new BuildException("this mapper requires a 'from' attribute");
         }
-        prefixLength = fromPrefix.length();
-        postfixLength = fromPostfix.length();
     }
 
     /**
@@ -112,13 +118,17 @@ public class GlobPatternMapper implements FileNameMapper {
      * @param to a string
      */
     public void setTo(String to) {
-        int index = to.lastIndexOf("*");
-        if (index == -1) {
-            toPrefix = to;
-            toPostfix = "";
+        if (to != null) {
+            int index = to.lastIndexOf("*");
+            if (index == -1) {
+                toPrefix = to;
+                toPostfix = "";
+            } else {
+                toPrefix = to.substring(0, index);
+                toPostfix = to.substring(index + 1);
+            }
         } else {
-            toPrefix = to.substring(0, index);
-            toPostfix = to.substring(index + 1);
+            throw new BuildException("this mapper requires a 'to' attribute");
         }
     }
 
@@ -132,7 +142,9 @@ public class GlobPatternMapper implements FileNameMapper {
     public String[] mapFileName(String sourceFileName) {
         if (fromPrefix == null
             || !modifyName(sourceFileName).startsWith(modifyName(fromPrefix))
-            || !modifyName(sourceFileName).endsWith(modifyName(fromPostfix))) {
+            || !modifyName(sourceFileName).endsWith(modifyName(fromPostfix))
+            || (sourceFileName.length() < (prefixLength + postfixLength))
+            ) {
             return null;
         }
         return new String[] {toPrefix

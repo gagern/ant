@@ -15,13 +15,25 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant;
 
+import java.text.ParsePosition;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.Vector;
 import java.util.Enumeration;
+import java.util.Collection;
 
+import org.apache.tools.ant.property.NullReturn;
+import org.apache.tools.ant.property.GetProperty;
+import org.apache.tools.ant.property.ParseNextProperty;
+import org.apache.tools.ant.property.PropertyExpander;
+import org.apache.tools.ant.property.ParseProperties;
 
 /* ISSUES:
  - ns param. It could be used to provide "namespaces" for properties, which
@@ -36,6 +48,14 @@ import java.util.Enumeration;
  Need to discuss this and find if we need more.
  */
 
+/* update for impending Ant 1.8:
+
+   - I can't see any reason for ns and would like to deprecate it.
+   - Replacing chaining with delegates for certain behavioral aspects.
+   - Object value seems valuable as outlined.
+
+ */
+
 /** NOT FINAL. API MAY CHANGE
  *
  * Deals with properties - substitution, dynamic properties, etc.
@@ -45,10 +65,119 @@ import java.util.Enumeration;
  *
  * @since Ant 1.6
  */
-public class PropertyHelper {
+public class PropertyHelper implements GetProperty {
+
+    //  --------------------------------------------------------
+    //
+    //    The property delegate interfaces
+    //
+    //  --------------------------------------------------------
+
+    /**
+     * Marker interface for a PropertyHelper delegate.
+     * @since Ant 1.8
+     */
+    public interface Delegate {
+    }
+
+    /**
+     * Describes an entity capable of evaluating a property name for value.
+     * @since Ant 1.8
+     */
+    public interface PropertyEvaluator extends Delegate {
+        /**
+         * Evaluate a property.
+         * @param property the property's String "identifier".
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return Object value.
+         */
+        Object evaluate(String property, PropertyHelper propertyHelper);
+    }
+
+    /**
+     * Describes an entity capable of setting a property to a value.
+     * @since Ant 1.8
+     */
+    public interface PropertySetter extends Delegate {
+        /**
+         * Set a *new" property.
+         * @param property the property's String "identifier".
+         * @param value    the value to set.
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return true if this entity 'owns' the property.
+         */
+        boolean setNew(
+            String property, Object value, PropertyHelper propertyHelper);
+
+        /**
+         * Set a property.
+         * @param property the property's String "identifier".
+         * @param value    the value to set.
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return true if this entity 'owns' the property.
+         */
+        boolean set(
+            String property, Object value, PropertyHelper propertyHelper);
+    }
+
+
+    //  --------------------------------------------------------
+    //
+    //    The predefined property delegates
+    //
+    //  --------------------------------------------------------
+
+    private static final PropertyEvaluator TO_STRING = new PropertyEvaluator() {
+        private String prefix = "toString:";
+        public Object evaluate(String property, PropertyHelper propertyHelper) {
+            Object o = null;
+            if (property.startsWith(prefix) && propertyHelper.getProject() != null) {
+                o = propertyHelper.getProject().getReference(property.substring(prefix.length()));
+            }
+            return o == null ? null : o.toString();
+        }
+    };
+
+    private static final PropertyExpander DEFAULT_EXPANDER = new PropertyExpander() {
+        public String parsePropertyName(
+            String s, ParsePosition pos, ParseNextProperty notUsed) {
+            int index = pos.getIndex();
+            if (s.indexOf("${", index) == index) {
+                int end = s.indexOf('}', index);
+                if (end < 0) {
+                    throw new BuildException("Syntax error in property: " + s);
+                }
+                int start = index + 2;
+                pos.setIndex(end + 1);
+                return s.substring(start, end);
+            }
+            return null;
+        }
+    };
+
+    /** dummy */
+    private static final PropertyExpander SKIP_DOUBLE_DOLLAR
+        = new PropertyExpander() {
+            // CheckStyle:LineLengthCheck OFF see too long
+            /**
+             * {@inheritDoc}
+             * @see org.apache.tools.ant.PropertyHelper.PropertyExpander#parsePropertyName(java.lang.String, java.text.ParsePosition, org.apache.tools.ant.PropertyHelper)
+             */
+            // CheckStyle:LineLengthCheck ON
+            public String parsePropertyName(
+                String s, ParsePosition pos, ParseNextProperty notUsed) {
+                //System.out.println("parseproperty " + s);
+                int index = pos.getIndex();
+                if (s.indexOf("$$", index) == index) {
+                    pos.setIndex(++index);
+                }
+                return null;
+            }
+        };
 
     private Project project;
     private PropertyHelper next;
+    private Hashtable delegates = new Hashtable();
 
     /** Project properties map (usually String to String). */
     private Hashtable properties = new Hashtable();
@@ -57,7 +186,6 @@ public class PropertyHelper {
      * Map of "user" properties (as created in the Ant task, for example).
      * Note that these key/value pairs are also always put into the
      * project properties, so only the project properties need to be queried.
-     * Mapping is String to String.
      */
     private Hashtable userProperties = new Hashtable();
 
@@ -65,7 +193,6 @@ public class PropertyHelper {
      * Map of inherited "user" properties - that are those "user"
      * properties that have been created by tasks and not been set
      * from the command line or a GUI tool.
-     * Mapping is String to String.
      */
     private Hashtable inheritedProperties = new Hashtable();
 
@@ -73,15 +200,63 @@ public class PropertyHelper {
      * Default constructor.
      */
     protected PropertyHelper() {
+        add(TO_STRING);
+        add(SKIP_DOUBLE_DOLLAR);
+        add(DEFAULT_EXPANDER);
+    }
+
+    //  --------------------------------------------------------
+    //
+    //    Some helper static methods to get and set properties
+    //
+    //  --------------------------------------------------------
+
+    /**
+     * A helper static method to get a property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @return the value of the property if present, null otherwise.
+     * @since Ant 1.8
+     */
+    public static Object getProperty(Project project, String name) {
+        return PropertyHelper.getPropertyHelper(project)
+            .getProperty(name);
+    }
+
+    /**
+     * A helper static method to set a property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @param value the value to use.
+     * @since Ant 1.8
+     */
+    public static void setProperty(Project project, String name, Object value) {
+        PropertyHelper.getPropertyHelper(project)
+            .setProperty(name, value, true);
+    }
+
+    /**
+     * A helper static method to set a new property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @param value the value to use.
+     * @since Ant 1.8
+     */
+    public static void setNewProperty(
+        Project project, String name, Object value) {
+        PropertyHelper.getPropertyHelper(project)
+            .setNewProperty(name, value);
     }
 
     //override facility for subclasses to put custom hashtables in
 
-
     // --------------------  Hook management  --------------------
 
     /**
-     * Set the project for which this helper is performing property resolution
+     * Set the project for which this helper is performing property resolution.
      *
      * @param p the project instance.
      */
@@ -89,7 +264,16 @@ public class PropertyHelper {
         this.project = p;
     }
 
-    /** There are 2 ways to hook into property handling:
+    /**
+     * Get this PropertyHelper's Project.
+     * @return Project
+     */
+    public Project getProject() {
+        return project;
+    }
+
+    /**
+     *  There are 2 ways to hook into property handling:
      *  - you can replace the main PropertyHelper. The replacement is required
      * to support the same semantics (of course :-)
      *
@@ -98,6 +282,7 @@ public class PropertyHelper {
      *  least for non-dynamic properties)
      *
      * @param next the next property helper in the chain.
+     * @deprecated
      */
     public void setNext(PropertyHelper next) {
         this.next = next;
@@ -107,6 +292,7 @@ public class PropertyHelper {
      * Get the next property helper in the chain.
      *
      * @return the next property helper.
+     * @deprecated
      */
     public PropertyHelper getNext() {
         return next;
@@ -118,14 +304,13 @@ public class PropertyHelper {
      * reference. User tasks can also add themselves to the chain, and provide
      * dynamic properties.
      *
-     * @param project the project fro which the property helper is required.
+     * @param project the project for which the property helper is required.
      *
      * @return the project's property helper.
      */
-    public static synchronized
-        PropertyHelper getPropertyHelper(Project project) {
+    public static synchronized PropertyHelper getPropertyHelper(Project project) {
         PropertyHelper helper
-            = (PropertyHelper) project.getReference(MagicNames.REFID_PROPERTY_HELPER);
+                = (PropertyHelper) project.getReference(MagicNames.REFID_PROPERTY_HELPER);
         if (helper != null) {
             return helper;
         }
@@ -135,6 +320,15 @@ public class PropertyHelper {
         project.addReference(MagicNames.REFID_PROPERTY_HELPER, helper);
         return helper;
     }
+
+    /**
+     * Get the expanders.
+     * @return the expanders.
+     */
+    public Collection getExpanders() {
+        return getDelegates(PropertyExpander.class);
+    }
+
 
     // --------------------  Methods to override  --------------------
 
@@ -158,14 +352,14 @@ public class PropertyHelper {
      * @return true if this helper has stored the property, false if it
      *    couldn't. Each helper should delegate to the next one (unless it
      *    has a good reason not to).
+     * @deprecated PropertyHelper chaining is deprecated.
      */
     public boolean setPropertyHook(String ns, String name,
                                    Object value,
                                    boolean inherited, boolean user,
                                    boolean isNew) {
         if (getNext() != null) {
-            boolean subst = getNext().setPropertyHook(ns, name, value,
-                    inherited, user, isNew);
+            boolean subst = getNext().setPropertyHook(ns, name, value, inherited, user, isNew);
             // If next has handled the property
             if (subst) {
                 return true;
@@ -174,13 +368,15 @@ public class PropertyHelper {
         return false;
     }
 
-    /** Get a property. If all hooks return null, the default
+    /**
+     * Get a property. If all hooks return null, the default
      * tables will be used.
      *
      * @param ns namespace of the sought property.
      * @param name name of the sought property.
      * @param user True if this is a user property.
      * @return The property, if returned by a hook, or null if none.
+     * @deprecated PropertyHelper chaining is deprecated.
      */
     public Object getPropertyHook(String ns, String name, boolean user) {
         if (getNext() != null) {
@@ -222,10 +418,10 @@ public class PropertyHelper {
      * @exception BuildException if the string contains an opening
      *                           <code>${</code> without a closing
      *                           <code>}</code>
+     * @deprecated We can do better than this.
      */
     public void parsePropertyString(String value, Vector fragments,
-                                    Vector propertyRefs)
-        throws BuildException {
+                                    Vector propertyRefs) throws BuildException {
         parsePropertyStringDefault(value, fragments, propertyRefs);
     }
 
@@ -247,88 +443,115 @@ public class PropertyHelper {
      * @return the original string with the properties replaced, or
      *         <code>null</code> if the original string is <code>null</code>.
      */
-    public String replaceProperties(String ns, String value, Hashtable keys)
-            throws BuildException {
-        if (value == null || value.indexOf('$') == -1) {
-            return value;
-        }
-        Vector fragments = new Vector();
-        Vector propertyRefs = new Vector();
-        parsePropertyString(value, fragments, propertyRefs);
+    public String replaceProperties(String ns, String value, Hashtable keys) throws BuildException {
+        return replaceProperties(value);
+    }
 
-        StringBuffer sb = new StringBuffer();
-        Enumeration i = fragments.elements();
-        Enumeration j = propertyRefs.elements();
+    /**
+     * Replaces <code>${xxx}</code> style constructions in the given value
+     * with the string value of the corresponding data types.
+     *
+     * @param value The string to be scanned for property references.
+     *              May be <code>null</code>, in which case this
+     *              method returns immediately with no effect.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           <code>${</code> without a closing
+     *                           <code>}</code>
+     * @return the original string with the properties replaced, or
+     *         <code>null</code> if the original string is <code>null</code>.
+     */
+    public String replaceProperties(String value) throws BuildException {
+        Object o = parseProperties(value);
+        return o == null || o instanceof String ? (String) o : o.toString();
+    }
 
-        while (i.hasMoreElements()) {
-            String fragment = (String) i.nextElement();
-            if (fragment == null) {
-                String propertyName = (String) j.nextElement();
-                Object replacement = null;
+    /**
+     * Decode properties from a String representation.  If the entire
+     * contents of the String resolve to a single property, that value
+     * is returned.  Otherwise a String is returned.
+     *
+     * @param value The string to be scanned for property references.
+     *              May be <code>null</code>, in which case this
+     *              method returns immediately with no effect.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           <code>${</code> without a closing
+     *                           <code>}</code>
+     * @return the original string with the properties replaced, or
+     *         <code>null</code> if the original string is <code>null</code>.
+     */
+    public Object parseProperties(String value) throws BuildException {
+        return new ParseProperties(getProject(), getExpanders(), this)
+            .parseProperties(value);
+    }
 
-                // try to get it from the project or keys
-                // Backward compatibility
-                if (keys != null) {
-                    replacement = keys.get(propertyName);
-                }
-                if (replacement == null) {
-                    replacement = getProperty(ns, propertyName);
-                }
-
-                if (replacement == null) {
-                    project.log("Property \"" + propertyName
-                            + "\" has not been set", Project.MSG_VERBOSE);
-                }
-                fragment = (replacement != null)
-                        ? replacement.toString()
-                        : "${" + propertyName + "}";
-            }
-            sb.append(fragment);
-        }
-        return sb.toString();
+    /**
+     * Learn whether a String contains replaceable properties.
+     * @param value the String to check.
+     * @return <code>true</code> if <code>value</code> contains property notation.
+     */
+    public boolean containsProperties(String value) {
+        return new ParseProperties(getProject(), getExpanders(), this)
+            .containsProperties(value);
     }
 
     // -------------------- Default implementation  --------------------
     // Methods used to support the default behavior and provide backward
     // compatibility. Some will be deprecated, you should avoid calling them.
 
+    /**
+     * Default implementation of setProperty. Will be called from Project.
+     * This is the original 1.5 implementation, with calls to the hook
+     * added.
+     * @param ns      The namespace for the property (currently not used).
+     * @param name    The name of the property.
+     * @param value   The value to set the property to.
+     * @param verbose If this is true output extra log messages.
+     * @return true if the property is set.
+     * @deprecated namespaces are unnecessary.
+     */
+    public boolean setProperty(String ns, String name, Object value, boolean verbose) {
+        return setProperty(name, value, verbose);
+    }
 
-    /** Default implementation of setProperty. Will be called from Project.
+    /**
+     * Default implementation of setProperty. Will be called from Project.
      *  This is the original 1.5 implementation, with calls to the hook
      *  added.
-     *  @param ns      The namespace for the property (currently not used).
      *  @param name    The name of the property.
      *  @param value   The value to set the property to.
      *  @param verbose If this is true output extra log messages.
      *  @return true if the property is set.
      */
-    public synchronized boolean setProperty(String ns, String name,
-                                            Object value, boolean verbose) {
-        // user (CLI) properties take precedence
-        if (null != userProperties.get(name)) {
-            if (verbose) {
-                project.log("Override ignored for user property \"" + name
-                    + "\"", Project.MSG_VERBOSE);
+    public boolean setProperty(String name, Object value, boolean verbose) {
+        for (Iterator iter = getDelegates(PropertySetter.class).iterator(); iter.hasNext();) {
+            PropertySetter setter = (PropertySetter) iter.next();
+            if (setter.set(name, value, this)) {
+                return true;
             }
-            return false;
         }
-
-        boolean done = setPropertyHook(ns, name, value, false, false, false);
-        if (done) {
+        synchronized (this) {
+            // user (CLI) properties take precedence
+            if (userProperties.containsKey(name)) {
+                if (verbose) {
+                    project.log("Override ignored for user property \"" + name + "\"",
+                            Project.MSG_VERBOSE);
+                }
+                return false;
+            }
+            if (verbose) {
+                if (properties.containsKey(name)) {
+                    project.log("Overriding previous definition of property \"" + name + "\"",
+                            Project.MSG_VERBOSE);
+                }
+                project.log("Setting project property: " + name + " -> " + value, Project.MSG_DEBUG);
+            }
+            if (name != null && value != null) {
+                properties.put(name, value);
+            }
             return true;
         }
-
-        if (null != properties.get(name) && verbose) {
-            project.log("Overriding previous definition of property \"" + name
-                + "\"", Project.MSG_VERBOSE);
-        }
-
-        if (verbose) {
-            project.log("Setting project property: " + name + " -> "
-                + value, Project.MSG_DEBUG);
-        }
-        properties.put(name, value);
-        return true;
     }
 
     /**
@@ -342,24 +565,40 @@ public class PropertyHelper {
      * @param value The new value of the property.
      *              Must not be <code>null</code>.
      * @since Ant 1.6
+     * @deprecated namespaces are unnecessary.
      */
-    public synchronized void setNewProperty(String ns, String name,
-                                            Object value) {
-        if (null != properties.get(name)) {
-            project.log("Override ignored for property \"" + name
-                + "\"", Project.MSG_VERBOSE);
-            return;
-        }
+    public void setNewProperty(String ns, String name, Object value) {
+        setNewProperty(name, value);
+    }
 
-        boolean done = setPropertyHook(ns, name, value, false, false, true);
-        if (done) {
-            return;
+    /**
+     * Sets a property if no value currently exists. If the property
+     * exists already, a message is logged and the method returns with
+     * no other effect.
+     *
+     * @param name The name of property to set.
+     *             Must not be <code>null</code>.
+     * @param value The new value of the property.
+     *              Must not be <code>null</code>.
+     * @since Ant 1.8
+     */
+    public void setNewProperty(String name, Object value) {
+        for (Iterator iter = getDelegates(PropertySetter.class).iterator();
+             iter.hasNext();) {
+            PropertySetter setter = (PropertySetter) iter.next();
+            if (setter.setNew(name, value, this)) {
+                return;
+            }
         }
-
-        project.log("Setting project property: " + name + " -> "
-            + value, Project.MSG_DEBUG);
-        if (name != null && value != null) {
-            properties.put(name, value);
+        synchronized (this) {
+            if (properties.containsKey(name)) {
+                project.log("Override ignored for property \"" + name + "\"", Project.MSG_VERBOSE);
+                return;
+            }
+            project.log("Setting project property: " + name + " -> " + value, Project.MSG_DEBUG);
+            if (name != null && value != null) {
+                properties.put(name, value);
+            }
         }
     }
 
@@ -371,18 +610,26 @@ public class PropertyHelper {
      *             Must not be <code>null</code>.
      * @param value The new value of the property.
      *              Must not be <code>null</code>.
+     * @deprecated namespaces are unnecessary.
      */
-    public synchronized void setUserProperty(String ns, String name,
-                                             Object value) {
-        project.log("Setting ro project property: " + name + " -> "
-            + value, Project.MSG_DEBUG);
-        userProperties.put(name, value);
+    public void setUserProperty(String ns, String name, Object value) {
+        setUserProperty(name, value);
+    }
 
-        boolean done = setPropertyHook(ns, name, value, false, true, false);
-        if (done) {
-            return;
+    /**
+     * Sets a user property, which cannot be overwritten by
+     * set/unset property calls. Any previous value is overwritten.
+     * @param name The name of property to set.
+     *             Must not be <code>null</code>.
+     * @param value The new value of the property.
+     *              Must not be <code>null</code>.
+     */
+    public void setUserProperty(String name, Object value) {
+        project.log("Setting ro project property: " + name + " -> " + value, Project.MSG_DEBUG);
+        synchronized (this) {
+            userProperties.put(name, value);
+            properties.put(name, value);
         }
-        properties.put(name, value);
     }
 
     /**
@@ -396,20 +643,31 @@ public class PropertyHelper {
      *             Must not be <code>null</code>.
      * @param value The new value of the property.
      *              Must not be <code>null</code>.
+     * @deprecated namespaces are unnecessary.
      */
-    public synchronized void setInheritedProperty(String ns, String name,
-                                                  Object value) {
-        inheritedProperties.put(name, value);
+    public void setInheritedProperty(String ns, String name, Object value) {
+        setInheritedProperty(name, value);
+    }
 
-        project.log("Setting ro project property: " + name + " -> "
-            + value, Project.MSG_DEBUG);
-        userProperties.put(name, value);
+    /**
+     * Sets an inherited user property, which cannot be overwritten by set/unset
+     * property calls. Any previous value is overwritten. Also marks
+     * these properties as properties that have not come from the
+     * command line.
+     *
+     * @param name The name of property to set.
+     *             Must not be <code>null</code>.
+     * @param value The new value of the property.
+     *              Must not be <code>null</code>.
+     */
+    public void setInheritedProperty(String name, Object value) {
+        project.log("Setting ro project property: " + name + " -> " + value, Project.MSG_DEBUG);
 
-        boolean done = setPropertyHook(ns, name, value, true, false, false);
-        if (done) {
-            return;
+        synchronized (this) {
+            inheritedProperties.put(name, value);
+            userProperties.put(name, value);
+            properties.put(name, value);
         }
-        properties.put(name, value);
     }
 
     // -------------------- Getting properties  --------------------
@@ -424,19 +682,38 @@ public class PropertyHelper {
      *             the return value is also <code>null</code>.
      * @return the property value, or <code>null</code> for no match
      *         or if a <code>null</code> name is provided.
+     * @deprecated namespaces are unnecessary.
      */
-    public synchronized Object getProperty(String ns, String name) {
+    public Object getProperty(String ns, String name) {
+        return getProperty(name);
+    }
+
+    /**
+     * Returns the value of a property, if it is set.  You can override
+     * this method in order to plug your own storage.
+     *
+     * @param name The name of the property.
+     *             May be <code>null</code>, in which case
+     *             the return value is also <code>null</code>.
+     * @return the property value, or <code>null</code> for no match
+     *         or if a <code>null</code> name is provided.
+     */
+    public Object getProperty(String name) {
         if (name == null) {
             return null;
         }
-
-        Object o = getPropertyHook(ns, name, false);
-        if (o != null) {
-            return o;
+        for (Iterator iter = getDelegates(PropertyEvaluator.class).iterator(); iter.hasNext();) {
+            Object o = ((PropertyEvaluator) iter.next()).evaluate(name, this);
+            if (o != null) {
+                if (o instanceof NullReturn) {
+                    return null;
+                }
+                return o;
+            }
         }
-
         return properties.get(name);
     }
+
     /**
      * Returns the value of a user property, if it is set.
      *
@@ -446,33 +723,42 @@ public class PropertyHelper {
      *             the return value is also <code>null</code>.
      * @return the property value, or <code>null</code> for no match
      *         or if a <code>null</code> name is provided.
+     * @deprecated namespaces are unnecessary.
      */
-    public synchronized Object getUserProperty(String ns, String name) {
+    public Object getUserProperty(String ns, String name) {
+        return getUserProperty(name);
+    }
+
+    /**
+     * Returns the value of a user property, if it is set.
+     *
+     * @param name The name of the property.
+     *             May be <code>null</code>, in which case
+     *             the return value is also <code>null</code>.
+     * @return the property value, or <code>null</code> for no match
+     *         or if a <code>null</code> name is provided.
+     */
+    public Object getUserProperty(String name) {
         if (name == null) {
             return null;
         }
-        Object o = getPropertyHook(ns, name, true);
-        if (o != null) {
-            return o;
-        }
-        return  userProperties.get(name);
+        return userProperties.get(name);
     }
-
 
     // -------------------- Access to property tables  --------------------
     // This is used to support ant call and similar tasks. It should be
     // deprecated, it is possible to use a better (more efficient)
     // mechanism to preserve the context.
 
-    // TODO: do we need to delegate ?
-
     /**
      * Returns a copy of the properties table.
-     * @return a hashtable containing all properties
-     *         (including user properties).
+     * @return a hashtable containing all properties (including user properties).
      */
     public Hashtable getProperties() {
-        return new Hashtable(properties);
+        //avoid concurrent modification:
+        synchronized (properties) {
+            return new Hashtable(properties);
+        }
         // There is a better way to save the context. This shouldn't
         // delegate to next, it's for backward compatibility only.
     }
@@ -482,12 +768,25 @@ public class PropertyHelper {
      * @return a hashtable containing just the user properties
      */
     public Hashtable getUserProperties() {
-        return new Hashtable(userProperties);
+        //avoid concurrent modification:
+        synchronized (userProperties) {
+            return new Hashtable(userProperties);
+        }
     }
 
     /**
-     * special back door for subclasses, internal access to
-     * the hashtables
+     * Returns a copy of the inherited property hashtable
+     * @return a hashtable containing just the inherited properties
+     */
+    public Hashtable getInheritedProperties() {
+        //avoid concurrent modification:
+        synchronized (inheritedProperties) {
+            return new Hashtable(inheritedProperties);
+        }
+    }
+
+    /**
+     * special back door for subclasses, internal access to the hashtables
      * @return the live hashtable of all properties
      */
     protected Hashtable getInternalProperties() {
@@ -495,8 +794,7 @@ public class PropertyHelper {
     }
 
     /**
-     * special back door for subclasses, internal access to
-     * the hashtables
+     * special back door for subclasses, internal access to the hashtables
      *
      * @return the live hashtable of user properties
      */
@@ -505,15 +803,13 @@ public class PropertyHelper {
     }
 
     /**
-     * special back door for subclasses, internal access to
-     * the hashtables
+     * special back door for subclasses, internal access to the hashtables
      *
      * @return the live hashtable inherited properties
      */
     protected Hashtable getInternalInheritedProperties() {
         return inheritedProperties;
     }
-
 
     /**
      * Copies all user properties that have not been set on the
@@ -528,14 +824,17 @@ public class PropertyHelper {
      * @since Ant 1.6
      */
     public void copyInheritedProperties(Project other) {
-        Enumeration e = inheritedProperties.keys();
-        while (e.hasMoreElements()) {
-            String arg = e.nextElement().toString();
-            if (other.getUserProperty(arg) != null) {
-                continue;
+        //avoid concurrent modification:
+        synchronized (inheritedProperties) {
+            Enumeration e = inheritedProperties.keys();
+            while (e.hasMoreElements()) {
+                String arg = e.nextElement().toString();
+                if (other.getUserProperty(arg) != null) {
+                    continue;
+                }
+                Object value = inheritedProperties.get(arg);
+                other.setInheritedProperty(arg, value.toString());
             }
-            Object value = inheritedProperties.get(arg);
-            other.setInheritedProperty(arg, value.toString());
         }
     }
 
@@ -552,14 +851,17 @@ public class PropertyHelper {
      * @since Ant 1.6
      */
     public void copyUserProperties(Project other) {
-        Enumeration e = userProperties.keys();
-        while (e.hasMoreElements()) {
-            Object arg = e.nextElement();
-            if (inheritedProperties.containsKey(arg)) {
-                continue;
+        //avoid concurrent modification:
+        synchronized (userProperties) {
+            Enumeration e = userProperties.keys();
+            while (e.hasMoreElements()) {
+                Object arg = e.nextElement();
+                if (inheritedProperties.containsKey(arg)) {
+                    continue;
+                }
+                Object value = userProperties.get(arg);
+                other.setUserProperty(arg.toString(), value.toString());
             }
-            Object value = userProperties.get(arg);
-            other.setUserProperty(arg.toString(), value.toString());
         }
     }
 
@@ -568,12 +870,12 @@ public class PropertyHelper {
     // this is used for backward compatibility (for code that calls
     // the parse method in ProjectHelper).
 
-    /** Default parsing method. It is here only to support backward compatibility
+    /**
+     * Default parsing method. It is here only to support backward compatibility
      * for the static ProjectHelper.parsePropertyString().
      */
-    static void parsePropertyStringDefault(String value, Vector fragments,
-                                    Vector propertyRefs)
-        throws BuildException {
+    static void parsePropertyStringDefault(String value, Vector fragments, Vector propertyRefs)
+            throws BuildException {
         int prev = 0;
         int pos;
         //search for the next instance of $ from the 'prev' position
@@ -607,13 +909,11 @@ public class PropertyHelper {
                     fragments.addElement(value.substring(pos, pos + 2));
                     prev = pos + 2;
                 }
-
             } else {
                 //property found, extract its name or bail on a typo
                 int endName = value.indexOf('}', pos);
                 if (endName < 0) {
-                    throw new BuildException("Syntax error in property: "
-                                                 + value);
+                    throw new BuildException("Syntax error in property: " + value);
                 }
                 String propertyName = value.substring(pos + 2, endName);
                 fragments.addElement(null);
@@ -626,6 +926,64 @@ public class PropertyHelper {
         if (prev < value.length()) {
             fragments.addElement(value.substring(prev));
         }
+    }
+
+    /**
+     * Add the specified delegate object to this PropertyHelper.
+     * Delegates are processed in LIFO order.
+     * @param delegate the delegate to add.
+     * @since Ant 1.8
+     */
+    public void add(Delegate delegate) {
+        synchronized (delegates) {
+            for (Iterator iter = getDelegateInterfaces(delegate).iterator(); iter.hasNext();) {
+                Object key = iter.next();
+                List list = (List) delegates.get(key);
+                if (list == null) {
+                    list = new ArrayList();
+                } else {
+                    list = new ArrayList(list);
+                    list.remove(delegate);
+                }
+                list.add(0, delegate);
+                delegates.put(key, Collections.unmodifiableList(list));
+            }
+        }
+    }
+
+    /**
+     * Get the Collection of delegates of the specified type.
+     * 
+     * @param type
+     *            delegate type.
+     * @return Collection.
+     * @since Ant 1.8
+     */
+    protected List getDelegates(Class type) {
+        List r = (List) delegates.get(type);
+        return r == null ? Collections.EMPTY_LIST : r;
+    }
+
+    /**
+     * Get all Delegate interfaces (excluding Delegate itself) from the specified Delegate.
+     * @param d the Delegate to inspect.
+     * @return Set<Class>
+     * @since Ant 1.8
+     */
+    protected static Set getDelegateInterfaces(Delegate d) {
+        HashSet result = new HashSet();
+        Class c = d.getClass();
+        while (c != null) {
+            Class[] ifs = c.getInterfaces();
+            for (int i = 0; i < ifs.length; i++) {
+                if (Delegate.class.isAssignableFrom(ifs[i])) {
+                    result.add(ifs[i]);
+                }
+            }
+            c = c.getSuperclass();
+        }
+        result.remove(Delegate.class);
+        return result;
     }
 
 }

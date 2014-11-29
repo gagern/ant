@@ -34,10 +34,10 @@
   <property name="name" value="ant"/>
   <!-- this is the groupId of ant in the Maven repository -->
   <property name="groupid" value="org.apache.ant"/>
-  <property name="project.version" value="1.7.0RC1"/>
+  <property name="project.version" value="1.8.0alpha"/>
   <!-- pom.version is used when doing a distribution and must match with what is checked in under src/etc/poms -->
-  <property name="pom.version" value="1.7.0-SNAPSHOT"/>
-  <property name="manifest-version" value="1.7.0"/>
+  <property name="pom.version" value="1.8.0-SNAPSHOT"/>
+  <property name="manifest-version" value="1.8.0"/>
   <property name="bootstrap.jar" value="ant-bootstrap.jar"/>
 
   <property name="ant.package" value="org/apache/tools/ant"/>
@@ -53,25 +53,6 @@
 
   <property name="optional.jars.prefix" value="ant"/>
   <property name="optional.jars.whenmanifestonly" value="skip"/>
-
-  <!--
-       ===================================================================
-         Set the properties that control various build options
-       ===================================================================
-  -->
-  <property name="debug" value="true"/>
-  <property name="chmod.fail" value="true"/>
-  <property name="chmod.maxparallel" value="250"/>
-  <property name="deprecation" value="false"/>
-  <property name="optimize" value="true"/>
-  <property name="javac.target" value="1.2"/>
-  <property name="javac.source" value="1.2"/>
-  <property name="junit.fork" value="false"/>
-  <property name="junit.filtertrace" value="off"/>
-  <property name="junit.summary" value="no"/>
-  <property name="test.haltonfailure" value="false"/>
-  <property name="junit.forkmode" value="once"/>
-  <property name="unfiltered.files" value="**/*.gif,**/*.jpg,**/*.ico,**/*.pdf,**/*.zip"/>
 
   <!--
        ===================================================================
@@ -112,10 +93,33 @@
 
   <!--
        ===================================================================
+         Set the properties that control various build options
+       ===================================================================
+  -->
+  <property name="debug" value="true"/>
+  <property name="chmod.fail" value="true"/>
+  <property name="chmod.maxparallel" value="250"/>
+  <property name="deprecation" value="false"/>
+  <property name="optimize" value="true"/>
+  <property name="javac.target" value="1.2"/>
+  <property name="javac.source" value="1.2"/>
+  <property name="junit.fork" value="false"/>
+  <property name="junit.filtertrace" value="off"/>
+  <property name="junit.summary" value="no"/>
+  <property name="test.haltonfailure" value="false"/>
+  <property name="junit.forkmode" value="once"/>
+  <property name="expandproperty.files"
+            value="**/version.txt,**/defaultManifest.mf"/>
+  <property name="junit.collector.dir" value="${build.dir}/failingTests"/>
+  <property name="junit.collector.class" value="FailedTests"/>
+
+  <!--
+       ===================================================================
          Set the paths used in the build
        ===================================================================
   -->
   <path id="classpath">
+    <fileset dir="lib/optional" includes="junit*.jar"/>
   </path>
 
   <path id="tests-classpath">
@@ -177,6 +181,7 @@
     <or>
       <filename name="${regexp.package}/Jdk14Regexp*"/>
       <filename name="${ant.package}/types/AssertionsTest.java"/>
+      <filename name="${ant.package}/launch/LocatorTest*"/>
     </or>
   </selector>
 
@@ -241,11 +246,8 @@
 
   <selector id="needs.apache-bsf">
     <or>
-      <filename name="${optional.package}/Script*"/>
-      <filename name="${optional.package}/script/**/*"/>
-      <filename name="${optional.type.package}/*Script*"/>
-      <filename name="${util.package}/Script*"/>
-      <filename name="${util.package}/optional/Script*"/>
+      <filename name="${util.package}/ScriptRunner.*"/>
+      <filename name="${util.package}/optional/ScriptRunner*"/>
     </or>
   </selector>
 
@@ -263,33 +265,11 @@
     <filename name="${optional.package}/NetRexxC*"/>
   </selector>
 
-  <selector id="needs.weblogic.ejbc">
-    <filename name="${optional.package}/ejb/Ejbc*"/>
-  </selector>
-
-  <selector id="needs.weblogic.ddcreator">
-    <filename name="${optional.package}/ejb/DDCreator*"/>
-  </selector>
-
-  <selector id="needs.weblogic.server">
-    <or>
-      <filename name="${optional.package}/ejb/WLRun*"/>
-      <filename name="${optional.package}/ejb/WLStop*"/>
-    </or>
-  </selector>
-
   <selector id="needs.commons-net">
     <or>
       <filename name="${optional.package}/net/FTP*"/>
       <filename name="${optional.package}/net/RExec*"/>
       <filename name="${optional.package}/net/TelnetTask*"/>
-    </or>
-  </selector>
-
-  <selector id="needs.starteam">
-    <or>
-      <filename name="${optional.package}/scm/AntStarTeam*"/>
-      <filename name="${optional.package}/starteam/*"/>
     </or>
   </selector>
 
@@ -381,7 +361,7 @@
     <available property="jdk1.3+" classname="java.lang.StrictMath"/>
     <available property="jdk1.4+" classname="java.lang.CharSequence"/>
     <available property="jdk1.5+" classname="java.net.Proxy"/>
-    <available property="jdk1.6+" classname="java.util.Service"/>
+    <available property="jdk1.6+" classname="java.util.ServiceLoader"/>
     <available property="kaffe" classname="kaffe.util.NotImplemented"/>
     <available property="bsf.present"
       classname="org.apache.bsf.BSFManager"
@@ -408,15 +388,6 @@
     <available property="xalan2.present"
       classname="org.apache.xalan.transformer.TransformerImpl"
       classpathref="classpath"/>
-    <available property="ejb.ejbc.present"
-      classname="weblogic.ejbc"
-      classpathref="classpath"/>
-    <available property="ejb.DDCreator.present"
-      classname="weblogic.ejb.utils.DDCreator"
-      classpathref="classpath"/>
-    <available property="ejb.wls.present"
-      classname="weblogic.Server"
-      classpathref="classpath"/>
     <available property="junit.present"
       classname="junit.framework.TestCase"
       classpathref="classpath"/>
@@ -426,11 +397,8 @@
     <available property="commons.net.present"
       classname="org.apache.commons.net.ftp.FTPClient"
       classpathref="classpath"/>
-    <available property="starteam.present"
-      classname="com.starbase.util.Platform"
-      classpathref="classpath"/>
-    <available property="antlr.present"
-      classname="antlr.Tool"
+    <available property="antlr.present" 
+      classname="antlr.Tool" 
       classpathref="classpath"/>
     <available property="stylebook.present"
       classname="org.apache.stylebook.Engine"
@@ -657,12 +625,7 @@
             <selector refid="needs.stylebook" unless="stylebook.present"/>
             <selector refid="needs.javamail" unless="javamail.complete"/>
             <selector refid="needs.netrexx" unless="netrexx.present"/>
-            <selector refid="needs.weblogic.ejbc" unless="ejb.ejbc.present"/>
-            <selector refid="needs.weblogic.ddcreator"
-              unless="ejb.DDCreator.present"/>
-            <selector refid="needs.weblogic.server" unless="ejb.wls.present"/>
             <selector refid="needs.commons-net" unless="commons.net.present"/>
-            <selector refid="needs.starteam" unless="starteam.present"/>
             <selector refid="needs.antlr" unless="antlr.present"/>
             <selector refid="needs.jmf" unless="jmf.present"/>
             <selector refid="needs.jai" unless="jai.present"/>
@@ -840,11 +803,7 @@
             <selector refid="needs.stylebook"/>
             <selector refid="needs.javamail"/>
             <selector refid="needs.netrexx"/>
-            <selector refid="needs.weblogic.ejbc"/>
-            <selector refid="needs.weblogic.ddcreator"/>
-            <selector refid="needs.weblogic.server"/>
             <selector refid="needs.commons-net"/>
-            <selector refid="needs.starteam"/>
             <selector refid="needs.antlr"/>
             <selector refid="needs.jmf"/>
             <selector refid="needs.jai"/>
@@ -885,24 +844,12 @@
     <optional-jar dep="javamail"/>
     <optional-jar dep="netrexx"/>
     <optional-jar dep="commons-net"/>
-    <optional-jar dep="starteam"/>
     <optional-jar dep="antlr"/>
     <optional-jar dep="jmf"/>
     <optional-jar dep="jai"/>
     <optional-jar dep="swing"/>
     <optional-jar dep="jsch"/>
     <optional-jar dep="jdepend"/>
-
-    <jar destfile="${build.lib}/${optional.jars.prefix}-weblogic.jar"
-      basedir="${build.classes}"
-      manifest="${manifest.tmp}"
-      whenmanifestonly="${optional.jars.whenmanifestonly}">
-      <or>
-        <selector refid="needs.weblogic.ejbc"/>
-        <selector refid="needs.weblogic.ddcreator"/>
-        <selector refid="needs.weblogic.server"/>
-      </or>
-    </jar>
 
   </target>
 
@@ -927,7 +874,7 @@
        ===================================================================
   -->
   <target name="dist-lite"
-    depends="jars"
+    depends="jars,test-jar"
     description="--> creates a minimum distribution to run Apache Ant">
 
     <mkdir dir="${dist.dir}"/>
@@ -1033,14 +980,14 @@
     </checksum>
 
     <copy todir="${dist.docs}">
-      <fileset dir="${docs.dir}" excludes="${unfiltered.files}">
+      <fileset dir="${docs.dir}" includes="${expandproperty.files}">
         <patternset refid="site.excludes"/>
       </fileset>
       <filterchain refid="ant.filters"/>
     </copy>
 
     <copy todir="${dist.docs}" filtering="false">
-      <fileset dir="${docs.dir}" includes="${unfiltered.files}">
+      <fileset dir="${docs.dir}" excludes="${expandproperty.files}">
         <patternset refid="site.excludes"/>
       </fileset>
     </copy>
@@ -1442,13 +1389,15 @@
          Installs Apache Ant
        ===================================================================
   -->
-  <target name="install" if="ant.install">
+  <target name="install">
+    <fail message="You must set the property ant.install=/where/to/install" unless="ant.install"/>
     <antcall inheritAll="false" target="internal_dist">
       <param name="dist.dir" value="${ant.install}"/>
     </antcall>
   </target>
 
-  <target name="install-lite" if="ant.install">
+  <target name="install-lite">
+    <fail message="You must set the property ant.install=/where/to/install" unless="ant.install"/>
     <antcall inheritAll="false" target="dist-lite">
       <param name="dist.dir" value="${ant.install}"/>
     </antcall>
@@ -1547,6 +1496,22 @@
 
     <!-- Used by AntlibTest.testAntlibResource: -->
     <jar jarfile="${build.tests}/org/apache/tools/ant/taskdefs/test2-antlib.jar">
+      <manifest>
+        <attribute name="Extension-name"
+          value="org.apache.tools.ant"/>
+        <attribute name="Specification-Title"
+          value="Apache Ant"/>
+        <attribute name="Specification-Version"
+          value="${manifest-version}"/>
+        <attribute name="Specification-Vendor"
+          value="Apache Software Foundation"/>
+        <attribute name="Implementation-Title"
+          value="org.apache.tools.ant"/>
+        <attribute name="Implementation-Version"
+          value="${manifest-version}"/>
+        <attribute name="Implementation-Vendor"
+          value="Apache Software Foundation"/>
+      </manifest>
       <zipfileset dir="${tests.etc.dir}" fullpath="taskdefs/test.antlib.xml">
         <include name="taskdefs/test2.antlib.xml"/>
       </zipfileset>
@@ -1611,7 +1576,7 @@
 
   <target name="test" description="--> run unit tests and reports"
           depends="dump-info,junit-report,antunit-report,check-failed">
-    <fail if="tests.failed">Unit tests failed;
+    <fail if="tests.failed" unless="ignore.tests.failed">Unit tests failed;
 see ${build.junit.reports} / ${antunit.reports}
     </fail>
   </target>
@@ -1625,8 +1590,27 @@ see ${build.junit.reports} / ${antunit.reports}
     <macrodef name="test-junit">
       <element name="junit-nested" implicit="true" />
       <sequential>
+        <!-- Delete 'old' collector classes -->
+        <delete failonerror="false">
+          <fileset dir="${junit.collector.dir}" includes="${junit.collector.class}*.class"/>
+        </delete>
+        <!-- compile the FailedTests class if present -->
+        <mkdir dir="${junit.collector.dir}"/>
+        <!-- FIXME: removed junit collector build code
+        <javac srcdir="${junit.collector.dir}" destdir="${junit.collector.dir}">
+          <classpath id="failure.cp">
+            <pathelement location="${build.classes}"/>
+            <pathelement location="${build.tests}"/>
+          </classpath>
+        </javac>
+             -->
+        <available file="${junit.collector.dir}/${junit.collector.class}.class"
+                   property="hasFailingTests"/>
+        <!-- run the tests -->
         <mkdir dir="${build.junit.xml}" />
         <property name="test.junit.vmargs" value=""/>
+        <property name="ant.junit.failureCollector"
+                  value="${junit.collector.dir}/${junit.collector.class}"/>
         <junit printsummary="${junit.summary}"
                haltonfailure="${test.haltonfailure}"
                fork="${junit.fork}"
@@ -1644,9 +1628,21 @@ see ${build.junit.reports} / ${antunit.reports}
           <sysproperty key="build.compiler" value="${build.compiler}"/>
           <sysproperty key="tests.and.ant.share.classloader"
                        value="${tests.and.ant.share.classloader}"/>
-          <classpath refid="tests-classpath"/>
+          <classpath>
+            <path refid="tests-classpath"/>
+            <pathelement location="${junit.collector.dir}"/>
+            <!-- FIXME: remove failure collector build code for the moment
+                 <path refid="failure.cp"/> 
+                 -->
+          </classpath>
+          <!-- FIXME: remove failure collector build code for the moment
+          <formatter type="failure" usefile="false"/>
+               -->
           <formatter type="xml"/>
           <jvmarg line="${test.junit.vmargs}"/>
+          <!-- FIXME: remove failure collector build code for the moment
+          <test name="${junit.collector.class}" if="hasFailingTests"/>
+          -->
           <junit-nested />
         </junit>
       </sequential>
@@ -1754,7 +1750,7 @@ see ${build.junit.reports} / ${antunit.reports}
     <test-junit>
       <formatter type="brief" usefile="false"/>
 
-      <batchtest todir="${build.junit.xml}">
+      <batchtest todir="${build.junit.xml}" unless="hasFailingTests">
         <fileset dir="${src.junit}"
                  includes="${junit.includes}" excludes="${junit.excludes}">
 
@@ -1872,6 +1868,8 @@ see ${build.junit.reports} / ${antunit.reports}
           <exclude name="${taskdefs.package}/ProcessDestroyerTest.java"
             unless="tests.and.ant.share.classloader"/>
           <exclude name="${taskdefs.package}/ProtectedJarMethodsTest.java"
+            unless="tests.and.ant.share.classloader"/>
+          <exclude name="${ant.package}/launch/LocatorTest.java"
             unless="tests.and.ant.share.classloader"/>
 
           <!-- can only run if cvs is installed on your machine

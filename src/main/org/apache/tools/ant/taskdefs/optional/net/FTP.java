@@ -136,6 +136,7 @@ public class FTP
     private int retriesAllowed = 0;
     private String siteCommand = null;
     private String initialSiteCommand = null;
+    private boolean enableRemoteVerification = true;
 
     protected static final String[] ACTION_STRS = {
         "sending",
@@ -371,8 +372,9 @@ public class FTP
                 }
                 for (int i = 0; i < newfiles.length; i++) {
                     FTPFile file = newfiles[i];
-                    if (!file.getName().equals(".")
-                         && !file.getName().equals("..")) {
+                    if (file != null
+                            && !file.getName().equals(".")
+                            && !file.getName().equals("..")) {
                         if (isFunctioningAsDirectory(ftp, dir, file)) {
                             String name = vpath + file.getName();
                             boolean slowScanAllowed = true;
@@ -571,7 +573,7 @@ public class FTP
             boolean candidateFound = false;
             String target = null;
             for (int icounter = 0; icounter < array.length; icounter++) {
-                if (array[icounter].isDirectory()) {
+                if (array[icounter] != null && array[icounter].isDirectory()) {
                     if (!array[icounter].getName().equals(".")
                         && !array[icounter].getName().equals("..")) {
                         candidateFound = true;
@@ -580,7 +582,9 @@ public class FTP
                             + target + " where a directory called " + array[icounter].getName()
                             + " exists", Project.MSG_DEBUG);
                         for (int pcounter = 0; pcounter < array.length; pcounter++) {
-                            if (array[pcounter].getName().equals(target) && pcounter != icounter) {
+                            if (array[pcounter] != null
+                                && pcounter != icounter
+                                && target.equals(array[pcounter].getName())) {
                                 candidateFound = false;
                             }
                         }
@@ -719,7 +723,8 @@ public class FTP
                     return null;
                 }
                 for (int icounter = 0; icounter < theFiles.length; icounter++) {
-                    if (theFiles[icounter].getName().equalsIgnoreCase(soughtPathElement)) {
+                    if (theFiles[icounter] != null
+                        && theFiles[icounter].getName().equalsIgnoreCase(soughtPathElement)) {
                         return theFiles[icounter].getName();
                     }
                 }
@@ -841,12 +846,15 @@ public class FTP
                     return null;
                 }
                 for (int fcount = 0; fcount < theFiles.length; fcount++) {
-                     if (theFiles[fcount].getName().equals(lastpathelement)) {
-                         return theFiles[fcount];
-                     } else if (!isCaseSensitive()
-                         && theFiles[fcount].getName().equalsIgnoreCase(lastpathelement)) {
-                         return theFiles[fcount];
-                     }
+                    if (theFiles[fcount] != null) {
+                        if (theFiles[fcount].getName().equals(lastpathelement)) {
+                            return theFiles[fcount];
+                        } else if (!isCaseSensitive()
+                                && theFiles[fcount].getName().equalsIgnoreCase(
+                                        lastpathelement)) {
+                            return theFiles[fcount];
+                        }
+                    }
                 }
                 return null;
             }
@@ -1480,6 +1488,17 @@ public class FTP
     public void setInitialSiteCommand(String initialCommand) {
         this.initialSiteCommand = initialCommand;
     }
+
+    /**
+     * Whether to verify that data and control connections are
+     * connected to the same remote host.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setEnableRemoteVerification(boolean b) {
+        enableRemoteVerification = b;
+    }
+
     /**
      * Checks to see that all required parameters are set.
      *
@@ -1820,16 +1839,18 @@ public class FTP
         FTPFile [] theFiles = null;
         final int maxIterations = 1000;
         for (int counter = 1; counter < maxIterations; counter++) {
-            File localFile = FILE_UTILS.createTempFile("ant" + Integer.toString(counter), ".tmp",
-                null);
+            File localFile = FILE_UTILS.createTempFile(
+                "ant" + Integer.toString(counter), ".tmp",
+                null, false, false);
             String fileName = localFile.getName();
             boolean found = false;
             try {
-                if (counter == 1) {
+                if (theFiles == null) {
                     theFiles = ftp.listFiles();
                 }
                 for (int counter2 = 0; counter2 < theFiles.length; counter2++) {
-                    if (theFiles[counter2].getName().equals(fileName)) {
+                    if (theFiles[counter2] != null
+                        && theFiles[counter2].getName().equals(fileName)) {
                         found = true;
                         break;
                     }
@@ -2196,12 +2217,16 @@ public class FTP
          throws IOException, BuildException {
         String workingDirectory = ftp.printWorkingDirectory();
         if (verbose) {
-            log("Creating directory: " + dir);
+            if (dir.indexOf("/") == 0 || workingDirectory == null) {
+                log("Creating directory: " + dir + " in /");
+            } else {
+                log("Creating directory: " + dir + " in " + workingDirectory);
+            }
         }
         if (dir.indexOf("/") == 0) {
             ftp.changeWorkingDirectory("/");
         }
-        String subdir = new String();
+        String subdir = "";
         StringTokenizer st = new StringTokenizer(dir, "/");
         while (st.hasMoreTokens()) {
             subdir = st.nextToken();
@@ -2269,6 +2294,7 @@ public class FTP
                 ftp = FTPConfigurator.configure(ftp, this);
             }
 
+            ftp.setRemoteVerificationEnabled(enableRemoteVerification);
             ftp.connect(server, port);
             if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
                 throw new BuildException("FTP connection failed: "
@@ -2357,7 +2383,8 @@ public class FTP
                     }, "Site Command: " + this.siteCommand);
             } else {
                 if (remotedir != null) {
-                    log("changing the remote directory", Project.MSG_VERBOSE);
+                    log("changing the remote directory to " + remotedir,
+                        Project.MSG_VERBOSE);
                     ftp.changeWorkingDirectory(remotedir);
                     if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
                         throw new BuildException("could not change remote "
@@ -2531,7 +2558,7 @@ public class FTP
         private static final String[] VALID_LANGUAGE_CODES =
             getValidLanguageCodes();
 
-        private static final String[] getValidLanguageCodes() {
+        private static String[] getValidLanguageCodes() {
             Collection c = FTPClientConfig.getSupportedLanguageCodes();
             String[] ret = new String[c.size() + 1];
             int i = 0;

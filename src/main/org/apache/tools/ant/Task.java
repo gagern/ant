@@ -42,13 +42,6 @@ public abstract class Task extends ProjectComponent {
     protected Target target;
 
     /**
-     * Description of this task, if any.
-     * @deprecated since 1.6.x.
-     *             You should not be accessing this variable directly.
-     */
-    protected String description;
-
-    /**
      * Name of this task to be used for logging purposes.
      * This defaults to the same as the type, but may be
      * overridden by the user. For instance, the name "java"
@@ -139,29 +132,6 @@ public abstract class Task extends ProjectComponent {
      */
     public void setTaskType(String type) {
         this.taskType = type;
-    }
-
-    /**
-     * Sets a description of the current action. This may be used for logging
-     * purposes.
-     *
-     * @param desc Description of the current action.
-     *             May be <code>null</code>, indicating that no description is
-     *             available.
-     *
-     */
-    public void setDescription(String desc) {
-        description = desc;
-    }
-
-    /**
-     * Returns the description of the current action.
-     *
-     * @return the description of the current action, or <code>null</code> if
-     *         no description is available.
-     */
-    public String getDescription() {
-        return description;
     }
 
     /**
@@ -337,12 +307,11 @@ public abstract class Task extends ProjectComponent {
      * @since 1.7
      */
     public void log(Throwable t, int msgLevel) {
-        if(t != null)
-        {
+        if (t != null) {
             log(t.getMessage(), t, msgLevel);
         }
     }
-    
+
     /**
      * Logs a message with the given priority. This delegates
      * the actual logging to the project.
@@ -360,7 +329,7 @@ public abstract class Task extends ProjectComponent {
             super.log(msg, msgLevel);
         }
     }
-    
+
     /**
      * Performs this task if it's still valid, or gets a replacement
      * version and performs that otherwise.

@@ -17,16 +17,16 @@
  */
 package org.apache.tools.ant.util.regexp;
 
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.tools.ant.BuildException;
-
 
 /***
  * Regular expression implementation using the JDK 1.4 regular expression package
  */
 public class Jdk14RegexpRegexp extends Jdk14RegexpMatcher implements Regexp {
+
+    private static final int DECIMAL = 10;
 
     /** Constructor for Jdk14RegexpRegexp */
     public Jdk14RegexpRegexp() {
@@ -67,7 +67,7 @@ public class Jdk14RegexpRegexp extends Jdk14RegexpMatcher implements Regexp {
             } else if (c == '\\') {
                 if (++i < argument.length()) {
                     c = argument.charAt(i);
-                    int value = Character.digit(c, 10);
+                    int value = Character.digit(c, DECIMAL);
                     if (value > -1) {
                         subst.append("$").append(value);
                     } else {
@@ -99,7 +99,6 @@ public class Jdk14RegexpRegexp extends Jdk14RegexpMatcher implements Regexp {
                 sb.append(input);
             }
         }
-
         return sb.toString();
     }
 }

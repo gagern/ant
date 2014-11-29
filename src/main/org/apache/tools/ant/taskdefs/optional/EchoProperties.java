@@ -387,6 +387,7 @@ public class EchoProperties extends Task {
         final List keyList = new ArrayList(allProps.keySet());
         Collections.sort(keyList);
         Properties props = new Properties() {
+            private static final long serialVersionUID = 5090936442309201654L;
             public Enumeration keys() {
                 return CollectionUtils.asEnumeration(keyList.iterator());
             }
@@ -421,7 +422,7 @@ public class EchoProperties extends Task {
     /**
      * a tuple for the sort list.
      */
-    private static class Tuple implements Comparable {
+    private static final class Tuple implements Comparable {
         private String key;
         private String value;
 

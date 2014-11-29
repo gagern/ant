@@ -40,7 +40,7 @@ statements will all be executed as one transaction.</p>
 <p>The <i>onerror</i> attribute specifies how to proceed when an error occurs 
 during the execution of one of the statements. 
 The possible values are: <b>continue</b> execution, only show the error;
-<b>stop</b> execution and commit transaction;
+<b>stop</b> execution, log the error but don't fail the task
 and <b>abort</b> execution and transaction and fail task.</p>
 
 <p>
@@ -117,14 +117,18 @@ and <b>abort</b> execution and transaction and fail task.</p>
 </tr>
 <tr>
   <td width="12%" valign="top">output</td>
-  <td width="78%" valign="top">Output file for result sets (defaults to System.out)</td>
+  <td width="78%" valign="top">Output file for result sets (defaults to System.out)
+    <b>Since Ant 1.8</b> can specify any Resource that supports output (see
+    <a href="../develop.html#set-magic">note</a>).
+  </td>
   <td width="10%" valign="top">No (print to System.out by default)</td>
 </tr>
   <tr>
     <td valign="top">append</td>
     <td valign="top">whether output should be appended to or overwrite
     an existing file.  Defaults to false.</td>
-    <td align="center" valign="top">No</td>
+    <td align="center" valign="top">No, ignored if <i>output</i> does not
+      specify a filesystem destination.</td>
   </tr>
 <tr>
   <td width="12%" valign="top">classpath</td>
@@ -167,7 +171,7 @@ and <b>abort</b> execution and transaction and fail task.</p>
 <tr>
   <td width="12%" valign="top">keepformat</td>
   <td width="78%" valign="top">Control whether the format of the sql will be preserved.<br>
-    Usefull when loading packages and procedures.
+    Useful when loading packages and procedures.
   <td width="10%" valign="top">No (default=false)</td>
 </tr>
 
@@ -185,7 +189,71 @@ and <b>abort</b> execution and transaction and fail task.</p>
   <td width="12%" valign="top">expandproperties</td>
   <td width="78%" valign="top">Set to true to turn on property expansion in
   nested SQL, inline in the task or nested transactions. <em>Since Ant 1.7</em>.
-  <td width="10%" valign="top">No (default=false)</td>
+  <td width="10%" valign="top">No (default=true)</td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">rawblobs</td>
+  <td width="78%" valign="top">If true, will write raw streams rather than hex encoding when
+    printing BLOB results. <em>Since Ant 1.7.1</em>.</td>
+  <td width="10%" valign="top">No, default <em>false</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">failOnConnectionError</td>
+  <td width="78%" valign="top">If false, will only print a warning
+    message and not execute any statement if the task fails to connect
+    to the database.  <em>Since Ant 1.8.0</em>.</td>
+  <td width="10%" valign="top">No, default <em>true</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">strictDelimiterMatching</td>
+  <td width="78%" valign="top">If false, delimiters will be searched
+    for in a case-insesitive manner (i.e. delimer="go" matches "GO")
+    and surrounding whitespace will be ignored (delimter="go" matches
+    "GO ").  <em>Since Ant 1.8.0</em>.</td>
+  <td width="10%" valign="top">No, default <em>true</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">showWarnings</td>
+  <td width="78%" valign="top">If true, SQLWarnings will be logged at
+    the WARN level.  <em>Since Ant 1.8.0</em>.<br/>
+    <b>Note:</b> even if the attribute is set to false, warnings that
+    apply to the connection will be logged at the verbose level.</td>
+  <td width="10%" valign="top">No, default <em>false</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">treatWarningsAsErrors</td>
+  <td width="78%" valign="top">If true, SQLWarnings will be treated
+    like errors - and the logic selected via the onError attribute
+    applies.
+    <em>Since Ant 1.8.0</em>.</td>
+  <td width="10%" valign="top">No, default <em>false</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">csvColumnSeparator</td>
+  <td width="78%" valign="top">The column separator used when printing
+    the results.
+    <em>Since Ant 1.8.0</em>.</td>
+  <td width="10%" valign="top">No, default <em>','</em></td>
+</tr>
+
+<tr>
+  <td width="12%" valign="top">csvQuoteCharacter</td>
+  <td width="78%" valign="top">The character used to quote column
+    values.<br/>
+    If set, columns that contain either the column separator or the
+    quote character itself will be surrounded by the quote character.
+    The quote character itself will be doubled if it appears inside of
+    the column's value.<br/>
+    <b>Note:</b> BLOB values will never be quoted.
+    <em>Since Ant 1.8.0</em>.</td>
+  <td width="10%" valign="top">No, default is not set (i.e. no quoting
+    ever occurs)</td>
 </tr>
 
 </table>
@@ -328,7 +396,7 @@ run before <code>data2.sql</code>.</p>
     &lt;fileset dir=&quot;.&quot;&gt;
       &lt;include name=&quot;data*.sql&quot;/&gt;
     &lt;/fileset&gt;
-  &lt;path&gt;
+  &lt;/path&gt;
   &lt;transaction&gt;
     truncate table some_other_table;
   &lt;/transaction&gt;

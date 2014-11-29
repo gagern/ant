@@ -141,7 +141,9 @@ public class WLJspc extends MatchingTask {
         helperTask.setFork(true);
         helperTask.setClassname("weblogic.jspc");
         helperTask.setTaskName(getTaskName());
+        // CheckStyle:MagicNumber OFF
         String[] args = new String[12];
+        // CheckStyle:MagicNumber ON
 
         File jspFile = null;
         String parents = "";
@@ -151,7 +153,7 @@ public class WLJspc extends MatchingTask {
         args[j++] = destinationDirectory.getAbsolutePath().trim();
         args[j++] = "-docroot";
         args[j++] = sourceDirectory.getAbsolutePath().trim();
-        args[j++] = "-keepgenerated";  //TODO: Parameterise ??
+        args[j++] = "-keepgenerated";
         //Call compiler as class... dont want to fork again
         //Use classic compiler -- can be parameterised?
         args[j++] =  "-compilerclass";
@@ -185,9 +187,11 @@ public class WLJspc extends MatchingTask {
             args[j + 2] =  sourceDirectory + File.separator + filename;
             helperTask.clearArgs();
 
+            // CheckStyle:MagicNumber OFF
             for (int x = 0; x < j + 3; x++) {
                 helperTask.createArg().setValue(args[x]);
             }
+            // CheckStyle:MagicNumber ON
 
             helperTask.setClasspath(compileClasspath);
             if (helperTask.executeJava() != 0) {

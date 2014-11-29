@@ -127,7 +127,7 @@ Options:
                          1 (lowest) to 10 (highest); 5 is the default
   -nouserlib             Run ant without using the jar files from ${user.home}/.ant/lib
   -noclasspath           Run ant without using CLASSPATH
-  -noproxy               Java 1.5 only: do not use the OS proxies
+  -autoproxy             Java 1.5+ : use the OS proxies
   -main &lt;class&gt;          override Ant's normal entry point
 </pre>
 <p>For more information about <code>-logger</code> and
@@ -403,13 +403,9 @@ org.apache.tools.ant.Executor implementation specified here.
 </tr>
 <tr>
   <td><code>build.sysclasspath</code></td>
-  <td>"only", something else</td>
-  <td>only: current threads get the actual class loader
-      (AntClassLoader.setThreadContextLoader()).
-      else: use core loader as default (ComponentHelper.initTasks()). Disable
-      changing the classloader (oata.taskdefs.Classloader.execute() experimental
-      task).
-      <!-- somewhere documented in the manual?? -->
+  <td>see <a href="sysclasspath.html">its dedicated page</a>, no
+    default value</td>
+  <td>see <a href="sysclasspath.html">its dedicated page</a></td>
   </td>
 </tr>
 <tr>
@@ -519,6 +515,22 @@ shell (of course unless called automatically from <code>ant.cmd</code>). It is t
 
 <p>Scripts <code>envset.cmd</code> and <code>runrc.cmd</code> perform auxiliary tasks. All scripts
 have some documentation inside.</p>
+
+<h2><a name="background">Running Ant as a background process on
+    Unix(-like) systems</a></h2>
+
+<p>If you start Ant as a background process (like in <code>ant
+    &</code>) and the build process creates another process, Ant will
+    immediately try to read from standard input, which in turn will
+    most likely suspend the process.  In order to avoid this, you must
+    redirect Ant's standard input or explicitly provide input to each
+    spawned process via the input related attributes of the
+    corresponding tasks.</p>
+
+<p>Tasks that create such new processes
+  include <code>&lt;exec&gt;</code>, <code>&lt;apply&gt;</code>
+  or <code>&lt;java&gt;</code> when the <code>fork</code> attribute is
+  <code>true</code>.</p>
 
 <h2><a name="viajava">Running Ant via Java</a></h2>
 <p>If you have installed Ant in the do-it-yourself way, Ant can be started

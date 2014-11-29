@@ -16,6 +16,7 @@
  *
  */
 package org.apache.tools.ant;
+
 import org.apache.tools.ant.launch.Launcher;
 
 /**
@@ -37,55 +38,59 @@ public final class MagicNames {
     public static final String ANTLIB_PREFIX = "antlib:";
 
     /**
-     * Ant version property. {@value}
+     * Ant version property.
+     * Value: {@value}
      */
     public static final String ANT_VERSION = "ant.version";
 
     /**
-     * System classpath policy. {@value}
+     * System classpath policy.
+     * Value: {@value}
      */
     public static final String BUILD_SYSCLASSPATH = "build.sysclasspath";
 
     /**
-     * The name of the script repository used by the script repo task
+     * The name of the script repository used by the script repo task.
      * Value {@value}
      */
     public static final String SCRIPT_REPOSITORY = "org.apache.ant.scriptrepo";
 
     /**
-     * The name of the reference to the System Class Loader
+     * The name of the reference to the System Class Loader.
      * Value {@value}
      **/
     public static final String SYSTEM_LOADER_REF = "ant.coreLoader";
 
     /**
-     * Name of the property which can provide an override of the repository dir
+     * Name of the property which can provide an override of the repository dir.
      * for the libraries task
      * Value {@value}
      */
     public static final String REPOSITORY_DIR_PROPERTY = "ant.maven.repository.dir";
+
     /**
-     * Name of the property which can provide an override of the repository URL
+     * Name of the property which can provide an override of the repository URL.
      * for the libraries task
      * Value {@value}
      */
     public static final String REPOSITORY_URL_PROPERTY = "ant.maven.repository.url";
 
     /**
-     * name of the resource that taskdefs are stored under
+     * name of the resource that taskdefs are stored under.
      * Value: {@value}
      */
     public static final String TASKDEF_PROPERTIES_RESOURCE =
             "/org/apache/tools/ant/taskdefs/defaults.properties";
+
     /**
-     * name of the resource that typedefs are stored under
+     * name of the resource that typedefs are stored under.
      * Value: {@value}
      */
     public static final String TYPEDEFS_PROPERTIES_RESOURCE =
             "/org/apache/tools/ant/types/defaults.properties";
 
     /**
-     * Reference to the current Ant executor
+     * Reference to the current Ant executor.
      * Value: {@value}
      */
     public static final String ANT_EXECUTOR_REFERENCE = "ant.executor";
@@ -95,31 +100,36 @@ public final class MagicNames {
      * Value: {@value}
      */
     public static final String ANT_EXECUTOR_CLASSNAME = "ant.executor.class";
+
     /**
-     * property name for basedir of the project
+     * property name for basedir of the project.
      * Value: {@value}
      */
     public static final String PROJECT_BASEDIR = "basedir";
+
     /**
-     * property for ant file name
+     * property for ant file name.
      * Value: {@value}
      */
     public static final String ANT_FILE = "ant.file";
 
     /**
      * Property used to store the java version ant is running in.
+     * Value: {@value}
      * @since Ant 1.7
      */
     public static final String ANT_JAVA_VERSION = "ant.java.version";
 
     /**
      * Property used to store the location of ant.
+     * Value: {@value}
      * @since Ant 1.7
      */
     public static final String ANT_HOME = Launcher.ANTHOME_PROPERTY;
 
     /**
      * Property used to store the location of the ant library (typically the ant.jar file.)
+     * Value: {@value}
      * @since Ant 1.7
      */
     public static final String ANT_LIB = "ant.core.lib";
@@ -139,15 +149,14 @@ public final class MagicNames {
     public static final String BUILD_JAVAC_SOURCE = "ant.build.javac.source";
 
     /**
-     * property that provides the default value for javac's target
-     * attribute.
+     * property that provides the default value for javac's target attribute.
      * @since Ant 1.7
      * Value: {@value}
      */
     public static final String BUILD_JAVAC_TARGET = "ant.build.javac.target";
 
     /**
-     * Name of the magic property that controls classloader reuse
+     * Name of the magic property that controls classloader reuse.
      * @since Ant 1.4.
      * Value: {@value}
      */
@@ -160,10 +169,63 @@ public final class MagicNames {
     public static final String REFID_CLASSPATH_LOADER_PREFIX = "ant.loader.";
 
     /**
-     * Reference used to store the property helper
+     * Reference used to store the property helper.
      * Value: {@value}
      */
     public static final String REFID_PROPERTY_HELPER = "ant.PropertyHelper";
 
+    /**
+     * Reference used to store the local properties.
+     * Value: {@value}
+     */
+    public static final String REFID_LOCAL_PROPERTIES = "ant.LocalProperties";
+
+    /**
+     * Name of JVM system property which provides the name of the ProjectHelper class to use.
+     * Value: {@value}
+     */
+    public static final String PROJECT_HELPER_CLASS = "org.apache.tools.ant.ProjectHelper";
+
+    /**
+     * The service identifier in jars which provide ProjectHelper implementations.
+     * Value: {@value}
+     */
+    public static final String PROJECT_HELPER_SERVICE =
+        "META-INF/services/org.apache.tools.ant.ProjectHelper";
+
+    /**
+     * Name of ProjectHelper reference that we add to a project.
+     * Value: {@value}
+     */
+    public static final String REFID_PROJECT_HELPER = "ant.projectHelper";
+
+    /**
+     * Name of the property holding the name of the currently
+     * executing project, if one has been specified.
+     *
+     * Value: {@value}
+     * @since Ant 1.8.0
+     */
+    public static final String PROJECT_NAME = "ant.project.name";
+
+    /**
+     * Name of the property holding the default target of the
+     * currently executing project, if one has been specified.
+     *
+     * Value: {@value}
+     * @since Ant 1.8.0
+     */
+    public static final String PROJECT_DEFAULT_TARGET
+        = "ant.project.default-target";
+
+    /**
+     * Name of the property holding a comma separated list of targets
+     * that have been invoked (from the command line).
+     *
+     * Value: {@value}
+     * @since Ant 1.8.0
+     */
+    public static final String PROJECT_INVOKED_TARGETS
+        = "ant.project.invoked-targets";
 }
 

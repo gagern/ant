@@ -323,8 +323,7 @@ public class ReplaceRegExp extends Task {
      */
     protected void doReplace(File f, int options)
          throws IOException {
-        File temp = FILE_UTILS.createTempFile("replace", ".txt", null);
-        temp.deleteOnExit();
+        File temp = FILE_UTILS.createTempFile("replace", ".txt", null, true, true);
 
         Reader r = null;
         Writer w = null;
@@ -424,10 +423,7 @@ public class ReplaceRegExp extends Task {
 
                 pw.flush();
             } else {
-                String buf = FileUtils.readFully(br);
-                if (buf == null) {
-                    buf = "";
-                }
+                String buf = FileUtils.safeReadFully(br);
 
                 String res = doReplace(regex, subs, buf, options);
 

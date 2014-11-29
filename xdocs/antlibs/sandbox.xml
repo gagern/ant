@@ -38,6 +38,94 @@
 
     <section name="Current Sandbox Ant Libraries">
 
+      <subsection name="DBPatch">
+
+        <p>DBPatch library is intended to maintain versioning of a
+        database schema and data during iterative development.</p>
+
+        <table>
+          <tr>
+            <th>SVN URL:</th>
+            <td><a href="https://svn.apache.org/repos/asf/ant/sandbox/antlibs/dbpatch/">https://svn.apache.org/repos/asf/ant/sandbox/antlibs/dbpatch/</a></td>
+          </tr>
+          <tr>
+            <th>ViewSVN:</th>
+            <td><a href="http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/dbpatch/">http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/dbpatch/</a></td>
+          </tr>
+          <tr>
+            <th>Ant compatibility:</th>
+            <td>Ant 1.7.x</td>
+          </tr>
+          <tr>
+            <th>Added to sandbox:</th>
+            <td>2008-04-22</td>
+          </tr>
+          <tr>
+            <th>Sponsoring Committers</th>
+            <td>Stefan Bodewig</td>
+          </tr>
+        </table>
+      </subsection>
+
+      <subsection name="Debian - Debian related tasks">
+
+        <p>Debian provides tasks for generating Debian packages.</p>
+
+        <table>
+          <tr>
+            <th>SVN URL:</th>
+            <td><a href="https://svn.apache.org/repos/asf/ant/sandbox/antlibs/debian/trunk/">https://svn.apache.org/repos/asf/ant/sandbox/antlibs/debian/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>ViewSVN:</th>
+            <td><a href="http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/debian/trunk/">http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/debian/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>Ant compatibility:</th>
+            <td>Ant 1.7.x</td>
+          </tr>
+          <tr>
+            <th>Added to sandbox:</th>
+            <td>2007-05-18</td>
+          </tr>
+          <tr>
+            <th>Sponsoring Committers</th>
+            <td>Kevin Jackson</td>
+          </tr>
+        </table>
+      </subsection>
+
+
+      <subsection name="FSCache - Filesystem Resource cache">
+
+        <p>This is a library of tasks and types to cache arbitrary Ant resources
+          to the filesystem for processing with file-based tools.</p>
+
+        <table>
+          <tr>
+            <th>SVN URL:</th>
+            <td><a href="https://svn.apache.org/repos/asf/ant/sandbox/antlibs/fscache/trunk/">https://svn.apache.org/repos/asf/ant/sandbox/antlibs/fscache/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>ViewSVN:</th>
+            <td><a href="http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/fscache/trunk/">http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/fscache/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>Ant compatibility:</th>
+            <td>Ant 1.8.x</td>
+          </tr>
+          <tr>
+            <th>Added to sandbox:</th>
+            <td>2008-06-30</td>
+          </tr>
+          <tr>
+            <th>Sponsoring Committers</th>
+            <td>Matt Benson</td>
+          </tr>
+        </table>
+      </subsection>
+
+
       <subsection name="GenDoc - Generate the manual for Ant Tasks from their sources">
 
         <p>Most of the information needed for writing the manual is inside the sources: attributes, nested elements (especially
@@ -97,7 +185,67 @@
         </table>
       </subsection>
       
+
+      <subsection name="Manual4Eclipse - Generate an Eclipse Help PlugIn from Ant's manual">
+        <p>This AntLib provides tasks for generating an Eclipse Help PlugIn from Ant's manual.</p>
+        <table>
+          <tr>
+            <th>SVN URL:</th>
+            <td><a href="http://svn.apache.org/repos/asf/ant/sandbox/antlibs/manual4eclipse/">http://svn.apache.org/repos/asf/ant/sandbox/antlibs/manual4eclipse/</a></td>
+          </tr>
+          <tr>
+            <th>ViewSVN:</th>
+            <td><a href="http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/manual4eclipse/trunk/">http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/manual4eclipse/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>Ant compatibility:</th>
+            <td>Ant 1.7.x</td>
+          </tr>
+          <tr>
+            <th>Java compatibility:</th>
+            <td>Java 1.5+</td>
+          </tr>
+          <tr>
+            <th>Added to sandbox:</th>
+            <td>2007-03-01</td>
+          </tr>
+          <tr>
+            <th>Sponsoring Committers</th>
+            <td> </td>
+          </tr>
+        </table>
+      </subsection>
       
+      
+      <subsection name="Props - additional Property Resolver">
+
+        <p>This is a library of supplementary handlers for Ant properties resolution.</p>
+
+        <table>
+          <tr>
+            <th>SVN URL:</th>
+            <td><a href="https://svn.apache.org/repos/asf/ant/sandbox/antlibs/props/trunk/">https://svn.apache.org/repos/asf/ant/sandbox/antlibs/props/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>ViewSVN:</th>
+            <td><a href="http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/props/trunk/">http://svn.apache.org/viewcvs.cgi/ant/sandbox/antlibs/props/trunk/</a></td>
+          </tr>
+          <tr>
+            <th>Ant compatibility:</th>
+            <td>Ant 1.8.x</td>
+          </tr>
+          <tr>
+            <th>Added to sandbox:</th>
+            <td>2007-07-25</td>
+          </tr>
+          <tr>
+            <th>Sponsoring Committers</th>
+            <td>Matt Benson</td>
+          </tr>
+        </table>
+      </subsection>
+
+
       <subsection name="VSS - Microsoft Visual SourceSafe Tasks">
 
         <p>This antlib provides an interface to the Microsoft Visual SourceSafe SCM. The original tasks 

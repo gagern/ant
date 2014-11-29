@@ -35,7 +35,7 @@ import org.apache.tools.ant.types.ResourceCollection;
  * @since Ant 1.7
  */
 public abstract class BaseResourceCollectionContainer
-    extends DataType implements ResourceCollection, Cloneable {
+        extends DataType implements ResourceCollection, Cloneable {
     private List rc = new ArrayList();
     private Collection coll = null;
     private boolean cache = true;
@@ -81,6 +81,12 @@ public abstract class BaseResourceCollectionContainer
         }
         if (c == null) {
             return;
+        }
+        if (Project.getProject(c) == null) {
+            Project p = getProject();
+            if (p != null) {
+                p.setProjectReference(c);
+            }
         }
         rc.add(c);
         FailFast.invalidate(this);
@@ -144,7 +150,7 @@ public abstract class BaseResourceCollectionContainer
         //first the easy way, if all children are filesystem-only, return true:
         boolean goEarly = true;
         for (Iterator i = rc.iterator(); goEarly && i.hasNext();) {
-            goEarly &= ((ResourceCollection) i.next()).isFilesystemOnly();
+            goEarly = ((ResourceCollection) i.next()).isFilesystemOnly();
         }
         if (goEarly) {
             return true;
@@ -152,7 +158,7 @@ public abstract class BaseResourceCollectionContainer
         /* now check each Resource in case the child only
            lets through files from any children IT may have: */
         for (Iterator i = cacheCollection().iterator(); i.hasNext();) {
-            if (!(i.next() instanceof FileResource)) {
+            if (!(i.next() instanceof FileProvider)) {
                 return false;
             }
         }
@@ -216,7 +222,7 @@ public abstract class BaseResourceCollectionContainer
         } catch (CloneNotSupportedException e) {
             throw new BuildException(e);
         }
-   }
+    }
 
     /**
      * Format this BaseResourceCollectionContainer as a String.

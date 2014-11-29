@@ -22,6 +22,8 @@
  */
 package org.apache.tools.ant.taskdefs.optional.jlink;
 
+import org.apache.tools.ant.util.FileUtils;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,19 +44,20 @@ import java.util.zip.ZipOutputStream;
  * jlink links together multiple .jar files.
  */
 public class jlink {
-
+    private static final int BUFFER_SIZE = 8192;
+    private static final int VECTOR_INIT_SIZE = 10;
 
     private String outfile = null;
 
-    private Vector mergefiles = new Vector(10);
+    private Vector mergefiles = new Vector(VECTOR_INIT_SIZE);
 
-    private Vector addfiles = new Vector(10);
+    private Vector addfiles = new Vector(VECTOR_INIT_SIZE);
 
     private boolean compression = false;
 
     // CheckStyle:VisibilityModifier OFF - bc
 
-    byte[] buffer = new byte[8192];
+    byte[] buffer = new byte[BUFFER_SIZE];
 
     // CheckStyle:VisibilityModifier OFF - bc
 
@@ -180,13 +183,7 @@ public class jlink {
                 addFile(output, f, "", compression);
             }
         }
-        if (output != null) {
-            try {
-                output.close();
-            } catch (IOException ioe) {
-                //do nothing
-            }
-        }
+        FileUtils.close(output);
     }
 
 

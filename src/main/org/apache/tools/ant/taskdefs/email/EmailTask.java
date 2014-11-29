@@ -28,6 +28,7 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.ClasspathUtils;
 
@@ -39,6 +40,8 @@ import org.apache.tools.ant.util.ClasspathUtils;
  * @ant.task name="mail" category="network"
  */
 public class EmailTask extends Task {
+    private static final int SMTP_PORT = 25;
+
     /** Constant to show that the best available mailer should be used.  */
     public static final String AUTO = "auto";
     /** Constant to allow the Mime mailer to be requested  */
@@ -65,7 +68,7 @@ public class EmailTask extends Task {
     private String encoding = AUTO;
     /** host running SMTP  */
     private String host = "localhost";
-    private int port = 25;
+    private int port = SMTP_PORT;
     /** subject field  */
     private String subject = null;
     /** any text  */
@@ -414,20 +417,24 @@ public class EmailTask extends Task {
             if (encoding.equals(MIME)
                  || (encoding.equals(AUTO) && !autoFound)) {
                 try {
+                    //check to make sure that activation.jar 
+                    //and mail.jar are available - see bug 31969
+                    Class.forName("javax.activation.DataHandler");
+                    Class.forName("javax.mail.internet.MimeMessage");
+
                     mailer = (Mailer) ClasspathUtils.newInstance(
                             "org.apache.tools.ant.taskdefs.email.MimeMailer",
                             EmailTask.class.getClassLoader(), Mailer.class);
                     autoFound = true;
+
                     log("Using MIME mail", Project.MSG_VERBOSE);
                 } catch (BuildException e) {
-                    Throwable t = e.getCause() == null ? e : e.getCause();
-                    log("Failed to initialise MIME mail: " + t.getMessage(),
-                            Project.MSG_WARN);
+                    logBuildException("Failed to initialise MIME mail: ", e);
                     return;
                 }
             }
             // SMTP auth only allowed with MIME mail
-            if (autoFound == false && ((user != null) || (password != null))
+            if (!autoFound && ((user != null) || (password != null))
                 && (encoding.equals(UU) || encoding.equals(PLAIN))) {
                 throw new BuildException("SMTP auth only possible with MIME mail");
             }
@@ -446,9 +453,7 @@ public class EmailTask extends Task {
                     autoFound = true;
                     log("Using UU mail", Project.MSG_VERBOSE);
                 } catch (BuildException e) {
-                    Throwable t = e.getCause() == null ? e : e.getCause();
-                    log("Failed to initialise UU mail: " + t.getMessage(),
-                            Project.MSG_WARN);
+                    logBuildException("Failed to initialise UU mail: ", e);
                     return;
                 }
             }
@@ -501,8 +506,7 @@ public class EmailTask extends Task {
                 Iterator iter = attachments.iterator();
 
                 while (iter.hasNext()) {
-                    FileResource fr = (FileResource) iter.next();
-                    files.addElement(fr.getFile());
+                    files.addElement(((FileProvider) iter.next()).getFile());
                 }
             }
             // let the user know what's going to happen
@@ -540,8 +544,7 @@ public class EmailTask extends Task {
             log("Sent email with " + count + " attachment"
                  + (count == 1 ? "" : "s"), Project.MSG_INFO);
         } catch (BuildException e) {
-            Throwable t = e.getCause() == null ? e : e.getCause();
-            log("Failed to send email: " + t.getMessage(), Project.MSG_WARN);
+            logBuildException("Failed to send email: ", e);
             if (failOnError) {
                 throw e;
             }
@@ -553,6 +556,11 @@ public class EmailTask extends Task {
         } finally {
             message = savedMessage;
         }
+    }
+
+    private void logBuildException(String reason, BuildException e) {
+        Throwable t = e.getCause() == null ? e : e.getCause();
+        log(reason + t.getMessage(), Project.MSG_WARN);
     }
 
     /**

@@ -90,6 +90,22 @@ documented as causing various problems for unsuspecting users.  If you wish
 to avoid this behavior you must set the <code>duplicate</code> attribute
 to a value other than its default, <code>&quot;add&quot;</code>.</b></p>
 
+<p><b>Please also note</b> that different ZIP tools handle timestamps
+differently when it comes to applying timezone offset calculations of
+files.  Some ZIP libraries will store the timestamps as they've been
+read from the filesystem while others will modify the timestamps both
+when reading and writing the files to make all timestamps use the same
+timezone.  A ZIP archive created by one library may extract files with
+"wrong timestamps" when extracted by another library.</p>
+
+<p>Ant's ZIP classes use the same algorithm as the InfoZIP tools and
+zlib (timestamps get adjusted), Windows' "compressed folders" function
+and WinZIP don't change the timestamps.  This means that using the
+unzip task on files created by Windows' compressed folders function
+may create files with timestamps that are "wrong", the same is true if
+you use Windows' functions to extract an Ant generated ZIP
+archive.</p>
+
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">
   <tr>
@@ -213,6 +229,18 @@ to a value other than its default, <code>&quot;add&quot;</code>.</b></p>
     (maximum compression/slowest). <em>Since Ant 1.7</em></td>
     <td valign="top" align="center">No</td>
   </tr>
+  <tr>
+    <td valign="top">preserve0permissions</td>
+    <td valign="top">when updating an archive or adding entries from a
+    different archive Ant will assume that a Unix permissions value of
+    0 (nobody is allowed to do anything to the file/directory) means
+    that the permissions haven't been stored at all rather than real
+    permissions and will instead apply its own default values.<br/>
+    Set this attribute to true if you really want to preserve the
+      original permission field.<em>since Ant 1.8.0</em>
+    </td>
+    <td valign="top" align="center">No, default is false</td>
+  </tr>
 </table>
 <h3>Parameters specified as nested elements</h3>
 
@@ -222,6 +250,7 @@ Collection</a>s are used to select groups of files to archive.</p>
 <p>Prior to Ant 1.7 only <code>&lt;fileset&gt;</code> and
 <code>&lt;zipfileset&gt;</code> have been supported as nested elements.</p>
 
+<a name="zipgroupfileset" />
 <h4>zipgroupfileset</h4>
 <p>A <code>&lt;zipgroupfileset&gt;</code> allows for multiple zip files to be 
 merged into the archive. Each file found in this fileset is added to the archive 

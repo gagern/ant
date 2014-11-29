@@ -45,6 +45,7 @@ import org.apache.tools.ant.taskdefs.condition.Os;
  * @since Ant 1.3
  */
 public abstract class DefaultCompilerAdapter implements CompilerAdapter {
+    private static final int COMMAND_LINE_LIMIT = 4096;  // 4K
     // CheckStyle:VisibilityModifier OFF - bc
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
@@ -137,7 +138,7 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
         // add dest dir to classpath so that previously compiled and
         // untouched classes are on classpath
 
-        if (destDir != null) {
+        if (destDir != null && getJavac().isIncludeDestClasses()) {
             classpath.setLocation(destDir);
         }
 
@@ -321,10 +322,10 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
         if (attributes.getSource() != null && !assumeJava13()) {
             cmd.createArgument().setValue("-source");
             String source = attributes.getSource();
-            if ((assumeJava14() || assumeJava15())
-                && (source.equals("1.1") || source.equals("1.2"))) {
+            if (source.equals("1.1") || source.equals("1.2")) {
                 // support for -source 1.1 and -source 1.2 has been
-                // added with JDK 1.4.2 - and isn't present in 1.5.0 either
+                // added with JDK 1.4.2 - and isn't present in 1.5.0
+                // or 1.6.0 either
                 cmd.createArgument().setValue("1.3");
             } else {
                 cmd.createArgument().setValue(source);
@@ -434,6 +435,10 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
 
     /**
      * Do the compile with the specified arguments.
+     *
+     * <p>The working directory if the executed process will be the
+     * project's base directory.</p>
+     *
      * @param args - arguments to pass to process on command line
      * @param firstFileName - index of the first source file in args,
      * if the index is negative, no temporary file will ever be
@@ -460,13 +465,12 @@ public abstract class DefaultCompilerAdapter implements CompilerAdapter {
              * POSIX seems to define a lower limit of 4k, so use a temporary
              * file if the total length of the command line exceeds this limit.
              */
-            if (Commandline.toString(args).length() > 4096
+            if (Commandline.toString(args).length() > COMMAND_LINE_LIMIT
                 && firstFileName >= 0) {
                 PrintWriter out = null;
                 try {
                     tmpFile = FILE_UTILS.createTempFile(
-                        "files", "", getJavac().getTempdir());
-                    tmpFile.deleteOnExit();
+                        "files", "", getJavac().getTempdir(), true, true);
                     out = new PrintWriter(new FileWriter(tmpFile));
                     for (int i = firstFileName; i < args.length; i++) {
                         if (quoteFiles && args[i].indexOf(" ") > -1) {

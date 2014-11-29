@@ -26,6 +26,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 
 /**
@@ -35,7 +36,7 @@ import org.apache.tools.ant.types.resources.FileResource;
  */
 
 public abstract class Pack extends Task {
-
+    private static final int BUFFER_SIZE = 8 * 1024;
     // CheckStyle:VisibilityModifier OFF - bc
     protected File zipFile;
     protected File source;
@@ -74,11 +75,10 @@ public abstract class Pack extends Task {
         if (src.isDirectory()) {
             throw new BuildException("the source can't be a directory");
         }
-        if (src instanceof FileResource) {
-            source = ((FileResource) src).getFile();
+        if (src instanceof FileProvider) {
+            source = ((FileProvider) src).getFile();
         } else if (!supportsNonFileResources()) {
-            throw new BuildException("Only FileSystem resources are"
-                                     + " supported.");
+            throw new BuildException("Only FileSystem resources are supported.");
         }
         this.src = src;
     }
@@ -88,9 +88,14 @@ public abstract class Pack extends Task {
      * @param a the resource to pack as a single element Resource collection.
      */
     public void addConfigured(ResourceCollection a) {
+        if (a.size() == 0) {
+            throw new BuildException("No resource selected, " + getTaskName()
+                    + " needs exactly one resource.");
+        }
         if (a.size() != 1) {
-            throw new BuildException("only single argument resource collections"
-                                     + " are supported as archives");
+            throw new BuildException(getTaskName()
+                    + " cannot handle multiple resources at once. (" + a.size()
+                    + " resources were selected.)");
         }
         setSrcResource((Resource) a.iterator().next());
     }
@@ -143,7 +148,7 @@ public abstract class Pack extends Task {
      */
     private void zipFile(InputStream in, OutputStream zOut)
         throws IOException {
-        byte[] buffer = new byte[8 * 1024];
+        byte[] buffer = new byte[BUFFER_SIZE];
         int count = 0;
         do {
             zOut.write(buffer, 0, count);

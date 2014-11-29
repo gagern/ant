@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
@@ -100,14 +102,17 @@ public class Union extends BaseResourceCollectionContainer {
             return Collections.EMPTY_LIST;
         }
         //preserve order-encountered using a list; enforce set logic manually:
+        // (LinkedHashSet better, but JDK 1.4+)
         ArrayList union = new ArrayList(rc.size() * 2);
+        // Use a set as list.contains() can be expensive for lots of resources
+        Set set = new HashSet(rc.size() * 2);
         for (Iterator rcIter = rc.iterator(); rcIter.hasNext();) {
             for (Iterator r = nextRC(rcIter).iterator(); r.hasNext();) {
                 Object o = r.next();
                 if (asString) {
                     o = o.toString();
                 }
-                if (!(union.contains(o))) {
+                if (set.add(o)) {
                     union.add(o);
                 }
             }

@@ -103,4 +103,52 @@ public class StringUtilsTest extends TestCase {
         for (int i = 0; i < size; i++) { buf.append(ch); };
         return buf;
     }
+    
+    public void testParseHumanSizes() throws Exception {
+    	final long KILOBYTE = 1024;
+    	final long MEGABYTE = KILOBYTE * 1024;
+    	final long GIGABYTE = MEGABYTE * 1024;
+    	final long TERABYTE = GIGABYTE * 1024;
+    	final long PETABYTE = TERABYTE * 1024;
+    	assertEquals(StringUtils.parseHumanSizes("1K"), KILOBYTE);
+    	assertEquals(StringUtils.parseHumanSizes("1M"), MEGABYTE);
+    	assertEquals(StringUtils.parseHumanSizes("1G"), GIGABYTE);
+    	assertEquals(StringUtils.parseHumanSizes("1T"), TERABYTE);
+    	assertEquals(StringUtils.parseHumanSizes("1P"), PETABYTE);
+    	assertEquals(StringUtils.parseHumanSizes("1"), 1L);
+    }
+    
+    public void testRemoveSuffix() {
+        String prefix = "Prefix";
+        String name = "Name";
+        String suffix = "Suffix";
+        String input = prefix + name + suffix;
+        assertEquals(
+            "Does not remove the suffix right.",    
+            prefix + name, 
+            StringUtils.removeSuffix(input, suffix)
+        );
+        assertEquals(
+            "Should leave the string unattended.",    
+            prefix + name + suffix, 
+            StringUtils.removeSuffix(input, "bla")
+        );
+    }
+    
+    public void testRemovePrefix() {
+        String prefix = "Prefix";
+        String name = "Name";
+        String suffix = "Suffix";
+        String input = prefix + name + suffix;
+        assertEquals(
+            "Does not remove the prefix right.",    
+            name + suffix, 
+            StringUtils.removePrefix(input, prefix)
+        );
+        assertEquals(
+            "Should leave the string unattended.",    
+            prefix + name + suffix, 
+            StringUtils.removePrefix(input, "bla")
+        );
+    }    
 }

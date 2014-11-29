@@ -87,7 +87,8 @@ public class DependencyVisitor extends EmptyVisitor {
         String name = obj.getName(constantPool);
         if (obj.getSignature(constantPool).equals("Ljava/lang/Class;")
                 && name.startsWith("class$")) {
-            String classname = name.substring(6).replace('$', '.');
+            String classname
+                = name.substring("class$".length()).replace('$', '.');
             // does the class have a package structure
             int index = classname.lastIndexOf(".");
             if (index > 0) {
@@ -102,6 +103,7 @@ public class DependencyVisitor extends EmptyVisitor {
                     start = classname.charAt(0);
                 }
                 // Check to see if it's an inner class 'com.company.Class$Inner'
+                // CheckStyle:MagicNumber OFF
                 if ((start > 0x40) && (start < 0x5B)) {
                     // first letter of the previous segment of the class name 'Class'
                     // is upper case ascii. so according to the spec it's an inner class
@@ -112,6 +114,7 @@ public class DependencyVisitor extends EmptyVisitor {
                     // Add the class in dotted notation 'com.company.Class'
                     addClass(classname);
                 }
+                // CheckStyle:MagicNumber ON
             } else {
                 // Add a class with no package 'Class'
                 addClass(classname);

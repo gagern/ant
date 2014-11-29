@@ -92,13 +92,7 @@ public class ZipScanner extends ArchiveScanner {
                 }
             }
         } finally {
-            if (zf != null) {
-                try {
-                    zf.close();
-                } catch (IOException ex) {
-                    // swallow
-                }
-            }
+            ZipFile.closeQuietly(zf);
         }
     }
 }

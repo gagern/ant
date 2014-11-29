@@ -35,6 +35,7 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.FileList;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.types.resources.Touchable;
 import org.apache.tools.ant.types.resources.Union;
@@ -85,7 +86,7 @@ public class Touch extends Task {
     private long millis = -1;
     private String dateTime;
     private Vector filesets = new Vector();
-    private Union resources = new Union();
+    private Union resources;
     private boolean dateTimeConfigured;
     private boolean mkdirs;
     private boolean verbose = true;
@@ -212,7 +213,8 @@ public class Touch extends Task {
      * @param rc the collection to add.
      * @since Ant 1.7
      */
-    public void add(ResourceCollection rc) {
+    public synchronized void add(ResourceCollection rc) {
+        resources = resources == null ? new Union() : resources;
         resources.add(rc);
     }
 
@@ -222,7 +224,7 @@ public class Touch extends Task {
      * @since Ant 1.6.3
      */
     protected synchronized void checkConfiguration() throws BuildException {
-        if (file == null && resources.size() == 0) {
+        if (file == null && resources == null) {
             throw new BuildException("Specify at least one source"
                                    + "--a file or resource collection.");
         }
@@ -231,44 +233,48 @@ public class Touch extends Task {
         }
         if (dateTime != null && !dateTimeConfigured) {
             long workmillis = millis;
-            DateFormat df = dfFactory.getPrimaryFormat();
-            ParseException pe = null;
-            try {
-                workmillis = df.parse(dateTime).getTime();
-            } catch (ParseException peOne) {
-                df = dfFactory.getFallbackFormat();
-                if (df == null) {
-                    pe = peOne;
-                } else {
-                    try {
-                        workmillis = df.parse(dateTime).getTime();
-                    } catch (ParseException peTwo) {
-                        pe = peTwo;
+            if ("now".equalsIgnoreCase(dateTime)) {
+                workmillis = System.currentTimeMillis();
+            } else {
+                DateFormat df = dfFactory.getPrimaryFormat();
+                ParseException pe = null;
+                try {
+                    workmillis = df.parse(dateTime).getTime();
+                } catch (ParseException peOne) {
+                    df = dfFactory.getFallbackFormat();
+                    if (df == null) {
+                        pe = peOne;
+                    } else {
+                        try {
+                            workmillis = df.parse(dateTime).getTime();
+                        } catch (ParseException peTwo) {
+                            pe = peTwo;
+                        }
                     }
                 }
-            }
-            if (pe != null) {
-                throw new BuildException(pe.getMessage(), pe, getLocation());
-            }
-            if (workmillis < 0) {
-                throw new BuildException("Date of " + dateTime
-                                         + " results in negative "
-                                         + "milliseconds value "
-                                         + "relative to epoch "
-                                         + "(January 1, 1970, "
-                                         + "00:00:00 GMT).");
+                if (pe != null) {
+                    throw new BuildException(pe.getMessage(), pe, getLocation());
+                }
+                if (workmillis < 0) {
+                    throw new BuildException("Date of " + dateTime
+                            + " results in negative " + "milliseconds value "
+                            + "relative to epoch " + "(January 1, 1970, "
+                            + "00:00:00 GMT).");
+                }
             }
             log("Setting millis to " + workmillis + " from datetime attribute",
-                ((millis < 0) ? Project.MSG_DEBUG : Project.MSG_VERBOSE));
+                    ((millis < 0) ? Project.MSG_DEBUG : Project.MSG_VERBOSE));
             setMillis(workmillis);
-            //only set if successful to this point:
+            // only set if successful to this point:
             dateTimeConfigured = true;
         }
     }
 
     /**
      * Execute the touch operation.
-     * @throws BuildException if an error occurs.
+     *
+     * @throws BuildException
+     *             if an error occurs.
      */
     public void execute() throws BuildException {
         checkConfiguration();
@@ -285,6 +291,9 @@ public class Touch extends Task {
         if (file != null) {
             touch(new FileResource(file.getParentFile(), file.getName()),
                   defaultTimestamp);
+        }
+        if (resources == null) {
+            return;
         }
         // deal with the resource collections
         Iterator iter = resources.iterator();
@@ -330,17 +339,19 @@ public class Touch extends Task {
 
     private void touch(Resource r, long defaultTimestamp) {
         if (fileNameMapper == null) {
-            if (r instanceof FileResource) {
+            if (r instanceof FileProvider) {
                 // use this to create file and deal with non-writable files
-                touch(((FileResource) r).getFile(), defaultTimestamp);
+                touch(((FileProvider) r).getFile(), defaultTimestamp);
             } else {
                 ((Touchable) r).touch(defaultTimestamp);
             }
         } else {
             String[] mapped = fileNameMapper.mapFileName(r.getName());
             if (mapped != null && mapped.length > 0) {
-                long modTime = (r.isExists()) ? r.getLastModified()
-                    : defaultTimestamp;
+                long modTime = defaultTimestamp;
+                if (millis < 0 && r.isExists()) {
+                    modTime = r.getLastModified();
+                }
                 for (int i = 0; i < mapped.length; i++) {
                     touch(getProject().resolveFile(mapped[i]), modTime);
                 }

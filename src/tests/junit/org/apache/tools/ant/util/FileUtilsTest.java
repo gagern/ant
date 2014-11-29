@@ -48,7 +48,10 @@ public class FileUtilsTest extends TestCase {
 
     public void tearDown() {
         if (removeThis != null && removeThis.exists()) {
-            removeThis.delete();
+            if (!removeThis.delete())
+            {
+                removeThis.deleteOnExit();
+            }
         }
     }
 
@@ -333,30 +336,56 @@ public class FileUtilsTest extends TestCase {
         assertEquals(f, new File("a").getAbsoluteFile());
     }
 
+    
     /**
      * Test createTempFile
      */
-    public void testCreateTempFile() {
-        File parent = new File((new File("/tmp")).getAbsolutePath());
-        File tmp1 = FILE_UTILS.createTempFile("pre", ".suf", parent);
-        assertTrue("new file", !tmp1.exists());
-
+    public void testCreateTempFile()
+    {
+        // null parent dir
+        File tmp1 = FILE_UTILS.createTempFile("pre", ".suf", null, false, true);
+        String tmploc = System.getProperty("java.io.tmpdir");
         String name = tmp1.getName();
         assertTrue("starts with pre", name.startsWith("pre"));
         assertTrue("ends with .suf", name.endsWith(".suf"));
-        assertEquals("is inside parent dir",
-                     parent.getAbsolutePath(),
-                     tmp1.getParent());
+        assertTrue("File was created", tmp1.exists());
+        assertEquals((new File(tmploc, tmp1.getName())).getAbsolutePath(), tmp1
+                .getAbsolutePath());
+        tmp1.delete();
 
-        File tmp2 = FILE_UTILS.createTempFile("pre", ".suf", parent);
-        assertTrue("files are different",
-                   !tmp1.getAbsolutePath().equals(tmp2.getAbsolutePath()));
+        File dir2 = new File(tmploc + "/ant-test");
+        dir2.mkdir();
+        removeThis = dir2;
+
+        File tmp2 = FILE_UTILS.createTempFile("pre", ".suf", dir2, true, true);
+        String name2 = tmp2.getName();
+        assertTrue("starts with pre", name2.startsWith("pre"));
+        assertTrue("ends with .suf", name2.endsWith(".suf"));
+        assertTrue("File was created", tmp2.exists());
+        assertEquals((new File(dir2, tmp2.getName())).getAbsolutePath(), tmp2
+                .getAbsolutePath());
+        tmp2.delete();
+        dir2.delete();
+
+        File parent = new File((new File("/tmp")).getAbsolutePath());
+        tmp1 = FILE_UTILS.createTempFile("pre", ".suf", parent, false);
+        assertTrue("new file", !tmp1.exists());
+
+        name = tmp1.getName();
+        assertTrue("starts with pre", name.startsWith("pre"));
+        assertTrue("ends with .suf", name.endsWith(".suf"));
+        assertEquals("is inside parent dir", parent.getAbsolutePath(), tmp1
+                .getParent());
+
+        tmp2 = FILE_UTILS.createTempFile("pre", ".suf", parent, false);
+        assertTrue("files are different", !tmp1.getAbsolutePath().equals(
+                tmp2.getAbsolutePath()));
 
         // null parent dir
-        File tmp3 = FILE_UTILS.createTempFile("pre", ".suf", null);
-        String  tmploc = System.getProperty("java.io.tmpdir");
-        assertEquals((new File(tmploc, tmp3.getName())).getAbsolutePath(),
-                     tmp3.getAbsolutePath());
+        File tmp3 = FILE_UTILS.createTempFile("pre", ".suf", null, false);
+        tmploc = System.getProperty("java.io.tmpdir");
+        assertEquals((new File(tmploc, tmp3.getName())).getAbsolutePath(), tmp3
+                .getAbsolutePath());
     }
 
     /**
@@ -505,11 +534,8 @@ public class FileUtilsTest extends TestCase {
     public void testFromURI() {
         String dosRoot = null;
         if (Os.isFamily("dos") || Os.isFamily("netware")) {
-            dosRoot = Character.toUpperCase(
-                System.getProperty("user.dir").charAt(0)) + ":";
-        }
-        else
-        {
+            dosRoot = System.getProperty("user.dir").substring(0, 2);
+        } else {
             dosRoot = "";
         }
         if (Os.isFamily("netware")) {
@@ -547,6 +573,23 @@ public class FileUtilsTest extends TestCase {
                 !FILE_UTILS.isUpToDate(firstTime,-1L));
     }
 
+    public void testHasErrorInCase() {
+        File tempFolder = new File(System.getProperty("java.io.tmpdir"));
+        File wellcased = FILE_UTILS.createTempFile("alpha", "beta", tempFolder,
+                                                   true, true);
+        String s = wellcased.getName().toUpperCase();
+        File wrongcased = new File(tempFolder, s);
+        if (Os.isFamily("mac") && Os.isFamily("unix")) {
+            //no guarantees on filesystem case-sensitivity
+        } else if (Os.isFamily("dos")) {
+            assertTrue(FILE_UTILS.hasErrorInCase(wrongcased));
+            assertFalse(FILE_UTILS.hasErrorInCase(wellcased));
+        } else {
+            assertFalse(FILE_UTILS.hasErrorInCase(wrongcased));
+            assertFalse(FILE_UTILS.hasErrorInCase(wellcased));
+        }
+        
+    }
     public void testGetDefaultEncoding() {
         // This just tests that the function does not blow up
         FILE_UTILS.getDefaultEncoding();

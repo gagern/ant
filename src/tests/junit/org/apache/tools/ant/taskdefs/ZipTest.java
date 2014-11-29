@@ -188,4 +188,50 @@ public class ZipTest extends BuildFileTest {
             }
         }
     }
+
+    public void testRewriteZeroPermissions() throws IOException {
+        executeTarget("rewriteZeroPermissions");
+        org.apache.tools.zip.ZipFile zf = null;
+        try {
+            zf = new org.apache.tools.zip.ZipFile(getProject()
+                                                  .resolveFile("test3.zip"));
+            org.apache.tools.zip.ZipEntry ze = zf.getEntry("testdir/test.txt");
+            assertEquals(UnixStat.FILE_FLAG | 0644, ze.getUnixMode());
+        } finally {
+            if (zf != null) {
+                zf.close();
+            }
+        }
+    }
+
+    public void testAcceptZeroPermissions() throws IOException {
+        executeTarget("acceptZeroPermissions");
+        org.apache.tools.zip.ZipFile zf = null;
+        try {
+            zf = new org.apache.tools.zip.ZipFile(getProject()
+                                                  .resolveFile("test3.zip"));
+            org.apache.tools.zip.ZipEntry ze = zf.getEntry("testdir/test.txt");
+            assertEquals(0000, ze.getUnixMode());
+        } finally {
+            if (zf != null) {
+                zf.close();
+            }
+        }
+    }
+
+    public void testForBugzilla34764() throws IOException {
+        executeTarget("testForBugzilla34764");
+        org.apache.tools.zip.ZipFile zf = null;
+        try {
+            zf = new org.apache.tools.zip.ZipFile(getProject()
+                                                  .resolveFile("test3.zip"));
+            org.apache.tools.zip.ZipEntry ze = zf.getEntry("file1");
+            assertEquals(UnixStat.FILE_FLAG | 0644, ze.getUnixMode());
+        } finally {
+            if (zf != null) {
+                zf.close();
+            }
+        }
+    }
+
 }

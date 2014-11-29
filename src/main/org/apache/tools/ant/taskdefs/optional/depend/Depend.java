@@ -44,6 +44,8 @@ import org.apache.tools.ant.util.depend.DependencyAnalyzer;
  *
  */
 public class Depend extends MatchingTask {
+    private static final int ONE_SECOND = 1000;
+
     /**
      * A class (struct) user to manage information about a class
      *
@@ -417,7 +419,7 @@ public class Depend extends MatchingTask {
                         }
                         classpathFileCache.put(dependency, classpathFileObject);
                     }
-                    if (classpathFileObject != null && classpathFileObject != nullFileMarker) {
+                    if (classpathFileObject != nullFileMarker) {
                         // we need to add this jar to the list for this class.
                         File jarFile = (File) classpathFileObject;
                         dependencies.put(jarFile, jarFile);
@@ -693,7 +695,7 @@ public class Depend extends MatchingTask {
             determineOutOfDateClasses();
             int count = deleteAllAffectedFiles();
 
-            long duration = (System.currentTimeMillis() - start) / 1000;
+            long duration = (System.currentTimeMillis() - start) / ONE_SECOND;
 
             final int summaryLogLevel;
             if (count > 0) {
@@ -771,18 +773,22 @@ public class Depend extends MatchingTask {
      * Find the source file for a given class
      *
      * @param classname the classname in slash format.
+     * @param sourceFileKnownToExist if not null, a file already known to exist
+     *                               (saves call to .exists())
      */
-    private File findSourceFile(String classname) {
-        String sourceFilename = classname + ".java";
+    private File findSourceFile(String classname, File sourceFileKnownToExist) {
+        String sourceFilename;
         int innerIndex = classname.indexOf("$");
         if (innerIndex != -1) {
             sourceFilename = classname.substring(0, innerIndex) + ".java";
+        } else {
+            sourceFilename = classname + ".java";
         }
 
         // search the various source path entries
         for (int i = 0; i < srcPathList.length; ++i) {
             File sourceFile = new File(srcPathList[i], sourceFilename);
-            if (sourceFile.exists()) {
+            if (sourceFile.equals(sourceFileKnownToExist) || sourceFile.exists()) {
                 return sourceFile;
             }
         }
@@ -810,19 +816,22 @@ public class Depend extends MatchingTask {
         int length = filesInDir.length;
 
         int rootLength = root.getPath().length();
+        File sourceFileKnownToExist = null; // speed optimization
         for (int i = 0; i < length; ++i) {
             File file = new File(dir, filesInDir[i]);
-            if (file.isDirectory()) {
-                addClassFiles(classFileList, file, root);
-            } else if (file.getName().endsWith(".class")) {
+            if (filesInDir[i].endsWith(".class")) {
                 ClassFileInfo info = new ClassFileInfo();
                 info.absoluteFile = file;
-                String relativeName = file.getPath().substring(rootLength + 1,
-                    file.getPath().length() - 6);
+                String relativeName = file.getPath().substring(
+                    rootLength + 1,
+                    file.getPath().length() - ".class".length());
                 info.className
                     = ClassFileUtils.convertSlashName(relativeName);
-                info.sourceFile = findSourceFile(relativeName);
+                info.sourceFile = sourceFileKnownToExist = findSourceFile(
+                    relativeName, sourceFileKnownToExist);
                 classFileList.addElement(info);
+            } else {
+                addClassFiles(classFileList, file, root);
             }
         }
     }

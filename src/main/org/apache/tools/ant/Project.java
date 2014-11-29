@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant;
 
 import java.io.File;
@@ -27,7 +26,6 @@ import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Properties;
 import java.util.Stack;
 import java.util.Vector;
@@ -46,6 +44,7 @@ import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceFactory;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.CollectionUtils;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.StringUtils;
@@ -62,8 +61,6 @@ import org.apache.tools.ant.util.StringUtils;
  *
  */
 public class Project implements ResourceFactory {
-    private static final String LINE_SEP = System.getProperty("line.separator");
-
     /** Message priority of &quot;error&quot;. */
     public static final int MSG_ERR = 0;
     /** Message priority of &quot;warning&quot;. */
@@ -168,8 +165,19 @@ public class Project implements ResourceFactory {
     /** Project base directory. */
     private File baseDir;
 
+    /** lock object used when adding/removing listeners */
+    private final Object listenersLock = new Object();
+
     /** List of listeners to notify of build events. */
-    private Vector listeners = new Vector();
+    private volatile BuildListener[] listeners = new BuildListener[0];
+
+    /** for each thread, record whether it is currently executing
+        messageLogged */
+    private final ThreadLocal isLoggingMessage = new ThreadLocal() {
+            protected Object initialValue() {
+                return Boolean.FALSE;
+            }
+        };
 
     /**
      * The Ant core classloader--may be <code>null</code> if using
@@ -178,10 +186,11 @@ public class Project implements ResourceFactory {
     private ClassLoader coreLoader = null;
 
     /** Records the latest task to be executed on a thread. */
-    private Map/*<Thread,Task>*/ threadTasks = Collections.synchronizedMap(new WeakHashMap());
+    private final Map/*<Thread,Task>*/ threadTasks =
+        Collections.synchronizedMap(new WeakHashMap());
 
     /** Records the latest task to be executed on a thread group. */
-    private Map/*<ThreadGroup,Task>*/ threadGroupTasks
+    private final Map/*<ThreadGroup,Task>*/ threadGroupTasks
         = Collections.synchronizedMap(new WeakHashMap());
 
     /**
@@ -198,11 +207,6 @@ public class Project implements ResourceFactory {
      * Keep going flag.
      */
     private boolean keepGoingMode = false;
-
-    /**
-     * Flag which catches Listeners which try to use System.out or System.err .
-     */
-    private boolean loggingMessage = false;
 
     /**
      * Set the input handler.
@@ -309,6 +313,12 @@ public class Project implements ResourceFactory {
         setAntLib();
     }
 
+    /**
+     * Set a property to the location of ant.jar.
+     * Use the locator to find the location of the Project.class, and
+     * if this is not null, set the property {@link MagicNames#ANT_LIB}
+     * to the result
+     */
     private void setAntLib() {
         File antlib = org.apache.tools.ant.launch.Locator.getClassSource(
             Project.class);
@@ -373,16 +383,21 @@ public class Project implements ResourceFactory {
      * @param listener The listener to add to the list.
      *                 Must not be <code>null</code>.
      */
-    public synchronized void addBuildListener(BuildListener listener) {
-        // If the listeners already has this listener, do nothing
-        if (listeners.contains(listener)) {
-            return;
+    public void addBuildListener(BuildListener listener) {
+        synchronized (listenersLock) {
+            // If the listeners already has this listener, do nothing
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] == listener) {
+                    return;
+                }
+            }
+            // copy on write semantics
+            BuildListener[] newListeners =
+                new BuildListener[listeners.length + 1];
+            System.arraycopy(listeners, 0, newListeners, 0, listeners.length);
+            newListeners[listeners.length] = listener;
+            listeners = newListeners;
         }
-        // create a new Vector to avoid ConcurrentModificationExc when
-        // the listeners get added/removed while we are in fire
-        Vector newListeners = getBuildListeners();
-        newListeners.addElement(listener);
-        listeners = newListeners;
     }
 
     /**
@@ -392,21 +407,36 @@ public class Project implements ResourceFactory {
      * @param listener The listener to remove from the list.
      *                 Should not be <code>null</code>.
      */
-    public synchronized void removeBuildListener(BuildListener listener) {
-        // create a new Vector to avoid ConcurrentModificationExc when
-        // the listeners get added/removed while we are in fire
-        Vector newListeners = getBuildListeners();
-        newListeners.removeElement(listener);
-        listeners = newListeners;
+    public void removeBuildListener(BuildListener listener) {
+        synchronized (listenersLock) {
+            // copy on write semantics
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] == listener) {
+                    BuildListener[] newListeners =
+                        new BuildListener[listeners.length - 1];
+                    System.arraycopy(listeners, 0, newListeners, 0, i);
+                    System.arraycopy(listeners, i + 1, newListeners, i,
+                                     listeners.length - i - 1);
+                    listeners = newListeners;
+                    break;
+                }
+            }
+        }
     }
 
     /**
-     * Return a copy of the list of build listeners for the project.
-     *
-     * @return a list of build listeners for the project
-     */
+         * Return a copy of the list of build listeners for the project.
+         * 
+         * @return a list of build listeners for the project
+         */
     public Vector getBuildListeners() {
-        return (Vector) listeners.clone();
+        synchronized (listenersLock) {
+            Vector r = new Vector(listeners.length);
+            for (int i = 0; i < listeners.length; i++) {
+                r.add(listeners[i]);
+            }
+            return r;
+        }
     }
 
     /**
@@ -504,8 +534,7 @@ public class Project implements ResourceFactory {
      *              Must not be <code>null</code>.
      */
     public void setProperty(String name, String value) {
-        PropertyHelper.getPropertyHelper(this).
-                setProperty(null, name, value, true);
+        PropertyHelper.getPropertyHelper(this).setProperty(name, value, true);
     }
 
     /**
@@ -520,8 +549,7 @@ public class Project implements ResourceFactory {
      * @since 1.5
      */
     public void setNewProperty(String name, String value) {
-        PropertyHelper.getPropertyHelper(this).setNewProperty(null, name,
-                                                              value);
+        PropertyHelper.getPropertyHelper(this).setNewProperty(name, value);
     }
 
     /**
@@ -534,8 +562,7 @@ public class Project implements ResourceFactory {
      * @see #setProperty(String,String)
      */
     public void setUserProperty(String name, String value) {
-        PropertyHelper.getPropertyHelper(this).setUserProperty(null, name,
-                                                               value);
+        PropertyHelper.getPropertyHelper(this).setUserProperty(name, value);
     }
 
     /**
@@ -551,8 +578,7 @@ public class Project implements ResourceFactory {
      * @see #setProperty(String,String)
      */
     public void setInheritedProperty(String name, String value) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        ph.setInheritedProperty(null, name, value);
+        PropertyHelper.getPropertyHelper(this).setInheritedProperty(name, value);
     }
 
     /**
@@ -564,8 +590,7 @@ public class Project implements ResourceFactory {
      * @param value The property value. Must not be <code>null</code>.
      */
     private void setPropertyInternal(String name, String value) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        ph.setProperty(null, name, value, false);
+        PropertyHelper.getPropertyHelper(this).setProperty(name, value, false);
     }
 
     /**
@@ -578,8 +603,8 @@ public class Project implements ResourceFactory {
      *         or if a <code>null</code> name is provided.
      */
     public String getProperty(String propertyName) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        return (String) ph.getProperty(null, propertyName);
+        Object value = PropertyHelper.getPropertyHelper(this).getProperty(propertyName);
+        return value == null ? null : String.valueOf(value);
     }
 
     /**
@@ -596,10 +621,8 @@ public class Project implements ResourceFactory {
      * @exception BuildException if the given value has an unclosed
      *                           property name, e.g. <code>${xxx</code>.
      */
-    public String replaceProperties(String value)
-        throws BuildException {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        return ph.replaceProperties(null, value, null);
+    public String replaceProperties(String value) throws BuildException {
+        return PropertyHelper.getPropertyHelper(this).replaceProperties(null, value, null);
     }
 
     /**
@@ -612,8 +635,7 @@ public class Project implements ResourceFactory {
      *         or if a <code>null</code> name is provided.
      */
      public String getUserProperty(String propertyName) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        return (String) ph.getUserProperty(null, propertyName);
+        return (String) PropertyHelper.getPropertyHelper(this).getUserProperty(propertyName);
     }
 
     /**
@@ -622,8 +644,7 @@ public class Project implements ResourceFactory {
      *         (including user properties).
      */
     public Hashtable getProperties() {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        return ph.getProperties();
+        return PropertyHelper.getPropertyHelper(this).getProperties();
     }
 
     /**
@@ -631,8 +652,16 @@ public class Project implements ResourceFactory {
      * @return a hashtable containing just the user properties.
      */
     public Hashtable getUserProperties() {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        return ph.getUserProperties();
+        return PropertyHelper.getPropertyHelper(this).getUserProperties();
+    }
+
+    /**
+     * Return a copy of the inherited property hashtable.
+     * @return a hashtable containing just the inherited properties.
+     * @since Ant 1.8.0
+     */
+    public Hashtable getInheritedProperties() {
+        return PropertyHelper.getPropertyHelper(this).getInheritedProperties();
     }
 
     /**
@@ -648,8 +677,7 @@ public class Project implements ResourceFactory {
      * @since Ant 1.5
      */
     public void copyUserProperties(Project other) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        ph.copyUserProperties(other);
+        PropertyHelper.getPropertyHelper(this).copyUserProperties(other);
     }
 
     /**
@@ -665,8 +693,7 @@ public class Project implements ResourceFactory {
      * @since Ant 1.5
      */
     public void copyInheritedProperties(Project other) {
-        PropertyHelper ph = PropertyHelper.getPropertyHelper(this);
-        ph.copyInheritedProperties(other);
+        PropertyHelper.getPropertyHelper(this).copyInheritedProperties(other);
     }
 
     /**
@@ -681,7 +708,7 @@ public class Project implements ResourceFactory {
      * @see #setDefault(String)
      */
     public void setDefaultTarget(String defaultTarget) {
-        this.defaultTarget = defaultTarget;
+        setDefault(defaultTarget);
     }
 
     /**
@@ -701,6 +728,7 @@ public class Project implements ResourceFactory {
      *                      no default target.
      */
     public void setDefault(String defaultTarget) {
+        setUserProperty(MagicNames.PROJECT_DEFAULT_TARGET, defaultTarget);
         this.defaultTarget = defaultTarget;
     }
 
@@ -712,7 +740,7 @@ public class Project implements ResourceFactory {
      *             Must not be <code>null</code>.
      */
     public void setName(String name) {
-        setUserProperty("ant.project.name",  name);
+        setUserProperty(MagicNames.PROJECT_NAME,  name);
         this.name = name;
     }
 
@@ -820,7 +848,7 @@ public class Project implements ResourceFactory {
         this.baseDir = baseDir;
         setPropertyInternal(MagicNames.PROJECT_BASEDIR, this.baseDir.getPath());
         String msg = "Project base dir set to: " + this.baseDir;
-         log(msg, MSG_VERBOSE);
+        log(msg, MSG_VERBOSE);
     }
 
     /**
@@ -910,7 +938,9 @@ public class Project implements ResourceFactory {
         while (e.hasMoreElements()) {
             String propertyName = (String) e.nextElement();
             String value = systemP.getProperty(propertyName);
-            this.setPropertyInternal(propertyName, value);
+            if (value != null) {
+                this.setPropertyInternal(propertyName, value);
+            }
         }
     }
 
@@ -1178,6 +1208,8 @@ public class Project implements ResourceFactory {
      * @exception BuildException if the build failed.
      */
     public void executeTargets(Vector names) throws BuildException {
+        setUserProperty(MagicNames.PROJECT_INVOKED_TARGETS,
+                        CollectionUtils.flattenToString(names));
         getExecutor().executeTargets(this,
             (String[]) (names.toArray(new String[names.size()])));
     }
@@ -1652,6 +1684,27 @@ public class Project implements ResourceFactory {
     }
 
     /**
+     * Get the Project instance associated with the specified object.
+     * @param o the object to query.
+     * @return Project instance, if any.
+     * @since Ant 1.7.1
+     */
+    public static Project getProject(Object o) {
+        if (o instanceof ProjectComponent) {
+            return ((ProjectComponent) o).getProject();
+        }
+        try {
+            Method m = o.getClass().getMethod("getProject", (Class[]) null);
+            if (Project.class == m.getReturnType()) {
+                return (Project) m.invoke(o, (Object[]) null);
+            }
+        } catch (Exception e) {
+            //too bad
+        }
+        return null;
+    }
+
+    /**
      * Topologically sort a set of targets.  Equivalent to calling
      * <code>topoSort(new String[] {root}, targets, true)</code>.
      *
@@ -1870,28 +1923,6 @@ public class Project implements ResourceFactory {
     }
 
     /**
-     * Attempt to resolve an Unknown Reference using the
-     * parsed id's - for BC.
-     */
-    private Object resolveIdReference(String key, Project callerProject) {
-        UnknownElement origUE = (UnknownElement) idReferences.get(key);
-        if (origUE == null) {
-            return parentIdProject == null
-                ? null
-                : parentIdProject.resolveIdReference(key, callerProject);
-        }
-        callerProject.log(
-            "Warning: Reference " + key + " has not been set at runtime,"
-            + " but was found during" + LINE_SEP
-            + "build file parsing, attempting to resolve."
-            + " Future versions of Ant may support" + LINE_SEP
-            + " referencing ids defined in non-executed targets.", MSG_WARN);
-        UnknownElement copyUE = origUE.copy(callerProject);
-        copyUE.maybeConfigure();
-        return copyUE.getRealThing();
-    }
-
-    /**
      * Add an id reference.
      * Used for broken build files.
      * @param id the id to set.
@@ -1908,19 +1939,17 @@ public class Project implements ResourceFactory {
      * @param value The value of the reference.
      */
     public void addReference(String referenceName, Object value) {
-        synchronized (references) {
-            Object old = ((AntRefTable) references).getReal(referenceName);
-            if (old == value) {
-                // no warning, this is not changing anything
-                return;
-            }
-            if (old != null && !(old instanceof UnknownElement)) {
-                log("Overriding previous definition of reference to " + referenceName,
-                    MSG_VERBOSE);
-            }
-            log("Adding reference: " + referenceName, MSG_DEBUG);
-            references.put(referenceName, value);
+        Object old = ((AntRefTable) references).getReal(referenceName);
+        if (old == value) {
+            // no warning, this is not changing anything
+            return;
         }
+        if (old != null && !(old instanceof UnknownElement)) {
+            log("Overriding previous definition of reference to " + referenceName,
+                MSG_VERBOSE);
+        }
+        log("Adding reference: " + referenceName, MSG_DEBUG);
+        references.put(referenceName, value);
     }
 
     /**
@@ -1947,16 +1976,14 @@ public class Project implements ResourceFactory {
         if (ret != null) {
             return ret;
         }
-        // Check for old id behaviour
-        ret = resolveIdReference(key, this);
-        if (ret == null && !key.equals(MagicNames.REFID_PROPERTY_HELPER)) {
-            Vector p = new Vector();
-            PropertyHelper.getPropertyHelper(this).parsePropertyString(
-                key, new Vector(), p);
-            if (p.size() == 1) {
-                log("Unresolvable reference " + key
-                    + " might be a misuse of property expansion syntax.",
-                    MSG_WARN);
+        if (!key.equals(MagicNames.REFID_PROPERTY_HELPER)) {
+            try {
+                if (PropertyHelper.getPropertyHelper(this).containsProperties(key)) {
+                    log("Unresolvable reference " + key
+                            + " might be a misuse of property expansion syntax.", MSG_WARN);
+                }
+            } catch (Exception e) {
+                //ignore
             }
         }
         return ret;
@@ -1985,10 +2012,9 @@ public class Project implements ResourceFactory {
      */
     public void fireBuildStarted() {
         BuildEvent event = new BuildEvent(this);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.buildStarted(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].buildStarted(event);
         }
     }
 
@@ -2002,10 +2028,9 @@ public class Project implements ResourceFactory {
     public void fireBuildFinished(Throwable exception) {
         BuildEvent event = new BuildEvent(this);
         event.setException(exception);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.buildFinished(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].buildFinished(event);
         }
         // Inform IH to clear the cache
         IntrospectionHelper.clearCache();
@@ -2019,11 +2044,10 @@ public class Project implements ResourceFactory {
      */
     public void fireSubBuildStarted() {
         BuildEvent event = new BuildEvent(this);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            Object listener = iter.next();
-            if (listener instanceof SubBuildListener) {
-                ((SubBuildListener) listener).subBuildStarted(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            if (currListeners[i] instanceof SubBuildListener) {
+                ((SubBuildListener) currListeners[i]).subBuildStarted(event);
             }
         }
     }
@@ -2040,11 +2064,10 @@ public class Project implements ResourceFactory {
     public void fireSubBuildFinished(Throwable exception) {
         BuildEvent event = new BuildEvent(this);
         event.setException(exception);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            Object listener = iter.next();
-            if (listener instanceof SubBuildListener) {
-                ((SubBuildListener) listener).subBuildFinished(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            if (currListeners[i] instanceof SubBuildListener) {
+                ((SubBuildListener) currListeners[i]).subBuildFinished(event);
             }
         }
     }
@@ -2058,11 +2081,11 @@ public class Project implements ResourceFactory {
      */
     protected void fireTargetStarted(Target target) {
         BuildEvent event = new BuildEvent(target);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.targetStarted(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].targetStarted(event);
         }
+
     }
 
     /**
@@ -2078,11 +2101,11 @@ public class Project implements ResourceFactory {
     protected void fireTargetFinished(Target target, Throwable exception) {
         BuildEvent event = new BuildEvent(target);
         event.setException(exception);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.targetFinished(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].targetFinished(event);
         }
+
     }
 
     /**
@@ -2096,10 +2119,9 @@ public class Project implements ResourceFactory {
         // register this as the current task on the current thread.
         registerThreadTask(Thread.currentThread(), task);
         BuildEvent event = new BuildEvent(task);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.taskStarted(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].taskStarted(event);
         }
     }
 
@@ -2119,11 +2141,11 @@ public class Project implements ResourceFactory {
         System.err.flush();
         BuildEvent event = new BuildEvent(task);
         event.setException(exception);
-        Iterator iter = listeners.iterator();
-        while (iter.hasNext()) {
-            BuildListener listener = (BuildListener) iter.next();
-            listener.taskFinished(event);
+        BuildListener[] currListeners = listeners;
+        for (int i = 0; i < currListeners.length; i++) {
+            currListeners[i].taskFinished(event);
         }
+
     }
 
     /**
@@ -2146,33 +2168,30 @@ public class Project implements ResourceFactory {
         } else {
             event.setMessage(message, priority);
         }
-        synchronized (this) {
-            if (loggingMessage) {
-                /*
-                 * One of the Listeners has attempted to access
-                 * System.err or System.out.
-                 *
-                 * We used to throw an exception in this case, but
-                 * sometimes Listeners can't prevent it(like our own
-                 * Log4jListener which invokes getLogger() which in
-                 * turn wants to write to the console).
-                 *
-                 * @see http://marc.theaimsgroup.com/?t=110538624200006&r=1&w=2
-                 *
-                 * We now (Ant 1.7 and 1.6.3) simply swallow the message.
-                 */
-                return;
+        if (isLoggingMessage.get() != Boolean.FALSE) {
+            /*
+             * One of the Listeners has attempted to access
+             * System.err or System.out.
+             *
+             * We used to throw an exception in this case, but
+             * sometimes Listeners can't prevent it(like our own
+             * Log4jListener which invokes getLogger() which in
+             * turn wants to write to the console).
+             *
+             * @see http://marc.theaimsgroup.com/?t=110538624200006&r=1&w=2
+             *
+             * We now (Ant 1.6.3 and later) simply swallow the message.
+             */
+            return;
+        }
+        try {
+            isLoggingMessage.set(Boolean.TRUE);
+            BuildListener[] currListeners = listeners;
+            for (int i = 0; i < currListeners.length; i++) {
+                currListeners[i].messageLogged(event);
             }
-            try {
-                loggingMessage = true;
-                Iterator iter = listeners.iterator();
-                while (iter.hasNext()) {
-                    BuildListener listener = (BuildListener) iter.next();
-                    listener.messageLogged(event);
-                }
-            } finally {
-                loggingMessage = false;
-            }
+        } finally {
+            isLoggingMessage.set(Boolean.FALSE);
         }
     }
 
@@ -2187,7 +2206,7 @@ public class Project implements ResourceFactory {
      */
     protected void fireMessageLogged(Project project, String message,
                                      int priority) {
-        fireMessageLogged(project, message, priority);
+        fireMessageLogged(project, message, null, priority);
     }
 
     /**
@@ -2279,13 +2298,15 @@ public class Project implements ResourceFactory {
      * @param task the task to be registered.
      * @since Ant 1.5
      */
-    public synchronized void registerThreadTask(Thread thread, Task task) {
-        if (task != null) {
-            threadTasks.put(thread, task);
-            threadGroupTasks.put(thread.getThreadGroup(), task);
-        } else {
-            threadTasks.remove(thread);
-            threadGroupTasks.remove(thread.getThreadGroup());
+    public void registerThreadTask(Thread thread, Task task) {
+        synchronized(threadTasks) {
+            if (task != null) {
+                threadTasks.put(thread, task);
+                threadGroupTasks.put(thread.getThreadGroup(), task);
+            } else {
+                threadTasks.remove(thread);
+                threadGroupTasks.remove(thread.getThreadGroup());
+            }
         }
     }
 
@@ -2297,15 +2318,17 @@ public class Project implements ResourceFactory {
      *         null if no task is registered.
      */
     public Task getThreadTask(Thread thread) {
-        Task task = (Task) threadTasks.get(thread);
-        if (task == null) {
-            ThreadGroup group = thread.getThreadGroup();
-            while (task == null && group != null) {
-                task = (Task) threadGroupTasks.get(group);
-                group = group.getParent();
+        synchronized(threadTasks) {
+            Task task = (Task) threadTasks.get(thread);
+            if (task == null) {
+                ThreadGroup group = thread.getThreadGroup();
+                while (task == null && group != null) {
+                    task = (Task) threadGroupTasks.get(group);
+                    group = group.getParent();
+                }
             }
+            return task;
         }
-        return task;
     }
 
 

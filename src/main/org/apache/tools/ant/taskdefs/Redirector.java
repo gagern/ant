@@ -53,6 +53,7 @@ import org.apache.tools.ant.util.KeepAliveOutputStream;
  * @since Ant 1.6
  */
 public class Redirector {
+    private static final int STREAMPUMPER_WAIT_INTERVAL = 1000;
 
     private static final String DEFAULT_ENCODING
         = System.getProperty("file.encoding");
@@ -458,56 +459,8 @@ public class Redirector {
      * configuration options.
      */
     public synchronized void createStreams() {
-        if (out != null && out.length > 0) {
-            String logHead = new StringBuffer("Output ").append(
-                ((append) ? "appended" : "redirected")).append(
-                " to ").toString();
-            outputStream = foldFiles(out, logHead, Project.MSG_VERBOSE);
-        }
-        if (outputProperty != null) {
-            if (baos == null) {
-                baos = new PropertyOutputStream(outputProperty);
-                managingTask.log("Output redirected to property: "
-                    + outputProperty, Project.MSG_VERBOSE);
-            }
-            //shield it from being closed by a filtering StreamPumper
-            OutputStream keepAliveOutput = new KeepAliveOutputStream(baos);
-            outputStream = (outputStream == null) ? keepAliveOutput
-                : new TeeOutputStream(outputStream, keepAliveOutput);
-        } else {
-            baos = null;
-        }
-
-        if (error != null && error.length > 0) {
-            String logHead = new StringBuffer("Error ").append(
-                ((append) ? "appended" : "redirected")).append(
-                " to ").toString();
-            errorStream = foldFiles(error, logHead, Project.MSG_VERBOSE);
-        } else if (!(logError || outputStream == null)) {
-            long funnelTimeout = 0L;
-            OutputStreamFunneler funneler
-                = new OutputStreamFunneler(outputStream, funnelTimeout);
-            try {
-                outputStream = funneler.getFunnelInstance();
-                errorStream = funneler.getFunnelInstance();
-            } catch (IOException eyeOhEx) {
-                throw new BuildException(
-                    "error splitting output/error streams", eyeOhEx);
-            }
-        }
-        if (errorProperty != null) {
-            if (errorBaos == null) {
-                errorBaos = new PropertyOutputStream(errorProperty);
-                managingTask.log("Error redirected to property: " + errorProperty,
-                    Project.MSG_VERBOSE);
-            }
-            //shield it from being closed by a filtering StreamPumper
-            OutputStream keepAliveError = new KeepAliveOutputStream(errorBaos);
-            errorStream = (error == null || error.length == 0) ? keepAliveError
-                : new TeeOutputStream(errorStream, keepAliveError);
-        } else {
-            errorBaos = null;
-        }
+        outStreams();
+        errorStreams();
         if (alwaysLog || outputStream == null) {
             OutputStream outputLog
                 = new LogOutputStream(managingTask, Project.MSG_INFO);
@@ -617,6 +570,62 @@ public class Redirector {
             helper.setFilterChains(inputFilterChains);
             inputStream = new ReaderInputStream(
                 helper.getAssembledReader(), inputEncoding);
+        }
+    }
+
+    /** outStreams */
+    private void outStreams() {
+        if (out != null && out.length > 0) {
+            String logHead = new StringBuffer("Output ").append(
+                ((append) ? "appended" : "redirected")).append(
+                " to ").toString();
+            outputStream = foldFiles(out, logHead, Project.MSG_VERBOSE);
+        }
+        if (outputProperty != null) {
+            if (baos == null) {
+                baos = new PropertyOutputStream(outputProperty);
+                managingTask.log("Output redirected to property: "
+                    + outputProperty, Project.MSG_VERBOSE);
+            }
+            //shield it from being closed by a filtering StreamPumper
+            OutputStream keepAliveOutput = new KeepAliveOutputStream(baos);
+            outputStream = (outputStream == null) ? keepAliveOutput
+                : new TeeOutputStream(outputStream, keepAliveOutput);
+        } else {
+            baos = null;
+        }
+    }
+
+    private void errorStreams() {
+        if (error != null && error.length > 0) {
+            String logHead = new StringBuffer("Error ").append(
+                ((append) ? "appended" : "redirected")).append(
+                " to ").toString();
+            errorStream = foldFiles(error, logHead, Project.MSG_VERBOSE);
+        } else if (!(logError || outputStream == null)) {
+            long funnelTimeout = 0L;
+            OutputStreamFunneler funneler
+                = new OutputStreamFunneler(outputStream, funnelTimeout);
+            try {
+                outputStream = funneler.getFunnelInstance();
+                errorStream = funneler.getFunnelInstance();
+            } catch (IOException eyeOhEx) {
+                throw new BuildException(
+                    "error splitting output/error streams", eyeOhEx);
+            }
+        }
+        if (errorProperty != null) {
+            if (errorBaos == null) {
+                errorBaos = new PropertyOutputStream(errorProperty);
+                managingTask.log("Error redirected to property: " + errorProperty,
+                    Project.MSG_VERBOSE);
+            }
+            //shield it from being closed by a filtering StreamPumper
+            OutputStream keepAliveError = new KeepAliveOutputStream(errorBaos);
+            errorStream = (error == null || error.length == 0) ? keepAliveError
+                : new TeeOutputStream(errorStream, keepAliveError);
+        } else {
+            errorBaos = null;
         }
     }
 
@@ -771,9 +780,13 @@ public class Redirector {
                         // Ignore exception
                     }
                 }
-                wait(1000);
+                wait(STREAMPUMPER_WAIT_INTERVAL);
             } catch (InterruptedException eyeEx) {
-                // Ignore exception
+                Thread[] thread = new Thread[threadGroup.activeCount()];
+                threadGroup.enumerate(thread);
+                for (int i = 0; i < thread.length && thread[i] != null; i++) {
+                    thread[i].interrupt();
+                }
             }
         }
 

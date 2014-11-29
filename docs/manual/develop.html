@@ -76,9 +76,18 @@ good convention, though.</p>
 
 <h3>The Life-cycle of a Task</h3>
 <ol>
-  <li>The task gets instantiated using a no-argument constructor, at parser
-    time. This means even tasks that are never executed get
-    instantiated.</li>
+  <li>
+    The xml element that contains the tag corresponding to the
+    task gets converted to an UnknownElement at parser time.
+    This UnknownElement gets placed in a list within a target
+    object, or recursivly within another UnknownElement.
+  </li>
+  <li>
+    When the target is executed, each UnknownElement is invoked
+    using an <code>perform()</code> method. This instantiates
+    the task. This means that tasks only gets
+    instantiated at run time.
+  </li>
 
   <li>The task gets references to its project and location inside the
     buildfile via its inherited <code>project</code> and
@@ -86,18 +95,18 @@ good convention, though.</p>
 
   <li>If the user specified an <code>id</code> attribute to this task,
     the project
-    registers a reference to this newly created task, at parser
+    registers a reference to this newly created task, at run
     time.</li>
 
   <li>The task gets a reference to the target it belongs to via its
     inherited <code>target</code> variable.</li>
 
-  <li><code>init()</code> is called at parser time.</li>
+  <li><code>init()</code> is called at run time.</li>
 
   <li>All child elements of the XML element corresponding to this task
     are created via this task's <code>createXXX()</code> methods or
     instantiated and added to this task via its <code>addXXX()</code>
-    methods, at parser time.</li>
+    methods, at run time.</li>
 
   <li>All attributes of this task get set via their corresponding
     <code>setXXX</code> methods, at runtime.</li>
@@ -109,10 +118,8 @@ good convention, though.</p>
   <li>All attributes of all child elements get set via their corresponding
     <code>setXXX</code> methods, at runtime.</li>
 
-  <li><a name="execute"><code>execute()</code></a> is called at runtime. While the above initialization
-    steps only occur once, the execute() method may be
-    called more than once, if the task is invoked more than once. For example,
-    if <code>target1</code> and <code>target2</code> both depend
+  <li><a name="execute"><code>execute()</code></a> is called at runtime.
+    If <code>target1</code> and <code>target2</code> both depend
     on <code>target3</code>, then running
     <code>'ant target1 target2'</code> will run all tasks in
     <code>target3</code> twice.</li>
@@ -121,7 +128,14 @@ good convention, though.</p>
 <h3><a name="set-magic">Conversions Ant will perform for attributes</a></h3>
 
 <p>Ant will always expand properties before it passes the value of an
-attribute to the corresponding setter method.</p>
+attribute to the corresponding setter method. <b>Since Ant 1.8</b>, it is
+possible to <a href="using.html#propertyhelper">extend Ant's property handling</a>
+such that a non-string Object may be the result of the evaluation of a string
+containing a single property reference. These will be assigned directly via
+setter methods of matching type. Since it requires some beyond-the-basics
+intervention to enable this behavior, it may be a good idea to flag attributes
+intended to permit this usage paradigm.
+</p>
 
 <p>The most common way to write an attribute setter is to use a
 <code>java.lang.String</code> argument.  In this case Ant will pass
@@ -149,6 +163,13 @@ is more!  If the argument of you setter method is</p>
   not, Ant will interpret the value as a path name relative to the
   project's basedir.</li>
 
+  <li><code>org.apache.tools.ant.types.Resource</code>
+  <code>org.apache.tools.ant.types.Resource</code>, Ant will
+  resolve the string as a <code>java.io.File</code> as above, then
+  pass in as a <code>org.apache.tools.ant.types.resources.FileResource</code>.
+  <b>Since Ant 1.8</b>
+  </li>
+
   <li><code>org.apache.tools.ant.types.Path</code>, Ant will tokenize
   the value specified in the build file, accepting <code>:</code> and
   <code>;</code> as path separators.  Relative path names will be
@@ -170,6 +191,15 @@ is more!  If the argument of you setter method is</p>
   <code>org/apache/tools/ant/taskdefs/FixCRLF.java</code> and the
   inner <code>AddAsisRemove</code> class used in <code>setCr</code>
   for an example.</li>
+
+  <li>A (Java 5) enumeration. Ant will call the setter with the enum constant
+  matching the value given in the build file. This is easier than using
+  <code>EnumeratedAttribute</code> and can result in cleaner code, but of course
+  your task will not run on JDK 1.4 or earlier. Note that any override of
+  <code>toString()</code> in the enumeration is ignored; the build file must use
+  the declared name (see <code>Enum.getName()</code>). You may wish to use lowercase
+  enum constant names, in contrast to usual Java style, to look better in build files.
+  <em>As of Ant 1.7.0.</em></li>
 
 </ul>
 
@@ -481,6 +511,11 @@ either cause the build to terminate or the Java VM to run out of Stack space. A 
 not access System.out and System.err directly. It must use the streams with which it has
 been configured.
 </p>
+
+<p><b>Note2:</b> All methods of a BuildListener except for the "Build
+  Started" and "Build Finished" events may occur on several threads
+  simultaneously - for example while Ant is executing
+  a <code>&lt;parallel&gt;</code> task.</p>
 
 <hr>
 <h2><a name="integration">Source code integration</a></h2>

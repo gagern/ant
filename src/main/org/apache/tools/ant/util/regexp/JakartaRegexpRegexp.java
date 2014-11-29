@@ -17,7 +17,6 @@
  */
 package org.apache.tools.ant.util.regexp;
 
-
 import java.util.Vector;
 import org.apache.regexp.RE;
 import org.apache.tools.ant.BuildException;
@@ -27,6 +26,8 @@ import org.apache.tools.ant.BuildException;
  */
 public class JakartaRegexpRegexp extends JakartaRegexpMatcher
     implements Regexp {
+
+    private static final int DECIMAL = 10;
 
     /** Constructor for JakartaRegexpRegexp */
     public JakartaRegexpRegexp() {
@@ -66,7 +67,7 @@ public class JakartaRegexpRegexp extends JakartaRegexpMatcher
             if (c == '\\') {
                 if (++i < argument.length()) {
                     c = argument.charAt(i);
-                    int value = Character.digit(c, 10);
+                    int value = Character.digit(c, DECIMAL);
                     if (value > -1) {
                         result.append((String) v.elementAt(value));
                     } else {

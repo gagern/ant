@@ -49,6 +49,7 @@ public class Scp extends SSHBase {
 
     private String fromUri;
     private String toUri;
+    private boolean preserveLastModified = false;
     private List fileSets = null;
     private boolean isFromRemote, isToRemote;
     private boolean isSftp = false;
@@ -100,6 +101,7 @@ public class Scp extends SSHBase {
      * @since Ant 1.6.2
      */
     public void setRemoteFile(String aFromUri) {
+        validateRemoteUri("remoteFile", aFromUri);
         setFromUri(aFromUri);
         this.isFromRemote = true;
      }
@@ -117,15 +119,35 @@ public class Scp extends SSHBase {
     }
 
     /**
+     * Sets flag to determine if file timestamp from
+     * remote system is to be preserved during copy.
+     * @since Ant 1.8.0
+     */
+    public void setPreservelastmodified(boolean yesOrNo) {
+    	this.preserveLastModified = yesOrNo;
+    }    
+
+    /**
      * Similiar to {@link #setTodir setTodir} but explicitly states
      * that the directory is a remote.
      * @param aToUri a string representing the target of the copy.
      * @since Ant 1.6.2
      */
     public void setRemoteTodir(String aToUri) {
+        validateRemoteUri("remoteToDir", aToUri);
         setToUri(aToUri);
         this.isToRemote = true;
     }
+
+    private static void validateRemoteUri(String type, String aToUri) {
+    	if (!isRemoteUri(aToUri)) {
+            throw new BuildException(type + " '" + aToUri + "' is invalid. "
+                                     + "The 'remoteToDir' attribute must "
+                                     + "have syntax like the "
+                                     + "following: user:password@host:/path"
+                                     + " - the :password part is optional");
+    	}
+    } 
 
     /**
      * Changes the file name to the given name while receiving it,
@@ -145,6 +167,7 @@ public class Scp extends SSHBase {
      * @since Ant 1.6.2
      */
     public void setRemoteTofile(String aToUri) {
+        validateRemoteUri("remoteToFile", aToUri);
         setToUri(aToUri);
         this.isToRemote = true;
     }
@@ -231,12 +254,14 @@ public class Scp extends SSHBase {
                 message =
                     new ScpFromMessage(getVerbose(), session, file,
                                        getProject().resolveFile(toPath),
-                                       fromSshUri.endsWith("*"));
+                                       fromSshUri.endsWith("*"),
+                                       preserveLastModified);
             } else {
                 message =
                     new ScpFromMessageBySftp(getVerbose(), session, file,
                                              getProject().resolveFile(toPath),
-                                             fromSshUri.endsWith("*"));
+                                             fromSshUri.endsWith("*"),
+                                             preserveLastModified);
             }
             log("Receiving file: " + file);
             message.setLogListener(this);
@@ -310,20 +335,33 @@ public class Scp extends SSHBase {
     }
 
     private String parseUri(String uri) {
-        int indexOfAt = uri.lastIndexOf('@');
+
+        int indexOfAt = uri.indexOf('@');
         int indexOfColon = uri.indexOf(':');
+
         if (indexOfColon > -1 && indexOfColon < indexOfAt) {
             // user:password@host:/path notation
+            // everything upto the last @ before the last : is considered
+            // password. (so if the path contains an @ and a : it will not work)
+            int indexOfCurrentAt = indexOfAt;
+            int indexOfLastColon = uri.lastIndexOf(':');
+            while (indexOfCurrentAt > -1 && indexOfCurrentAt < indexOfLastColon)
+            {
+                indexOfAt = indexOfCurrentAt;
+                indexOfCurrentAt = uri.indexOf('@', indexOfCurrentAt + 1);
+            }
             setUsername(uri.substring(0, indexOfColon));
             setPassword(uri.substring(indexOfColon + 1, indexOfAt));
-        } else {
-            // no password, will require passphrase
+        } else if (indexOfAt > -1) {
+            // no password, will require keyfile
             setUsername(uri.substring(0, indexOfAt));
+        } else {
+            throw new BuildException("no username was given.  Can't authenticate."); 
         }
 
         if (getUserInfo().getPassword() == null
-            && getUserInfo().getPassphrase() == null) {
-            throw new BuildException("neither password nor passphrase for user "
+            && getUserInfo().getKeyfile() == null) {
+            throw new BuildException("neither password nor keyfile for user "
                                      + getUserInfo().getName() + " has been "
                                      + "given.  Can't authenticate.");
         }
@@ -341,7 +379,7 @@ public class Scp extends SSHBase {
         return remotePath;
     }
 
-    private boolean isRemoteUri(String uri) {
+    private static boolean isRemoteUri(String uri) {
         boolean isRemote = true;
         int indexOfAt = uri.indexOf('@');
         if (indexOfAt < 0) {

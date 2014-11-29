@@ -44,7 +44,9 @@ import java.util.Date;
  * @ant.task category="network"
  */
 public class Get extends Task {
-
+    private static final int NUMBER_RETRIES = 3;
+    private static final int DOTS_PER_LINE = 50;
+    private static final int BIG_BUFFER_SIZE = 100 * 1024;
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
     private URL source; // required
@@ -97,23 +99,8 @@ public class Get extends Task {
      */
     public boolean doGet(int logLevel, DownloadProgress progress)
             throws IOException {
-        if (source == null) {
-            throw new BuildException("src attribute is required", getLocation());
-        }
+        checkAttributes();
 
-        if (dest == null) {
-            throw new BuildException("dest attribute is required", getLocation());
-        }
-
-        if (dest.exists() && dest.isDirectory()) {
-            throw new BuildException("The specified destination is a directory",
-                    getLocation());
-        }
-
-        if (dest.exists() && !dest.canWrite()) {
-            throw new BuildException("Can't write to " + dest.getAbsolutePath(),
-                    getLocation());
-        }
         //dont do any progress, unless asked
         if (progress == null) {
             progress = new NullProgress();
@@ -193,7 +180,7 @@ public class Get extends Task {
         //course.
 
         InputStream is = null;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < NUMBER_RETRIES; i++) {
             //this three attempt trick is to get round quirks in different
             //Java implementations. Some of them take a few goes to bind
             //property; we ignore the first couple of such failures.
@@ -217,7 +204,7 @@ public class Get extends Task {
         progress.beginDownload();
         boolean finished = false;
         try {
-            byte[] buffer = new byte[100 * 1024];
+            byte[] buffer = new byte[BIG_BUFFER_SIZE];
             int length;
             while ((length = is.read(buffer)) >= 0) {
                 fos.write(buffer, 0, length);
@@ -258,6 +245,28 @@ public class Get extends Task {
         return true;
     }
 
+    /**
+     * Check the attributes.
+     */
+    private void checkAttributes() {
+        if (source == null) {
+            throw new BuildException("src attribute is required", getLocation());
+        }
+
+        if (dest == null) {
+            throw new BuildException("dest attribute is required", getLocation());
+        }
+
+        if (dest.exists() && dest.isDirectory()) {
+            throw new BuildException("The specified destination is a directory",
+                    getLocation());
+        }
+
+        if (dest.exists() && !dest.canWrite()) {
+            throw new BuildException("Can't write to " + dest.getAbsolutePath(),
+                    getLocation());
+        }
+    }
 
     /**
      * Set the URL to get.
@@ -422,7 +431,7 @@ public class Get extends Task {
          */
         public void onTick() {
             out.print(".");
-            if (dots++ > 50) {
+            if (dots++ > DOTS_PER_LINE) {
                 out.flush();
                 dots = 0;
             }

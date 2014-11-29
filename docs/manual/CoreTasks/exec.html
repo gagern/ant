@@ -17,10 +17,9 @@
 <html>
 
 <head>
-<meta http-equiv="Content-Language" content="en-us">
-<link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
-<title>Exec Task</title>
-<link rel="stylesheet" type="text/css" href="../stylesheets/antmanual.css">
+  <meta http-equiv="Content-Language" content="en-us">
+  <link rel="stylesheet" type="text/css" href="../stylesheets/style.css">
+  <title>Exec Task</title>
 </head>
 
 <body>
@@ -36,7 +35,18 @@ to send input to it is via the input and inputstring attributes. Also note that
 since Ant 1.6, any attempt to read input in the forked program will receive an
 EOF (-1). This is a change from Ant 1.5, where such an attempt would block.</p>
 
-
+<p>If you want to execute an executable using a path relative to the
+  project's basedir, you may need to
+  use <code>vmlauncher="false"</code> on some operating systems - but
+  even this may fail (Solaris 8/9 has been reported as problematic).
+  The <code>resolveexecutable</code> attribute should be more
+  reliable, as would be something like
+<pre>
+  &lt;property name="executable-full-path"
+            location="../relative/path/to/executable"/&gt;
+  &lt;exec executable="${executable-full-path}" ...
+</pre>
+</p>
 
 <h4>Windows Users</h4>
 <p>The <code>&lt;exec&gt;</code> task delegates to <code>Runtime.exec</code> which in turn
@@ -63,9 +73,14 @@ types listed in the environment variable PATHEXT. That is only used by the shell
 </pre></blockquote>
 
 <h4>Cygwin Users</h4>
-<p>In general the <code>&lt;exec&gt;</code> task will not understand paths such as /bin/sh for
-the executable parameter. This is because the Java VM in which Ant is running is a
-Windows executable and is not aware of Cygwin conventions.
+<p>The <code>&lt;exec&gt;</code> task will not understand paths such as /bin/sh
+for the executable parameter.  This is because the Java VM in which Ant is
+running is a standard Windows executable and is not aware of the Cygwin
+environment (i.e., doesn't load <code>cygwin1.dll</code>).  The only
+work-around for this is to compile a JVM under Cygwin (at your own risk).
+See for instance 
+<a href="http://java.sun.com/javase/6/docs/build/README-builds.html#cygwin">
+sun jdk 6 build instructions for cygwin</a>.
 </p>
 
 <h4>OpenVMS Users</h4>
@@ -115,6 +130,15 @@ or the task will fail as follows:
 </pre>
 </blockquote>
 </p>
+
+<h4><a name="background">Running Ant as a background process on
+    Unix(-like) systems</a></h4>
+
+<p>If you run Ant as a background process (like <code>ant &</code>)
+  and use the <code>&lt;exec&gt;</code> task with <code>spawn</code>
+  set to <code>false</code>, you must provide explicit input to the
+  forked process or Ant will be suspended because it tries to read
+  from the standard input.</p>
 
 <h3>Parameters</h3>
 <table border="1" cellpadding="2" cellspacing="0">

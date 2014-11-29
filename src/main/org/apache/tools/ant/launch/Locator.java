@@ -28,37 +28,66 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Locale;
 
+// CheckStyle:LineLengthCheck OFF - urls are long!
 /**
  * The Locator is a utility class which is used to find certain items
  * in the environment.
  *
+ * It is used at boot time in the launcher, and cannot make use of any of Ant's other classes.
+ *
+ * This is a surprisingly brittle piece of code, and has had lots of bugs filed against it.
+ * {@link <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=42275">running ant off a network share can cause Ant to fail</a>}
+ * {@link <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=8031">use File.toURI().toURL().toExternalForm()</a>}
+ * {@link <a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=42222">Locator implementation not encoding URI strings properly: spaces in paths</a>}
+ * It also breaks Eclipse 3.3 Betas
+ * {@link <a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=183283">Exception if installation path has spaces</a>}
+ *
+ * Be very careful when making changes to this class, as a break will upset a lot of people.
  * @since Ant 1.6
  */
+// CheckStyle:LineLengthCheck ON - urls are long!
 public final class Locator {
+
+    private static final int NIBBLE = 4;
+    private static final int NIBBLE_MASK   = 0xF;
+
+    private static final int ASCII_SIZE = 128;
+
+    private static final int BYTE_SIZE = 256;
+
+    private static final int WORD = 16;
+
+    private static final int SPACE = 0x20;
+    private static final int DEL = 0x7F;
+
     /**
      * encoding used to represent URIs
      */
-    public static String URI_ENCODING = "UTF-8";
+    public static final String URI_ENCODING = "UTF-8";
     // stolen from org.apache.xerces.impl.XMLEntityManager#getUserDir()
     // of the Xerces-J team
     // which ASCII characters need to be escaped
-    private static boolean[] gNeedEscaping = new boolean[128];
+    private static boolean[] gNeedEscaping = new boolean[ASCII_SIZE];
     // the first hex character if a character needs to be escaped
-    private static char[] gAfterEscaping1 = new char[128];
+    private static char[] gAfterEscaping1 = new char[ASCII_SIZE];
     // the second hex character if a character needs to be escaped
-    private static char[] gAfterEscaping2 = new char[128];
+    private static char[] gAfterEscaping2 = new char[ASCII_SIZE];
     private static char[] gHexChs = {'0', '1', '2', '3', '4', '5', '6', '7',
                                      '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    /** Error string used when an invalid uri is seen */
+    public static final String ERROR_NOT_FILE_URI
+        = "Can only handle valid file: URIs, not ";
+
     // initialize the above 3 arrays
     static {
-        for (int i = 0; i <= 0x1f; i++) {
+        for (int i = 0; i < SPACE; i++) {
             gNeedEscaping[i] = true;
-            gAfterEscaping1[i] = gHexChs[i >> 4];
-            gAfterEscaping2[i] = gHexChs[i & 0xf];
+            gAfterEscaping1[i] = gHexChs[i >> NIBBLE];
+            gAfterEscaping2[i] = gHexChs[i & NIBBLE_MASK];
         }
-        gNeedEscaping[0x7f] = true;
-        gAfterEscaping1[0x7f] = '7';
-        gAfterEscaping2[0x7f] = 'F';
+        gNeedEscaping[DEL] = true;
+        gAfterEscaping1[DEL] = '7';
+        gAfterEscaping2[DEL] = 'F';
         char[] escChs = {' ', '<', '>', '#', '%', '"', '{', '}',
                          '|', '\\', '^', '~', '[', ']', '`'};
         int len = escChs.length;
@@ -66,8 +95,8 @@ public final class Locator {
         for (int i = 0; i < len; i++) {
             ch = escChs[i];
             gNeedEscaping[ch] = true;
-            gAfterEscaping1[ch] = gHexChs[ch >> 4];
-            gAfterEscaping2[ch] = gHexChs[ch & 0xf];
+            gAfterEscaping1[ch] = gHexChs[ch >> NIBBLE];
+            gAfterEscaping2[ch] = gHexChs[ch & NIBBLE_MASK];
         }
     }
     /**
@@ -113,18 +142,23 @@ public final class Locator {
         }
         if (url != null) {
             String u = url.toString();
-            if (u.startsWith("jar:file:")) {
-                int pling = u.indexOf("!");
-                String jarName = u.substring(4, pling);
-                return new File(fromURI(jarName));
-            } else if (u.startsWith("file:")) {
-                int tail = u.indexOf(resource);
-                String dirName = u.substring(0, tail);
-                return new File(fromURI(dirName));
+            try {
+                if (u.startsWith("jar:file:")) {
+                    return new File(fromJarURI(u));
+                } else if (u.startsWith("file:")) {
+                    int tail = u.indexOf(resource);
+                    String dirName = u.substring(0, tail);
+                    return new File(fromURI(dirName));
+                }
+            } catch (IllegalArgumentException e) {
+                //unable to determine the URI for reasons unknown.
+                return null;
             }
         }
         return null;
     }
+
+
 
     /**
      * Constructs a file path from a <code>file:</code> URI.
@@ -144,12 +178,28 @@ public final class Locator {
      * @since Ant 1.6
      */
     public static String fromURI(String uri) {
-        // #8031: first try Java 1.4.
+        // #buzilla8031: first try Java 1.4.
+        String result = null;
+        //result = fromUriJava14(uri);
+        if (result == null) {
+            result = fromURIJava13(uri);
+        }
+        return result;
+    }
+
+
+    /**
+     * Java1.4+ code to extract the path from the URI.
+     * @param uri
+     * @return null if a conversion was not possible
+     */
+    private static String fromUriJava14(String uri) {
         Class uriClazz = null;
         try {
             uriClazz = Class.forName("java.net.URI");
         } catch (ClassNotFoundException cnfe) {
             // Fine, Java 1.3 or earlier, do it by hand.
+            return null;
         }
         // Also check for properly formed URIs. Ant formerly recommended using
         // nonsense URIs such as "file:./foo.xml" in XML includes. You shouldn't
@@ -158,17 +208,24 @@ public final class Locator {
         if (uriClazz != null && uri.startsWith("file:/")) {
             try {
                 java.lang.reflect.Method createMethod
-                    = uriClazz.getMethod("create", new Class[] {String.class});
-                Object uriObj = createMethod.invoke(null, new Object[] {uri});
+                        = uriClazz.getMethod("create", new Class[]{String.class});
+                Object uriObj = createMethod.invoke(null, new Object[]{encodeURI(uri)});
                 java.lang.reflect.Constructor fileConst
-                    = File.class.getConstructor(new Class[] {uriClazz});
-                File f = (File) fileConst.newInstance(new Object[] {uriObj});
-                return f.getAbsolutePath();
+                        = File.class.getConstructor(new Class[]{uriClazz});
+                File f = (File) fileConst.newInstance(new Object[]{uriObj});
+                //bug #42227 forgot to decode before returning
+                return decodeUri(f.getAbsolutePath());
             } catch (java.lang.reflect.InvocationTargetException e) {
                 Throwable e2 = e.getTargetException();
                 if (e2 instanceof IllegalArgumentException) {
                     // Bad URI, pass this on.
-                    throw (IllegalArgumentException) e2;
+                    // no, this is downgraded to a warning after various
+                    // JRE bugs surfaced. Hand off
+                    // to our built in code on a failure
+                    //throw new IllegalArgumentException(
+                    //   "Bad URI " + uri + ":" + e2.getMessage(), e2);
+                    e2.printStackTrace();
+
                 } else {
                     // Unexpected target exception? Should not happen.
                     e2.printStackTrace();
@@ -178,7 +235,19 @@ public final class Locator {
                 e.printStackTrace();
             }
         }
+        return null;
+    }
 
+
+
+
+    /**
+     * This method is public for testing; we may delete it without any warning -it is not part of Ant's stable API.
+     * @param uri uri to expand
+     * @return the decoded URI
+     * @since Ant1.7.1
+     */
+    public static String fromURIJava13(String uri) {
         // Fallback method for Java 1.3 or earlier.
 
         URL url = null;
@@ -188,7 +257,7 @@ public final class Locator {
             // Ignore malformed exception
         }
         if (url == null || !("file".equals(url.getProtocol()))) {
-            throw new IllegalArgumentException("Can only handle valid file: URIs");
+            throw new IllegalArgumentException(ERROR_NOT_FILE_URI + uri);
         }
         StringBuffer buf = new StringBuffer(url.getHost());
         if (buf.length() > 0) {
@@ -207,18 +276,36 @@ public final class Locator {
         String path = null;
         try {
             path = decodeUri(uri);
+            //consider adding the current directory. This is not done when
+            //the path is a UNC name
             String cwd = System.getProperty("user.dir");
-            int posi = cwd.indexOf(":");
-            if ((posi > 0) && path.startsWith(File.separator)) {
-               path = cwd.substring(0, posi + 1) + path; 
+            int posi = cwd.indexOf(':');
+            boolean pathStartsWithFileSeparator = path.startsWith(File.separator);
+            boolean pathStartsWithUNC = path.startsWith("" + File.separator + File.separator);
+            if ((posi > 0) && pathStartsWithFileSeparator && !pathStartsWithUNC) {
+                path = cwd.substring(0, posi + 1) + path;
             }
         } catch (UnsupportedEncodingException exc) {
             // not sure whether this is clean, but this method is
             // declared not to throw exceptions.
-            throw new IllegalStateException("Could not convert URI to path: "
-                                            + exc.getMessage());
+            throw new IllegalStateException(
+                "Could not convert URI " + uri + " to path: "
+                + exc.getMessage());
         }
         return path;
+    }
+
+    /**
+     * Crack a JAR URI.
+     * This method is public for testing; we may delete it without any warning -it is not part of Ant's stable API.
+     * @param uri uri to expand; contains jar: somewhere in it
+     * @return the decoded URI
+     * @since Ant1.7.1
+     */
+    public static String fromJarURI(String uri) {
+        int pling = uri.indexOf('!');
+        String jarName = uri.substring("jar:".length(), pling);
+        return fromURI(jarName);
     }
 
     /**
@@ -240,11 +327,11 @@ public final class Locator {
             if (c == '%') {
                 char c1 = iter.next();
                 if (c1 != CharacterIterator.DONE) {
-                    int i1 = Character.digit(c1, 16);
+                    int i1 = Character.digit(c1, WORD);
                     char c2 = iter.next();
                     if (c2 != CharacterIterator.DONE) {
-                        int i2 = Character.digit(c2, 16);
-                        sb.write((char) ((i1 << 4) + i2));
+                        int i2 = Character.digit(c2, WORD);
+                        sb.write((char) ((i1 << NIBBLE) + i2));
                     }
                 }
             } else {
@@ -253,6 +340,7 @@ public final class Locator {
         }
         return sb.toString(URI_ENCODING);
     }
+
     /**
      * Encodes an Uri with % characters.
      * The URI is escaped
@@ -269,7 +357,7 @@ public final class Locator {
         for (; i < len; i++) {
             ch = path.charAt(i);
             // if it's not an ASCII character, break here, and use UTF-8 encoding
-            if (ch >= 128) {
+            if (ch >= ASCII_SIZE) {
                 break;
             }
             if (gNeedEscaping[ch]) {
@@ -301,10 +389,10 @@ public final class Locator {
                 b = bytes[i];
                 // for non-ascii character: make it positive, then escape
                 if (b < 0) {
-                    ch = b + 256;
+                    ch = b + BYTE_SIZE;
                     sb.append('%');
-                    sb.append(gHexChs[ch >> 4]);
-                    sb.append(gHexChs[ch & 0xf]);
+                    sb.append(gHexChs[ch >> NIBBLE]);
+                    sb.append(gHexChs[ch & NIBBLE_MASK]);
                 } else if (gNeedEscaping[b]) {
                     sb.append('%');
                     sb.append(gAfterEscaping1[b]);
@@ -367,15 +455,18 @@ public final class Locator {
         }
         // couldn't find compiler - try to find tools.jar
         // based on java.home setting
+        String libToolsJar
+            = File.separator + "lib" + File.separator + "tools.jar";
         String javaHome = System.getProperty("java.home");
-        File toolsJar = new File(javaHome + "/lib/tools.jar");
+        File toolsJar = new File(javaHome + libToolsJar);
         if (toolsJar.exists()) {
             // Found in java.home as given
             return toolsJar;
         }
         if (javaHome.toLowerCase(Locale.US).endsWith(File.separator + "jre")) {
-            javaHome = javaHome.substring(0, javaHome.length() - 4);
-            toolsJar = new File(javaHome + "/lib/tools.jar");
+            javaHome = javaHome.substring(
+                0, javaHome.length() - "/jre".length());
+            toolsJar = new File(javaHome + libToolsJar);
         }
         if (!toolsJar.exists()) {
             System.out.println("Unable to locate tools.jar. "
@@ -428,8 +519,9 @@ public final class Locator {
         if (!location.isDirectory()) {
             urls = new URL[1];
             String path = location.getPath();
+            String littlePath = path.toLowerCase(Locale.US);
             for (int i = 0; i < extensions.length; ++i) {
-                if (path.toLowerCase().endsWith(extensions[i])) {
+                if (littlePath.endsWith(extensions[i])) {
                     urls[0] = fileToURL(location);
                     break;
                 }
@@ -439,8 +531,9 @@ public final class Locator {
         File[] matches = location.listFiles(
             new FilenameFilter() {
                 public boolean accept(File dir, String name) {
+                    String littleName = name.toLowerCase(Locale.US);
                     for (int i = 0; i < extensions.length; ++i) {
-                        if (name.toLowerCase().endsWith(extensions[i])) {
+                        if (littleName.endsWith(extensions[i])) {
                             return true;
                         }
                     }

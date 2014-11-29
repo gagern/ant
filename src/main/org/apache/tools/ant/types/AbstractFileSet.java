@@ -45,6 +45,8 @@ import org.apache.tools.ant.types.selectors.MajoritySelector;
 import org.apache.tools.ant.types.selectors.DifferentSelector;
 import org.apache.tools.ant.types.selectors.SelectorContainer;
 import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
+import org.apache.tools.ant.types.selectors.ReadableSelector;
+import org.apache.tools.ant.types.selectors.WritableSelector;
 import org.apache.tools.ant.types.selectors.modifiedselector.ModifiedSelector;
 
 /**
@@ -65,6 +67,8 @@ public abstract class AbstractFileSet extends DataType
     private boolean useDefaultExcludes = true;
     private boolean caseSensitive = true;
     private boolean followSymlinks = true;
+    private boolean errorOnMissingDir = true;
+    private int maxLevelsOfSymlinks = DirectoryScanner.MAX_LEVELS_OF_SYMLINKS;
 
     /* cached DirectoryScanner instance for our own Project only */
     private DirectoryScanner directoryScanner = null;
@@ -89,6 +93,8 @@ public abstract class AbstractFileSet extends DataType
         this.useDefaultExcludes = fileset.useDefaultExcludes;
         this.caseSensitive = fileset.caseSensitive;
         this.followSymlinks = fileset.followSymlinks;
+        this.errorOnMissingDir = fileset.errorOnMissingDir;
+        this.maxLevelsOfSymlinks = fileset.maxLevelsOfSymlinks;
         setProject(fileset.getProject());
     }
 
@@ -393,6 +399,26 @@ public abstract class AbstractFileSet extends DataType
     }
 
     /**
+     * The maximum number of times a symbolic link may be followed
+     * during a scan.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setMaxLevelsOfSymlinks(int max) {
+        maxLevelsOfSymlinks = max;
+    }
+
+    /**
+     * Sets whether an error is thrown if a directory does not exist.
+     *
+     * @param errorOnMissingDir true if missing directories cause errors,
+     *                        false if not.
+     */
+     public void setErrorOnMissingDir(boolean errorOnMissingDir) {
+         this.errorOnMissingDir = errorOnMissingDir;
+     }
+
+    /**
      * Returns the directory scanner needed to access the files to process.
      * @return a <code>DirectoryScanner</code> instance.
      */
@@ -418,17 +444,20 @@ public abstract class AbstractFileSet extends DataType
                     throw new BuildException("No directory specified for "
                                              + getDataTypeName() + ".");
                 }
-                if (!dir.exists()) {
+                if (!dir.exists() && errorOnMissingDir) {
                     throw new BuildException(dir.getAbsolutePath()
-                                             + " not found.");
+                                             + DirectoryScanner
+                                             .DOES_NOT_EXIST_POSTFIX);
                 }
-                if (!dir.isDirectory()) {
+                if (!dir.isDirectory() && dir.exists()) {
                     throw new BuildException(dir.getAbsolutePath()
                                              + " is not a directory.");
                 }
                 ds = new DirectoryScanner();
                 setupDirectoryScanner(ds, p);
                 ds.setFollowSymlinks(followSymlinks);
+                ds.setErrorOnMissingDir(errorOnMissingDir);
+                ds.setMaxLevelsOfSymlinks(maxLevelsOfSymlinks);
                 directoryScanner = (p == getProject()) ? ds : directoryScanner;
             }
         }
@@ -709,6 +738,14 @@ public abstract class AbstractFileSet extends DataType
      */
     public void addModified(ModifiedSelector selector) {
         appendSelector(selector);
+    }
+
+    public void addReadable(ReadableSelector r) {
+        appendSelector(r);
+    }
+
+    public void addWritable(WritableSelector w) {
+        appendSelector(w);
     }
 
     /**

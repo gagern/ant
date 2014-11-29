@@ -23,8 +23,8 @@ import org.apache.tools.ant.Task;
 import org.apache.tools.ant.util.FileUtils;
 
 /**
- *  This task sets a property to  the name of a temporary file.
- *  Unlike {@link File#createTempFile}, this task does not actually create the
+ *  This task sets a property to the name of a temporary file.
+ *  Unlike {@link File#createTempFile}, this task does not (by default) actually create the
  *  temporary file, but it does guarantee that the file did not
  *  exist when the task was executed.
  * <p>
@@ -35,8 +35,8 @@ import org.apache.tools.ant.util.FileUtils;
  * create a temporary file with the .xml suffix.
  * <pre>&lt;tempfile property="temp.file" destDir="build"/&gt;</pre>
  * create a temp file in the build subdir
- *@since       Ant 1.5
- *@ant.task
+ * @since       Ant 1.5
+ * @ant.task
  */
 
 public class TempFile extends Task {
@@ -65,6 +65,9 @@ public class TempFile extends Task {
 
     /** deleteOnExit flag */
     private boolean deleteOnExit;
+
+    /** createFile flag */
+    private boolean createFile;
 
     /**
      * Sets the property you wish to assign the temporary file to.
@@ -125,9 +128,25 @@ public class TempFile extends Task {
     }
 
     /**
+     * If set the file is actually created, if not just a name is created.
+     * @param createFile boolean flag.
+     */
+    public void setCreateFile(boolean createFile) {
+        this.createFile = createFile;
+    }
+
+    /**
+     * Learn whether createFile flag is set for this tempfile task.
+     * @return the createFile flag.
+     */
+    public boolean isCreateFile() {
+        return createFile;
+    }
+
+    /**
      * Creates the temporary file.
      *
-     *@exception  BuildException  if something goes wrong with the build
+     * @exception  BuildException  if something goes wrong with the build
      */
     public void execute() throws BuildException {
         if (property == null || property.length() == 0) {
@@ -136,9 +155,8 @@ public class TempFile extends Task {
         if (destDir == null) {
             destDir = getProject().resolveFile(".");
         }
-        File tfile = FILE_UTILS.createTempFile(
-                prefix, suffix, destDir, deleteOnExit);
-
+        File tfile = FILE_UTILS.createTempFile(prefix, suffix, destDir,
+                    deleteOnExit, createFile);
         getProject().setNewProperty(property, tfile.toString());
     }
 }

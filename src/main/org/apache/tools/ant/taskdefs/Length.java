@@ -34,6 +34,7 @@ import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.EnumeratedAttribute;
 import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.PropertyOutputStream;
 
 /**
@@ -140,7 +141,7 @@ public class Length extends Task implements Condition {
     }
 
     /**
-     * Set whether to trim in string mode.
+     * Set whether to trim in string mode. Default false.
      * @param trim <code>boolean</code>.
      */
     public synchronized void setTrim(boolean trim) {
@@ -148,7 +149,7 @@ public class Length extends Task implements Condition {
     }
 
     /**
-     * Learn whether strings will be trimmed.
+     * Learn whether strings will be trimmed. Default false.
      * @return boolean trim setting.
      */
     public boolean getTrim() {
@@ -184,13 +185,13 @@ public class Length extends Task implements Condition {
         if (length == null) {
             throw new BuildException(LENGTH_REQUIRED);
         }
-        Long ell = null;
+        Long ell;
         if (STRING.equals(mode)) {
             ell = new Long(getLength(string, getTrim()));
         } else {
-            ConditionHandler h = new ConditionHandler();
+            AccumHandler h = new AccumHandler();
             handleResources(h);
-            ell = new Long(h.getLength());
+            ell = new Long(h.getAccum());
         }
         return when.evaluate(ell.compareTo(length));
     }
@@ -224,13 +225,12 @@ public class Length extends Task implements Condition {
         for (Iterator i = resources.iterator(); i.hasNext();) {
             Resource r = (Resource) i.next();
             if (!r.isExists()) {
-                log(r + " does not exist", Project.MSG_ERR);
-            } else if (r.isDirectory()) {
-                log(r + " is a directory; length unspecified",
-                    Project.MSG_ERR);
-            } else {
-                h.handle(r);
+                log(r + " does not exist", Project.MSG_WARN);
             }
+            if (r.isDirectory()) {
+                log(r + " is a directory; length may not be meaningful", Project.MSG_WARN);
+            }
+            h.handle(r);
         }
         h.complete();
     }
@@ -273,7 +273,7 @@ public class Length extends Task implements Condition {
         protected abstract void handle(Resource r);
 
         void complete() {
-            ps.close();
+            FileUtils.close(ps);
         }
     }
 
@@ -294,9 +294,13 @@ public class Length extends Task implements Condition {
        }
     }
 
-    private class AllHandler extends Handler {
-        long accum = 0L;
-        AllHandler(PrintStream ps) {
+    private class AccumHandler extends Handler {
+        private long accum = 0L;
+
+        AccumHandler() {
+            super(null);
+        }
+        protected AccumHandler(PrintStream ps) {
             super(ps);
         }
         protected long getAccum() {
@@ -310,20 +314,16 @@ public class Length extends Task implements Condition {
                 accum += size;
             }
         }
+    }
+
+    private class AllHandler extends AccumHandler {
+        AllHandler(PrintStream ps) {
+            super(ps);
+        }
         void complete() {
-            getPs().print(accum);
+            getPs().print(getAccum());
             super.complete();
         }
     }
 
-    private class ConditionHandler extends AllHandler {
-        ConditionHandler() {
-            super(null);
-        }
-        void complete() {
-        }
-        long getLength() {
-            return getAccum();
-        }
-    }
 }

@@ -76,6 +76,9 @@ public class Java extends Task {
     private boolean spawn = false;
     private boolean incompatibleWithSpawn = false;
 
+    private static final String TIMEOUT_MESSAGE = 
+        "Timeout: killed the sub-process";
+
     /**
      * Normal constructor
      */
@@ -101,6 +104,7 @@ public class Java extends Task {
 
         int err = -1;
         try {
+            checkConfiguration();
             err = executeJava();
             if (err != 0) {
                 if (failOnError) {
@@ -128,6 +132,14 @@ public class Java extends Task {
      * @throws BuildException if required parameters are missing.
      */
     public int executeJava() throws BuildException {
+        return executeJava(getCommandLine());
+    }
+
+    /**
+     * Check configuration.
+     * @throws BuildException if required parameters are missing.
+     */
+    protected void checkConfiguration() throws BuildException {
         String classname = getCommandLine().getClassname();
         if (classname == null && getCommandLine().getJar() == null) {
             throw new BuildException("Classname must not be null.");
@@ -188,17 +200,25 @@ public class Java extends Task {
                 Project.MSG_VERBOSE);
         }
         setupRedirector();
+    }
+
+    /**
+     * Execute the specified CommandlineJava.
+     * @param commandLine CommandLineJava instance.
+     * @return the exit value of the process if forked, 0 otherwise.
+     */
+    protected int executeJava(CommandlineJava commandLine) {
         try {
             if (fork) {
                 if (!spawn) {
-                    return fork(getCommandLine().getCommandline());
+                    return fork(commandLine.getCommandline());
                 } else {
-                    spawn(getCommandLine().getCommandline());
+                    spawn(commandLine.getCommandline());
                     return 0;
                 }
             } else {
                 try {
-                    run(getCommandLine());
+                    run(commandLine);
                     return 0;
                 } catch (ExitException ex) {
                     return ex.getStatus();
@@ -211,8 +231,12 @@ public class Java extends Task {
             if (failOnError) {
                 throw e;
             } else {
-                log(e);
-                return 0;
+                if (TIMEOUT_MESSAGE.equals(e.getMessage())) {
+                    log(TIMEOUT_MESSAGE);
+                } else {
+                    log(e);
+                }
+                return -1;
             }
         } catch (ThreadDeath t) {
             throw t; // cf. NB #47191
@@ -221,7 +245,7 @@ public class Java extends Task {
                 throw new BuildException(t, getLocation());
             } else {
                 log(t);
-                return 0;
+                return -1;
             }
         }
     }
@@ -747,7 +771,7 @@ public class Java extends Task {
             exe.execute(getProject());
             redirector.complete();
             if (exe.killedProcess()) {
-                throw new BuildException("Timeout: killed the sub-process");
+                throw new BuildException(TIMEOUT_MESSAGE);
             }
         } catch (IOException e) {
             throw new BuildException(e);
@@ -767,7 +791,7 @@ public class Java extends Task {
             int rc = exe.execute();
             redirector.complete();
             if (exe.killedProcess()) {
-                throw new BuildException("Timeout: killed the sub-process");
+                throw new BuildException(TIMEOUT_MESSAGE);
             }
             return rc;
         } catch (IOException e) {

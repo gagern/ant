@@ -15,7 +15,6 @@
  *  limitations under the License.
  *
  */
-
 package org.apache.tools.ant;
 
 import java.lang.reflect.Constructor;
@@ -30,22 +29,35 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.taskdefs.PreSetDef;
+import org.apache.tools.ant.util.StringUtils;
 
 /**
  * Helper class that collects the methods a task or nested element
  * holds to set attributes, create nested elements or hold PCDATA
  * elements.
- * The class is final as it has a private constructor.
+ *
+ * It contains hashtables containing classes that use introspection
+ * to handle all the invocation of the project-component specific methods.
+ *
+ * This class is somewhat complex, as it implements the O/X mapping between
+ * Ant XML and Java class instances. This is not the best place for someone new
+ * to Ant to start contributing to the codebase, as a change here can break the
+ * entire system in interesting ways. Always run a full test of Ant before checking
+ * in/submitting changes to this file.
+ *
+ * The class is final and has a private constructor.
+ * To get an instance for a specific (class,project) combination,
+ * use {@link #getHelper(Project,Class)}.
+ * This may return an existing version, or a new one
+ * ...do not make any assumptions about its uniqueness, or its validity after the Project
+ * instance has finished its build.
+ *
  */
-public final class IntrospectionHelper  {
-
-    /**
-     * EMPTY_MAP was added in java 1.3 (EMPTY_SET and EMPTY_LIST
-     * is in java 1.2!)
-     */
-    private static final Map EMPTY_MAP
-        = Collections.unmodifiableMap(new HashMap(0));
+public final class IntrospectionHelper {
 
     /**
      * Helper instances we've already created (Class.getName() to IntrospectionHelper).
@@ -62,12 +74,10 @@ public final class IntrospectionHelper  {
 
     // Set up PRIMITIVE_TYPE_MAP
     static {
-        Class[] primitives = {Boolean.TYPE, Byte.TYPE, Character.TYPE,
-                              Short.TYPE, Integer.TYPE, Long.TYPE,
-                              Float.TYPE, Double.TYPE};
-        Class[] wrappers = {Boolean.class, Byte.class, Character.class,
-                            Short.class, Integer.class, Long.class,
-                            Float.class, Double.class};
+        Class[] primitives = {Boolean.TYPE, Byte.TYPE, Character.TYPE, Short.TYPE,
+                              Integer.TYPE, Long.TYPE, Float.TYPE, Double.TYPE};
+        Class[] wrappers = {Boolean.class, Byte.class, Character.class, Short.class,
+                            Integer.class, Long.class, Float.class, Double.class};
         for (int i = 0; i < primitives.length; i++) {
             PRIMITIVE_TYPE_MAP.put (primitives[i], wrappers[i]);
         }
@@ -80,40 +90,40 @@ public final class IntrospectionHelper  {
      * Map from attribute names to attribute types
      * (String to Class).
      */
-    private Hashtable attributeTypes = new Hashtable();
+    private final Hashtable attributeTypes = new Hashtable();
 
     /**
      * Map from attribute names to attribute setter methods
      * (String to AttributeSetter).
      */
-    private Hashtable attributeSetters = new Hashtable();
+    private final Hashtable attributeSetters = new Hashtable();
 
     /**
      * Map from attribute names to nested types
      * (String to Class).
      */
-    private Hashtable nestedTypes = new Hashtable();
+    private final Hashtable nestedTypes = new Hashtable();
 
     /**
      * Map from attribute names to methods to create nested types
      * (String to NestedCreator).
      */
-    private Hashtable nestedCreators = new Hashtable();
+    private final Hashtable nestedCreators = new Hashtable();
 
     /**
      * Vector of methods matching add[Configured](Class) pattern.
      */
-    private List addTypeMethods = new ArrayList();
+    private final List addTypeMethods = new ArrayList();
 
     /**
      * The method to invoke to add PCDATA.
      */
-    private Method addText = null;
+    private final Method addText;
 
     /**
      * The class introspected by this instance.
      */
-    private Class bean;
+    private final Class bean;
 
     /**
      * Sole constructor, which is private to ensure that all
@@ -130,9 +140,14 @@ public final class IntrospectionHelper  {
      * adding PCDATA to a bean.
      * <li><code>void setFoo(Bar)</code> is recognised as a method for
      * setting the value of attribute <code>foo</code>, so long as
-     * <code>Bar</code> is non-void and is not an array type. Non-String
-     * parameter types always overload String parameter types, but that is
-     * the only guarantee made in terms of priority.
+     * <code>Bar</code> is non-void and is not an array type.
+     * As of Ant 1.8, a Resource or FileProvider parameter overrides a java.io.File parameter;
+     * in practice the only effect of this is to allow objects rendered from
+     * the 1.8 PropertyHelper implementation to be used as Resource parameters,
+     * since Resources set from Strings are resolved as project-relative files
+     * to preserve backward compatibility.  Beyond this, non-String
+     * parameter types always overload String parameter types; these are
+     * the only guarantees made in terms of priority.
      * <li><code>Foo createBar()</code> is recognised as a method for
      * creating a nested element called <code>bar</code> of type
      * <code>Foo</code>, so long as <code>Foo</code> is not a primitive or
@@ -163,6 +178,7 @@ public final class IntrospectionHelper  {
     private IntrospectionHelper(final Class bean) {
         this.bean = bean;
         Method[] methods = bean.getMethods();
+        Method addTextMethod = null;
         for (int i = 0; i < methods.length; i++) {
             final Method m = methods[i];
             final String name = m.getName();
@@ -171,30 +187,28 @@ public final class IntrospectionHelper  {
 
             // check of add[Configured](Class) pattern
             if (args.length == 1 && java.lang.Void.TYPE.equals(returnType)
-                && ("add".equals(name) || "addConfigured".equals(name))) {
+                    && ("add".equals(name) || "addConfigured".equals(name))) {
                 insertAddTypeMethod(m);
                 continue;
             }
             // not really user settable properties on tasks/project components
-            if (org.apache.tools.ant.ProjectComponent.class.isAssignableFrom(
-                    bean)
-                 && args.length == 1 && isHiddenSetMethod(name, args[0])) {
+            if (org.apache.tools.ant.ProjectComponent.class.isAssignableFrom(bean)
+                    && args.length == 1 && isHiddenSetMethod(name, args[0])) {
                 continue;
             }
             // hide addTask for TaskContainers
             if (isContainer() && args.length == 1 && "addTask".equals(name)
-                && org.apache.tools.ant.Task.class.equals(args[0])) {
+                    && org.apache.tools.ant.Task.class.equals(args[0])) {
                 continue;
             }
             if ("addText".equals(name) && java.lang.Void.TYPE.equals(returnType)
-                && args.length == 1 && java.lang.String.class.equals(args[0])) {
-
-                addText = methods[i];
-            } else if (name.startsWith("set")
-                       && java.lang.Void.TYPE.equals(returnType)
-                       && args.length == 1 && !args[0].isArray()) {
+                    && args.length == 1 && java.lang.String.class.equals(args[0])) {
+                addTextMethod = methods[i];
+            } else if (name.startsWith("set") && java.lang.Void.TYPE.equals(returnType)
+                    && args.length == 1 && !args[0].isArray()) {
                 String propName = getPropertyName(name, "set");
-                if (attributeSetters.get(propName) != null) {
+                AttributeSetter as = (AttributeSetter) attributeSetters.get(propName);
+                if (as != null) {
                     if (java.lang.String.class.equals(args[0])) {
                         /*
                             Ignore method m, as there is an overloaded
@@ -204,10 +218,14 @@ public final class IntrospectionHelper  {
                         */
                         continue;
                     }
+                    if (java.io.File.class.equals(args[0])) {
+                        // Ant Resources/FileProviders override java.io.File
+                        if (Resource.class.equals(as.type) || FileProvider.class.equals(as.type)) {
+                            continue;
+                        }
+                    }
                     /*
-                        If the argument is not a String or Location,
-                        and if there
-                        is an overloaded form of this method already defined,
+                        In cases other than those just explicitly covered,
                         we just override that with the new one.
                         This mechanism does not guarantee any specific order
                         in which the methods will be selected: so any code
@@ -216,13 +234,13 @@ public final class IntrospectionHelper  {
                         particular order.
                     */
                 }
-                AttributeSetter as = createAttributeSetter(m, args[0], propName);
+                as = createAttributeSetter(m, args[0], propName);
                 if (as != null) {
                     attributeTypes.put(propName, args[0]);
                     attributeSetters.put(propName, as);
                 }
             } else if (name.startsWith("create") && !returnType.isArray()
-                       && !returnType.isPrimitive() && args.length == 0) {
+                    && !returnType.isPrimitive() && args.length == 0) {
 
                 String propName = getPropertyName(name, "create");
                 // Check if a create of this property is already present
@@ -232,16 +250,15 @@ public final class IntrospectionHelper  {
                     nestedCreators.put(propName, new CreateNestedCreator(m));
                 }
             } else if (name.startsWith("addConfigured")
-                && java.lang.Void.TYPE.equals(returnType) && args.length == 1
-                && !java.lang.String.class.equals(args[0])
-                && !args[0].isArray() && !args[0].isPrimitive()) {
+                    && java.lang.Void.TYPE.equals(returnType) && args.length == 1
+                    && !java.lang.String.class.equals(args[0])
+                    && !args[0].isArray() && !args[0].isPrimitive()) {
                 try {
                     Constructor constructor = null;
                     try {
                         constructor = args[0].getConstructor(new Class[] {});
                     } catch (NoSuchMethodException ex) {
-                        constructor =
-                            args[0].getConstructor(new Class[] {Project.class});
+                        constructor = args[0].getConstructor(new Class[] {Project.class});
                     }
                     String propName = getPropertyName(name, "addConfigured");
                     nestedTypes.put(propName, args[0]);
@@ -251,18 +268,16 @@ public final class IntrospectionHelper  {
                     // ignore
                 }
             } else if (name.startsWith("add")
-                && java.lang.Void.TYPE.equals(returnType) && args.length == 1
-                && !java.lang.String.class.equals(args[0])
-                && !args[0].isArray() && !args[0].isPrimitive()) {
+                    && java.lang.Void.TYPE.equals(returnType) && args.length == 1
+                    && !java.lang.String.class.equals(args[0])
+                    && !args[0].isArray() && !args[0].isPrimitive()) {
                 try {
                     Constructor constructor = null;
                     try {
                         constructor = args[0].getConstructor(new Class[] {});
                     } catch (NoSuchMethodException ex) {
-                        constructor =
-                            args[0].getConstructor(new Class[] {Project.class});
+                        constructor = args[0].getConstructor(new Class[] {Project.class});
                     }
-
                     String propName = getPropertyName(name, "add");
                     if (nestedTypes.get(propName) != null) {
                         /*
@@ -274,12 +289,13 @@ public final class IntrospectionHelper  {
                     }
                     nestedTypes.put(propName, args[0]);
                     nestedCreators.put(propName, new AddNestedCreator(m,
-                        constructor, AddNestedCreator.ADD));
+                            constructor, AddNestedCreator.ADD));
                 } catch (NoSuchMethodException nse) {
                     // ignore
                 }
             }
         }
+        addText = addTextMethod;
     }
 
     /**
@@ -291,16 +307,12 @@ public final class IntrospectionHelper  {
      * @return true if the given set method is to be hidden.
      */
     private boolean isHiddenSetMethod(String name, Class type) {
-        if ("setLocation".equals(name)
-             && org.apache.tools.ant.Location.class.equals(type)) {
+        if ("setLocation".equals(name) && org.apache.tools.ant.Location.class.equals(type)) {
             return true;
         }
-
-        if ("setTaskType".equals(name)
-             && java.lang.String.class.equals(type)) {
+        if ("setTaskType".equals(name) && java.lang.String.class.equals(type)) {
             return true;
         }
-
         return false;
     }
 
@@ -324,7 +336,7 @@ public final class IntrospectionHelper  {
      * The method will make sure the helper will be cleaned up at the end of
      * the project, and only one instance will be created for each class.
      *
-     * @param p the project instance.
+     * @param p the project instance. Can be null, in which case the helper is not cached.
      * @param c The class for which a helper is required.
      *          Must not be <code>null</code>.
      *
@@ -357,6 +369,60 @@ public final class IntrospectionHelper  {
      *                      <code>null</code>.
      * @param value The value to set the attribute to. This may be interpreted
      *              or converted to the necessary type if the setter method
+     *              doesn't accept an object of the supplied type.
+     *
+     * @exception BuildException if the introspected class doesn't support
+     *                           the given attribute, or if the setting
+     *                           method fails.
+     */
+    public void setAttribute(Project p, Object element, String attributeName,
+            Object value) throws BuildException {
+        AttributeSetter as = (AttributeSetter) attributeSetters.get(
+                attributeName.toLowerCase(Locale.US));
+        if (as == null && value != null) {
+            if (element instanceof DynamicAttributeNS) {
+                DynamicAttributeNS dc = (DynamicAttributeNS) element;
+                String uriPlusPrefix = ProjectHelper.extractUriFromComponentName(attributeName);
+                String uri = ProjectHelper.extractUriFromComponentName(uriPlusPrefix);
+                String localName = ProjectHelper.extractNameFromComponentName(attributeName);
+                String qName = "".equals(uri) ? localName : uri + ":" + localName;
+                dc.setDynamicAttribute(uri, localName, qName, value.toString());
+                return;
+            }
+            if (element instanceof DynamicAttribute) {
+                DynamicAttribute dc = (DynamicAttribute) element;
+                dc.setDynamicAttribute(attributeName.toLowerCase(Locale.US), value.toString());
+                return;
+            }
+            if (attributeName.indexOf(':') >= 0) {
+                return; // Ignore attribute from unknown uri's
+            }
+            String msg = getElementName(p, element)
+                    + " doesn't support the \"" + attributeName + "\" attribute.";
+            throw new UnsupportedAttributeException(msg, attributeName);
+        }
+        try {
+            as.setObject(p, element, value);
+        } catch (IllegalAccessException ie) {
+            // impossible as getMethods should only return public methods
+            throw new BuildException(ie);
+        } catch (InvocationTargetException ite) {
+            throw extractBuildException(ite);
+        }
+    }
+
+    /**
+     * Sets the named attribute in the given element, which is part of the
+     * given project.
+     *
+     * @param p The project containing the element. This is used when files
+     *          need to be resolved. Must not be <code>null</code>.
+     * @param element The element to set the attribute in. Must not be
+     *                <code>null</code>.
+     * @param attributeName The name of the attribute to set. Must not be
+     *                      <code>null</code>.
+     * @param value The value to set the attribute to. This may be interpreted
+     *              or converted to the necessary type if the setter method
      *              doesn't just take a string. Must not be <code>null</code>.
      *
      * @exception BuildException if the introspected class doesn't support
@@ -365,51 +431,8 @@ public final class IntrospectionHelper  {
      */
     public void setAttribute(Project p, Object element, String attributeName,
                              String value) throws BuildException {
-        AttributeSetter as
-            = (AttributeSetter) attributeSetters.get(
-                attributeName.toLowerCase(Locale.US));
-        if (as == null) {
-            if (element instanceof DynamicAttributeNS) {
-                DynamicAttributeNS dc = (DynamicAttributeNS) element;
-                String uriPlusPrefix =
-                    ProjectHelper.extractUriFromComponentName(attributeName);
-                String uri =
-                    ProjectHelper.extractUriFromComponentName(uriPlusPrefix);
-                String localName =
-                    ProjectHelper.extractNameFromComponentName(attributeName);
-                String qName = ("".equals(uri)
-                                ? localName : (uri + ":" + localName));
-
-                dc.setDynamicAttribute(uri, localName, qName, value);
-                return;
-            } else if (element instanceof DynamicAttribute) {
-                DynamicAttribute dc = (DynamicAttribute) element;
-                dc.setDynamicAttribute(attributeName.toLowerCase(Locale.US), value);
-                return;
-            } else {
-                if (attributeName.indexOf(':') != -1) {
-                    return; // Ignore attribute from unknown uri's
-                }
-                String msg = getElementName(p, element)
-                    + " doesn't support the \"" + attributeName
-                    + "\" attribute.";
-                throw new UnsupportedAttributeException(msg, attributeName);
-            }
-        }
-        try {
-            as.set(p, element, value);
-        } catch (IllegalAccessException ie) {
-            // impossible as getMethods should only return public methods
-            throw new BuildException(ie);
-        } catch (InvocationTargetException ite) {
-            Throwable t = ite.getTargetException();
-            if (t instanceof BuildException) {
-                throw (BuildException) t;
-            }
-            throw new BuildException(t);
-        }
+        setAttribute(p, element, attributeName, (Object) value);
     }
-
 
     /**
      * Adds PCDATA to an element, using the element's
@@ -436,13 +459,10 @@ public final class IntrospectionHelper  {
             if (text.length() == 0) {
                 // Only whitespace - ignore
                 return;
-            } else {
-                // Not whitespace - fail
-                String msg = project.getElementName(element)
-                    + " doesn't support nested text data (\""
-                    + condenseText(text) + "\").";
-                throw new BuildException(msg);
             }
+            // Not whitespace - fail
+            throw new BuildException(project.getElementName(element)
+                    + " doesn't support nested text data (\"" + condenseText(text) + "\").");
         }
         try {
             addText.invoke(element, new Object[] {text});
@@ -450,11 +470,7 @@ public final class IntrospectionHelper  {
             // impossible as getMethods should only return public methods
             throw new BuildException(ie);
         } catch (InvocationTargetException ite) {
-            Throwable t = ite.getTargetException();
-            if (t instanceof BuildException) {
-                throw (BuildException) t;
-            }
-            throw new BuildException(t);
+            throw extractBuildException(ite);
         }
     }
 
@@ -465,13 +481,23 @@ public final class IntrospectionHelper  {
      * @param parent the object which doesn't support a requested element
      * @param elementName the name of the Element which is trying to be created.
      */
-    public void throwNotSupported(Project project, Object parent,
-        String elementName) {
+    public void throwNotSupported(Project project, Object parent, String elementName) {
         String msg = project.getElementName(parent)
-            + " doesn't support the nested \"" + elementName + "\" element.";
+                + " doesn't support the nested \"" + elementName + "\" element.";
         throw new UnsupportedElementException(msg, elementName);
     }
 
+    /**
+     * Get the specific NestedCreator for a given project/parent/element combination
+     * @param project ant project
+     * @param parentUri URI of the parent.
+     * @param parent the parent class
+     * @param elementName element to work with. This can contain
+     *  a URI,localname tuple of of the form uri:localname
+     * @param child the bit of XML to work with
+     * @return a nested creator that can handle the child elements.
+     * @throws BuildException if the parent does not support child elements of that name
+     */
     private NestedCreator getNestedCreator(
         Project project, String parentUri, Object parent,
         String elementName, UnknownElement child) throws BuildException {
@@ -486,24 +512,20 @@ public final class IntrospectionHelper  {
             parentUri = "";
         }
         NestedCreator nc = null;
-        if (uri.equals(parentUri) || uri.equals("")) {
-            nc = (NestedCreator) nestedCreators.get(
-                name.toLowerCase(Locale.US));
+        if (uri.equals(parentUri) || uri.length() == 0) {
+            nc = (NestedCreator) nestedCreators.get(name.toLowerCase(Locale.US));
         }
         if (nc == null) {
             nc = createAddTypeCreator(project, parent, elementName);
         }
         if (nc == null && parent instanceof DynamicElementNS) {
             DynamicElementNS dc = (DynamicElementNS) parent;
-            String qName = (child == null ? name : child.getQName());
-            final Object nestedElement =
-                dc.createDynamicElement(
-                    (child == null ? "" : child.getNamespace()),
-                    name, qName);
+            String qName = child == null ? name : child.getQName();
+            final Object nestedElement = dc.createDynamicElement(
+                    child == null ? "" : child.getNamespace(), name, qName);
             if (nestedElement != null) {
                 nc = new NestedCreator(null) {
-                    Object create(
-                        Project project, Object parent, Object ignore) {
+                    Object create(Project project, Object parent, Object ignore) {
                         return nestedElement;
                     }
                 };
@@ -511,12 +533,10 @@ public final class IntrospectionHelper  {
         }
         if (nc == null && parent instanceof DynamicElement) {
             DynamicElement dc = (DynamicElement) parent;
-            final Object nestedElement =
-                dc.createDynamicElement(name.toLowerCase(Locale.US));
+            final Object nestedElement = dc.createDynamicElement(name.toLowerCase(Locale.US));
             if (nestedElement != null) {
                 nc = new NestedCreator(null) {
-                    Object create(
-                        Project project, Object parent, Object ignore) {
+                    Object create(Project project, Object parent, Object ignore) {
                         return nestedElement;
                     }
                 };
@@ -548,11 +568,10 @@ public final class IntrospectionHelper  {
      *             This is not a namespace aware method.
      *
      * @exception BuildException if no method is available to create the
-     *                           element instance, or if the creating method
-     *                           fails.
+     *                           element instance, or if the creating method fails.
      */
-    public Object createElement(Project project, Object parent,
-        String elementName) throws BuildException {
+    public Object createElement(Project project, Object parent, String elementName)
+            throws BuildException {
         NestedCreator nc = getNestedCreator(project, "", parent, elementName, null);
         try {
             Object nestedElement = nc.create(project, parent, null);
@@ -567,11 +586,7 @@ public final class IntrospectionHelper  {
             // impossible as getMethods should only return public methods
             throw new BuildException(ine);
         } catch (InvocationTargetException ite) {
-            Throwable t = ite.getTargetException();
-            if (t instanceof BuildException) {
-                throw (BuildException) t;
-            }
-            throw new BuildException(t);
+            throw extractBuildException(ite);
         }
     }
 
@@ -588,10 +603,8 @@ public final class IntrospectionHelper  {
      * @return a creator object to create and store the element instance.
      */
     public Creator getElementCreator(
-        Project project, String parentUri, Object parent, String elementName,
-        UnknownElement ue) {
-        NestedCreator nc = getNestedCreator(
-            project, parentUri, parent, elementName, ue);
+        Project project, String parentUri, Object parent, String elementName, UnknownElement ue) {
+        NestedCreator nc = getNestedCreator(project, parentUri, parent, elementName, ue);
         return new Creator(project, parent, nc);
     }
 
@@ -601,14 +614,14 @@ public final class IntrospectionHelper  {
      *
      * @return <code>true<code> if the introspected class is dynamic;
      *         <code>false<code> otherwise.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      *
      * @see DynamicElement
      * @see DynamicElementNS
      */
     public boolean isDynamic() {
         return DynamicElement.class.isAssignableFrom(bean)
-            || DynamicElementNS.class.isAssignableFrom(bean);
+                || DynamicElementNS.class.isAssignableFrom(bean);
     }
 
     /**
@@ -617,7 +630,7 @@ public final class IntrospectionHelper  {
      *
      * @return <code>true<code> if the introspected class is a container;
      *         <code>false<code> otherwise.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      *
      * @see TaskContainer
      */
@@ -634,9 +647,7 @@ public final class IntrospectionHelper  {
      * @return true if the given nested element is supported
      */
     public boolean supportsNestedElement(String elementName) {
-        return nestedCreators.containsKey(elementName.toLowerCase(Locale.US))
-            || isDynamic()
-            || addTypeMethods.size() != 0;
+        return supportsNestedElement("", elementName);
     }
 
     /**
@@ -649,19 +660,38 @@ public final class IntrospectionHelper  {
      * @return true if the given nested element is supported
      */
     public boolean supportsNestedElement(String parentUri, String elementName) {
-        if (parentUri.equals(ProjectHelper.ANT_CORE_URI)) {
-            parentUri = "";
+        if (isDynamic() || addTypeMethods.size() > 0) {
+            return true;
+        }
+        return supportsReflectElement(parentUri, elementName);
+    }
+
+    /**
+     * Check if this element supports a nested element from reflection.
+     *
+     * @param parentUri   the uri of the parent
+     * @param elementName the name of the nested element being checked
+     *
+     * @return true if the given nested element is supported
+     * @since Ant 1.8.0
+     */
+    public boolean supportsReflectElement(
+        String parentUri, String elementName) {
+        String name = ProjectHelper.extractNameFromComponentName(elementName);
+        if (!nestedCreators.containsKey(name.toLowerCase(Locale.US))) {
+            return false;
         }
         String uri = ProjectHelper.extractUriFromComponentName(elementName);
         if (uri.equals(ProjectHelper.ANT_CORE_URI)) {
             uri = "";
         }
-        String name = ProjectHelper.extractNameFromComponentName(elementName);
-
-        return (
-            nestedCreators.containsKey(name.toLowerCase(Locale.US))
-            && (uri.equals(parentUri) || "".equals(uri)))
-            || isDynamic() || addTypeMethods.size() != 0;
+        if ("".equals(uri)) {
+            return true;
+        }
+        if (parentUri.equals(ProjectHelper.ANT_CORE_URI)) {
+            parentUri = "";
+        }
+        return uri.equals(parentUri);
     }
 
     /**
@@ -689,8 +719,7 @@ public final class IntrospectionHelper  {
         if (elementName == null) {
             return;
         }
-        NestedCreator ns = (NestedCreator) nestedCreators.get(
-            elementName.toLowerCase(Locale.US));
+        NestedCreator ns = (NestedCreator) nestedCreators.get(elementName.toLowerCase(Locale.US));
         if (ns == null) {
             return;
         }
@@ -703,12 +732,23 @@ public final class IntrospectionHelper  {
             // impossible as getMethods should only return public methods
             throw new BuildException(ine);
         } catch (InvocationTargetException ite) {
-            Throwable t = ite.getTargetException();
-            if (t instanceof BuildException) {
-                throw (BuildException) t;
-            }
-            throw new BuildException(t);
+            throw extractBuildException(ite);
         }
+    }
+
+    /**
+     * Helper method to extract the inner fault from an {@link InvocationTargetException}, and turn
+     * it into a BuildException. If it is already a BuildException, it is type cast and returned; if
+     * not a new BuildException is created containing the child as nested text.
+     * @param ite
+     * @return the nested exception
+     */
+    private static BuildException extractBuildException(InvocationTargetException ite) {
+        Throwable t = ite.getTargetException();
+        if (t instanceof BuildException) {
+            return (BuildException) t;
+        }
+        return new BuildException(t);
     }
 
     /**
@@ -723,13 +763,12 @@ public final class IntrospectionHelper  {
      * @exception BuildException if the introspected class does not
      *                           support the named nested element.
      */
-    public Class getElementType(String elementName)
-        throws BuildException {
+    public Class getElementType(String elementName) throws BuildException {
         Class nt = (Class) nestedTypes.get(elementName);
         if (nt == null) {
             throw new UnsupportedElementException("Class "
-                + bean.getName() + " doesn't support the nested \""
-                + elementName + "\" element.", elementName);
+                    + bean.getName() + " doesn't support the nested \""
+                    + elementName + "\" element.", elementName);
         }
         return nt;
     }
@@ -746,13 +785,12 @@ public final class IntrospectionHelper  {
      * @exception BuildException if the introspected class does not
      *                           support the named attribute.
      */
-    public Class getAttributeType(String attributeName)
-        throws BuildException {
+    public Class getAttributeType(String attributeName) throws BuildException {
         Class at = (Class) attributeTypes.get(attributeName);
         if (at == null) {
             throw new UnsupportedAttributeException("Class "
-                + bean.getName() + " doesn't support the \""
-                + attributeName + "\" attribute.", attributeName);
+                    + bean.getName() + " doesn't support the \""
+                    + attributeName + "\" attribute.", attributeName);
         }
         return at;
     }
@@ -765,13 +803,12 @@ public final class IntrospectionHelper  {
      *         Cannot be <code>null</code>.
      * @throws BuildException if the introspected class does not
      *         support the nested text.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
-    public Method getAddTextMethod()
-                  throws BuildException {
+    public Method getAddTextMethod() throws BuildException {
         if (!supportsCharacters()) {
             throw new BuildException("Class " + bean.getName()
-                + " doesn't support nested text data.");
+                    + " doesn't support nested text data.");
         }
         return addText;
     }
@@ -786,15 +823,14 @@ public final class IntrospectionHelper  {
      *         class is a dynamic configurator!
      * @throws BuildException if the introspected class does not
      *         support the named nested element.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
-    public Method getElementMethod(String elementName)
-                  throws BuildException {
+    public Method getElementMethod(String elementName) throws BuildException {
         Object creator = nestedCreators.get(elementName);
         if (creator == null) {
             throw new UnsupportedElementException("Class "
-                + bean.getName() + " doesn't support the nested \""
-                + elementName + "\" element.", elementName);
+                    + bean.getName() + " doesn't support the nested \""
+                    + elementName + "\" element.", elementName);
         }
         return ((NestedCreator) creator).method;
     }
@@ -808,15 +844,14 @@ public final class IntrospectionHelper  {
      *         This will never be <code>null</code>.
      * @throws BuildException if the introspected class does not
      *         support the named attribute.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
-    public Method getAttributeMethod(String attributeName)
-                  throws BuildException {
+    public Method getAttributeMethod(String attributeName) throws BuildException {
         Object setter = attributeSetters.get(attributeName);
         if (setter == null) {
             throw new UnsupportedAttributeException("Class "
-                + bean.getName() + " doesn't support the \""
-                + attributeName + "\" attribute.", attributeName);
+                    + bean.getName() + " doesn't support the \""
+                    + attributeName + "\" attribute.", attributeName);
         }
         return ((AttributeSetter) setter).method;
     }
@@ -831,11 +866,9 @@ public final class IntrospectionHelper  {
     }
 
     /**
-     * Returns an enumeration of the names of the attributes supported
-     * by the introspected class.
+     * Returns an enumeration of the names of the attributes supported by the introspected class.
      *
-     * @return an enumeration of the names of the attributes supported
-     *         by the introspected class.
+     * @return an enumeration of the names of the attributes supported by the introspected class.
      * @see #getAttributeMap
      */
     public Enumeration getAttributes() {
@@ -843,16 +876,15 @@ public final class IntrospectionHelper  {
     }
 
     /**
-     * Returns a read-only map of attributes supported
-     * by the introspected class.
+     * Returns a read-only map of attributes supported by the introspected class.
      *
      * @return an attribute name to attribute <code>Class</code>
      *         unmodifiable map. Can be empty, but never <code>null</code>.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
     public Map getAttributeMap() {
-        return (attributeTypes.size() < 1)
-            ? EMPTY_MAP : Collections.unmodifiableMap(attributeTypes);
+        return attributeTypes.isEmpty()
+            ? Collections.EMPTY_MAP : Collections.unmodifiableMap(attributeTypes);
     }
 
     /**
@@ -873,11 +905,11 @@ public final class IntrospectionHelper  {
      *
      * @return a nested-element name to nested-element <code>Class</code>
      *         unmodifiable map. Can be empty, but never <code>null</code>.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
     public Map getNestedElementMap() {
-        return (nestedTypes.size() < 1)
-            ? EMPTY_MAP : Collections.unmodifiableMap(nestedTypes);
+        return nestedTypes.isEmpty()
+            ? Collections.EMPTY_MAP : Collections.unmodifiableMap(nestedTypes);
     }
 
     /**
@@ -895,11 +927,11 @@ public final class IntrospectionHelper  {
      *         method derives from another type also an argument of a method
      *         of this list, the method with the most derived argument will
      *         always appear first. Can be empty, but never <code>null</code>.
-     * @since  Ant 1.6.3
+     * @since Ant 1.6.3
      */
     public List getExtensionPoints() {
-        return (addTypeMethods.size() < 1) ? Collections.EMPTY_LIST
-            : Collections.unmodifiableList(addTypeMethods);
+        return addTypeMethods.isEmpty()
+                ? Collections.EMPTY_LIST : Collections.unmodifiableList(addTypeMethods);
     }
 
     /**
@@ -914,6 +946,8 @@ public final class IntrospectionHelper  {
      * <li>Class (Class.forName is used)
      * <li>File (resolved relative to the appropriate project)
      * <li>Path (resolve relative to the appropriate project)
+     * <li>Resource (resolved as a FileResource relative to the appropriate project)
+     * <li>FileProvider (resolved as a FileResource relative to the appropriate project)
      * <li>EnumeratedAttribute (uses its own
      * {@link EnumeratedAttribute#setValue(String) setValue} method)
      * <li>Other primitive types (wrapper classes are used with constructors
@@ -941,41 +975,52 @@ public final class IntrospectionHelper  {
         final Class reflectedArg = PRIMITIVE_TYPE_MAP.containsKey(arg)
             ? (Class) PRIMITIVE_TYPE_MAP.get(arg) : arg;
 
-        // simplest case - setAttribute expects String
-        if (java.lang.String.class.equals(reflectedArg)) {
-            return new AttributeSetter(m) {
+        // Object.class - it gets handled differently by AttributeSetter
+        if (java.lang.Object.class == reflectedArg) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
-                        throws InvocationTargetException, IllegalAccessException {
-                    m.invoke(parent, (Object[]) (new String[] {value}));
+                        throws InvocationTargetException,
+                    IllegalAccessException {
+                    throw new BuildException(
+                        "Internal ant problem - this should not get called");
                 }
             };
+        }
+        // simplest case - setAttribute expects String
+        if (java.lang.String.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
+                public void set(Project p, Object parent, String value)
+                        throws InvocationTargetException, IllegalAccessException {
+                    m.invoke(parent, (Object[]) new String[] {value});
+                }
+            };
+        }
         // char and Character get special treatment - take the first character
-        } else if (java.lang.Character.class.equals(reflectedArg)) {
-            return new AttributeSetter(m) {
+        if (java.lang.Character.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException {
                     if (value.length() == 0) {
                         throw new BuildException("The value \"\" is not a "
-                            + "legal value for attribute \"" + attrName + "\"");
+                                + "legal value for attribute \"" + attrName + "\"");
                     }
-                    m.invoke(parent, (Object[])
-                        (new Character[] {new Character(value.charAt(0))}));
+                    m.invoke(parent, (Object[]) new Character[] {new Character(value.charAt(0))});
                 }
             };
-        // boolean and Boolean get special treatment because we
-        // have a nice method in Project
-        } else if (java.lang.Boolean.class.equals(reflectedArg)) {
-            return new AttributeSetter(m) {
+        }
+        // boolean and Boolean get special treatment because we have a nice method in Project
+        if (java.lang.Boolean.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException {
-                    m.invoke(parent, (Object[]) (
-                         new Boolean[] {Project.toBoolean(value)
-                                        ? Boolean.TRUE : Boolean.FALSE}));
+                    m.invoke(parent, (Object[]) new Boolean[] {
+                            Project.toBoolean(value) ? Boolean.TRUE : Boolean.FALSE });
                 }
             };
+        }
         // Class doesn't have a String constructor but a decent factory method
-        } else if (java.lang.Class.class.equals(reflectedArg)) {
-            return new AttributeSetter(m) {
+        if (java.lang.Class.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException, BuildException {
                     try {
@@ -985,22 +1030,32 @@ public final class IntrospectionHelper  {
                     }
                 }
             };
+        }
         // resolve relative paths through Project
-        } else if (java.io.File.class.equals(reflectedArg)) {
-            return new AttributeSetter(m) {
+        if (java.io.File.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException {
                     m.invoke(parent, new Object[] {p.resolveFile(value)});
                 }
             };
+        }
+        // resolve Resources/FileProviders as FileResources relative to Project:
+        if (Resource.class.equals(reflectedArg) || FileProvider.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
+                void set(Project p, Object parent, String value) throws InvocationTargetException,
+                        IllegalAccessException, BuildException {
+                    m.invoke(parent, new Object[] { new FileResource(p, p.resolveFile(value)) });
+                };
+            };
+        }
         // EnumeratedAttributes have their own helper class
-        } else if (EnumeratedAttribute.class.isAssignableFrom(reflectedArg)) {
-            return new AttributeSetter(m) {
+        if (EnumeratedAttribute.class.isAssignableFrom(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException, BuildException {
                     try {
-                        EnumeratedAttribute ea =
-                            (EnumeratedAttribute) reflectedArg.newInstance();
+                        EnumeratedAttribute ea = (EnumeratedAttribute) reflectedArg.newInstance();
                         ea.setValue(value);
                         m.invoke(parent, new Object[] {ea});
                     } catch (InstantiationException ie) {
@@ -1008,65 +1063,125 @@ public final class IntrospectionHelper  {
                     }
                 }
             };
-        // worst case. look for a public String constructor and use it
-        // also supports new Whatever(Project, String) as for Path or Reference
-        // This is used (deliberately) for all primitives/wrappers other than
-        // char and boolean
-        } else {
-            boolean includeProject;
-            Constructor c;
-            try {
-                // First try with Project.
-                c = reflectedArg.getConstructor(new Class[] {Project.class, String.class});
-                includeProject = true;
-            } catch (NoSuchMethodException nme) {
-                // OK, try without.
-                try {
-                    c = reflectedArg.getConstructor(new Class[] {String.class});
-                    includeProject = false;
-                } catch (NoSuchMethodException nme2) {
-                    // Well, no matching constructor.
-                    return null;
-                }
-            }
-            final boolean finalIncludeProject = includeProject;
-            final Constructor finalConstructor = c;
+        }
 
-            return new AttributeSetter(m) {
+        AttributeSetter setter = getEnumSetter(reflectedArg, m, arg);
+        if (setter != null) {
+            return setter;
+        }
+
+        if (java.lang.Long.class.equals(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
                 public void set(Project p, Object parent, String value)
                         throws InvocationTargetException, IllegalAccessException, BuildException {
                     try {
-                        Object[] args = (finalIncludeProject)
-                            ? new Object[] {p, value} : new Object[] {value};
-
-                        Object attribute = finalConstructor.newInstance(args);
-                        if (p != null) {
-                            p.setProjectReference(attribute);
-                        }
-                        m.invoke(parent, new Object[] {attribute});
-                    } catch (InstantiationException ie) {
-                        throw new BuildException(ie);
+                        m.invoke(parent, new Object[] {
+                                new Long(StringUtils.parseHumanSizes(value)) });
+                    } catch (InvocationTargetException e) {
+                        throw e;
+                    } catch (IllegalAccessException e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new BuildException(e);
                     }
                 }
             };
         }
+        // worst case. look for a public String constructor and use it
+        // also supports new Whatever(Project, String) as for Path or Reference
+        // This is used (deliberately) for all primitives/wrappers other than
+        // char, boolean, and long.
+        boolean includeProject;
+        Constructor c;
+        try {
+            // First try with Project.
+            c = reflectedArg.getConstructor(new Class[] {Project.class, String.class});
+            includeProject = true;
+        } catch (NoSuchMethodException nme) {
+            // OK, try without.
+            try {
+                c = reflectedArg.getConstructor(new Class[] {String.class});
+                includeProject = false;
+            } catch (NoSuchMethodException nme2) {
+                // Well, no matching constructor.
+                return null;
+            }
+        }
+        final boolean finalIncludeProject = includeProject;
+        final Constructor finalConstructor = c;
+
+        return new AttributeSetter(m, arg) {
+            public void set(Project p, Object parent, String value)
+                    throws InvocationTargetException, IllegalAccessException, BuildException {
+                try {
+                    Object[] args = finalIncludeProject
+                            ? new Object[] {p, value} : new Object[] {value};
+
+                    Object attribute = finalConstructor.newInstance(args);
+                    if (p != null) {
+                        p.setProjectReference(attribute);
+                    }
+                    m.invoke(parent, new Object[] {attribute});
+                } catch (InstantiationException ie) {
+                    throw new BuildException(ie);
+                }
+            }
+        };
+    }
+
+    private AttributeSetter getEnumSetter(
+        final Class reflectedArg, final Method m, Class arg) {
+        Class enumClass = null;
+        try {
+            enumClass = Class.forName("java.lang.Enum");
+        } catch (ClassNotFoundException e) {
+            //ignore
+        }
+        if (enumClass != null && enumClass.isAssignableFrom(reflectedArg)) {
+            return new AttributeSetter(m, arg) {
+                public void set(Project p, Object parent, String value)
+                    throws InvocationTargetException, IllegalAccessException,
+                    BuildException {
+                    try {
+                        m.invoke(
+                            parent, new Object[] {
+                                reflectedArg.getMethod(
+                                    "valueOf", new Class[] {String.class}).
+                                invoke(null, new Object[] {value})});
+                    } catch (InvocationTargetException x) {
+                        //there is specific logic here for the value
+                        // being out of the allowed set of enumerations.
+                        if (x.getTargetException() instanceof IllegalArgumentException) {
+                            throw new BuildException(
+                                "'" + value + "' is not a permitted value for "
+                                + reflectedArg.getName());
+                        }
+                        //only if the exception is not an IllegalArgument do we
+                        // request the
+                        //BuildException via extractBuildException():
+                        throw extractBuildException(x);
+                    } catch (Exception x) {
+                        //any other failure of invoke() to work.
+                        throw new BuildException(x);
+                    }
+                }
+            };
+        }
+        return null;
     }
 
     /**
      * Returns a description of the type of the given element in
      * relation to a given project. This is used for logging purposes
-     * when the element is asked to cope with some data it has no
-     * way of handling.
+     * when the element is asked to cope with some data it has no way of handling.
      *
-     * @param project The project the element is defined in.
-     *                Must not be <code>null</code>.
+     * @param project The project the element is defined in. Must not be <code>null</code>.
      *
-     * @param element The element to describe.
-     *                Must not be <code>null</code>.
+     * @param element The element to describe. Must not be <code>null</code>.
      *
      * @return a description of the element type
      */
-    protected String getElementName(Project project, Object element) {
+    private String getElementName(Project project, Object element) {
         return project.getElementName(element);
     }
 
@@ -1076,14 +1191,12 @@ public final class IntrospectionHelper  {
      * code to make sure the method name does actually begin with the
      * specified prefix - no checking is done in this method.
      *
-     * @param methodName The name of the method in question.
-     *                   Must not be <code>null</code>.
-     * @param prefix     The prefix to remove.
-     *                   Must not be <code>null</code>.
+     * @param methodName The name of the method in question. Must not be <code>null</code>.
+     * @param prefix     The prefix to remove. Must not be <code>null</code>.
      *
      * @return the lower-cased method name with the prefix removed.
      */
-    private String getPropertyName(String methodName, String prefix) {
+    private static String getPropertyName(String methodName, String prefix) {
         return methodName.substring(prefix.length()).toLowerCase(Locale.US);
     }
 
@@ -1106,15 +1219,13 @@ public final class IntrospectionHelper  {
          * create to create an object, the object then gets
          * configured and then UnknownElement calls store.
          * SetPolyType may be used to override the type used
-         * to create the object with. SetPolyType gets called
-         * before create.
+         * to create the object with. SetPolyType gets called before create.
          *
          * @param project the current project
          * @param parent  the parent object to create the object in
          * @param nestedCreator the nested creator object to use
          */
-        private Creator(
-            Project project, Object parent, NestedCreator nestedCreator) {
+        private Creator(Project project, Object parent, NestedCreator nestedCreator) {
             this.project = project;
             this.parent = parent;
             this.nestedCreator = nestedCreator;
@@ -1130,8 +1241,7 @@ public final class IntrospectionHelper  {
         }
 
         /**
-         * Create an object using this creator, which is determined
-         * by introspection.
+         * Create an object using this creator, which is determined by introspection.
          *
          * @return the created object
          */
@@ -1139,20 +1249,16 @@ public final class IntrospectionHelper  {
             if (polyType != null) {
                 if (!nestedCreator.isPolyMorphic()) {
                     throw new BuildException(
-                        "Not allowed to use the polymorphic form"
-                        + " for this element");
+                            "Not allowed to use the polymorphic form for this element");
                 }
-                ComponentHelper helper =
-                    ComponentHelper.getComponentHelper(project);
+                ComponentHelper helper = ComponentHelper.getComponentHelper(project);
                 nestedObject = helper.createComponent(polyType);
                 if (nestedObject == null) {
-                    throw new BuildException(
-                        "Unable to create object of type " + polyType);
+                    throw new BuildException("Unable to create object of type " + polyType);
                 }
             }
             try {
-                nestedObject = nestedCreator.create(
-                    project, parent, nestedObject);
+                nestedObject = nestedCreator.create(project, parent, nestedObject);
                 if (project != null) {
                     project.setProjectReference(nestedObject);
                 }
@@ -1162,31 +1268,24 @@ public final class IntrospectionHelper  {
             } catch (InstantiationException ex) {
                 throw new BuildException(ex);
             } catch (IllegalArgumentException ex) {
-                if (polyType != null) {
-                    throw new BuildException(
-                        "Invalid type used " + polyType);
+                if (polyType == null) {
+                    throw ex;
                 }
-                throw ex;
+                throw new BuildException("Invalid type used " + polyType);
             } catch (InvocationTargetException ex) {
-                Throwable t = ex.getTargetException();
-                if (t instanceof BuildException) {
-                    throw (BuildException) t;
-                }
-                throw new BuildException(t);
+                throw extractBuildException(ex);
             }
         }
 
         /**
-         * @return the real object (used currently only
-         *         for preset def).
+         * @return the real object (used currently only for presetdef).
          */
         public Object getRealObject() {
             return nestedCreator.getRealObject();
         }
 
         /**
-         * Stores the nested element object using a storage method
-         * determined by introspection.
+         * Stores the nested element object using a storage method determined by introspection.
          *
          */
         public void store() {
@@ -1197,17 +1296,12 @@ public final class IntrospectionHelper  {
             } catch (InstantiationException ex) {
                 throw new BuildException(ex);
             } catch (IllegalArgumentException ex) {
-                if (polyType != null) {
-                    throw new BuildException(
-                        "Invalid type used " + polyType);
+                if (polyType == null) {
+                    throw ex;
                 }
-                throw ex;
+                throw new BuildException("Invalid type used " + polyType);
             } catch (InvocationTargetException ex) {
-                Throwable t = ex.getTargetException();
-                if (t instanceof BuildException) {
-                    throw (BuildException) t;
-                }
-                throw new BuildException(t);
+                throw extractBuildException(ex);
             }
         }
     }
@@ -1217,10 +1311,13 @@ public final class IntrospectionHelper  {
      * in detail for reasons of source code readability.
      */
     private abstract static class NestedCreator {
-        Method method; // the method called to add/create the nested element
+        private Method method; // the method called to add/create the nested element
 
-        NestedCreator(Method m) {
-            this.method = m;
+        protected NestedCreator(Method m) {
+            method = m;
+        }
+        Method getMethod() {
+            return method;
         }
         boolean isPolyMorphic() {
             return false;
@@ -1229,36 +1326,33 @@ public final class IntrospectionHelper  {
             return null;
         }
         abstract Object create(Project project, Object parent, Object child)
-                        throws InvocationTargetException,
-                               IllegalAccessException,
-                               InstantiationException;
+                throws InvocationTargetException, IllegalAccessException, InstantiationException;
+
         void store(Object parent, Object child)
-             throws InvocationTargetException,
-                    IllegalAccessException,
-                    InstantiationException {
+                 throws InvocationTargetException, IllegalAccessException, InstantiationException {
             // DO NOTHING
         }
     }
 
-    private class CreateNestedCreator extends NestedCreator {
+    private static class CreateNestedCreator extends NestedCreator {
         CreateNestedCreator(Method m) {
             super(m);
         }
 
         Object create(Project project, Object parent, Object ignore)
-            throws InvocationTargetException, IllegalAccessException {
-            return method.invoke(parent, new Object[] {});
+                throws InvocationTargetException, IllegalAccessException {
+            return getMethod().invoke(parent, new Object[] {});
         }
     }
 
     /** Version to use for addXXX and addConfiguredXXX */
-    private class AddNestedCreator extends NestedCreator {
+    private static class AddNestedCreator extends NestedCreator {
 
         static final int ADD = 1;
         static final int ADD_CONFIGURED = 2;
 
-        protected Constructor constructor;
-        protected int behavior;
+        private Constructor constructor;
+        private int behavior; // ADD or ADD_CONFIGURED
 
         AddNestedCreator(Method m, Constructor c, int behavior) {
             super(m);
@@ -1271,16 +1365,14 @@ public final class IntrospectionHelper  {
         }
 
         Object create(Project project, Object parent, Object child)
-                throws InvocationTargetException,
-                IllegalAccessException, InstantiationException {
+                throws InvocationTargetException, IllegalAccessException, InstantiationException {
             if (child == null) {
                 child = constructor.newInstance(
-                    (constructor.getParameterTypes().length == 0)
-                    ? new Object[] {} : new Object[] {project});
+                        constructor.getParameterTypes().length == 0
+                                ? new Object[] {} : new Object[] {project});
             }
             if (child instanceof PreSetDef.PreSetDefinition) {
-                child = ((PreSetDef.PreSetDefinition) child)
-                    .createObject(project);
+                child = ((PreSetDef.PreSetDefinition) child).createObject(project);
             }
             if (behavior == ADD) {
                 istore(parent, child);
@@ -1289,17 +1381,15 @@ public final class IntrospectionHelper  {
         }
 
         void store(Object parent, Object child)
-                throws InvocationTargetException,
-                IllegalAccessException, InstantiationException {
+                throws InvocationTargetException, IllegalAccessException, InstantiationException {
             if (behavior == ADD_CONFIGURED) {
                 istore(parent, child);
             }
         }
 
         private void istore(Object parent, Object child)
-                throws InvocationTargetException,
-                IllegalAccessException, InstantiationException {
-            method.invoke(parent, new Object[] {child});
+                throws InvocationTargetException, IllegalAccessException, InstantiationException {
+            getMethod().invoke(parent, new Object[] {child});
         }
     }
 
@@ -1308,14 +1398,34 @@ public final class IntrospectionHelper  {
      * in detail for reasons of source code readability.
      */
     private abstract static class AttributeSetter {
-        Method method; // the method called to set the attribute
-        AttributeSetter(Method m) {
-            this.method = m;
+        private Method method; // the method called to set the attribute
+        private Class type;
+        protected AttributeSetter(Method m, Class type) {
+            method = m;
+            this.type = type;
+        }
+        void setObject(Project p, Object parent, Object value)
+                throws InvocationTargetException, IllegalAccessException, BuildException {
+            if (type != null) {
+                Class useType = type;
+                if (type.isPrimitive()) {
+                    if (value == null) {
+                        throw new BuildException(
+                            "Attempt to set primitive "
+                            + getPropertyName(method.getName(), "set")
+                            + " to null on " + parent);
+                    }
+                    useType = (Class) PRIMITIVE_TYPE_MAP.get(type);
+                }
+                if (value == null || useType.isInstance(value)) {
+                    method.invoke(parent, new Object[] {value});
+                    return;
+                }
+            }
+            set(p, parent, value.toString());
         }
         abstract void set(Project p, Object parent, String value)
-                      throws InvocationTargetException,
-                             IllegalAccessException,
-                             BuildException;
+                throws InvocationTargetException, IllegalAccessException, BuildException;
     }
 
     /**
@@ -1326,43 +1436,52 @@ public final class IntrospectionHelper  {
     }
 
     /**
-     *
+     * Create a NestedCreator for the given element.
+     * @param project owning project
+     * @param parent Parent object used to create the instance.
+     * @param elementName name of the element
+     * @return a nested creator, or null if there is no component of the given name, or it
+     *        has no matching add type methods
+     * @throws BuildException
      */
     private NestedCreator createAddTypeCreator(
-        Project project, Object parent, String elementName)
-        throws BuildException {
+            Project project, Object parent, String elementName) throws BuildException {
         if (addTypeMethods.size() == 0) {
             return null;
         }
         ComponentHelper helper = ComponentHelper.getComponentHelper(project);
 
-        Object addedObject = null;
-        Method addMethod = null;
-        Class clazz = helper.getComponentClass(elementName);
-        if (clazz == null) {
+        MethodAndObject restricted =  createRestricted(
+            helper, elementName, addTypeMethods);
+        MethodAndObject topLevel = createTopLevel(
+            helper, elementName, addTypeMethods);
+
+        if (restricted == null && topLevel == null) {
             return null;
         }
-        addMethod = findMatchingMethod(clazz, addTypeMethods);
-        if (addMethod == null) {
-            return null;
+
+        if (restricted != null && topLevel != null) {
+            throw new BuildException(
+                "ambiguous: type and component definitions for "
+                + elementName);
         }
-        addedObject = helper.createComponent(elementName);
-        if (addedObject == null) {
-            return null;
+
+        MethodAndObject methodAndObject
+            = restricted != null ? restricted : topLevel;
+
+        Object rObject = methodAndObject.object;
+        if (methodAndObject.object instanceof PreSetDef.PreSetDefinition) {
+            rObject = ((PreSetDef.PreSetDefinition) methodAndObject.object)
+                .createObject(project);
         }
-        Object rObject = addedObject;
-        if (addedObject instanceof PreSetDef.PreSetDefinition) {
-            rObject = ((PreSetDef.PreSetDefinition) addedObject).createObject(
-                project);
-        }
-        final Object nestedObject = addedObject;
+        final Object nestedObject = methodAndObject.object;
         final Object realObject = rObject;
 
-        return new NestedCreator(addMethod) {
+        return new NestedCreator(methodAndObject.method) {
             Object create(Project project, Object parent, Object ignore)
                     throws InvocationTargetException, IllegalAccessException {
-                if (!method.getName().endsWith("Configured")) {
-                    method.invoke(parent, new Object[] {realObject});
+                if (!getMethod().getName().endsWith("Configured")) {
+                    getMethod().invoke(parent, new Object[] {realObject});
                 }
                 return nestedObject;
             }
@@ -1371,11 +1490,10 @@ public final class IntrospectionHelper  {
                 return realObject;
             }
 
-            void store(Object parent, Object child)
-                    throws InvocationTargetException, IllegalAccessException,
-                    InstantiationException {
-                if (method.getName().endsWith("Configured")) {
-                    method.invoke(parent, new Object[] {realObject});
+            void store(Object parent, Object child) throws InvocationTargetException,
+                    IllegalAccessException, InstantiationException {
+                if (getMethod().getName().endsWith("Configured")) {
+                    getMethod().invoke(parent, new Object[] {realObject});
                 }
             }
         };
@@ -1384,10 +1502,8 @@ public final class IntrospectionHelper  {
     /**
      * Inserts an add or addConfigured method into
      * the addTypeMethods array. The array is
-     * ordered so that the more derived classes
-     * are first.
-     * If both add and addConfigured are present, the addConfigured
-     * will take priority.
+     * ordered so that the more derived classes are first.
+     * If both add and addConfigured are present, the addConfigured will take priority.
      * @param method the <code>Method</code> to insert.
      */
     private void insertAddTypeMethod(Method method) {
@@ -1401,8 +1517,7 @@ public final class IntrospectionHelper  {
                 }
                 return; // Already present
             }
-            if (current.getParameterTypes()[0].isAssignableFrom(
-                            argClass)) {
+            if (current.getParameterTypes()[0].isAssignableFrom(argClass)) {
                 addTypeMethods.add(c, method);
                 return; // higher derived
             }
@@ -1418,6 +1533,9 @@ public final class IntrospectionHelper  {
      * @return a matching <code>Method</code>; null if none found.
      */
     private Method findMatchingMethod(Class paramClass, List methods) {
+        if (paramClass == null) {
+            return null;
+        }
         Class matchedClass = null;
         Method matchedMethod = null;
 
@@ -1428,13 +1546,9 @@ public final class IntrospectionHelper  {
                 if (matchedClass == null) {
                     matchedClass = methodClass;
                     matchedMethod = method;
-                } else {
-                    if (!methodClass.isAssignableFrom(matchedClass)) {
-                        throw new BuildException("ambiguous: types "
-                            + matchedClass.getName() + " and "
-                            + methodClass.getName() + " match "
-                            + paramClass.getName());
-                    }
+                } else if (!methodClass.isAssignableFrom(matchedClass)) {
+                    throw new BuildException("ambiguous: types " + matchedClass.getName() + " and "
+                            + methodClass.getName() + " match " + paramClass.getName());
                 }
             }
         }
@@ -1446,7 +1560,95 @@ public final class IntrospectionHelper  {
             return text;
         }
         int ends = (MAX_REPORT_NESTED_TEXT - ELLIPSIS.length()) / 2;
-        return new StringBuffer(text).replace(ends, text.length() - ends,
-            ELLIPSIS).toString();
+        return new StringBuffer(text).replace(ends, text.length() - ends, ELLIPSIS).toString();
     }
+
+
+    private class MethodAndObject {
+        private Method method;
+        private Object object;
+        public MethodAndObject(Method method, Object object) {
+            this.method = method;
+            this.object = object;
+        }
+    }
+
+    /**
+     *
+     */
+    private AntTypeDefinition findRestrictedDefinition(
+        ComponentHelper helper, String componentName, List methods) {
+        AntTypeDefinition definition = null;
+        Class matchedDefinitionClass = null;
+
+        List definitions = helper.getRestrictedDefinitions(componentName);
+        if (definitions == null) {
+            return null;
+        }
+        synchronized (definitions) {
+            for (int i = 0; i < definitions.size(); ++i) {
+                AntTypeDefinition d = (AntTypeDefinition) definitions.get(i);
+                Class exposedClass = d.getExposedClass(helper.getProject());
+                if (exposedClass == null) {
+                    continue;
+                }
+                Method method  = findMatchingMethod(exposedClass, methods);
+                if (method == null) {
+                    continue;
+                }
+                if (matchedDefinitionClass != null) {
+                    throw new BuildException(
+                        "ambiguous: restricted definitions for "
+                        + componentName + " "
+                        + matchedDefinitionClass + " and " + exposedClass);
+                }
+                matchedDefinitionClass = exposedClass;
+                definition = d;
+            }
+        }
+        return definition;
+    }
+
+    private MethodAndObject createRestricted(
+        ComponentHelper helper, String elementName, List addTypeMethods) {
+
+        Project project = helper.getProject();
+
+        AntTypeDefinition restrictedDefinition =
+            findRestrictedDefinition(helper, elementName, addTypeMethods);
+
+        if (restrictedDefinition == null) {
+            return null;
+        }
+
+        Method addMethod = findMatchingMethod(
+            restrictedDefinition.getExposedClass(project), addTypeMethods);
+        if (addMethod == null) {
+            throw new BuildException(
+                "Ant Internal Error - contract mismatch for "
+                + elementName);
+        }
+        Object addedObject = restrictedDefinition.create(project);
+        if (addedObject == null) {
+            throw new BuildException(
+                "Failed to create object " + elementName
+                + " of type " + restrictedDefinition.getTypeClass(project));
+        }
+        return new MethodAndObject(addMethod, addedObject);
+    }
+
+    private MethodAndObject createTopLevel(
+        ComponentHelper helper, String elementName, List methods) {
+        Class clazz = helper.getComponentClass(elementName);
+        if (clazz == null) {
+            return null;
+        }
+        Method addMethod = findMatchingMethod(clazz, addTypeMethods);
+        if (addMethod == null) {
+            return null;
+        }
+        Object addedObject = helper.createComponent(elementName);
+        return new MethodAndObject(addMethod, addedObject);
+    }
+
 }

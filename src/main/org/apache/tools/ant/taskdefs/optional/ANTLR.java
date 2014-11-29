@@ -290,7 +290,7 @@ public class ANTLR extends Task {
             if (targetIsOutOfDate) {
                 log("Compiling " + targetFile + " as it is newer than "
                     + generatedFile, Project.MSG_VERBOSE);
-            } else if (superGrammarIsOutOfDate) {
+            } else {
                 log("Compiling " + targetFile + " as " + superGrammar
                     + " is newer than " + generatedFile, Project.MSG_VERBOSE);
             }
@@ -374,7 +374,8 @@ public class ANTLR extends Task {
             while ((line = in.readLine()) != null) {
                 int extendsIndex = line.indexOf(" extends ");
                 if (line.startsWith("class ") && extendsIndex > -1) {
-                    generatedFileName = line.substring(6, extendsIndex).trim();
+                    generatedFileName = line.substring(
+                        "class ".length(), extendsIndex).trim();
                     break;
                 }
             }

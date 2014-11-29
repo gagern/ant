@@ -38,17 +38,7 @@ import org.apache.tools.ant.util.IdentityStack;
  *
  */
 public abstract class DataType extends ProjectComponent implements Cloneable {
-    // CheckStyle:VisibilityModifier OFF - bc
-
-    /**
-     * The description the user has set.
-     *
-     * @deprecated since 1.7.
-     *             The user should not be directly referencing
-     *             variable. Please use {@link #setDescription} or
-     *             {@link #getDescription} instead.
-     */
-    protected String description;
+    // CheckStyle:VisibilityModifier OFF
 
     /**
      * Value to the refid attribute.
@@ -73,25 +63,7 @@ public abstract class DataType extends ProjectComponent implements Cloneable {
      *             {@link #isChecked} instead.
      */
     protected boolean checked = true;
-
     // CheckStyle:VisibilityModifier ON
-
-    /**
-     * Sets a description of the current data type. It will be useful
-     * in commenting what we are doing.
-     * @param desc the desciption
-     */
-    public void setDescription(final String desc) {
-        description = desc;
-    }
-
-    /**
-     * Return the description for the current data type.
-     * @return the description
-     */
-    public String getDescription() {
-        return description;
-    }
 
     /**
      * Has the refid attribute of this element been set?
@@ -120,13 +92,7 @@ public abstract class DataType extends ProjectComponent implements Cloneable {
      * @return <code>String</code> name.
      */
     protected String getDataTypeName() {
-        Project p = getProject();
-        if (p != null) {
-            return ComponentHelper.getComponentHelper(p)
-                .getElementName(this, true);
-        }
-        String classname = getClass().getName();
-        return classname.substring(classname.lastIndexOf('.') + 1);
+        return ComponentHelper.getElementName(getProject(), this, true);
     }
 
     /**

@@ -211,6 +211,7 @@ public abstract class P4Base extends org.apache.tools.ant.Task {
         //Get default P4 settings from environment - Mark would have done something cool with
         //introspection here.....:-)
         String tmpprop;
+        // CheckStyle:InnerAssignment OFF
         if ((tmpprop = getProject().getProperty("p4.port")) != null) {
             setPort(tmpprop);
         }
@@ -220,6 +221,7 @@ public abstract class P4Base extends org.apache.tools.ant.Task {
         if ((tmpprop = getProject().getProperty("p4.user")) != null) {
             setUser(tmpprop);
         }
+        // CheckStyle:InnerAssignment ON
     }
     /**
     *  no usages found for this method
@@ -286,7 +288,8 @@ public abstract class P4Base extends org.apache.tools.ant.Task {
                 try {
                     handler.stop();
                 } catch (Exception e) {
-                    log(e.toString(), Project.MSG_ERR);
+                    log("Error stopping execution framework: " + e.toString(),
+                        Project.MSG_ERR);
                 }
             }
 
@@ -294,7 +297,11 @@ public abstract class P4Base extends org.apache.tools.ant.Task {
         } catch (Exception e) {
             String failMsg = "Problem exec'ing P4 command: " + e.getMessage();
             if (failOnError) {
-                throw new BuildException(failMsg);
+                if (e instanceof BuildException) {
+                    throw (BuildException) e;
+                } else {
+                    throw new BuildException(failMsg, e);
+                }
             } else {
                 log(failMsg, Project.MSG_ERR);
             }

@@ -29,6 +29,9 @@ import org.apache.tools.ant.util.regexp.RegexpMatcherFactory;
  *
  */
 public class RegexpPatternMapper implements FileNameMapper {
+
+    private static final int DECIMAL = 10;
+
     // CheckStyle:VisibilityModifier OFF - bc
     protected RegexpMatcher reg = null;
     protected char[] to = null;
@@ -77,13 +80,17 @@ public class RegexpPatternMapper implements FileNameMapper {
      * @throws BuildException on error.
      */
     public void setFrom(String from) throws BuildException {
-        try {
-            reg.setPattern(from);
-        } catch (NoClassDefFoundError e) {
-            // depending on the implementation the actual RE won't
-            // get instantiated in the constructor.
-            throw new BuildException("Cannot load regular expression matcher",
-                                     e);
+        if (from != null) {
+            try {
+                reg.setPattern(from);
+            } catch (NoClassDefFoundError e) {
+                // depending on the implementation the actual RE won't
+                // get instantiated in the constructor.
+                throw new BuildException("Cannot load regular expression matcher",
+                                         e);
+            }
+        } else {
+            throw new BuildException("this mapper requires a 'from' attribute");
         }
     }
 
@@ -93,7 +100,11 @@ public class RegexpPatternMapper implements FileNameMapper {
      * @throws BuildException on error.
      */
     public void setTo(String to) {
-        this.to = to.toCharArray();
+        if (to != null) {
+            this.to = to.toCharArray();
+        } else {
+            throw new BuildException("this mapper requires a 'to' attribute");
+        }
     }
 
     /**
@@ -130,7 +141,7 @@ public class RegexpPatternMapper implements FileNameMapper {
         for (int i = 0; i < to.length; i++) {
             if (to[i] == '\\') {
                 if (++i < to.length) {
-                    int value = Character.digit(to[i], 10);
+                    int value = Character.digit(to[i], DECIMAL);
                     if (value > -1) {
                         result.append((String) v.elementAt(value));
                     } else {

@@ -107,6 +107,15 @@ public class Ant extends Task {
     private boolean targetAttributeSet = false;
 
     /**
+     * Whether the basedir of the new project should be the same one
+     * as it would be when running the build file directly -
+     * independent of dir and/or inheritAll settings.
+     *
+     * @since Ant 1.8.0
+     */
+    private boolean useNativeBasedir = false;
+
+    /**
      * simple constructor
      */
     public Ant() {
@@ -121,6 +130,16 @@ public class Ant extends Task {
         bindToOwner(owner);
     }
 
+    /**
+     * Whether the basedir of the new project should be the same one
+     * as it would be when running the build file directly -
+     * independent of dir and/or inheritAll settings.
+     *
+     * @since Ant 1.8.0
+     */
+    public void setUseNativeBasedir(boolean b) {
+        useNativeBasedir = b;
+    }
 
     /**
      * If true, pass all properties to the new Ant project.
@@ -149,7 +168,8 @@ public class Ant extends Task {
     }
 
     /**
-     * Called in execute or createProperty if newProject is null.
+     * Called in execute or createProperty (via getNewProject())
+     * if newProject is null.
      *
      * <p>This can happen if the same instance of this task is run
      * twice as newProject is set to null at the end of execute (to
@@ -195,22 +215,26 @@ public class Ant extends Task {
             }
         }
         // set user-defined properties
-        getProject().copyUserProperties(newProject);
+        if (useNativeBasedir) {
+            addAlmostAll(getProject().getUserProperties(), PropertyType.USER);
+        } else {
+            getProject().copyUserProperties(newProject);
+        }
 
         if (!inheritAll) {
-           // set Java built-in properties separately,
-           // b/c we won't inherit them.
-           newProject.setSystemProperties();
+           // set Ant's built-in properties separately,
+           // because they are not being inherited.
+           newProject.initProperties();
 
         } else {
             // set all properties from calling project
-            addAlmostAll(getProject().getProperties());
+            addAlmostAll(getProject().getProperties(), PropertyType.PLAIN);
         }
 
         Enumeration e = propertySets.elements();
         while (e.hasMoreElements()) {
             PropertySet ps = (PropertySet) e.nextElement();
-            addAlmostAll(ps.getProperties());
+            addAlmostAll(ps.getProperties(), PropertyType.PLAIN);
         }
     }
 
@@ -311,9 +335,7 @@ public class Ant extends Task {
         String savedAntFile = antFile;
         Vector locals = new Vector(targets);
         try {
-            if (newProject == null) {
-                reinit();
-            }
+            getNewProject();
 
             if (dir == null && inheritAll) {
                 dir = getProject().getBaseDir();
@@ -322,11 +344,13 @@ public class Ant extends Task {
             initializeProject();
 
             if (dir != null) {
-                newProject.setBaseDir(dir);
-                if (savedDir != null) {
-                    // has been set explicitly
-                    newProject.setInheritedProperty(MagicNames.PROJECT_BASEDIR,
-                                                    dir.getAbsolutePath());
+                if (!useNativeBasedir) {
+                    newProject.setBaseDir(dir);
+                    if (savedDir != null) {
+                        // has been set explicitly
+                        newProject.setInheritedProperty(MagicNames.PROJECT_BASEDIR,
+                                                        dir.getAbsolutePath());
+                    }
                 }
             } else {
                 dir = getProject().getBaseDir();
@@ -470,7 +494,12 @@ public class Ant extends Task {
             p.setProject(newProject);
             p.execute();
         }
-        getProject().copyInheritedProperties(newProject);
+        if (useNativeBasedir) {
+            addAlmostAll(getProject().getInheritedProperties(),
+                         PropertyType.INHERITED);
+        } else {
+            getProject().copyInheritedProperties(newProject);
+        }
     }
 
     /**
@@ -581,22 +610,31 @@ public class Ant extends Task {
      * well as properties named basedir or ant.file.
      * @param props properties <code>Hashtable</code> to copy to the
      * new project.
-     * @since Ant 1.6
+     * @param the type of property to set (a plain Ant property, a
+     * user property or an inherited property).
+     * @since Ant 1.8.0
      */
-    private void addAlmostAll(Hashtable props) {
+    private void addAlmostAll(Hashtable props, PropertyType type) {
         Enumeration e = props.keys();
         while (e.hasMoreElements()) {
             String key = e.nextElement().toString();
-            if (MagicNames.PROJECT_BASEDIR.equals(key) || MagicNames.ANT_FILE.equals(key)) {
+            if (MagicNames.PROJECT_BASEDIR.equals(key)
+                || MagicNames.ANT_FILE.equals(key)) {
                 // basedir and ant.file get special treatment in execute()
                 continue;
             }
 
             String value = props.get(key).toString();
-            // don't re-set user properties, avoid the warning message
-            if (newProject.getProperty(key) == null) {
-                // no user property
-                newProject.setNewProperty(key, value);
+            if (type == PropertyType.PLAIN) {
+                // don't re-set user properties, avoid the warning message
+                if (newProject.getProperty(key) == null) {
+                    // no user property
+                    newProject.setNewProperty(key, value);
+                }
+            } else if (type == PropertyType.USER) {
+                newProject.setUserProperty(key, value);
+            } else if (type == PropertyType.INHERITED) {
+                newProject.setInheritedProperty(key, value);
             }
         }
     }
@@ -653,11 +691,8 @@ public class Ant extends Task {
      * @return the created <code>Property</code> object.
      */
     public Property createProperty() {
-        if (newProject == null) {
-            reinit();
-        }
         Property p = new Property(true, getProject());
-        p.setProject(newProject);
+        p.setProject(getNewProject());
         p.setTaskName("property");
         properties.addElement(p);
         return p;
@@ -697,6 +732,18 @@ public class Ant extends Task {
      */
     public void addPropertyset(PropertySet ps) {
         propertySets.addElement(ps);
+    }
+
+    /**
+     * Get the (sub)-Project instance currently in use.
+     * @return Project
+     * @since Ant 1.7
+     */
+    protected Project getNewProject() {
+        if (newProject == null) {
+            reinit();
+        }
+        return newProject;
     }
 
     /**
@@ -771,5 +818,12 @@ public class Ant extends Task {
         public String getName() {
             return name;
         }
+    }
+
+    private static final class PropertyType {
+        private PropertyType() {}
+        private static final PropertyType PLAIN = new PropertyType();
+        private static final PropertyType INHERITED = new PropertyType();
+        private static final PropertyType USER = new PropertyType();
     }
 }

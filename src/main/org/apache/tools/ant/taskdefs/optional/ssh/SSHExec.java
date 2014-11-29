@@ -18,16 +18,24 @@
 
 package org.apache.tools.ant.taskdefs.optional.ssh;
 
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.Project;
-import org.apache.tools.ant.util.TeeOutputStream;
-import org.apache.tools.ant.util.KeepAliveOutputStream;
-
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.StringReader;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.KeepAliveOutputStream;
+import org.apache.tools.ant.util.TeeOutputStream;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSchException;
@@ -38,6 +46,9 @@ import com.jcraft.jsch.Session;
  * @since     Ant 1.6 (created February 2, 2003)
  */
 public class SSHExec extends SSHBase {
+
+    private static final int BUFFER_SIZE = 8192;
+    private static final int RETRY_INTERVAL = 500;
 
     /** the command to execute via ssh */
     private String command = null;
@@ -50,7 +61,11 @@ public class SSHExec extends SSHBase {
 
     private String outputProperty = null;   // like <exec>
     private File outputFile = null;   // like <exec>
+    private String inputProperty = null;   // like <exec>
+    private File inputFile = null;   // like <exec>
     private boolean append = false;   // like <exec>
+
+    private Resource commandResource = null;
 
     private static final String TIMEOUT_MESSAGE =
         "Timeout period exceeded, connection dropped.";
@@ -72,6 +87,15 @@ public class SSHExec extends SSHBase {
     }
 
     /**
+     * Sets a commandResource from a file
+     * @param f the value to use.
+     * @since Ant 1.7.1
+     */
+    public void setCommandResource(String f) {
+        this.commandResource = new FileResource(new File(f));
+    }
+
+    /**
      * The connection can be dropped after a specified number of
      * milliseconds. This is sometimes useful when a connection may be
      * flaky. Default is 0, which means &quot;wait forever&quot;.
@@ -89,6 +113,24 @@ public class SSHExec extends SSHBase {
      */
     public void setOutput(File output) {
         outputFile = output;
+    }
+
+    /**
+     * If used, the content of the file is piped to the remote command
+     *
+     * @param input  The file which provides the input data for the remote command
+     */
+    public void setInput(File input) {
+        inputFile = input;
+    }
+
+    /**
+     * If used, the content of the property is piped to the remote command
+     *
+     * @param inputProperty  The property which contains the input data for the remote command.
+     */
+    public void setInputProperty(String inputProperty) {
+    	this.inputProperty = inputProperty;
     }
 
     /**
@@ -128,34 +170,107 @@ public class SSHExec extends SSHBase {
             && getUserInfo().getPassword() == null) {
             throw new BuildException("Password or Keyfile is required.");
         }
-        if (command == null) {
-            throw new BuildException("Command is required.");
+        if (command == null && commandResource == null) {
+            throw new BuildException("Command or commandResource is required.");
         }
 
+        if (inputFile != null && inputProperty != null) {
+            throw new BuildException("You can't specify both inputFile and"
+                                     + " inputProperty.");
+        }
+        if (inputFile != null && !inputFile.exists()) {
+            throw new BuildException("The input file "
+                                     + inputFile.getAbsolutePath()
+                                     + " does not exist.");
+        }
+
+        Session session = null;
+
+        try {
+            session = openSession();
+            /* called once */
+            if (command != null) {
+                log("cmd : " + command, Project.MSG_INFO);
+                ByteArrayOutputStream out = executeCommand(session, command);
+                if (outputProperty != null) {
+                    //#bugzilla 43437
+                    getProject().setNewProperty(outputProperty, command + " : " + out);
+                }
+            } else { // read command resource and execute for each command
+                try {
+                    BufferedReader br = new BufferedReader(
+                            new InputStreamReader(commandResource.getInputStream()));
+                    String cmd;
+                    String output = "";
+                    while ((cmd = br.readLine()) != null) {
+                        log("cmd : " + cmd, Project.MSG_INFO);
+                        ByteArrayOutputStream out = executeCommand(session, cmd);
+                        output += cmd + " : " + out + "\n";
+                    }
+                    if (outputProperty != null) {
+                        //#bugzilla 43437
+                        getProject().setNewProperty(outputProperty, output);
+                    }
+                    FileUtils.close(br);
+                } catch (IOException e) {
+                    throw new BuildException(e);
+                }
+            }
+        } catch (JSchException e) {
+            throw new BuildException(e);
+        } finally {
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        }
+    }
+
+    private ByteArrayOutputStream executeCommand(Session session, String cmd)
+        throws BuildException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         TeeOutputStream tee = new TeeOutputStream(out, new KeepAliveOutputStream(System.out));
 
-        Session session = null;
+        InputStream istream = null ;
+        if (inputFile != null) {
+            try {
+                istream = new FileInputStream(inputFile) ;
+            } catch (IOException e) {
+                // because we checked the existence before, this one
+                // shouldn't happen What if the file exists, but there
+                // are no read permissions?
+                log("Failed to read " + inputFile + " because of: "
+                    + e.getMessage(), Project.MSG_WARN);
+            }
+        }
+        if (inputProperty != null) {
+            String inputData = getProject().getProperty(inputProperty) ;
+            if (inputData != null) {
+                istream = new ByteArrayInputStream(inputData.getBytes()) ;
+            }        	
+        }
+
         try {
-            // execute the command
-            session = openSession();
+            final ChannelExec channel;
             session.setTimeout((int) maxwait);
-            final ChannelExec channel = (ChannelExec) session.openChannel("exec");
-            channel.setCommand(command);
+            /* execute the command */
+            channel = (ChannelExec) session.openChannel("exec");
+            channel.setCommand(cmd);
             channel.setOutputStream(tee);
             channel.setExtOutputStream(tee);
+            if (istream != null) {
+                channel.setInputStream(istream);
+            }
             channel.connect();
-
             // wait for it to finish
             thread =
                 new Thread() {
                     public void run() {
-                        while (!channel.isEOF()) {
+                        while (!channel.isClosed()) {
                             if (thread == null) {
                                 return;
                             }
                             try {
-                                sleep(500);
+                                sleep(RETRY_INTERVAL);
                             } catch (Exception e) {
                                 // ignored
                             }
@@ -175,10 +290,7 @@ public class SSHExec extends SSHBase {
                     log(TIMEOUT_MESSAGE, Project.MSG_ERR);
                 }
             } else {
-                // completed successfully
-                if (outputProperty != null) {
-                    getProject().setProperty(outputProperty, out.toString());
-                }
+                //success
                 if (outputFile != null) {
                     writeToFile(out.toString(), append, outputFile);
                 }
@@ -219,12 +331,11 @@ public class SSHExec extends SSHBase {
                 log("Caught exception: " + e.getMessage(), Project.MSG_ERR);
             }
         } finally {
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
+            FileUtils.close(istream);
         }
-    }
 
+        return out;
+    }
 
     /**
      * Writes a string to a file. If destination file exists, it may be
@@ -241,7 +352,7 @@ public class SSHExec extends SSHBase {
         try {
             out = new FileWriter(to.getAbsolutePath(), append);
             StringReader in = new StringReader(from);
-            char[] buffer = new char[8192];
+            char[] buffer = new char[BUFFER_SIZE];
             int bytesRead;
             while (true) {
                 bytesRead = in.read(buffer);
@@ -257,5 +368,4 @@ public class SSHExec extends SSHBase {
             }
         }
     }
-
 }

@@ -109,6 +109,11 @@ implicitly configured as a <a href="#composite-mapper">composite mapper</a>.
   the generally available <i>to</i> and <i>from</i>.<br>
   The <code>&lt;mapper type|classname=&quot;...&quot;&gt;</code> usage
   form remains valid for reasons of backward compatibility.</p>
+
+    <!--                                        -->
+    <!--             Identity Mapper            -->
+    <!--                                        -->
+
 <h4><a name="identity-mapper">identity</a></h4>
 <p>The target file name is identical to the source file name. Both
 <code>to</code> and <code>from</code> will be ignored.</p>
@@ -139,6 +144,11 @@ implicitly configured as a <a href="#composite-mapper">composite mapper</a>.
     <td valign="top"><code>Classes/dir/dir2/A.properties</code></td>
   </tr>
 </table>
+
+    <!--                                        -->
+    <!--             Flatten Mapper             -->
+    <!--                                        -->
+
 <h4><a name="flatten-mapper">flatten</a></h4>
 <p>The target file name is identical to the source file name, with all
 leading directory information stripped off. Both <code>to</code> and
@@ -170,6 +180,11 @@ leading directory information stripped off. Both <code>to</code> and
     <td valign="top"><code>A.properties</code></td>
   </tr>
 </table>
+
+    <!--                                        -->
+    <!--             Merge Mapper               -->
+    <!--                                        -->
+
 <h4><a name="merge-mapper">merge</a></h4>
 <p>The target file name will always be the same, as defined by
 <code>to</code> - <code>from</code> will be ignored.</p>
@@ -200,8 +215,13 @@ leading directory information stripped off. Both <code>to</code> and
     <td valign="top"><code>archive.tar</code></td>
   </tr>
 </table>
+
+    <!--                                        -->
+    <!--              Glob Mapper               -->
+    <!--                                        -->
+
 <h4><a name="glob-mapper">glob</a></h4>
-<p>Both <code>to</code> and <code>from</code> define patterns that may
+<p>Both <code>to</code> and <code>from</code> are required and define patterns that may
 contain at most one <code>*</code>. For each source file that matches
 the <code>from</code> pattern, a target file name will be constructed
 from the <code>to</code> pattern by substituting the <code>*</code> in
@@ -324,8 +344,13 @@ that don't match the <code>from</code> pattern will be ignored.</p>
       will output "x is f/j.java".
     </p>
 
+
+    <!--                                        -->
+    <!--             RegExp Mapper              -->
+    <!--                                        -->
+
 <h4><a name="regexp-mapper">regexp</a></h4>
-<p>Both <code>to</code> and <code>from</code> define regular
+<p>Both <code>to</code> and <code>from</code> are required and define regular
 expressions. If the source file name matches the <code>from</code>
 pattern, the target file name will be constructed from the
 <code>to</code> pattern, using <code>\0</code> to <code>\9</code> as
@@ -535,12 +560,18 @@ jakarta-ORO and finally try jakarta-regexp.</li>
     <p>
       will set <code>hd.prop</code> to "f\j.java".
     </p>
+
+    <!--                                        -->
+    <!--             Package Mapper             -->
+    <!--                                        -->
+
 <h4><a name="package-mapper">package</a></h4>
 <p>Sharing the same syntax as the <a href="#glob-mapper">glob mapper</a>,
 the package mapper replaces
 directory separators found in the matched source pattern with dots in the target
 pattern placeholder. This mapper is particularly useful in combination
 with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
+<p>The to and from attributes are both required.</p>
 <b>Example:</b>
 <blockquote><pre>
 &lt;mapper type="package" from="*Test.java" to="TEST-*Test.xml"/&gt;
@@ -560,6 +591,11 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <td valign="top">ignored</td>
   </tr>
 </table>
+
+    <!--                                        -->
+    <!--           Unpackage Mapper             -->
+    <!--                                        -->
+
 <h4><a name="unpackage-mapper">unpackage (since Ant 1.6.0)</a></h4>
   <p>This mapper is the inverse of the <a href="#package-mapper">package</a> mapper.
     It replaces the dots in a package name with directory separators. This
@@ -567,6 +603,7 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     test cases. The mapper shares the sample syntax
     as the <a href="#glob-mapper">glob mapper</a>.
   </p>
+<p>The to and from attributes are both required.</p>
 <b>Example:</b>
 <blockquote><pre>
 &lt;mapper type="unpackage" from="TEST-*Test.xml" to="${test.src.dir}/*Test.java"&gt;
@@ -582,6 +619,11 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
     <td valign="top"><code>${test.src.dir}/org/acme/AcmeTest.java</code></td>
   </tr>
 </table>
+
+    <!--                                        -->
+    <!--           Composite Mapper             -->
+    <!--                                        -->
+
 <h4><a name="composite-mapper">composite (since Ant 1.6.2)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to each nested
@@ -610,6 +652,11 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
   <p>The composite mapper has no corresponding
     <code>&lt;mapper <b>type</b>&gt;</code> attribute.
   </p>
+
+    <!--                                        -->
+    <!--            Chained Mapper              -->
+    <!--                                        -->
+
 <h4><a name="chained-mapper">chained (since Ant 1.6.2)</a></h4>
   <p>This mapper implementation can contain multiple nested mappers.
     File mapping is performed by passing the source filename to the first
@@ -707,6 +754,8 @@ with <code>&lt;uptodate&gt;</code> and <code>&lt;junit&gt;</code> output.</p>
 <h4><a name="script-mapper">scriptmapper (since Ant 1.7)</a></h4>
 <p>
 This mapper executes a script written in <a href="http://jakarta.apache.org/bsf" target="_top">Apache BSF</a>
+or
+  <a href="https://scripting.dev.java.net">JSR 223</a>
 supported language, once per file to map.</p>
 The script can be declared inline or in a specified file.
 </p>
@@ -729,16 +778,49 @@ an explanation of scripts and dependencies.
       <td align="center" valign="top">Yes</td>
     </tr>
     <tr>
+      <td valign="top">manager</td>
+      <td valign="top">
+        The script engine manager to use.
+        See the <a href="../OptionalTasks/script.html">script</a> task
+        for using this attribute.
+      </td>
+      <td valign="top" align="center">No - default is "auto"</td>
+    </tr>
+    <tr>
       <td valign="top">src</td>
       <td valign="top">
         File containing the script
       </td>
       <td align="center" valign="top">No</td>
     </tr>
+    <tr>
+      <td valign="top">setbeans</td>
+      <td valign="top">whether to have all properties, references and targets as
+        global variables in the script.</td>
+      <td valign="top" align="center">No, default is "true".</td>
+    </tr>
+    <tr>
+      <td valign="top">classpath</td>
+      <td valign="top">
+        The classpath to pass into the script.
+      </td>
+      <td align="center" valign="top">No</td>
+    </tr>
+    <tr>
+      <td valign="top">classpathref</td>
+      <td valign="top">The classpath to use, given as a
+        <a href="../using.html#references">reference</a> to a path defined elsewhere.
+        <td align="center" valign="top">No</td>
+      </tr>
     </table>
+  <p>
+    This filename mapper can take a nested &lt;classpath&gt; element.
+    See the <a href="../OptionalTasks/script.html">script</a> task
+    on how to use this element.
+  </p>
 
 <p>
-Example
+  <b>Example:</b>
 </p>
 <blockquote><pre>
 &lt;scriptmapper language="javascript"&gt;
@@ -753,8 +835,11 @@ Example
     <td valign="top"><b>Target file names</b></td>
   </tr>
   <tr>
-    <td valign="center"><code>foo\bar\A.java</code></td>
-    <td valign="top"><code>FOO\BAR\A.JAVA foo\bar\a.java</code></td>
+    <td valign="center" rowspan="2"><code>foo\bar\A.java</code></td>
+    <td valign="top"><code>FOO\BAR\A.JAVA</code></td>
+  </tr>
+  <tr>
+    <td valign="top"><code>foo\bar\a.java</code></td>
   </tr>
 </table>
 
@@ -776,7 +861,7 @@ list of mapped names reset after every invocation.
       </td>
     </tr>
     <tr>
-      <td valign="top">self</td>
+      <td valign="top"><code>self</code></td>
       <td valign="top">
         the scriptmapper itself
       </td>

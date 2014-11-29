@@ -18,6 +18,7 @@
 
 package org.apache.tools.ant.taskdefs;
 
+import java.io.File;
 import java.util.Iterator;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -27,10 +28,9 @@ import org.apache.tools.ant.types.FileList;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.TimeComparison;
 import org.apache.tools.ant.types.ResourceCollection;
-import org.apache.tools.ant.types.resources.Sort;
 import org.apache.tools.ant.types.resources.Union;
 import org.apache.tools.ant.types.resources.Restrict;
-import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.types.resources.Resources;
 import org.apache.tools.ant.types.resources.selectors.Not;
 import org.apache.tools.ant.types.resources.selectors.Exists;
 import org.apache.tools.ant.types.resources.selectors.ResourceSelector;
@@ -82,30 +82,37 @@ import org.apache.tools.ant.types.resources.comparators.ResourceComparator;
 public class DependSet extends MatchingTask {
 
     private static final ResourceSelector NOT_EXISTS = new Not(new Exists());
-    private static final ResourceComparator DATE_ASC
+    private static final ResourceComparator DATE
         = new org.apache.tools.ant.types.resources.comparators.Date();
-    private static final ResourceComparator DATE_DESC = new Reverse(DATE_ASC);
+    private static final ResourceComparator REVERSE_DATE = new Reverse(DATE);
 
-    private static class NonExistent extends Restrict {
+    private static final class NonExistent extends Restrict {
         private NonExistent(ResourceCollection rc) {
             super.add(rc);
             super.add(NOT_EXISTS);
         }
     }
-    private static class Xest extends Sort {
-        private Xest(ResourceCollection rc, ResourceComparator c) {
-            super.add(c);
-            super.add(rc);
+
+    private static final class HideMissingBasedir
+        implements ResourceCollection {
+        private FileSet fs;
+
+        private HideMissingBasedir(FileSet fs) {
+            this.fs = fs;
         }
-    }
-    private static class Oldest extends Xest {
-        private Oldest(ResourceCollection rc) {
-            super(rc, DATE_ASC);
+        public Iterator iterator() {
+            return basedirExists() ? fs.iterator() : Resources.EMPTY_ITERATOR;
         }
-    }
-    private static class Newest extends Xest {
-        private Newest(ResourceCollection rc) {
-            super(rc, DATE_DESC);
+        public int size() {
+            return basedirExists() ? fs.size() : 0;
+        }
+        public boolean isFilesystemOnly() {
+            return true;
+        }
+        private boolean basedirExists() {
+            File basedir = fs.getDir();
+            //trick to evoke "basedir not set" if null:
+            return basedir == null || basedir.exists();
         }
     }
 
@@ -151,7 +158,7 @@ public class DependSet extends MatchingTask {
      * @param fs the FileSet to add.
      */
     public void addTargetfileset(FileSet fs) {
-        createTargets().add(fs);
+        createTargets().add(new HideMissingBasedir(fs));
     }
 
     /**
@@ -197,7 +204,7 @@ public class DependSet extends MatchingTask {
             log(neTargets + " nonexistent targets", Project.MSG_VERBOSE);
             return false;
         }
-        FileResource oldestTarget = (FileResource) (new Oldest(targets).iterator().next());
+        Resource oldestTarget = getOldest(targets);
         log(oldestTarget + " is oldest target file", Project.MSG_VERBOSE);
 
         logFuture(sources, datesel);
@@ -207,7 +214,7 @@ public class DependSet extends MatchingTask {
             log(neSources + " nonexistent sources", Project.MSG_VERBOSE);
             return false;
         }
-        Resource newestSource = (Resource) (new Newest(sources).iterator().next());
+        Resource newestSource = (Resource) getNewest(sources);
         log(newestSource.toLongString() + " is newest source", Project.MSG_VERBOSE);
         return oldestTarget.getLastModified() >= newestSource.getLastModified();
     }
@@ -220,4 +227,29 @@ public class DependSet extends MatchingTask {
             log("Warning: " + i.next() + " modified in the future.", Project.MSG_WARN);
         }
     }
+
+    private Resource getXest(ResourceCollection rc, ResourceComparator c) {
+        Iterator i = rc.iterator();
+        if (!i.hasNext()) {
+            return null;
+
+        }
+        Resource xest = (Resource) i.next();
+        while (i.hasNext()) {
+            Resource next = (Resource) i.next();
+            if (c.compare(xest, next) < 0) {
+                xest = next;
+            }
+        }
+        return xest;
+    }
+
+    private Resource getOldest(ResourceCollection rc) {
+        return getXest(rc, REVERSE_DATE);
+    }
+
+    private Resource getNewest(ResourceCollection rc) {
+        return getXest(rc, DATE);
+    }
+
 }

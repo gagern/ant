@@ -41,6 +41,7 @@ import org.apache.tools.ant.types.FilterSetCollection;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.ResourceCollection;
 import org.apache.tools.ant.types.ResourceFactory;
+import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.FileNameMapper;
@@ -72,6 +73,8 @@ public class Copy extends Task {
     protected File destFile = null; // the destination file
     protected File destDir = null;  // the destination directory
     protected Vector rcs = new Vector();
+    // here to provide API backwards compatibility
+    protected Vector filesets = rcs;
 
     private boolean enableMultipleMappings = false;
     protected boolean filtering = false;
@@ -88,12 +91,12 @@ public class Copy extends Task {
 
     protected Mapper mapperElement = null;
     protected FileUtils fileUtils;
+    //CheckStyle:VisibilityModifier ON
     private Vector filterChains = new Vector();
     private Vector filterSets = new Vector();
     private String inputEncoding = null;
     private String outputEncoding = null;
     private long granularity = 0;
-    // CheckStyle:VisibilityModifier ON
 
     /**
      * Copy task constructor.
@@ -397,30 +400,8 @@ public class Copy extends Task {
 
         try {
             // deal with the single file
-            if (file != null) {
-                if (file.exists()) {
-                    if (destFile == null) {
-                        destFile = new File(destDir, file.getName());
-                    }
-                    if (forceOverwrite || !destFile.exists()
-                        || (file.lastModified() - granularity
-                                > destFile.lastModified())) {
-                        fileCopyMap.put(file.getAbsolutePath(),
-                                        new String[] {destFile.getAbsolutePath()});
-                    } else {
-                        log(file + " omitted as " + destFile
-                            + " is up to date.", Project.MSG_VERBOSE);
-                    }
-                } else {
-                    String message = "Warning: Could not find file "
-                        + file.getAbsolutePath() + " to copy.";
-                    if (!failonerror) {
-                        log(message, Project.MSG_ERR);
-                    } else {
-                        throw new BuildException(message);
-                    }
-                }
-            }
+            copySingleFile();
+
             // deal with the ResourceCollections
 
             /* for historical and performance reasons we have to do
@@ -453,7 +434,8 @@ public class Copy extends Task {
                         ds = fs.getDirectoryScanner(getProject());
                     } catch (BuildException e) {
                         if (failonerror
-                            || !getMessage(e).endsWith(" not found.")) {
+                            || !getMessage(e).endsWith(DirectoryScanner
+                                                       .DOES_NOT_EXIST_POSTFIX)) {
                             throw e;
                         } else {
                             log("Warning: " + getMessage(e), Project.MSG_ERR);
@@ -487,8 +469,8 @@ public class Copy extends Task {
 
                         File baseDir = NULL_FILE_PLACEHOLDER;
                         String name = r.getName();
-                        if (r instanceof FileResource) {
-                            FileResource fr = (FileResource) r;
+                        if (r instanceof FileProvider) {
+                            FileResource fr = ResourceUtils.asFileResource((FileProvider) r);
                             baseDir = getKeyFile(fr.getBaseDir());
                             if (fr.getBaseDir() == null) {
                                 name = fr.getFile().getAbsolutePath();
@@ -498,7 +480,7 @@ public class Copy extends Task {
                         // copying of dirs is trivial and can be done
                         // for non-file resources as well as for real
                         // files.
-                        if (r.isDirectory() || r instanceof FileResource) {
+                        if (r.isDirectory() || r instanceof FileProvider) {
                             add(baseDir, name,
                                 r.isDirectory() ? dirsByBasedir
                                                 : filesByBasedir);
@@ -511,23 +493,7 @@ public class Copy extends Task {
                 }
             }
 
-            Iterator iter = baseDirs.iterator();
-            while (iter.hasNext()) {
-                File f = (File) iter.next();
-                List files = (List) filesByBasedir.get(f);
-                List dirs = (List) dirsByBasedir.get(f);
-
-                String[] srcFiles = new String[0];
-                if (files != null) {
-                    srcFiles = (String[]) files.toArray(srcFiles);
-                }
-                String[] srcDirs = new String[0];
-                if (dirs != null) {
-                    srcDirs = (String[]) dirs.toArray(srcDirs);
-                }
-                scan(f == NULL_FILE_PLACEHOLDER ? null : f, destDir, srcFiles,
-                     srcDirs);
-            }
+            iterateOverBaseDirs(baseDirs, dirsByBasedir, filesByBasedir);
 
             // do all the copy operations now...
             try {
@@ -574,6 +540,54 @@ public class Copy extends Task {
      **  protected and private methods
      ************************************************************************/
 
+    private void copySingleFile() {
+        // deal with the single file
+        if (file != null) {
+            if (file.exists()) {
+                if (destFile == null) {
+                    destFile = new File(destDir, file.getName());
+                }
+                if (forceOverwrite || !destFile.exists()
+                    || (file.lastModified() - granularity
+                        > destFile.lastModified())) {
+                    fileCopyMap.put(file.getAbsolutePath(),
+                                    new String[] {destFile.getAbsolutePath()});
+                } else {
+                    log(file + " omitted as " + destFile
+                        + " is up to date.", Project.MSG_VERBOSE);
+                }
+            } else {
+                String message = "Warning: Could not find file "
+                    + file.getAbsolutePath() + " to copy.";
+                if (!failonerror) {
+                    log(message, Project.MSG_ERR);
+                } else {
+                    throw new BuildException(message);
+                }
+            }
+        }
+    }
+    private void iterateOverBaseDirs(
+        HashSet baseDirs, HashMap dirsByBasedir, HashMap filesByBasedir) {
+        Iterator iter = baseDirs.iterator();
+        while (iter.hasNext()) {
+            File f = (File) iter.next();
+            List files = (List) filesByBasedir.get(f);
+            List dirs = (List) dirsByBasedir.get(f);
+
+            String[] srcFiles = new String[0];
+            if (files != null) {
+                srcFiles = (String[]) files.toArray(srcFiles);
+            }
+            String[] srcDirs = new String[0];
+            if (dirs != null) {
+                srcDirs = (String[]) dirs.toArray(srcDirs);
+            }
+            scan(f == NULL_FILE_PLACEHOLDER ? null : f, destDir, srcFiles,
+                 srcDirs);
+        }
+    }
+
     /**
      * Ensure we have a consistent and legal set of attributes, and set
      * any internal flags necessary based on different combinations
@@ -610,7 +624,7 @@ public class Copy extends Task {
                     throw new BuildException(
                         "Cannot perform operation from directory to file.");
                 } else if (rc.size() == 1) {
-                    FileResource r = (FileResource) rc.iterator().next();
+                    FileProvider r = (FileProvider) rc.iterator().next();
                     if (file == null) {
                         file = r.getFile();
                         rcs.removeElementAt(0);
